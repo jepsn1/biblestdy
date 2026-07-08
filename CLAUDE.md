@@ -2,6 +2,8 @@
 
 Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STACK.md`. v1 PRD: issue #1; slices: issues #2–#13 (#2, #3 done).
 
+**Sign-off ritual:** when Marcus signs off (or asks to wrap up), update `NEXT-STEPS.md` (state line, homework, queue, watch-outs) and this file if conventions changed, commit + push everything. `NEXT-STEPS.md` is the session-to-session baton — keep it current.
+
 ## Dev
 
 - Node ≥22.22 required (`nvm use`; system node 20 breaks React Router 8). pnpm 10 workspace.
