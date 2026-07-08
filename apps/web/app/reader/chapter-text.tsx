@@ -26,14 +26,8 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
 }
 
-/** Dotted box around the noted words (all sides); clones per wrapped line. */
-const NOTE_MARK: React.CSSProperties = {
-  border: `1.5px dotted ${NOTE_INK}`,
-  borderRadius: "5px",
-  padding: "0.5px 4px",
-  boxDecorationBreak: "clone",
-  WebkitBoxDecorationBreak: "clone",
-};
+/** Dotted corner brackets: opening word gets top-left, closing word bottom-right. */
+const CORNER = `1.5px dotted ${NOTE_INK}`;
 
 type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
 
@@ -193,8 +187,24 @@ export function ChapterText({
             </sup>
             {groupByNote(v.verse, tokens, noteCoverage).map((seg, si) => {
               const active = seg.note && seg.note.id === activeNoteId;
-              const wordSpans = seg.words.map(({ word, i }) => {
+              const wordSpans = seg.words.map(({ word, i }, wi) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
+                const style: React.CSSProperties = {};
+                if (hit) style.backgroundColor = HIGHLIGHT_BG[hit.color];
+                if (seg.note && wi === 0) {
+                  style.borderLeft = CORNER;
+                  style.borderTop = CORNER;
+                  style.borderTopLeftRadius = "5px";
+                  style.paddingLeft = "3px";
+                  style.paddingTop = "1px";
+                }
+                if (seg.note && wi === seg.words.length - 1) {
+                  style.borderRight = CORNER;
+                  style.borderBottom = CORNER;
+                  style.borderBottomRightRadius = "5px";
+                  style.paddingRight = "3px";
+                  style.paddingBottom = "1px";
+                }
                 return (
                   <span
                     key={i}
@@ -202,7 +212,7 @@ export function ChapterText({
                     data-word={i}
                     onClick={(e) => onWordClick(e, hit?.id, seg.note?.id)}
                     className={hit || seg.note ? "cursor-pointer" : undefined}
-                    style={hit ? { backgroundColor: HIGHLIGHT_BG[hit.color] } : undefined}
+                    style={style}
                   >
                     {word}{" "}
                   </span>
@@ -212,7 +222,7 @@ export function ChapterText({
                 <span
                   key={si}
                   data-note-anchor={seg.note.id}
-                  style={active ? { ...NOTE_MARK, backgroundColor: "oklch(0.83 0.1 85 / 0.12)" } : NOTE_MARK}
+                  style={active ? { backgroundColor: "oklch(0.83 0.1 85 / 0.12)", borderRadius: "5px" } : undefined}
                 >
                   {wordSpans}
                 </span>
