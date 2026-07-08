@@ -178,13 +178,19 @@ export function ChapterText({
                   data-verse={v.verse}
                   data-word={i}
                   onClick={(e) => onWordClick(e, hit?.id, noteHit)}
-                  className={[
-                    hit || noteHit ? "cursor-pointer" : "",
-                    noteHit ? "underline decoration-dotted decoration-primary/70 underline-offset-4" : "",
-                  ].join(" ")}
+                  className={hit || noteHit ? "cursor-pointer" : undefined}
                   style={hit ? { backgroundColor: HIGHLIGHT_BG[hit.color] } : undefined}
                 >
-                  {word}{" "}
+                  {/* underline wraps only the word so spaces stay un-underlined */}
+                  <span
+                    className={
+                      noteHit
+                        ? "underline decoration-dotted decoration-primary/70 underline-offset-4"
+                        : undefined
+                    }
+                  >
+                    {word}
+                  </span>{" "}
                 </span>
               );
             })}
