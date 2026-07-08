@@ -1,6 +1,7 @@
 import type { Anchor, Chapter, Highlight } from "@biblestdy/shared";
 import { buildAnchor, words, wordRangeInVerse } from "@biblestdy/shared";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Toolbar =
   | { kind: "add"; anchor: Anchor; x: number; y: number }
@@ -66,7 +67,9 @@ export function ChapterText({
       { verse: Number(startEl.dataset.verse), word: Number(startEl.dataset.word) },
       { verse: Number(endEl.dataset.verse), word: Number(endEl.dataset.word) },
     );
-    const rect = range.getBoundingClientRect();
+    // Anchor the toolbar to the end word ELEMENT — range.getBoundingClientRect()
+    // is unreliable inside the CSS-columns + translateX pagination layout.
+    const rect = endEl.getBoundingClientRect();
     setToolbar({ kind: "add", anchor, x: rect.left + rect.width / 2, y: rect.top });
   }
 
@@ -98,19 +101,14 @@ export function ChapterText({
             {tokens.map((word, i) => {
               const hlId = coverage.get(`${v.verse}:${i}`);
               return (
-                <span key={i}>
-                  <span
-                    data-verse={v.verse}
-                    data-word={i}
-                    onClick={(e) => onWordClick(e, hlId)}
-                    className={
-                      hlId
-                        ? "cursor-pointer rounded-sm bg-primary/25 decoration-primary/40 underline-offset-4"
-                        : undefined
-                    }
-                  >
-                    {word}
-                  </span>{" "}
+                <span
+                  key={i}
+                  data-verse={v.verse}
+                  data-word={i}
+                  onClick={(e) => onWordClick(e, hlId)}
+                  className={hlId ? "cursor-pointer bg-primary/25" : undefined}
+                >
+                  {word}{" "}
                 </span>
               );
             })}
@@ -118,7 +116,10 @@ export function ChapterText({
         );
       })}
 
-      {toolbar && (
+      {/* Portal to body: a transform ancestor (the translateX pagination
+          container) would otherwise capture position:fixed. */}
+      {toolbar &&
+        createPortal(
         <div
           className="fixed z-20 -translate-x-1/2 -translate-y-full pb-2"
           style={{ left: toolbar.x, top: toolbar.y }}
@@ -149,8 +150,9 @@ export function ChapterText({
               </button>
             )}
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   );
 }
