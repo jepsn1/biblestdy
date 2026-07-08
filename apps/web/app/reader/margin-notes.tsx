@@ -1,5 +1,5 @@
 import type { Note } from "@biblestdy/shared";
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 
 const LANE = 190; // px width of a margin note
 const GAP = 20; // px between content box and note lane
@@ -40,6 +40,16 @@ export function MarginNotes({
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
 
+  // Cancel edit when clicking outside the open editor.
+  useEffect(() => {
+    if (!editing) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-note-editing]")) setEditing(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [editing]);
+
   useLayoutEffect(() => {
     const region = regionRef.current;
     const content = contentRef.current;
@@ -56,10 +66,13 @@ export function MarginNotes({
       for (const note of notes) {
         const el = region.querySelector<HTMLElement>(`[data-note-anchor="${note.id}"]`);
         if (!el) continue;
-        const r = el.getBoundingClientRect();
+        // When the underline wraps, connect to the LAST line fragment, not the
+        // bounding box (whose corner sits on the first line).
+        const rects = el.getClientRects();
+        const r = rects[rects.length - 1];
+        if (!r || r.width === 0) continue;
         // Skip anchors not on the current page (clipped/translated out of the box).
         if (r.right < contentRect.left + 1 || r.left > contentRect.right - 1) continue;
-        if (r.width === 0) continue;
         const side: "left" | "right" = (r.left + r.right) / 2 < centerX ? "left" : "right";
         items.push({
           note,
@@ -113,7 +126,7 @@ export function MarginNotes({
             onMouseLeave={() => !isEditing && onFocus(null)}
           >
             {isEditing ? (
-              <div className="flex flex-col gap-1 text-left">
+              <div data-note-editing className="flex flex-col gap-1 text-left">
                 <textarea
                   autoFocus
                   value={editing.text}
@@ -125,24 +138,31 @@ export function MarginNotes({
                     }
                     if (e.key === "Escape") setEditing(null);
                   }}
-                  className="h-16 w-full resize-none rounded border border-border bg-background/60 p-1.5 font-serif text-xs outline-none focus:border-primary/50"
+                  className="h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-xs outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = editing.text.trim();
-                    if (t) onEdit(p.note.id, t);
-                    setEditing(null);
-                  }}
-                  className="self-start font-mono text-[0.6rem] text-primary hover:opacity-80"
-                >
-                  save
-                </button>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[0.55rem] text-muted-foreground">esc cancel</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = editing.text.trim();
+                      if (t) onEdit(p.note.id, t);
+                      setEditing(null);
+                    }}
+                    className="font-mono text-[0.6rem] text-primary hover:opacity-80"
+                  >
+                    save
+                  </button>
+                </div>
               </div>
             ) : (
               <>
                 <p
-                  className={`font-serif text-[0.8rem] leading-snug italic transition-colors ${
+                  role="button"
+                  tabIndex={0}
+                  title="Click to edit"
+                  onClick={() => setEditing({ id: p.note.id, text: p.note.text })}
+                  className={`-mx-1 cursor-text rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-primary/10 ${
                     active ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
@@ -150,20 +170,13 @@ export function MarginNotes({
                 </p>
                 {active && (
                   <div
-                    className={`mt-0.5 flex gap-2 font-mono text-[0.6rem] ${
+                    className={`absolute top-full right-0 left-0 mt-0.5 flex font-mono text-[0.6rem] ${
                       p.side === "left" ? "justify-end" : "justify-start"
                     }`}
                   >
                     <button
                       type="button"
-                      className="text-muted-foreground hover:text-primary"
-                      onClick={() => setEditing({ id: p.note.id, text: p.note.text })}
-                    >
-                      edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-destructive"
+                      className="px-1 text-muted-foreground hover:text-destructive"
                       onClick={() => onRemove(p.note.id)}
                     >
                       delete
