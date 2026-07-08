@@ -1,0 +1,21 @@
+{
+  "name": "biblestdy",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @biblestdy/shared build && pnpm --parallel --filter @biblestdy/web --filter @biblestdy/api dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@10.11.0"
+}

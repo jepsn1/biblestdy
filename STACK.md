@@ -10,7 +10,7 @@ Decisions for v1 (see `VISION.md` for product, issue #1 for the v1 PRD). Rationa
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend | **React Router v7** (SPA mode, `ssr:false`) + Vite | react.dev-endorsed framework, run static/no-server. Reuses React strength, drops Next magic. |
+| Frontend | **React Router v8** (SPA mode, `ssr:false`) + Vite | react.dev-endorsed framework, run static/no-server. Reuses React strength, drops Next magic. (Chose v7 originally; v8 was current at scaffold time.) Requires Node ≥22.22 (`.nvmrc`). |
 | i18n | **react-i18next** (Danish + English) | UI locale independent of Scripture translation. |
 | PWA | **vite-plugin-pwa** | Installable, responsive. No offline in v1. |
 | Backend | **NestJS** (TypeScript) | New-to-dev structured patterns (DI/modules/guards) = CV signal, still TS → reviewable, shares types. Aligns with deep-module design. |
