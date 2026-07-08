@@ -79,8 +79,8 @@ export function MarginNotes({
           note,
           side,
           boxLeft: side === "left" ? leftLaneRight - LANE : rightLaneLeft,
-          // Flat line at the underline's bottom edge — never angled.
-          lineY: r.bottom - regionRect.top,
+          // Flat line on the underline's dot row — never angled.
+          lineY: r.bottom - regionRect.top - 1,
           anchorX: (side === "left" ? r.left : r.right) - regionRect.left,
           noteEdgeX: side === "left" ? leftLaneRight : rightLaneLeft,
         });
@@ -110,7 +110,9 @@ export function MarginNotes({
             x2={p.anchorX}
             y2={p.lineY}
             stroke={NOTE_INK}
-            strokeWidth={1}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeDasharray="0 5"
           />
         ))}
       </svg>
