@@ -3,10 +3,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
-
-function sectionsBefore(chapter: Chapter, verse: number): string[] {
-  return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
-}
+import { ChapterText } from "./chapter-text";
+import { useHighlights } from "./use-highlights";
 
 /**
  * Book-style pagination. The chapter flows through fixed-height CSS columns
@@ -32,6 +30,11 @@ export function PaginatedChapter({
   const [page, setPage] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [stride, setStride] = useState(0);
+  const { highlights, add, remove } = useHighlights(
+    chapter.translationId,
+    chapter.book,
+    chapter.chapter,
+  );
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
 
@@ -90,23 +93,13 @@ export function PaginatedChapter({
             className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-16 lg:columns-2"
             style={{ transform: `translateX(-${page * stride}px)` }}
           >
-            <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
-            {chapter.verses.map((v) => (
-              <span key={v.verse} data-verse={v.verse}>
-                {sectionsBefore(chapter, v.verse).map((title) => (
-                  <span
-                    key={title}
-                    className="mt-6 mb-2 block font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase first:mt-0"
-                  >
-                    {title}
-                  </span>
-                ))}
-                <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
-                  {v.verse}
-                </sup>
-                {v.text}{" "}
-              </span>
-            ))}
+            <ChapterText
+              chapter={chapter}
+              heading={heading}
+              highlights={highlights}
+              onAdd={add}
+              onRemove={remove}
+            />
           </div>
         </div>
 
