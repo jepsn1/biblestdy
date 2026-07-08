@@ -6,7 +6,7 @@ import {
   words,
   wordRangeInVerse,
 } from "@biblestdy/shared";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
 import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH } from "./highlight-colors";
@@ -26,6 +26,20 @@ type Menu =
 
 function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
+}
+
+type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
+
+/** Split a verse's words into runs of the same note (null = un-noted). */
+function groupByNote(verse: number, tokens: string[], noteCoverage: Map<string, Note>): WordSeg[] {
+  const segs: WordSeg[] = [];
+  tokens.forEach((word, i) => {
+    const note = noteCoverage.get(`${verse}:${i}`) ?? null;
+    const last = segs[segs.length - 1];
+    if (last && (last.note?.id ?? null) === (note?.id ?? null)) last.words.push({ word, i });
+    else segs.push({ note, words: [{ word, i }] });
+  });
+  return segs;
 }
 
 function wordElFromNode(node: Node | null): HTMLElement | null {
@@ -169,29 +183,33 @@ export function ChapterText({
             <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
               {v.verse}
             </sup>
-            {tokens.map((word, i) => {
-              const hit = hlCoverage.get(`${v.verse}:${i}`);
-              const noteHit = noteCoverage.get(`${v.verse}:${i}`);
-              return (
-                <span
-                  key={i}
-                  data-verse={v.verse}
-                  data-word={i}
-                  onClick={(e) => onWordClick(e, hit?.id, noteHit)}
-                  className={hit || noteHit ? "cursor-pointer" : undefined}
-                  style={hit ? { backgroundColor: HIGHLIGHT_BG[hit.color] } : undefined}
-                >
-                  {/* underline wraps only the word so spaces stay un-underlined */}
+            {/* Group consecutive words sharing a note into one run so the
+                dotted underline is continuous (incl. spaces), phase-aligned. */}
+            {groupByNote(v.verse, tokens, noteCoverage).map((seg, si) => {
+              const wordSpans = seg.words.map(({ word, i }) => {
+                const hit = hlCoverage.get(`${v.verse}:${i}`);
+                return (
                   <span
-                    className={
-                      noteHit
-                        ? "underline decoration-dotted decoration-primary/70 underline-offset-4"
-                        : undefined
-                    }
+                    key={i}
+                    data-verse={v.verse}
+                    data-word={i}
+                    onClick={(e) => onWordClick(e, hit?.id, seg.note ?? undefined)}
+                    className={hit || seg.note ? "cursor-pointer" : undefined}
+                    style={hit ? { backgroundColor: HIGHLIGHT_BG[hit.color] } : undefined}
                   >
-                    {word}
-                  </span>{" "}
+                    {word}{" "}
+                  </span>
+                );
+              });
+              return seg.note ? (
+                <span
+                  key={si}
+                  className="underline decoration-dotted decoration-primary/70 underline-offset-4"
+                >
+                  {wordSpans}
                 </span>
+              ) : (
+                <Fragment key={si}>{wordSpans}</Fragment>
               );
             })}
           </span>
