@@ -1,7 +1,6 @@
-import { BOOKS, getBook, parseReference } from "@biblestdy/shared";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getBook, parseReference } from "@biblestdy/shared";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -10,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { SidebarTrigger } from "~/components/ui/sidebar";
 
 export function ReaderNav({ book, chapter }: { book: string; chapter: number }) {
   const navigate = useNavigate();
@@ -19,10 +19,8 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
 
   const current = getBook(book);
   const chapterCount = current?.chapters ?? 1;
-  const prev = chapter > 1 ? `/read/${book}/${chapter - 1}` : null;
-  const next = chapter < chapterCount ? `/read/${book}/${chapter + 1}` : null;
 
-  // Techy in behavior too: "/" focuses jump, arrows flip chapters
+  // "/" focuses the jump box from anywhere
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
@@ -30,17 +28,13 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
       if (event.key === "/" && !typing) {
         event.preventDefault();
         jumpRef.current?.focus();
-      } else if (event.key === "ArrowLeft" && !typing && prev) {
-        navigate(prev);
-      } else if (event.key === "ArrowRight" && !typing && next) {
-        navigate(next);
       } else if (event.key === "Escape" && target === jumpRef.current) {
         jumpRef.current?.blur();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate, prev, next]);
+  }, []);
 
   function onJump(event: React.FormEvent) {
     event.preventDefault();
@@ -56,37 +50,14 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
   }
 
   return (
-    <nav className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur">
-      {/* hairline gold accent */}
+    <nav className="shrink-0 border-b border-border bg-background/85">
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2 lg:max-w-5xl">
-        <Link to="/" className="mr-1 flex select-none items-baseline gap-1.5" aria-label="Home">
-          <span className="font-mono text-sm font-semibold tracking-tight text-primary">
-            biblestdy
-          </span>
-          <span className="hidden font-mono text-[0.6rem] text-muted-foreground sm:block">
-            v0
-          </span>
-        </Link>
+      <div className="flex items-center gap-2 px-4 py-2">
+        <SidebarTrigger aria-label="Toggle books sidebar" />
 
         <div className="h-4 w-px bg-border" />
 
-        <Select
-          value={book}
-          onValueChange={(value) => navigate(`/read/${String(value)}/1`)}
-          items={BOOKS.map((b) => ({ value: b.id, label: b.name }))}
-        >
-          <SelectTrigger aria-label="Book" size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {BOOKS.map((b) => (
-              <SelectItem key={b.id} value={b.id}>
-                {b.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <span className="font-serif text-sm font-medium">{current?.name ?? book}</span>
 
         <Select
           value={String(chapter)}
@@ -121,43 +92,7 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
             /
           </kbd>
         </form>
-
-        <div className="flex items-center gap-0.5">
-          <NavArrow to={prev} label="Previous chapter">
-            <ChevronLeft className="size-3.5" />
-          </NavArrow>
-          <NavArrow to={next} label="Next chapter">
-            <ChevronRight className="size-3.5" />
-          </NavArrow>
-        </div>
       </div>
     </nav>
-  );
-}
-
-function NavArrow({
-  to,
-  label,
-  children,
-}: {
-  to: string | null;
-  label: string;
-  children: React.ReactNode;
-}) {
-  if (!to) {
-    return (
-      <span className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground/30">
-        {children}
-      </span>
-    );
-  }
-  return (
-    <Link
-      to={to}
-      aria-label={label}
-      className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-    >
-      {children}
-    </Link>
   );
 }

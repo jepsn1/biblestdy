@@ -1,6 +1,9 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
-import { formatReference } from "@biblestdy/shared";
+import { formatReference, getBook } from "@biblestdy/shared";
 import { data } from "react-router";
+import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
+import { BooksSidebar } from "../reader/books-sidebar";
+import { PaginatedChapter } from "../reader/paginated-chapter";
 import { ReaderNav } from "../reader/reader-nav";
 import type { Route } from "./+types/read";
 
@@ -18,7 +21,10 @@ async function defaultTranslation(): Promise<Translation> {
 }
 
 export function meta({ params }: Route.MetaArgs) {
-  const title = formatReference({ book: params.book.toUpperCase(), chapter: Number(params.chapter) });
+  const title = formatReference({
+    book: params.book.toUpperCase(),
+    chapter: Number(params.chapter),
+  });
   return [{ title: `${title} — biblestdy` }];
 }
 
@@ -36,36 +42,25 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
 export default function Read({ loaderData }: Route.ComponentProps) {
   const { chapter, translation } = loaderData;
   const heading = formatReference({ book: chapter.book, chapter: chapter.chapter });
+  const book = getBook(chapter.book);
+  const chapterCount = book?.chapters ?? 1;
+  const prevHref = chapter.chapter > 1 ? `/read/${chapter.book}/${chapter.chapter - 1}` : null;
+  const nextHref =
+    chapter.chapter < chapterCount ? `/read/${chapter.book}/${chapter.chapter + 1}` : null;
 
   return (
-    <div className="min-h-screen">
-      <ReaderNav book={chapter.book} chapter={chapter.chapter} />
-      <main className="mx-auto max-w-2xl px-6 py-12 lg:max-w-5xl">
-        <h1 className="mb-10 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
-        {/* Two-column book spread on large screens; text flows col 1 → col 2 */}
-        <div className="font-serif text-lg leading-9 text-foreground/95 lg:columns-2 lg:gap-x-16 lg:[column-rule:1px_solid_var(--border)]">
-          {chapter.verses.map((v) => (
-            <span key={v.verse} data-verse={v.verse}>
-              <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
-                {v.verse}
-              </sup>
-              {v.text}{" "}
-            </span>
-          ))}
-        </div>
-        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-border pt-4 font-mono text-[0.65rem] text-muted-foreground">
-          <span>
-            {chapter.book}.{chapter.chapter} · {chapter.verses.length} verses ·{" "}
-            {translation.abbreviation}
-            {chapter.copyright ? ` · ${chapter.copyright}` : ""}
-          </span>
-          <span className="hidden shrink-0 items-center gap-1 sm:flex">
-            <kbd className="rounded border border-border bg-muted px-1">←</kbd>
-            <kbd className="rounded border border-border bg-muted px-1">→</kbd>
-            chapters
-          </span>
-        </footer>
-      </main>
-    </div>
+    <SidebarProvider className="h-dvh overflow-hidden">
+      <BooksSidebar book={chapter.book} />
+      <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">
+        <ReaderNav book={chapter.book} chapter={chapter.chapter} />
+        <PaginatedChapter
+          chapter={chapter}
+          translation={translation}
+          heading={heading}
+          prevHref={prevHref}
+          nextHref={nextHref}
+        />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
