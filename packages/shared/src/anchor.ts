@@ -68,9 +68,24 @@ export function wordRangeInVerse(
   return { start, end }
 }
 
-/** A persisted highlight: an anchor plus its id (wire type shared with the API). */
+/** Allowed highlight colors (stored by name, not hex — portable + themeable). */
+export const HIGHLIGHT_COLORS = ['gold', 'amber', 'green', 'blue', 'rose', 'purple'] as const
+export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
+export const DEFAULT_HIGHLIGHT_COLOR: HighlightColor = 'gold'
+
+export function isHighlightColor(value: unknown): value is HighlightColor {
+  return typeof value === 'string' && (HIGHLIGHT_COLORS as readonly string[]).includes(value)
+}
+
+/** A persisted highlight: an anchor + color + id (wire type shared with the API). */
 export interface Highlight extends Anchor {
   id: string
+  color: HighlightColor
+}
+
+/** Create payload: an anchor plus a chosen color. */
+export interface NewHighlight extends Anchor {
+  color: HighlightColor
 }
 
 /** True if the two anchors address the exact same span. */

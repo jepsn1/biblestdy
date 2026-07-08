@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import type { Anchor, Highlight } from '@biblestdy/shared';
+import type {
+  HighlightColor,
+  Highlight,
+  NewHighlight,
+} from '@biblestdy/shared';
 import { db } from '../db';
 import { highlight } from '../db/schema';
 
@@ -27,10 +31,10 @@ export class HighlightsService {
     return rows.map(toHighlight);
   }
 
-  async create(userId: string, anchor: Anchor): Promise<Highlight> {
+  async create(userId: string, data: NewHighlight): Promise<Highlight> {
     const [row] = await db
       .insert(highlight)
-      .values({ userId, ...anchor })
+      .values({ userId, ...data })
       .returning();
     return toHighlight(row);
   }
@@ -51,6 +55,7 @@ function toHighlight(row: typeof highlight.$inferSelect): Highlight {
     translationId: row.translationId,
     book: row.book,
     chapter: row.chapter,
+    color: row.color as HighlightColor,
     startVerse: row.startVerse,
     startWord: row.startWord,
     endVerse: row.endVerse,

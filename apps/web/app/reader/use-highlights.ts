@@ -1,4 +1,4 @@
-import type { Anchor, Highlight } from "@biblestdy/shared";
+import type { Anchor, Highlight, HighlightColor } from "@biblestdy/shared";
 import { useEffect, useState } from "react";
 
 /** Loads + mutates the current chapter's highlights for the signed-in user. */
@@ -22,12 +22,12 @@ export function useHighlights(translationId: string, book: string, chapter: numb
     };
   }, [key, translationId, book, chapter]);
 
-  async function add(anchor: Anchor) {
+  async function add(anchor: Anchor, color: HighlightColor) {
     const res = await fetch("/api/highlights", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(anchor),
+      body: JSON.stringify({ ...anchor, color }),
     });
     if (res.ok) {
       const created: Highlight = await res.json();

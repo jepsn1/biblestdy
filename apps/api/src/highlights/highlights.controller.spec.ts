@@ -50,6 +50,7 @@ describe('HighlightsController', () => {
     });
     const dto = {
       translationId: 'WEB',
+      color: 'gold' as const,
       book: 'JHN',
       chapter: 3,
       startVerse: 16,

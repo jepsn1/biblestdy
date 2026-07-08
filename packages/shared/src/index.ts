@@ -7,7 +7,12 @@ export {
   buildAnchor,
   wordRangeInVerse,
   sameAnchor,
+  HIGHLIGHT_COLORS,
+  DEFAULT_HIGHLIGHT_COLOR,
+  isHighlightColor,
   type Anchor,
   type WordPos,
   type Highlight,
+  type NewHighlight,
+  type HighlightColor,
 } from './anchor.js'

@@ -13,6 +13,7 @@ export const highlight = pgTable('highlight', {
   translationId: text('translation_id').notNull(),
   book: text('book').notNull(),
   chapter: integer('chapter').notNull(),
+  color: text('color').notNull().default('gold'),
   startVerse: integer('start_verse').notNull(),
   startWord: integer('start_word').notNull(),
   endVerse: integer('end_verse').notNull(),

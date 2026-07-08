@@ -1,10 +1,14 @@
-import { IsInt, IsString, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsString, Min, MinLength } from 'class-validator';
+import { HIGHLIGHT_COLORS, type HighlightColor } from '@biblestdy/shared';
 
-/** Request body for creating a highlight — a word-span anchor. */
+/** Request body for creating a highlight — a word-span anchor + color. */
 export class CreateHighlightDto {
   @IsString()
   @MinLength(1)
   translationId!: string;
+
+  @IsIn(HIGHLIGHT_COLORS)
+  color!: HighlightColor;
 
   @IsString()
   @MinLength(1)
