@@ -1,5 +1,6 @@
 import type { Note } from "@biblestdy/shared";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
+import { NOTE_INK } from "./highlight-colors";
 
 const LANE = 190; // px width of a margin note
 const GAP = 20; // px between content box and note lane
@@ -108,7 +109,7 @@ export function MarginNotes({
             y1={p.lineY}
             x2={p.anchorX}
             y2={p.lineY}
-            stroke="oklch(0.83 0.1 85 / 0.45)"
+            stroke={NOTE_INK}
             strokeWidth={1}
           />
         ))}

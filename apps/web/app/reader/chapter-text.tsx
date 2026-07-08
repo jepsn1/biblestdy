@@ -9,7 +9,7 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
-import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH } from "./highlight-colors";
+import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH, NOTE_INK } from "./highlight-colors";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -32,7 +32,7 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
  * across per-word spans (spaces go solid / dots misalign), so we paint it.
  */
 const NOTE_UNDERLINE: React.CSSProperties = {
-  backgroundImage: "radial-gradient(oklch(0.83 0.1 85 / 0.75) 45%, transparent 47%)",
+  backgroundImage: `radial-gradient(${NOTE_INK} 45%, transparent 47%)`,
   backgroundSize: "0.28em 2px",
   backgroundRepeat: "repeat-x",
   backgroundPosition: "0 100%",

@@ -1,5 +1,8 @@
 import type { HighlightColor } from "@biblestdy/shared";
 
+/** Shared ink for note marks — the dotted underline and its leader line. */
+export const NOTE_INK = "oklch(0.83 0.1 85 / 0.7)";
+
 /** Muted highlight backgrounds tuned for the dark parchment theme. */
 export const HIGHLIGHT_BG: Record<HighlightColor, string> = {
   gold: "oklch(0.83 0.10 85 / 0.28)",
