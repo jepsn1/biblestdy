@@ -1,6 +1,14 @@
 import { BOOKS, getBook, parseReference } from "@biblestdy/shared";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { Input } from "~/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 
 export function ReaderNav({ book, chapter }: { book: string; chapter: number }) {
   const navigate = useNavigate();
@@ -25,36 +33,47 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
   }
 
   return (
-    <nav className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-2xl items-center gap-2 px-6 py-3">
-        <select
-          aria-label="Book"
-          className="rounded border border-stone-300 bg-white px-2 py-1 text-sm"
-          value={book}
-          onChange={(e) => navigate(`/read/${e.target.value}/1`)}
-        >
-          {BOOKS.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+    <nav className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur">
+      <div className="mx-auto flex max-w-2xl items-center gap-2 px-6 py-2.5">
+        <span className="mr-1 hidden font-serif text-sm font-semibold tracking-wide text-primary sm:block">
+          biblestdy
+        </span>
 
-        <select
-          aria-label="Chapter"
-          className="rounded border border-stone-300 bg-white px-2 py-1 text-sm"
-          value={chapter}
-          onChange={(e) => navigate(`/read/${book}/${e.target.value}`)}
+        <Select
+          value={book}
+          onValueChange={(value) => navigate(`/read/${String(value)}/1`)}
+          items={BOOKS.map((b) => ({ value: b.id, label: b.name }))}
         >
-          {Array.from({ length: chapterCount }, (_, i) => i + 1).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger aria-label="Book" size="sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {BOOKS.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={String(chapter)}
+          onValueChange={(value) => navigate(`/read/${book}/${String(value)}`)}
+        >
+          <SelectTrigger aria-label="Chapter" size="sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: chapterCount }, (_, i) => i + 1).map((c) => (
+              <SelectItem key={c} value={String(c)}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <form onSubmit={onJump} className="ml-auto">
-          <input
+          <Input
             aria-label="Go to reference"
             placeholder="John 3:16"
             value={jump}
@@ -62,26 +81,33 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
               setJump(e.target.value);
               setJumpError(false);
             }}
-            className={`w-32 rounded border px-2 py-1 text-sm ${
-              jumpError ? "border-red-400" : "border-stone-300"
-            }`}
+            aria-invalid={jumpError || undefined}
+            className="h-7 w-32 text-sm"
           />
         </form>
 
-        <div className="flex gap-1 text-sm">
+        <div className="flex gap-0.5 text-sm">
           {prev ? (
-            <Link className="rounded px-2 py-1 hover:bg-stone-100" to={prev} aria-label="Previous chapter">
+            <Link
+              className="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              to={prev}
+              aria-label="Previous chapter"
+            >
               ‹
             </Link>
           ) : (
-            <span className="px-2 py-1 text-stone-300">‹</span>
+            <span className="px-2 py-1 text-muted-foreground/40">‹</span>
           )}
           {next ? (
-            <Link className="rounded px-2 py-1 hover:bg-stone-100" to={next} aria-label="Next chapter">
+            <Link
+              className="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              to={next}
+              aria-label="Next chapter"
+            >
               ›
             </Link>
           ) : (
-            <span className="px-2 py-1 text-stone-300">›</span>
+            <span className="px-2 py-1 text-muted-foreground/40">›</span>
           )}
         </div>
       </div>

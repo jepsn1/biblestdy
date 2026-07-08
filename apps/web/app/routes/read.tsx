@@ -38,21 +38,21 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   const heading = formatReference({ book: chapter.book, chapter: chapter.chapter });
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900">
+    <div className="min-h-screen">
       <ReaderNav book={chapter.book} chapter={chapter.chapter} />
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="mb-8 font-serif text-3xl font-semibold tracking-tight">{heading}</h1>
-        <div className="font-serif text-lg leading-8">
+      <main className="mx-auto max-w-2xl px-6 py-12">
+        <h1 className="mb-10 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
+        <div className="font-serif text-lg leading-9 text-foreground/95">
           {chapter.verses.map((v) => (
             <span key={v.verse} data-verse={v.verse}>
-              <sup className="mr-1 select-none align-super text-xs font-sans text-stone-400">
+              <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
                 {v.verse}
               </sup>
               {v.text}{" "}
             </span>
           ))}
         </div>
-        <footer className="mt-10 text-xs text-stone-400">
+        <footer className="mt-12 border-t border-border pt-4 text-xs text-muted-foreground">
           {translation.name}
           {chapter.copyright ? ` · ${chapter.copyright}` : ""}
         </footer>

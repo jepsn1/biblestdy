@@ -12,6 +12,7 @@ Decisions for v1 (see `VISION.md` for product, issue #1 for the v1 PRD). Rationa
 |---|---|---|
 | Frontend | **React Router v8** (SPA mode, `ssr:false`) + Vite | react.dev-endorsed framework, run static/no-server. Reuses React strength, drops Next magic. (Chose v7 originally; v8 was current at scaffold time.) Requires Node ≥22.22 (`.nvmrc`). |
 | i18n | **react-i18next** (Danish + English) | UI locale independent of Scripture translation. |
+| Design system | **Tailwind v4 + shadcn (Base UI, nova preset)**, custom tokens | Dark-first: warm charcoal bg, parchment fg, illuminated-gold accent. **Literata** (serif) for Scripture, **Geist** for UI — both self-hosted via fontsource. Tokens in `apps/web/app/app.css`; light theme = later `.light` override. |
 | PWA | **vite-plugin-pwa** | Installable, responsive. No offline in v1. |
 | Backend | **NestJS** (TypeScript) | New-to-dev structured patterns (DI/modules/guards) = CV signal, still TS → reviewable, shares types. Aligns with deep-module design. |
 | Shared pkg | **Pure TS** — Reference module + anchor types | Used by both frontend and backend. |
