@@ -28,6 +28,19 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
 }
 
+/**
+ * Faked dotted underline: a repeating dot background at the bottom of the run
+ * wrapper. Native text-decoration can't render a clean continuous dotted line
+ * across per-word spans (spaces go solid / dots misalign), so we paint it.
+ */
+const NOTE_UNDERLINE: React.CSSProperties = {
+  backgroundImage: "radial-gradient(oklch(0.83 0.1 85 / 0.75) 45%, transparent 47%)",
+  backgroundSize: "0.28em 2px",
+  backgroundRepeat: "repeat-x",
+  backgroundPosition: "0 100%",
+  paddingBottom: "2px",
+};
+
 type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
 
 /** Split a verse's words into runs of the same note (null = un-noted). */
@@ -183,8 +196,8 @@ export function ChapterText({
             <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
               {v.verse}
             </sup>
-            {/* Group consecutive words sharing a note into one run so the
-                dotted underline is continuous (incl. spaces), phase-aligned. */}
+            {/* Group a note's consecutive words into one wrapper and paint a
+                single continuous dotted underline across it (words + spaces). */}
             {groupByNote(v.verse, tokens, noteCoverage).map((seg, si) => {
               const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
@@ -202,10 +215,7 @@ export function ChapterText({
                 );
               });
               return seg.note ? (
-                <span
-                  key={si}
-                  className="underline decoration-dotted decoration-primary/70 underline-offset-4"
-                >
+                <span key={si} style={NOTE_UNDERLINE}>
                   {wordSpans}
                 </span>
               ) : (
