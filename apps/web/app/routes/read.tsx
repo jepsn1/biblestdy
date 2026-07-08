@@ -2,6 +2,7 @@ import type { Chapter, Translation } from "@biblestdy/shared";
 import { formatReference, getBook } from "@biblestdy/shared";
 import { data } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
+import { requireAuth } from "~/lib/require-auth";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { ReaderNav } from "../reader/reader-nav";
@@ -29,6 +30,7 @@ export function meta({ params }: Route.MetaArgs) {
 }
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+  await requireAuth();
   const translation = await defaultTranslation();
   const res = await fetch(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
   if (res.status === 404 || res.status === 400) {

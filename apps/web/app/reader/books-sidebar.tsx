@@ -1,7 +1,7 @@
 import { BOOKS, findBook } from "@biblestdy/shared";
 import { LogOut } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   Sidebar,
@@ -70,16 +70,10 @@ export function BooksSidebar({ book }: { book: string }) {
 }
 
 function SessionFooter() {
+  const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
 
-  if (isPending) return null;
-  if (!session) {
-    return (
-      <Link to="/signin" className="font-mono text-xs text-primary hover:underline">
-        Sign in →
-      </Link>
-    );
-  }
+  if (isPending || !session) return null;
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
@@ -89,7 +83,9 @@ function SessionFooter() {
         variant="ghost"
         size="icon-sm"
         aria-label="Sign out"
-        onClick={() => void authClient.signOut()}
+        onClick={() =>
+          void authClient.signOut().then(() => navigate("/signin"))
+        }
       >
         <LogOut />
       </Button>

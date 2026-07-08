@@ -3,9 +3,15 @@ import { Link, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { authClient } from "~/lib/auth-client";
+import { redirectIfAuthed } from "~/lib/require-auth";
 
 export function meta() {
   return [{ title: "Sign in — biblestdy" }];
+}
+
+export async function clientLoader() {
+  await redirectIfAuthed();
+  return null;
 }
 
 type Step = "email" | "code";
