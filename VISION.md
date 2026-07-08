@@ -67,11 +67,11 @@ The `passage ↔ note` link is created **automatically by the act of marking** �
 
 ## Scripture strategy
 
-No turnkey API exists for modern Danish. Bibelen 2020 / 1992 are licensed **direct** from Det Danske Bibelselskab (custom agreement, self-hosted, negotiated fee — `rettigheder@bibelselskabet.dk`).
+**Ship on a Bible API for now** (e.g. API.Bible) — consume translations rather than parse and self-host text. Fastest path; no Scripture-data pipeline for the pilot. Self-hosting parsed public-domain text (1931, WEB, KJV) is a known later option, kept in mind.
 
-- **Build & dogfood on public domain now:** Bibelen 1931 (Danish) + World English Bible + King James Version. Zero legal blocker, full control to store/link/annotate.
-- **Pilot ships on 1931** — a signed Bibelen 2020 license is *not* a gate. Pursue the license in parallel and swap 2020 in when it lands. Build and pilot are never blocked on bizdev.
-- English licensed translations (ESV etc.) — later, same agnostic mechanism.
+- Translation-agnostic architecture holds regardless of source — API text is **displayed/cached, not our system of record**. Annotations anchor to `(translation, passage, word-span)` and survive a source swap.
+- Constraints, eyes-open: API.Bible free tier is **non-commercial** (5k calls/mo), Pro ~$29/mo for commercial. Modern **Danish is not on API.Bible** — Bibelen 2020 / 1992 remain **direct license** from Det Danske Bibelselskab (`rettigheder@bibelselskabet.dk`), pursued in parallel, **not a gate**.
+- Consequence: first build likely reads WEB/KJV (or available Danish); Bibelen 2020 swaps in once licensed.
 
 ## Platform
 
