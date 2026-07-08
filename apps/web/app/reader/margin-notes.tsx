@@ -3,16 +3,14 @@ import { useLayoutEffect, useState, type RefObject } from "react";
 
 const LANE = 190; // px width of a margin note
 const GAP = 20; // px between content box and note lane
-const MIN_ROW = 52; // px min vertical spacing between stacked notes
 
 type Placement = {
   note: Note;
   side: "left" | "right";
   boxLeft: number; // note box left, region-relative
-  top: number; // note top, region-relative (after stacking)
-  anchorX: number; // where the leader line meets the text
-  anchorY: number;
-  noteEdgeX: number; // where the leader line leaves the note
+  lineY: number; // y of the flat leader line = the underline's bottom edge
+  anchorX: number; // where the leader line meets the underline (its outer end)
+  noteEdgeX: number; // where the leader line meets the note
 };
 
 /**
@@ -67,20 +65,11 @@ export function MarginNotes({
           note,
           side,
           boxLeft: side === "left" ? leftLaneRight - LANE : rightLaneLeft,
-          top: r.top - regionRect.top,
+          // Flat line at the underline's bottom edge — never angled.
+          lineY: r.bottom - regionRect.top,
           anchorX: (side === "left" ? r.left : r.right) - regionRect.left,
-          anchorY: r.top - regionRect.top + r.height / 2,
           noteEdgeX: side === "left" ? leftLaneRight : rightLaneLeft,
         });
-      }
-
-      // Stack within each side so notes don't overlap.
-      for (const side of ["left", "right"] as const) {
-        let last = -Infinity;
-        for (const p of items.filter((i) => i.side === side).sort((a, b) => a.top - b.top)) {
-          if (p.top < last + MIN_ROW) p.top = last + MIN_ROW;
-          last = p.top;
-        }
       }
       setPlacements(items);
     };
@@ -103,9 +92,9 @@ export function MarginNotes({
           <line
             key={p.note.id}
             x1={p.noteEdgeX}
-            y1={p.top + 10}
+            y1={p.lineY}
             x2={p.anchorX}
-            y2={p.anchorY}
+            y2={p.lineY}
             stroke="oklch(0.83 0.1 85 / 0.45)"
             strokeWidth={1}
           />
@@ -118,8 +107,8 @@ export function MarginNotes({
         return (
           <div
             key={p.note.id}
-            className="pointer-events-auto absolute"
-            style={{ left: p.boxLeft, top: p.top, width: LANE, textAlign: p.side === "left" ? "right" : "left" }}
+            className="pointer-events-auto absolute -translate-y-1/2"
+            style={{ left: p.boxLeft, top: p.lineY, width: LANE, textAlign: p.side === "left" ? "right" : "left" }}
             onMouseEnter={() => onFocus(p.note.id)}
             onMouseLeave={() => !isEditing && onFocus(null)}
           >
