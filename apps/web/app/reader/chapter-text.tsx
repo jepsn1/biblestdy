@@ -8,7 +8,12 @@ import {
 } from "@biblestdy/shared";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { authClient } from "~/lib/auth-client";
 import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH } from "./highlight-colors";
+
+function isColor(value: unknown): value is HighlightColor {
+  return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
+}
 
 type Menu =
   | { kind: "add"; anchor: Anchor; x: number; y: number }
@@ -45,6 +50,10 @@ export function ChapterText({
   onRemove: (id: string) => void;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
+  const { data: session } = authClient.useSession();
+  const defaultColor: HighlightColor = isColor(session?.user.defaultHighlightColor)
+    ? session.user.defaultHighlightColor
+    : DEFAULT_HIGHLIGHT_COLOR;
 
   // Which highlight (if any) covers each (verse,word) — first match wins.
   const coverage = new Map<string, { id: string; color: HighlightColor }>();
@@ -111,6 +120,8 @@ export function ChapterText({
   function addHighlight(color: HighlightColor) {
     if (menu?.kind !== "add") return;
     onAdd(menu.anchor, color);
+    // Last-used becomes the profile default (persists + syncs across devices)
+    if (color !== defaultColor) void authClient.updateUser({ defaultHighlightColor: color });
     window.getSelection()?.removeAllRanges();
     setMenu(null);
   }
@@ -164,10 +175,15 @@ export function ChapterText({
                 <>
                   <button
                     type="button"
-                    className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
-                    onClick={() => addHighlight(DEFAULT_HIGHLIGHT_COLOR)}
+                    className="flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                    onClick={() => addHighlight(defaultColor)}
+                    title={`Highlight (${defaultColor})`}
                   >
                     Highlight
+                    <span
+                      className="size-2 rounded-full ring-1 ring-foreground/15"
+                      style={{ backgroundColor: HIGHLIGHT_SWATCH[defaultColor] }}
+                    />
                   </button>
                   <span className="mx-0.5 h-4 w-px bg-border" />
                   {HIGHLIGHT_COLORS.map((color) => (

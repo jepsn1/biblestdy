@@ -19,6 +19,16 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:5173',
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: 'pg', schema }),
+  user: {
+    additionalFields: {
+      // Last-used highlight color; the "Highlight" button applies this.
+      defaultHighlightColor: {
+        type: 'string',
+        required: false,
+        defaultValue: 'gold',
+      },
+    },
+  },
   plugins: [
     magicLink({
       sendMagicLink: ({ email, url }) => {
