@@ -26,17 +26,13 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
 }
 
-/**
- * Faked dotted underline: a repeating dot background at the bottom of the run
- * wrapper. Native text-decoration can't render a clean continuous dotted line
- * across per-word spans (spaces go solid / dots misalign), so we paint it.
- */
-const NOTE_UNDERLINE: React.CSSProperties = {
-  backgroundImage: `radial-gradient(${NOTE_INK} 45%, transparent 47%)`,
-  backgroundSize: "0.28em 2px",
-  backgroundRepeat: "repeat-x",
-  backgroundPosition: "0 100%",
-  paddingBottom: "2px",
+/** Dotted box around the noted words (all sides); clones per wrapped line. */
+const NOTE_MARK: React.CSSProperties = {
+  border: `1.5px dotted ${NOTE_INK}`,
+  borderRadius: "5px",
+  padding: "0.5px 4px",
+  boxDecorationBreak: "clone",
+  WebkitBoxDecorationBreak: "clone",
 };
 
 type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
@@ -216,7 +212,7 @@ export function ChapterText({
                 <span
                   key={si}
                   data-note-anchor={seg.note.id}
-                  style={active ? { ...NOTE_UNDERLINE, backgroundColor: "oklch(0.83 0.1 85 / 0.12)" } : NOTE_UNDERLINE}
+                  style={active ? { ...NOTE_MARK, backgroundColor: "oklch(0.83 0.1 85 / 0.12)" } : NOTE_MARK}
                 >
                   {wordSpans}
                 </span>
