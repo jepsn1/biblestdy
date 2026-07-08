@@ -1,9 +1,12 @@
 import { BOOKS, findBook } from "@biblestdy/shared";
+import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
+import { Button } from "~/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -13,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "~/components/ui/sidebar";
+import { authClient } from "~/lib/auth-client";
 
 const OLD_TESTAMENT = BOOKS.slice(0, 39);
 const NEW_TESTAMENT = BOOKS.slice(39);
@@ -58,7 +62,38 @@ export function BooksSidebar({ book }: { book: string }) {
           <p className="px-4 py-2 font-mono text-xs text-muted-foreground">No books match</p>
         )}
       </SidebarContent>
+      <SidebarFooter className="border-t border-border px-4 py-3">
+        <SessionFooter />
+      </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function SessionFooter() {
+  const { data: session, isPending } = authClient.useSession();
+
+  if (isPending) return null;
+  if (!session) {
+    return (
+      <Link to="/signin" className="font-mono text-xs text-primary hover:underline">
+        Sign in →
+      </Link>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
+        {session.user.email}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Sign out"
+        onClick={() => void authClient.signOut()}
+      >
+        <LogOut />
+      </Button>
+    </div>
   );
 }
 
