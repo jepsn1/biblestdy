@@ -59,7 +59,7 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
     <nav className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur">
       {/* hairline gold accent */}
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2">
+      <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2 lg:max-w-5xl">
         <Link to="/" className="mr-1 flex select-none items-baseline gap-1.5" aria-label="Home">
           <span className="font-mono text-sm font-semibold tracking-tight text-primary">
             biblestdy

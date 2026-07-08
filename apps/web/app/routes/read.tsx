@@ -40,9 +40,10 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-screen">
       <ReaderNav book={chapter.book} chapter={chapter.chapter} />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className="mx-auto max-w-2xl px-6 py-12 lg:max-w-5xl">
         <h1 className="mb-10 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
-        <div className="font-serif text-lg leading-9 text-foreground/95">
+        {/* Two-column book spread on large screens; text flows col 1 → col 2 */}
+        <div className="font-serif text-lg leading-9 text-foreground/95 lg:columns-2 lg:gap-x-16 lg:[column-rule:1px_solid_var(--border)]">
           {chapter.verses.map((v) => (
             <span key={v.verse} data-verse={v.verse}>
               <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
