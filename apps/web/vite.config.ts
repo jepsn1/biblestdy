@@ -7,6 +7,10 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    // Workspace package ships CJS; prebundle so named ESM imports work in dev
+    include: ["@biblestdy/shared"],
+  },
   server: {
     // Dev-only: forward API calls to the NestJS server
     proxy: {
