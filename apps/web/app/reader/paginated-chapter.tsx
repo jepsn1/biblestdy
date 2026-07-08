@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ChapterText } from "./chapter-text";
+import { MarginNotes } from "./margin-notes";
 import { useHighlights } from "./use-highlights";
 import { useNotes } from "./use-notes";
 
@@ -28,9 +29,12 @@ export function PaginatedChapter({
 }) {
   const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
+  const contentBoxRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [stride, setStride] = useState(0);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const { highlights, add, remove } = useHighlights(
     chapter.translationId,
     chapter.book,
@@ -87,9 +91,12 @@ export function PaginatedChapter({
   });
 
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-6 lg:max-w-5xl">
-      <div className="relative min-h-0 flex-1 pt-10 pb-6">
-        <div className="h-full overflow-hidden">
+    <main className="flex min-h-0 w-full flex-1 flex-col">
+      <div ref={regionRef} className="relative min-h-0 flex-1">
+        <div
+          ref={contentBoxRef}
+          className="relative mx-auto h-full max-w-2xl overflow-hidden px-6 pt-10 pb-6 lg:max-w-3xl"
+        >
           <div
             ref={contentRef}
             className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-16 lg:columns-2"
@@ -100,31 +107,42 @@ export function PaginatedChapter({
               heading={heading}
               highlights={highlights}
               notes={notesApi.notes}
+              activeNoteId={activeNoteId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddNote={notesApi.add}
-              onEditNote={notesApi.edit}
-              onRemoveNote={notesApi.remove}
+              onFocusNote={setActiveNoteId}
             />
           </div>
         </div>
+
+        <MarginNotes
+          notes={notesApi.notes}
+          regionRef={regionRef}
+          contentRef={contentBoxRef}
+          page={page}
+          activeNoteId={activeNoteId}
+          onFocus={setActiveNoteId}
+          onEdit={notesApi.edit}
+          onRemove={notesApi.remove}
+        />
 
         {/* Edge tap zones, like flipping a page */}
         <button
           type="button"
           aria-label="Previous page"
           onClick={goPrev}
-          className="absolute inset-y-0 -left-6 w-10 cursor-w-resize opacity-0"
+          className="absolute inset-y-0 left-0 z-20 w-8 cursor-w-resize opacity-0"
         />
         <button
           type="button"
           aria-label="Next page"
           onClick={goNext}
-          className="absolute inset-y-0 -right-6 w-10 cursor-e-resize opacity-0"
+          className="absolute inset-y-0 right-0 z-20 w-8 cursor-e-resize opacity-0"
         />
       </div>
 
-      <footer className="flex shrink-0 items-center justify-between gap-4 border-t border-border py-3 font-mono text-[0.65rem] text-muted-foreground">
+      <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-6 py-3 font-mono text-[0.65rem] text-muted-foreground">
         <span className="truncate">
           {chapter.book}.{chapter.chapter} · {chapter.verses.length} verses ·{" "}
           {translation.abbreviation}

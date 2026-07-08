@@ -20,8 +20,6 @@ type Menu =
   | ({ kind: "add"; anchor: Anchor } & Pos)
   | ({ kind: "compose"; anchor: Anchor } & Pos)
   | ({ kind: "remove-hl"; id: string } & Pos)
-  | ({ kind: "note"; note: Note } & Pos)
-  | ({ kind: "note-edit"; note: Note } & Pos)
   | null;
 
 function sectionsBefore(chapter: Chapter, verse: number): string[] {
@@ -83,21 +81,21 @@ export function ChapterText({
   heading,
   highlights,
   notes,
+  activeNoteId,
   onAddHighlight,
   onRemoveHighlight,
   onAddNote,
-  onEditNote,
-  onRemoveNote,
+  onFocusNote,
 }: {
   chapter: Chapter;
   heading: string;
   highlights: Highlight[];
   notes: Note[];
+  activeNoteId: string | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
   onAddNote: (anchor: Anchor, text: string) => void;
-  onEditNote: (id: string, text: string) => void;
-  onRemoveNote: (id: string) => void;
+  onFocusNote: (id: string | null) => void;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
   const [draft, setDraft] = useState("");
@@ -153,12 +151,15 @@ export function ChapterText({
     setMenu({ kind: "add", anchor, ...posOf(endEl) });
   }
 
-  function onWordClick(event: React.MouseEvent, hlId: string | undefined, note: Note | undefined) {
-    if (!hlId && !note) return;
+  function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
+    if (noteId) {
+      event.stopPropagation();
+      onFocusNote(noteId); // highlight the matching margin note
+      return;
+    }
+    if (!hlId) return;
     event.stopPropagation();
-    const pos = posOf(event.currentTarget as HTMLElement);
-    if (note) setMenu({ kind: "note", note, ...pos });
-    else if (hlId) setMenu({ kind: "remove-hl", id: hlId, ...pos });
+    setMenu({ kind: "remove-hl", id: hlId, ...posOf(event.currentTarget as HTMLElement) });
   }
 
   function addHighlight(color: HighlightColor) {
@@ -171,9 +172,7 @@ export function ChapterText({
 
   function saveDraft() {
     const text = draft.trim();
-    if (!text) return;
-    if (menu?.kind === "compose") onAddNote(menu.anchor, text);
-    else if (menu?.kind === "note-edit") onEditNote(menu.note.id, text);
+    if (text && menu?.kind === "compose") onAddNote(menu.anchor, text);
     window.getSelection()?.removeAllRanges();
     setMenu(null);
   }
@@ -196,9 +195,8 @@ export function ChapterText({
             <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
               {v.verse}
             </sup>
-            {/* Group a note's consecutive words into one wrapper and paint a
-                single continuous dotted underline across it (words + spaces). */}
             {groupByNote(v.verse, tokens, noteCoverage).map((seg, si) => {
+              const active = seg.note && seg.note.id === activeNoteId;
               const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
                 return (
@@ -206,7 +204,7 @@ export function ChapterText({
                     key={i}
                     data-verse={v.verse}
                     data-word={i}
-                    onClick={(e) => onWordClick(e, hit?.id, seg.note ?? undefined)}
+                    onClick={(e) => onWordClick(e, hit?.id, seg.note?.id)}
                     className={hit || seg.note ? "cursor-pointer" : undefined}
                     style={hit ? { backgroundColor: HIGHLIGHT_BG[hit.color] } : undefined}
                   >
@@ -215,7 +213,11 @@ export function ChapterText({
                 );
               });
               return seg.note ? (
-                <span key={si} style={NOTE_UNDERLINE}>
+                <span
+                  key={si}
+                  data-note-anchor={seg.note.id}
+                  style={active ? { ...NOTE_UNDERLINE, backgroundColor: "oklch(0.83 0.1 85 / 0.12)" } : NOTE_UNDERLINE}
+                >
                   {wordSpans}
                 </span>
               ) : (
@@ -273,7 +275,7 @@ export function ChapterText({
                 </div>
               )}
 
-              {(menu.kind === "compose" || menu.kind === "note-edit") && (
+              {menu.kind === "compose" && (
                 <div className="flex w-64 flex-col gap-2 p-2">
                   <textarea
                     autoFocus
@@ -293,36 +295,6 @@ export function ChapterText({
                       className="rounded bg-primary px-2.5 py-1 font-mono text-xs text-primary-foreground hover:opacity-90"
                     >
                       Save
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {menu.kind === "note" && (
-                <div className="flex w-64 flex-col gap-2 p-3">
-                  <p className="font-serif text-sm whitespace-pre-wrap text-foreground">
-                    {menu.note.text}
-                  </p>
-                  <div className="flex gap-3 border-t border-border pt-2 font-mono text-xs">
-                    <button
-                      type="button"
-                      className="text-foreground hover:text-primary"
-                      onClick={() => {
-                        setDraft(menu.note.text);
-                        setMenu({ ...menu, kind: "note-edit" });
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-destructive hover:opacity-80"
-                      onClick={() => {
-                        onRemoveNote(menu.note.id);
-                        setMenu(null);
-                      }}
-                    >
-                      Delete
                     </button>
                   </div>
                 </div>
