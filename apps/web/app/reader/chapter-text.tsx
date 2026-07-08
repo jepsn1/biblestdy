@@ -7,12 +7,12 @@ import {
   wordRangeInVerse,
 } from "@biblestdy/shared";
 import { useEffect, useState } from "react";
-import { Popover, PopoverContent } from "~/components/ui/popover";
+import { createPortal } from "react-dom";
 import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH } from "./highlight-colors";
 
 type Menu =
-  | { kind: "add"; anchor: Anchor; el: HTMLElement }
-  | { kind: "remove"; id: string; el: HTMLElement }
+  | { kind: "add"; anchor: Anchor; x: number; y: number }
+  | { kind: "remove"; id: string; x: number; y: number }
   | null;
 
 function sectionsBefore(chapter: Chapter, verse: number): string[] {
@@ -27,8 +27,9 @@ function wordElFromNode(node: Node | null): HTMLElement | null {
 /**
  * Renders chapter verses as per-word spans and turns a drag-selection into a
  * highlight anchor (verse-relative word indices via the shared Anchor module).
- * The action menu is a Popover anchored to the selected word — Floating UI
- * handles positioning, edge-flip, and dismissal.
+ * The action menu is a self-controlled toolbar portaled to <body> (so the
+ * translateX pagination container can't capture position:fixed) and positioned
+ * from the selected word element (range rects are unreliable in CSS columns).
  */
 export function ChapterText({
   chapter,
@@ -62,6 +63,27 @@ export function ChapterText({
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
 
+  // Dismiss on outside pointerdown, Escape, or scroll/resize (stale position).
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: Event) => {
+      if (e instanceof PointerEvent) {
+        const t = e.target as HTMLElement;
+        if (t.closest("[data-selection-menu]")) return;
+      }
+      setMenu(null);
+    };
+    document.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", (e) => e.key === "Escape" && setMenu(null));
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [menu]);
+
   function onMouseUp() {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
@@ -75,13 +97,15 @@ export function ChapterText({
       { verse: Number(startEl.dataset.verse), word: Number(startEl.dataset.word) },
       { verse: Number(endEl.dataset.verse), word: Number(endEl.dataset.word) },
     );
-    setMenu({ kind: "add", anchor, el: endEl });
+    const r = endEl.getBoundingClientRect();
+    setMenu({ kind: "add", anchor, x: r.left + r.width / 2, y: r.top });
   }
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined) {
     if (!hlId) return;
     event.stopPropagation();
-    setMenu({ kind: "remove", id: hlId, el: event.currentTarget as HTMLElement });
+    const r = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ kind: "remove", id: hlId, x: r.left + r.width / 2, y: r.top });
   }
 
   function addHighlight(color: HighlightColor) {
@@ -128,49 +152,52 @@ export function ChapterText({
         );
       })}
 
-      <Popover open={menu !== null} onOpenChange={(open) => !open && setMenu(null)}>
-        <PopoverContent
-          anchor={menu?.el}
-          side="top"
-          className="w-auto flex-row items-center gap-1 p-1"
-        >
-          {menu?.kind === "add" && (
-            <>
-              <button
-                type="button"
-                className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
-                onClick={() => addHighlight(DEFAULT_HIGHLIGHT_COLOR)}
-              >
-                Highlight
-              </button>
-              <span className="mx-0.5 h-4 w-px bg-border" />
-              {HIGHLIGHT_COLORS.map((color) => (
+      {menu &&
+        createPortal(
+          <div
+            data-selection-menu
+            className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
+            style={{ left: menu.x, top: menu.y }}
+          >
+            <div className="flex items-center gap-1 rounded-md border border-border bg-popover p-1 shadow-lg">
+              {menu.kind === "add" ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                    onClick={() => addHighlight(DEFAULT_HIGHLIGHT_COLOR)}
+                  >
+                    Highlight
+                  </button>
+                  <span className="mx-0.5 h-4 w-px bg-border" />
+                  {HIGHLIGHT_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      aria-label={color}
+                      title={color}
+                      onClick={() => addHighlight(color)}
+                      className="size-4 rounded-full ring-1 ring-foreground/15 transition-transform hover:scale-115"
+                      style={{ backgroundColor: HIGHLIGHT_SWATCH[color] }}
+                    />
+                  ))}
+                </>
+              ) : (
                 <button
-                  key={color}
                   type="button"
-                  aria-label={color}
-                  title={color}
-                  onClick={() => addHighlight(color)}
-                  className="size-4 rounded-full ring-1 ring-foreground/15 transition-transform hover:scale-115"
-                  style={{ backgroundColor: HIGHLIGHT_SWATCH[color] }}
-                />
-              ))}
-            </>
-          )}
-          {menu?.kind === "remove" && (
-            <button
-              type="button"
-              className="rounded px-2.5 py-1 font-mono text-xs text-destructive hover:bg-accent"
-              onClick={() => {
-                onRemove(menu.id);
-                setMenu(null);
-              }}
-            >
-              Remove
-            </button>
-          )}
-        </PopoverContent>
-      </Popover>
+                  className="rounded px-2.5 py-1 font-mono text-xs text-destructive hover:bg-accent"
+                  onClick={() => {
+                    onRemove(menu.id);
+                    setMenu(null);
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
