@@ -69,7 +69,7 @@ export default function SignIn() {
         )}
 
         <p className="mt-6 text-center font-mono text-[0.65rem] text-muted-foreground">
-          reading is open — sign in to keep notes
+          sign in to keep your study
         </p>
       </div>
     </main>
