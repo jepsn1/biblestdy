@@ -1,6 +1,11 @@
 # Next steps
 
-State as of 2026-07-08: #2 ✓ #3 ✓ (+ design system, paginated reader, books sidebar, section headings). `main` @ `2afefca`, CI green, 26 tests.
+State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP, Neon, all routes gated). Plus design system, paginated reader, books sidebar + filter, section headings. CI green, 26 tests.
+
+## Pilot-time (before real users)
+
+- [ ] **Email service** — auth currently logs magic link + OTP to the api console (no email sent). For real users, wire Resend (or Postmark/SES) into `sendMagicLink`/`sendVerificationOTP` in `apps/api/src/auth/auth.ts`, one email w/ both link + code. Needs a **domain** for biblestdy + DNS verification (deliverability). Gated on picking a domain.
+- [ ] Fresh `BETTER_AUTH_SECRET` in production.
 
 ## Marcus (homework, unblocks work below)
 
@@ -13,7 +18,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ (+ design system, paginated reader, books 
 
 ## Build queue (agreed order)
 
-1. **#4 Sign in** — Better Auth (magic-link) + Neon (Drizzle) + NestJS guard + SPA session. Dev: log magic link to console, no email service. Needs `DATABASE_URL`.
+1. ~~**#4 Sign in**~~ ✓ done — Better Auth magic-link + OTP, Neon, guard, all routes gated.
 2. **#5 Highlight a span** — Anchor module in shared: selection → `(translation, passage, word-span)` → render spans. Pure, heavily tested. User-scoped persistence (needs #4).
 3. **#6 Inline note** → **#7 Full md note** → **#8 multi-anchor** → **#9 connections panel** → **#10 tags/topics** → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile**.
 
