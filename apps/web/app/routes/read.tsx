@@ -52,9 +52,17 @@ export default function Read({ loaderData }: Route.ComponentProps) {
             </span>
           ))}
         </div>
-        <footer className="mt-12 border-t border-border pt-4 text-xs text-muted-foreground">
-          {translation.name}
-          {chapter.copyright ? ` · ${chapter.copyright}` : ""}
+        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-border pt-4 font-mono text-[0.65rem] text-muted-foreground">
+          <span>
+            {chapter.book}.{chapter.chapter} · {chapter.verses.length} verses ·{" "}
+            {translation.abbreviation}
+            {chapter.copyright ? ` · ${chapter.copyright}` : ""}
+          </span>
+          <span className="hidden shrink-0 items-center gap-1 sm:flex">
+            <kbd className="rounded border border-border bg-muted px-1">←</kbd>
+            <kbd className="rounded border border-border bg-muted px-1">→</kbd>
+            chapters
+          </span>
         </footer>
       </main>
     </div>
