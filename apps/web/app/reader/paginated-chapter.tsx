@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ChapterText } from "./chapter-text";
 import { useHighlights } from "./use-highlights";
+import { useNotes } from "./use-notes";
 
 /**
  * Book-style pagination. The chapter flows through fixed-height CSS columns
@@ -35,6 +36,7 @@ export function PaginatedChapter({
     chapter.book,
     chapter.chapter,
   );
+  const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
 
@@ -97,8 +99,12 @@ export function PaginatedChapter({
               chapter={chapter}
               heading={heading}
               highlights={highlights}
-              onAdd={add}
-              onRemove={remove}
+              notes={notesApi.notes}
+              onAddHighlight={add}
+              onRemoveHighlight={remove}
+              onAddNote={notesApi.add}
+              onEditNote={notesApi.edit}
+              onRemoveNote={notesApi.remove}
             />
           </div>
         </div>

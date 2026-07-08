@@ -1,4 +1,4 @@
-import type { Anchor, Chapter, Highlight, HighlightColor } from "@biblestdy/shared";
+import type { Anchor, Chapter, Highlight, HighlightColor, Note } from "@biblestdy/shared";
 import {
   buildAnchor,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -15,9 +15,13 @@ function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
 }
 
+type Pos = { x: number; y: number };
 type Menu =
-  | { kind: "add"; anchor: Anchor; x: number; y: number }
-  | { kind: "remove"; id: string; x: number; y: number }
+  | ({ kind: "add"; anchor: Anchor } & Pos)
+  | ({ kind: "compose"; anchor: Anchor } & Pos)
+  | ({ kind: "remove-hl"; id: string } & Pos)
+  | ({ kind: "note"; note: Note } & Pos)
+  | ({ kind: "note-edit"; note: Note } & Pos)
   | null;
 
 function sectionsBefore(chapter: Chapter, verse: number): string[] {
@@ -29,69 +33,83 @@ function wordElFromNode(node: Node | null): HTMLElement | null {
   return el?.closest<HTMLElement>("[data-word]") ?? null;
 }
 
-/**
- * Renders chapter verses as per-word spans and turns a drag-selection into a
- * highlight anchor (verse-relative word indices via the shared Anchor module).
- * The action menu is a self-controlled toolbar portaled to <body> (so the
- * translateX pagination container can't capture position:fixed) and positioned
- * from the selected word element (range rects are unreliable in CSS columns).
- */
+function coverInto<T>(
+  map: Map<string, T>,
+  verses: Chapter["verses"],
+  items: (Anchor & { value: T })[],
+) {
+  for (const v of verses) {
+    const count = words(v.text).length;
+    for (const it of items) {
+      const range = wordRangeInVerse(it, v.verse, count);
+      if (!range) continue;
+      for (let w = range.start; w <= range.end; w++) {
+        const key = `${v.verse}:${w}`;
+        if (!map.has(key)) map.set(key, it.value);
+      }
+    }
+  }
+}
+
 export function ChapterText({
   chapter,
   heading,
   highlights,
-  onAdd,
-  onRemove,
+  notes,
+  onAddHighlight,
+  onRemoveHighlight,
+  onAddNote,
+  onEditNote,
+  onRemoveNote,
 }: {
   chapter: Chapter;
   heading: string;
   highlights: Highlight[];
-  onAdd: (anchor: Anchor, color: HighlightColor) => void;
-  onRemove: (id: string) => void;
+  notes: Note[];
+  onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
+  onRemoveHighlight: (id: string) => void;
+  onAddNote: (anchor: Anchor, text: string) => void;
+  onEditNote: (id: string, text: string) => void;
+  onRemoveNote: (id: string) => void;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
+  const [draft, setDraft] = useState("");
   const { data: session } = authClient.useSession();
   const defaultColor: HighlightColor = isColor(session?.user.defaultHighlightColor)
     ? session.user.defaultHighlightColor
     : DEFAULT_HIGHLIGHT_COLOR;
 
-  // Which highlight (if any) covers each (verse,word) — first match wins.
-  const coverage = new Map<string, { id: string; color: HighlightColor }>();
-  for (const v of chapter.verses) {
-    const count = words(v.text).length;
-    for (const h of highlights) {
-      const range = wordRangeInVerse(h, v.verse, count);
-      if (!range) continue;
-      for (let w = range.start; w <= range.end; w++) {
-        const key = `${v.verse}:${w}`;
-        if (!coverage.has(key)) coverage.set(key, { id: h.id, color: h.color });
-      }
-    }
-  }
+  const hlCoverage = new Map<string, { id: string; color: HighlightColor }>();
+  coverInto(hlCoverage, chapter.verses, highlights.map((h) => ({ ...h, value: { id: h.id, color: h.color } })));
+  const noteCoverage = new Map<string, Note>();
+  coverInto(noteCoverage, chapter.verses, notes.map((n) => ({ ...n, value: n })));
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
 
-  // Dismiss on outside pointerdown, Escape, or scroll/resize (stale position).
   useEffect(() => {
     if (!menu) return;
     const close = (e: Event) => {
-      if (e instanceof PointerEvent) {
-        const t = e.target as HTMLElement;
-        if (t.closest("[data-selection-menu]")) return;
-      }
+      if (e instanceof PointerEvent && (e.target as HTMLElement).closest("[data-selection-menu]")) return;
       setMenu(null);
     };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
     document.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", (e) => e.key === "Escape" && setMenu(null));
+    window.addEventListener("keydown", onKey);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
     };
   }, [menu]);
+
+  function posOf(el: HTMLElement): Pos {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top };
+  }
 
   function onMouseUp() {
     const sel = window.getSelection();
@@ -100,28 +118,35 @@ export function ChapterText({
     const startEl = wordElFromNode(range.startContainer);
     const endEl = wordElFromNode(range.endContainer);
     if (!startEl || !endEl) return;
-
     const anchor = buildAnchor(
       { translationId: chapter.translationId, book: chapter.book, chapter: chapter.chapter },
       { verse: Number(startEl.dataset.verse), word: Number(startEl.dataset.word) },
       { verse: Number(endEl.dataset.verse), word: Number(endEl.dataset.word) },
     );
-    const r = endEl.getBoundingClientRect();
-    setMenu({ kind: "add", anchor, x: r.left + r.width / 2, y: r.top });
+    setMenu({ kind: "add", anchor, ...posOf(endEl) });
   }
 
-  function onWordClick(event: React.MouseEvent, hlId: string | undefined) {
-    if (!hlId) return;
+  function onWordClick(event: React.MouseEvent, hlId: string | undefined, note: Note | undefined) {
+    if (!hlId && !note) return;
     event.stopPropagation();
-    const r = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenu({ kind: "remove", id: hlId, x: r.left + r.width / 2, y: r.top });
+    const pos = posOf(event.currentTarget as HTMLElement);
+    if (note) setMenu({ kind: "note", note, ...pos });
+    else if (hlId) setMenu({ kind: "remove-hl", id: hlId, ...pos });
   }
 
   function addHighlight(color: HighlightColor) {
     if (menu?.kind !== "add") return;
-    onAdd(menu.anchor, color);
-    // Last-used becomes the profile default (persists + syncs across devices)
+    onAddHighlight(menu.anchor, color);
     if (color !== defaultColor) void authClient.updateUser({ defaultHighlightColor: color });
+    window.getSelection()?.removeAllRanges();
+    setMenu(null);
+  }
+
+  function saveDraft() {
+    const text = draft.trim();
+    if (!text) return;
+    if (menu?.kind === "compose") onAddNote(menu.anchor, text);
+    else if (menu?.kind === "note-edit") onEditNote(menu.note.id, text);
     window.getSelection()?.removeAllRanges();
     setMenu(null);
   }
@@ -145,14 +170,18 @@ export function ChapterText({
               {v.verse}
             </sup>
             {tokens.map((word, i) => {
-              const hit = coverage.get(`${v.verse}:${i}`);
+              const hit = hlCoverage.get(`${v.verse}:${i}`);
+              const noteHit = noteCoverage.get(`${v.verse}:${i}`);
               return (
                 <span
                   key={i}
                   data-verse={v.verse}
                   data-word={i}
-                  onClick={(e) => onWordClick(e, hit?.id)}
-                  className={hit ? "cursor-pointer" : undefined}
+                  onClick={(e) => onWordClick(e, hit?.id, noteHit)}
+                  className={[
+                    hit || noteHit ? "cursor-pointer" : "",
+                    noteHit ? "underline decoration-dotted decoration-primary/70 underline-offset-4" : "",
+                  ].join(" ")}
                   style={hit ? { backgroundColor: HIGHLIGHT_BG[hit.color] } : undefined}
                 >
                   {word}{" "}
@@ -170,9 +199,9 @@ export function ChapterText({
             className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
             style={{ left: menu.x, top: menu.y }}
           >
-            <div className="flex items-center gap-1 rounded-md border border-border bg-popover p-1 shadow-lg">
-              {menu.kind === "add" ? (
-                <>
+            <div className="rounded-md border border-border bg-popover shadow-lg">
+              {menu.kind === "add" && (
+                <div className="flex items-center gap-1 p-1">
                   <button
                     type="button"
                     className="flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
@@ -185,7 +214,6 @@ export function ChapterText({
                       style={{ backgroundColor: HIGHLIGHT_SWATCH[defaultColor] }}
                     />
                   </button>
-                  <span className="mx-0.5 h-4 w-px bg-border" />
                   {HIGHLIGHT_COLORS.map((color) => (
                     <button
                       key={color}
@@ -197,18 +225,88 @@ export function ChapterText({
                       style={{ backgroundColor: HIGHLIGHT_SWATCH[color] }}
                     />
                   ))}
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="rounded px-2.5 py-1 font-mono text-xs text-destructive hover:bg-accent"
-                  onClick={() => {
-                    onRemove(menu.id);
-                    setMenu(null);
-                  }}
-                >
-                  Remove
-                </button>
+                  <span className="mx-0.5 h-4 w-px bg-border" />
+                  <button
+                    type="button"
+                    className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                    onClick={() => {
+                      setDraft("");
+                      setMenu({ ...menu, kind: "compose" });
+                    }}
+                  >
+                    Note
+                  </button>
+                </div>
+              )}
+
+              {(menu.kind === "compose" || menu.kind === "note-edit") && (
+                <div className="flex w-64 flex-col gap-2 p-2">
+                  <textarea
+                    autoFocus
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveDraft();
+                    }}
+                    placeholder="Your note…"
+                    className="h-20 resize-none rounded border border-border bg-background p-2 font-serif text-sm outline-none focus:border-primary/50"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[0.6rem] text-muted-foreground">⌘↵ to save</span>
+                    <button
+                      type="button"
+                      onClick={saveDraft}
+                      className="rounded bg-primary px-2.5 py-1 font-mono text-xs text-primary-foreground hover:opacity-90"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {menu.kind === "note" && (
+                <div className="flex w-64 flex-col gap-2 p-3">
+                  <p className="font-serif text-sm whitespace-pre-wrap text-foreground">
+                    {menu.note.text}
+                  </p>
+                  <div className="flex gap-3 border-t border-border pt-2 font-mono text-xs">
+                    <button
+                      type="button"
+                      className="text-foreground hover:text-primary"
+                      onClick={() => {
+                        setDraft(menu.note.text);
+                        setMenu({ ...menu, kind: "note-edit" });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-destructive hover:opacity-80"
+                      onClick={() => {
+                        onRemoveNote(menu.note.id);
+                        setMenu(null);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {menu.kind === "remove-hl" && (
+                <div className="p-1">
+                  <button
+                    type="button"
+                    className="rounded px-2.5 py-1 font-mono text-xs text-destructive hover:bg-accent"
+                    onClick={() => {
+                      onRemoveHighlight(menu.id);
+                      setMenu(null);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               )}
             </div>
           </div>,

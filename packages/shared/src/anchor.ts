@@ -88,6 +88,17 @@ export interface NewHighlight extends Anchor {
   color: HighlightColor
 }
 
+/** A short inline note anchored to a span. */
+export interface Note extends Anchor {
+  id: string
+  text: string
+}
+
+/** Create payload for a note. */
+export interface NewNote extends Anchor {
+  text: string
+}
+
 /** True if the two anchors address the exact same span. */
 export function sameAnchor(a: Anchor, b: Anchor): boolean {
   return (
