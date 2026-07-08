@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import { collectVerses } from './apibible.provider';
+import { parseChapterContent } from './apibible.provider';
 import { CachingScriptureProvider } from './caching.provider';
 import { FakeScriptureProvider } from './fake.provider';
 import type { ScriptureProvider } from './provider';
@@ -25,6 +25,10 @@ describe('ScriptureController (with fake provider)', () => {
     expect(chapter.verses).toHaveLength(36);
     expect(chapter.verses[15].verse).toBe(16);
     expect(chapter.verses[15].text).toContain('God so loved the world');
+    expect(chapter.sections).toEqual([
+      { beforeVerse: 1, title: 'Jesus and Nicodemus' },
+      { beforeVerse: 22, title: 'John the Baptizer Exalts Jesus' },
+    ]);
   });
 
   it('accepts lowercase book ids', async () => {
@@ -48,9 +52,9 @@ describe('ScriptureController (with fake provider)', () => {
   });
 });
 
-describe('collectVerses (API.Bible json content)', () => {
+describe('parseChapterContent (API.Bible json content)', () => {
   it('flattens verse tags + text nodes into ordered verses', () => {
-    const verses = collectVerses([
+    const { verses } = parseChapterContent([
       {
         type: 'tag',
         name: 'para',
@@ -74,12 +78,53 @@ describe('collectVerses (API.Bible json content)', () => {
   });
 
   it('ignores text before any verse marker and empty verses', () => {
-    const verses = collectVerses([
+    const { verses } = parseChapterContent([
       { type: 'text', text: 'Chapter heading noise' },
       { type: 'tag', name: 'verse', attrs: { number: '1' } },
       { type: 'text', text: '  Real text  ' },
     ]);
     expect(verses).toEqual([{ verse: 1, text: 'Real text' }]);
+  });
+
+  it('extracts s/s1 heading paragraphs as sections, never into verse text', () => {
+    const { verses, sections } = parseChapterContent([
+      {
+        type: 'tag',
+        name: 'para',
+        attrs: { style: 's1' },
+        items: [{ type: 'text', text: 'Jesus and Nicodemus' }],
+      },
+      {
+        type: 'tag',
+        name: 'para',
+        attrs: { style: 'p' },
+        items: [
+          { type: 'tag', name: 'verse', attrs: { number: '1' } },
+          { type: 'text', text: 'Now there was a man.' },
+        ],
+      },
+      {
+        type: 'tag',
+        name: 'para',
+        attrs: { style: 's1' },
+        items: [{ type: 'text', text: 'A Second Heading' }],
+      },
+      {
+        type: 'tag',
+        name: 'para',
+        attrs: { style: 'p' },
+        items: [
+          { type: 'tag', name: 'verse', attrs: { number: '2' } },
+          { type: 'text', text: 'More text.' },
+        ],
+      },
+    ]);
+    expect(sections).toEqual([
+      { beforeVerse: 1, title: 'Jesus and Nicodemus' },
+      { beforeVerse: 2, title: 'A Second Heading' },
+    ]);
+    expect(verses[0].text).toBe('Now there was a man.');
+    expect(verses[0].text).not.toContain('Nicodemus,');
   });
 });
 

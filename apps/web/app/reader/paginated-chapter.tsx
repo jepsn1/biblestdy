@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 
+function sectionsBefore(chapter: Chapter, verse: number): string[] {
+  return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
+}
+
 /**
  * Book-style pagination. The chapter flows through fixed-height CSS columns
  * ([column-fill:auto]), overflowing horizontally; each "page" is one viewport
@@ -89,6 +93,14 @@ export function PaginatedChapter({
             <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
             {chapter.verses.map((v) => (
               <span key={v.verse} data-verse={v.verse}>
+                {sectionsBefore(chapter, v.verse).map((title) => (
+                  <span
+                    key={title}
+                    className="mt-6 mb-2 block font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase first:mt-0"
+                  >
+                    {title}
+                  </span>
+                ))}
                 <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
                   {v.verse}
                 </sup>

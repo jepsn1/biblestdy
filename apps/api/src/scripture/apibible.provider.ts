@@ -1,4 +1,4 @@
-import type { Chapter, Translation, Verse } from '@biblestdy/shared';
+import type { Chapter, Section, Translation, Verse } from '@biblestdy/shared';
 import { ChapterNotFoundError, type ScriptureProvider } from './provider';
 
 const BASE_URL = 'https://api.scripture.api.bible/v1';
@@ -17,7 +17,7 @@ interface ContentNode {
   type?: string;
   name?: string;
   text?: string;
-  attrs?: { number?: string; verseId?: string };
+  attrs?: { number?: string; verseId?: string; style?: string };
   items?: ContentNode[];
 }
 
@@ -49,7 +49,7 @@ export class ApiBibleProvider implements ScriptureProvider {
     let data: ApiBibleChapter;
     try {
       data = await this.get<ApiBibleChapter>(
-        `/bibles/${translationId}/chapters/${book}.${chapter}?content-type=json&include-notes=false&include-titles=false`,
+        `/bibles/${translationId}/chapters/${book}.${chapter}?content-type=json&include-notes=false&include-titles=true`,
       );
     } catch (err) {
       if (err instanceof HttpStatusError && err.status === 404) {
@@ -57,11 +57,13 @@ export class ApiBibleProvider implements ScriptureProvider {
       }
       throw err;
     }
+    const { verses, sections } = parseChapterContent(data.content);
     return {
       translationId,
       book,
       chapter,
-      verses: collectVerses(data.content),
+      verses,
+      sections: sections.length > 0 ? sections : undefined,
       copyright: data.copyright?.trim() || undefined,
     };
   }
@@ -85,19 +87,42 @@ class HttpStatusError extends Error {
   }
 }
 
+/** USFM paragraph styles that carry editorial section headings. */
+const HEADING_STYLES = new Set(['s', 's1', 's2', 's3', 'ms', 'ms1', 'ms2']);
+
 /**
- * Flatten API.Bible JSON content into verses: 'verse' tags open a verse,
- * text nodes accumulate into whichever verse is open.
+ * Flatten API.Bible JSON content: 'verse' tags open a verse and text nodes
+ * accumulate into it; heading paragraphs (USFM s/ms styles) become sections
+ * attached to the NEXT verse — kept apart from verse text so annotations can
+ * never anchor to editorial titles.
  */
-export function collectVerses(content: ContentNode[]): Verse[] {
+export function parseChapterContent(content: ContentNode[]): {
+  verses: Verse[];
+  sections: Section[];
+} {
   const texts = new Map<number, string[]>();
+  const sections: Section[] = [];
+  const pendingTitles: string[] = [];
   let current: number | undefined;
 
   const walk = (nodes: ContentNode[]) => {
     for (const node of nodes) {
+      if (node.name === 'para' && HEADING_STYLES.has(node.attrs?.style ?? '')) {
+        const title = collectText(node).replace(/\s+/g, ' ').trim();
+        if (title) pendingTitles.push(title);
+        continue; // never mix heading text into verse flow
+      }
       if (node.name === 'verse' && node.attrs?.number) {
         const parsed = Number(node.attrs.number);
-        if (Number.isFinite(parsed)) current = parsed;
+        if (Number.isFinite(parsed)) {
+          current = parsed;
+          while (pendingTitles.length > 0) {
+            sections.push({
+              beforeVerse: parsed,
+              title: pendingTitles.shift()!,
+            });
+          }
+        }
       } else if (node.type === 'text' && node.text) {
         if (current !== undefined) {
           const parts = texts.get(current) ?? [];
@@ -110,11 +135,18 @@ export function collectVerses(content: ContentNode[]): Verse[] {
   };
   walk(content);
 
-  return [...texts.entries()]
+  const verses = [...texts.entries()]
     .sort(([a], [b]) => a - b)
     .map(([verse, parts]) => ({
       verse,
       text: parts.join('').replace(/\s+/g, ' ').trim(),
     }))
     .filter((v) => v.text.length > 0);
+
+  return { verses, sections };
+}
+
+function collectText(node: ContentNode): string {
+  const own = node.type === 'text' && node.text ? node.text : '';
+  return own + (node.items ?? []).map(collectText).join('');
 }
