@@ -254,7 +254,10 @@ export function ChapterText({
             className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
             style={{ left: menu.x, top: menu.y }}
           >
-            <div className="rounded-md border border-border bg-popover shadow-lg">
+            <div
+              key={menu.kind}
+              className="animate-in fade-in zoom-in-95 slide-in-from-bottom-1 origin-bottom rounded-md border border-border bg-popover shadow-lg duration-150"
+            >
               {menu.kind === "add" && (
                 <div className="flex items-center gap-1 p-1">
                   <button
