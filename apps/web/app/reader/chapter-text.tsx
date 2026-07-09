@@ -377,7 +377,7 @@ export function ChapterText({
               )}
 
               {menu.kind === "attach" && (
-                <ScrollArea className="max-h-56 w-64">
+                <ScrollArea className="max-h-56 w-64" viewportClassName="max-h-56">
                   <div className="flex flex-col p-1">
                   {allNotes.map((n) => (
                     <button

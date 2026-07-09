@@ -76,7 +76,7 @@ function ReferencesTable({
       <h3 className="mb-1 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
         References
       </h3>
-      <ScrollArea className="max-h-40">
+      <ScrollArea className="max-h-40" viewportClassName="max-h-40">
         <div className="flex flex-col">
         {note.anchors.map((a) => {
           const isSelected = a.id === selectedAnchorId;
@@ -149,7 +149,7 @@ export function NotePanel({
   onRemove: (id: string) => void;
   onDetach: (id: string, anchorId: string) => void;
   onShowAnchor: (anchor: NoteAnchor) => void;
-  /** Anchor id of the selected reference (its mark pulses in the reader). */
+  /** Anchor id of the selected reference (spotlit in the reader). */
   selectedAnchorId: string | null;
   onClose: () => void;
 }) {
