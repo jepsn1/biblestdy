@@ -1,7 +1,8 @@
-import type { Note, Annotation } from "@biblestdy/shared";
+import type { Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
+import type { NoteMark } from "./use-notes";
 import {
   bracketPath,
   leaderPath,
@@ -37,9 +38,10 @@ type Placement = {
   colSide: "left" | "right"; // which column of the spread the span sits in
   laneCenter: { x: number; y: number };
 };
-/** A full annotation's mark: same circle/bracket by geometry, plus a static † label
- * beside it that opens the document panel. */
-type NoteTab = { note: Note; box: Box; lines: number; colSide: "left" | "right" };
+/** A note anchor's mark: same circle/bracket by geometry, plus a static chip
+ * beside it that opens the document panel. One tab per anchor — a multi-anchor
+ * note draws a mark at each of its spans in this chapter. */
+type NoteTab = { mark: NoteMark; box: Box; lines: number; colSide: "left" | "right" };
 
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
@@ -107,7 +109,7 @@ function geom(
 
 export function AnnotationMarks({
   annotations,
-  notes,
+  noteMarks,
   regionRef,
   contentRef,
   page,
@@ -119,7 +121,7 @@ export function AnnotationMarks({
   onOpenNote,
 }: {
   annotations: Annotation[];
-  notes: Note[];
+  noteMarks: NoteMark[];
   regionRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLElement | null>;
   page: number;
@@ -241,11 +243,11 @@ export function AnnotationMarks({
       setPlacements(items);
 
       const tabs: NoteTab[] = [];
-      for (const note of notes) {
-        const m = measureAnchor(note);
+      for (const mark of noteMarks) {
+        const m = measureAnchor(mark);
         if (m)
           tabs.push({
-            note,
+            mark,
             box: m.box,
             lines: m.lines,
             colSide: m.mid < centerX ? "left" : "right",
@@ -263,7 +265,7 @@ export function AnnotationMarks({
       clearTimeout(t);
       ro.disconnect();
     };
-  }, [annotations, notes, page, regionRef, contentRef]);
+  }, [annotations, noteMarks, page, regionRef, contentRef]);
 
   return (
     <>
@@ -318,7 +320,7 @@ export function AnnotationMarks({
           })}
           {noteTabs.map((m) => (
             <path
-              key={m.note.id}
+              key={m.mark.id}
               d={
                 m.lines > 1
                   ? bracketPath(
@@ -327,10 +329,10 @@ export function AnnotationMarks({
                         : m.box.x + m.box.w + BRACKET_GAP,
                       m.box.y + 2,
                       m.box.y + m.box.h - 2,
-                      m.note.id,
+                      m.mark.id,
                       m.colSide === "left" ? 1 : -1,
                     )
-                  : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.note.id)
+                  : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.mark.id)
               }
               fill="none"
               stroke={NOTE_INK}
@@ -346,10 +348,10 @@ export function AnnotationMarks({
             text, and never sitting on the running text */}
         {noteTabs.map((m) => (
           <button
-            key={m.note.id}
+            key={m.mark.id}
             type="button"
-            title={m.note.title || "Open annotation"}
-            onClick={() => onOpenNote(m.note.id)}
+            title={m.mark.title || "Open note"}
+            onClick={() => onOpenNote(m.mark.noteId)}
             className="pointer-events-auto absolute flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden rounded-full border bg-popover px-1.5 py-px font-mono text-[0.58rem] leading-none whitespace-nowrap transition-colors hover:bg-accent"
             style={{
               left:
@@ -367,7 +369,7 @@ export function AnnotationMarks({
             }}
           >
             <FileText className="size-2.5 shrink-0" />
-            <span className="overflow-hidden text-ellipsis">{m.note.title || "annotation"}</span>
+            <span className="overflow-hidden text-ellipsis">{m.mark.title || "note"}</span>
           </button>
         ))}
 

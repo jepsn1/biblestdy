@@ -1,7 +1,9 @@
 import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation } from "@biblestdy/shared";
 import {
+  anchorReference,
   buildAnchor,
   DEFAULT_HIGHLIGHT_COLOR,
+  formatReference,
   HIGHLIGHT_COLORS,
   words,
   wordRangeInVerse,
@@ -10,6 +12,7 @@ import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
 import { HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
+import type { NoteMark } from "./use-notes";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -19,6 +22,7 @@ type Pos = { x: number; y: number };
 type Menu =
   | ({ kind: "add"; anchor: Anchor } & Pos)
   | ({ kind: "compose"; anchor: Anchor } & Pos)
+  | ({ kind: "attach"; anchor: Anchor } & Pos)
   | ({ kind: "remove-hl"; id: string } & Pos)
   | null;
 
@@ -78,12 +82,14 @@ export function ChapterText({
   heading,
   highlights,
   annotations,
-  notes,
+  noteMarks,
+  allNotes,
   activeAnnotationId,
   onAddHighlight,
   onRemoveHighlight,
   onAddAnnotation,
   onAddNote,
+  onAttachNote,
   onOpenNote,
   onFocusAnnotation,
 }: {
@@ -91,12 +97,15 @@ export function ChapterText({
   heading: string;
   highlights: Highlight[];
   annotations: Annotation[];
-  notes: Note[];
+  noteMarks: NoteMark[];
+  /** Every note of the user — the attach-an-existing-note picker. */
+  allNotes: Note[];
   activeAnnotationId: string | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
   onAddAnnotation: (anchor: Anchor, text: string) => void;
   onAddNote: (anchor: Anchor) => void;
+  onAttachNote: (noteId: string, anchor: Anchor) => void;
   onOpenNote: (id: string) => void;
   onFocusAnnotation: (id: string | null) => void;
 }) {
@@ -125,7 +134,8 @@ export function ChapterText({
     chapter.verses,
     [
       ...annotations.map((n) => ({ ...n, value: { id: n.id } })),
-      ...notes.map((f) => ({ ...f, value: { id: `note:${f.id}` } })),
+      // Per-anchor identity — a note anchored twice here is two distinct marks
+      ...noteMarks.map((m) => ({ ...m, value: { id: `note:${m.noteId}:${m.id}` } })),
     ].sort((a, b) => spanSize(a) - spanSize(b)),
   );
 
@@ -174,7 +184,7 @@ export function ChapterText({
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
     if (noteId?.startsWith("note:")) {
       event.stopPropagation();
-      onOpenNote(noteId.slice(5)); // open the note panel
+      onOpenNote(noteId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel
       return;
     }
     if (noteId) {
@@ -317,6 +327,41 @@ export function ChapterText({
                   >
                     Note
                   </button>
+                  {allNotes.length > 0 && (
+                    <button
+                      type="button"
+                      title="Anchor an existing note to this span too"
+                      className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                      onClick={() => setMenu({ ...menu, kind: "attach" })}
+                    >
+                      +Note…
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {menu.kind === "attach" && (
+                <div className="flex max-h-56 w-64 flex-col overflow-y-auto p-1">
+                  {allNotes.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className="flex items-baseline justify-between gap-2 rounded px-2.5 py-1.5 text-left hover:bg-accent"
+                      onClick={() => {
+                        onAttachNote(n.id, menu.anchor);
+                        window.getSelection()?.removeAllRanges();
+                        setMenu(null);
+                      }}
+                    >
+                      <span className="truncate font-serif text-sm">
+                        {n.title || "Untitled note"}
+                      </span>
+                      <span className="shrink-0 font-mono text-[0.6rem] text-muted-foreground">
+                        {n.anchors.length > 0 && formatReference(anchorReference(n.anchors[0]))}
+                        {n.anchors.length > 1 && ` +${n.anchors.length - 1}`}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
 

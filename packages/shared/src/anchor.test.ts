@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAnchor, sameAnchor, wordRangeInVerse, words, type Anchor } from './anchor.js'
+import { anchorReference, buildAnchor, sameAnchor, wordRangeInVerse, words, type Anchor } from './anchor.js'
 
 const meta = { translationId: 'WEB', book: 'JHN', chapter: 3 }
 
@@ -75,5 +75,17 @@ describe('sameAnchor', () => {
     expect(sameAnchor(a, { ...a })).toBe(true)
     expect(sameAnchor(a, { ...a, endWord: 2 })).toBe(false)
     expect(sameAnchor(a, { ...a, translationId: 'KJV' })).toBe(false)
+  })
+})
+
+describe('anchorReference', () => {
+  it('collapses a single-verse span to one verse', () => {
+    const a: Anchor = { ...meta, startVerse: 16, startWord: 0, endVerse: 16, endWord: 4 }
+    expect(anchorReference(a)).toEqual({ book: 'JHN', chapter: 3, verse: 16 })
+  })
+
+  it('keeps a multi-verse span as a range', () => {
+    const a: Anchor = { ...meta, startVerse: 16, startWord: 2, endVerse: 18, endWord: 1 }
+    expect(anchorReference(a)).toEqual({ book: 'JHN', chapter: 3, verse: 16, endVerse: 18 })
   })
 })

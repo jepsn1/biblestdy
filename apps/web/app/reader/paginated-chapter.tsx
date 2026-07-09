@@ -9,7 +9,7 @@ import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { AnnotationMarks } from "./annotation-marks";
-import { useNotes } from "./use-notes";
+import { noteMarksInChapter, useAllNotes, useNotes } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
 
@@ -47,8 +47,20 @@ export function PaginatedChapter({
   );
   const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter);
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
+  const allNotes = useAllNotes(true);
+  const noteMarks = noteMarksInChapter(
+    notesApi.notes,
+    chapter.translationId,
+    chapter.book,
+    chapter.chapter,
+  );
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
-  const openNote = notesApi.notes.find((f) => f.id === openNoteId) ?? null;
+  // An open note may have no anchor here (opened, then detached from this
+  // chapter) — the all-notes list still has it.
+  const openNote =
+    notesApi.notes.find((f) => f.id === openNoteId) ??
+    allNotes.find((f) => f.id === openNoteId) ??
+    null;
   const scrollRef = useRef<HTMLDivElement>(null);
   // Split width is a per-device ergonomic preference -> localStorage, not DB
   const [noteSize, setNoteSize] = useState(() => {
@@ -76,6 +88,11 @@ export function PaginatedChapter({
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
     if (created) setOpenNoteId(created.id);
+  }
+
+  async function attachNote(noteId: string, anchor: Parameters<typeof notesApi.add>[0]) {
+    const updated = await notesApi.attach(noteId, anchor);
+    if (updated) setOpenNoteId(updated.id); // show what the span now points at
   }
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
@@ -161,12 +178,14 @@ export function PaginatedChapter({
               heading={heading}
               highlights={highlights}
               annotations={annotationsApi.annotations}
-              notes={notesApi.notes}
+              noteMarks={noteMarks}
+              allNotes={allNotes}
               activeAnnotationId={activeAnnotationId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}
               onAddNote={(anchor) => void addNote(anchor)}
+              onAttachNote={(noteId, anchor) => void attachNote(noteId, anchor)}
               onOpenNote={setOpenNoteId}
               onFocusAnnotation={setActiveAnnotationId}
             />
@@ -183,7 +202,7 @@ export function PaginatedChapter({
 
         <AnnotationMarks
           annotations={annotationsApi.annotations}
-          notes={notesApi.notes}
+          noteMarks={noteMarks}
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}
@@ -262,6 +281,7 @@ export function PaginatedChapter({
               note={openNote}
               onEdit={notesApi.edit}
               onRemove={notesApi.remove}
+              onDetach={notesApi.detach}
               onClose={() => setOpenNoteId(null)}
             />
           </ResizablePanel>

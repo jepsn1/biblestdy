@@ -1,3 +1,5 @@
+import type { Reference } from './reference.js'
+
 /**
  * How an annotation attaches to Scripture: a word-span within ONE translation.
  *
@@ -123,6 +125,13 @@ export interface Note {
 export interface NewNote extends Anchor {
   title?: string
   body?: string
+}
+
+/** The verse range an anchor covers, as a displayable Reference. */
+export function anchorReference(a: Anchor): Reference {
+  const ref: Reference = { book: a.book, chapter: a.chapter, verse: a.startVerse }
+  if (a.endVerse !== a.startVerse) ref.endVerse = a.endVerse
+  return ref
 }
 
 /** True if the two anchors address the exact same span. */

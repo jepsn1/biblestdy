@@ -1,4 +1,5 @@
 import type { Note } from "@biblestdy/shared";
+import { anchorReference, formatReference } from "@biblestdy/shared";
 import {
   BlockTypeSelect,
   BoldItalicUnderlineToggles,
@@ -23,6 +24,7 @@ import {
 import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { useIsDark } from "~/components/theme-toggle";
 
 /**
@@ -30,18 +32,25 @@ import { useIsDark } from "~/components/theme-toggle";
  * body (MDXEditor — markdown stays the DB format, users never have to see
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
  * Autosaves (debounced) — closing never loses work.
+ *
+ * A chip row lists every passage the note anchors to (issue #8): click reads
+ * there, × detaches. The last anchor is not removable — a note stays
+ * reachable from Scripture; deleting the note is the way out.
  */
 export function NotePanel({
   note,
   onEdit,
   onRemove,
+  onDetach,
   onClose,
 }: {
   note: Note;
   onEdit: (id: string, patch: { title?: string; body?: string }) => void;
   onRemove: (id: string) => void;
+  onDetach: (id: string, anchorId: string) => void;
   onClose: () => void;
 }) {
+  const navigate = useNavigate();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const dark = useIsDark();
@@ -93,6 +102,39 @@ export function NotePanel({
           <X className="size-4" />
         </button>
       </header>
+
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-1.5">
+        {note.anchors.map((a) => (
+          <span
+            key={a.id}
+            className="flex items-center overflow-hidden rounded-full border border-border bg-muted/50 font-mono text-[0.6rem] leading-none text-muted-foreground"
+          >
+            <button
+              type="button"
+              title="Read this passage"
+              onClick={() => navigate(`/read/${a.book}/${a.chapter}`)}
+              className="px-2 py-1 hover:bg-accent hover:text-foreground"
+            >
+              {formatReference(anchorReference(a))}
+            </button>
+            {note.anchors.length > 1 && (
+              <button
+                type="button"
+                aria-label="Remove this anchor"
+                onClick={() => onDetach(note.id, a.id)}
+                className="py-1 pr-1.5 pl-0.5 hover:text-destructive"
+              >
+                <X className="size-2.5" />
+              </button>
+            )}
+          </span>
+        ))}
+        {note.anchors.length === 1 && (
+          <span className="font-mono text-[0.55rem] text-muted-foreground/60">
+            select text in the reader → +Note… anchors this note there too
+          </span>
+        )}
+      </div>
 
       <MDXEditor
         key={note.id}

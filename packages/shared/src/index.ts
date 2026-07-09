@@ -7,6 +7,7 @@ export {
   buildAnchor,
   wordRangeInVerse,
   sameAnchor,
+  anchorReference,
   HIGHLIGHT_COLORS,
   DEFAULT_HIGHLIGHT_COLOR,
   isHighlightColor,
