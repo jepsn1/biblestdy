@@ -2,6 +2,12 @@ import type { Anchor, Note, NoteAnchor } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "~/lib/query";
 
+/** Mutations must not fail silently — log, return null, let callers no-op. */
+function logFail(e: unknown): null {
+  console.error("[notes]", e);
+  return null;
+}
+
 /** One drawn mark: a single anchor of a note within the current chapter. */
 export type NoteMark = NoteAnchor & { noteId: string; title: string };
 
@@ -60,7 +66,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const created = await api<Note>("/api/notes", {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(() => null);
+    }).catch(logFail);
     if (created) {
       qc.setQueryData<Note[]>(key, (n = []) => [...n, created]);
       invalidateAll();
@@ -72,7 +78,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const updated = await api<Note>(`/api/notes/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
-    }).catch(() => null);
+    }).catch(logFail);
     if (updated) {
       qc.setQueryData<Note[]>(key, (n = []) =>
         n.map((x) => (x.id === updated.id ? updated : x)),
@@ -82,7 +88,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   }
 
   async function remove(id: string) {
-    await api(`/api/notes/${id}`, { method: "DELETE" }).catch(() => null);
+    await api(`/api/notes/${id}`, { method: "DELETE" }).catch(logFail);
     qc.setQueryData<Note[]>(key, (n = []) => n.filter((x) => x.id !== id));
     invalidateAll();
   }
@@ -92,7 +98,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors`, {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(() => null);
+    }).catch(logFail);
     if (updated) {
       qc.setQueryData<Note[]>(key, (n = []) =>
         n.some((x) => x.id === updated.id)
@@ -109,7 +115,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   async function detach(noteId: string, anchorId: string) {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
-    }).catch(() => null);
+    }).catch(logFail);
     if (updated) {
       qc.setQueryData<Note[]>(key, (n = []) =>
         n

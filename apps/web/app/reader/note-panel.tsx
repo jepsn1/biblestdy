@@ -131,7 +131,7 @@ export function NotePanel({
         ))}
         {note.anchors.length === 1 && (
           <span className="font-mono text-[0.55rem] text-muted-foreground/60">
-            select text in the reader → +Note… anchors this note there too
+            select text in the reader → Create note link… anchors this note there too
           </span>
         )}
       </div>

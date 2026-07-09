@@ -280,34 +280,30 @@ export function ChapterText({
               className="animate-in fade-in zoom-in-95 slide-in-from-bottom-1 origin-bottom rounded-md border border-border bg-popover shadow-lg duration-150"
             >
               {menu.kind === "add" && (
-                <div className="flex items-center gap-1 p-1">
+                <div className="flex w-44 flex-col p-1">
+                  {/* Highlight = pick a color; the default is ringed */}
+                  <div className="flex items-center justify-between gap-1 px-2.5 py-1.5">
+                    {HIGHLIGHT_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        aria-label={`Highlight (${color})`}
+                        title={`Highlight (${color})`}
+                        onClick={() => addHighlight(color)}
+                        className={`size-4 rounded-full transition-transform hover:scale-115 ${
+                          color === defaultColor
+                            ? "ring-2 ring-foreground/40"
+                            : "ring-1 ring-foreground/15"
+                        }`}
+                        style={{ backgroundColor: HIGHLIGHT_SWATCH[color] }}
+                      />
+                    ))}
+                  </div>
+                  <div className="mx-1 my-0.5 h-px bg-border" />
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
-                    onClick={() => addHighlight(defaultColor)}
-                    title={`Highlight (${defaultColor})`}
-                  >
-                    Highlight
-                    <span
-                      className="size-2 rounded-full ring-1 ring-foreground/15"
-                      style={{ backgroundColor: HIGHLIGHT_SWATCH[defaultColor] }}
-                    />
-                  </button>
-                  {HIGHLIGHT_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      aria-label={color}
-                      title={color}
-                      onClick={() => addHighlight(color)}
-                      className="size-4 rounded-full ring-1 ring-foreground/15 transition-transform hover:scale-115"
-                      style={{ backgroundColor: HIGHLIGHT_SWATCH[color] }}
-                    />
-                  ))}
-                  <span className="mx-0.5 h-4 w-px bg-border" />
-                  <button
-                    type="button"
-                    className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                    title="A short handwritten scribble next to the text"
+                    className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                     onClick={() => {
                       setDraft("");
                       setMenu({ ...menu, kind: "compose" });
@@ -317,24 +313,24 @@ export function ChapterText({
                   </button>
                   <button
                     type="button"
-                    title="Note: a markdown document, opens the side-by-side editor"
-                    className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                    title="A markdown document, opens the side-by-side editor"
+                    className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                     onClick={() => {
                       onAddNote(menu.anchor);
                       window.getSelection()?.removeAllRanges();
                       setMenu(null);
                     }}
                   >
-                    Note
+                    Create new note
                   </button>
                   {allNotes.length > 0 && (
                     <button
                       type="button"
                       title="Anchor an existing note to this span too"
-                      className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                      className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                       onClick={() => setMenu({ ...menu, kind: "attach" })}
                     >
-                      +Note…
+                      Create note link…
                     </button>
                   )}
                 </div>
