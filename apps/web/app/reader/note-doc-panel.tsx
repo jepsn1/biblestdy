@@ -47,7 +47,7 @@ export function NoteDocPanel({
   const dirty = title !== doc.title || body !== doc.body;
 
   return (
-    <aside className="flex w-[26rem] shrink-0 flex-col border-l border-border bg-background">
+    <aside className="flex h-full w-full flex-col bg-background">
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
         <input
           value={title}

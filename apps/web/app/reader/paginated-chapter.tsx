@@ -47,6 +47,13 @@ export function PaginatedChapter({
   const fullNotesApi = useFullNotes(chapter.translationId, chapter.book, chapter.chapter);
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const openDoc = fullNotesApi.fullNotes.find((f) => f.id === openDocId) ?? null;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Center the sheet in the pane whenever it stops fitting (doc open/close)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ left: (el.scrollWidth - el.clientWidth) / 2, behavior: "smooth" });
+  }, [openDocId]);
 
   async function addFullNote(anchor: Parameters<typeof fullNotesApi.add>[0]) {
     const created = await fullNotesApi.add(anchor);
@@ -103,12 +110,15 @@ export function PaginatedChapter({
 
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col">
-      {/* relative: the doc panel OVERLAYS the reader — it must never squeeze
-          the text, reflow invalidates every hand-placed annotation */}
-      <div className="relative flex min-h-0 w-full flex-1">
-      {/* isolate: local stacking context so the -z-10 leader arrows paint
-          behind the text but still above the page background */}
-      <div ref={regionRef} className="relative isolate min-h-0 flex-1">
+      <div className="flex min-h-0 w-full flex-1">
+      {/* The SHEET is a fixed-size artifact (text + margins) — print-fixed, it
+          never reflows. The reading pane is a viewport onto it: when the doc
+          panel takes half the width, the pane scrolls instead of squeezing. */}
+      <div className="relative min-h-0 flex-1">
+        <div ref={scrollRef} className="h-full overflow-x-auto">
+          {/* isolate: local stacking context so the -z-10 leader arrows paint
+              behind the text but still above the page background */}
+          <div ref={regionRef} className="relative isolate mx-auto h-full w-[75rem]">
         <div
           ref={contentBoxRef}
           className="relative mx-auto h-full max-w-2xl overflow-hidden px-6 pt-10 pb-6 lg:max-w-3xl"
@@ -157,23 +167,30 @@ export function PaginatedChapter({
           onOpenFullNote={setOpenDocId}
         />
 
-        {/* Edge tap zones, like flipping a page */}
+          </div>
+        </div>
+
+        {/* Page-flip zones, pinned to the pane edges */}
         <button
           type="button"
           aria-label="Previous page"
           onClick={goPrev}
-          className="absolute inset-y-0 left-0 z-20 w-8 cursor-w-resize opacity-0"
-        />
+          className="absolute inset-y-0 left-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
         <button
           type="button"
           aria-label="Next page"
           onClick={goNext}
-          className="absolute inset-y-0 right-0 z-20 w-8 cursor-e-resize opacity-0"
-        />
+          className="absolute inset-y-0 right-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
+        >
+          <ChevronRight className="size-5" />
+        </button>
       </div>
 
       {openDoc && (
-        <div className="absolute inset-y-0 right-0 z-30 flex shadow-xl">
+        <div className="z-30 w-1/2 shrink-0 border-l border-border shadow-xl">
           <NoteDocPanel
             doc={openDoc}
             onEdit={fullNotesApi.edit}
