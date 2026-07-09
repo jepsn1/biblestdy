@@ -166,7 +166,12 @@ export function ChapterText({
     return { x: r.left + r.width / 2, y: r.top };
   }
 
-  function onMouseUp() {
+  function onMouseUp(event: React.MouseEvent) {
+    // The menu is portaled to <body> but React bubbles its events through this
+    // tree — a mouseup on a menu button must not rebuild the menu from the
+    // still-active text selection (it would remount the menu mid-click and
+    // swallow the button's click).
+    if ((event.target as HTMLElement).closest("[data-selection-menu]")) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
