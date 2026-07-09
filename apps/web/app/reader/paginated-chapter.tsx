@@ -5,7 +5,6 @@ import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { authClient } from "~/lib/auth-client";
 import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
 import { NoteDocPanel } from "./note-doc-panel";
@@ -51,23 +50,21 @@ export function PaginatedChapter({
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const openDoc = fullNotesApi.fullNotes.find((f) => f.id === openDocId) ?? null;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { data: session } = authClient.useSession();
-  const stored = session?.user.docPanelSize;
-  const docSize = typeof stored === "number" && stored >= 20 && stored <= 65 ? stored : 50;
-  const splitSave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Split width is a per-device ergonomic preference -> localStorage, not DB
+  const [docSize, setDocSize] = useState(() => {
+    if (typeof localStorage === "undefined") return 50;
+    const v = Number(localStorage.getItem("docPanelSize"));
+    return v >= 20 && v <= 65 ? v : 50;
+  });
 
-  // Persist the split the user drags to (debounced; % of window on the user)
   function onSplitChange(layout: Record<string, number>, meta: { isUserInteraction: boolean }) {
     if (!meta.isUserInteraction || !openDoc) return;
     const reader = layout.reader;
     const doc = layout.doc;
     if (typeof reader !== "number" || typeof doc !== "number") return;
     const pct = (doc / (reader + doc)) * 100;
-    if (Math.abs(pct - docSize) < 0.5) return;
-    if (splitSave.current) clearTimeout(splitSave.current);
-    splitSave.current = setTimeout(() => {
-      void authClient.updateUser({ docPanelSize: pct });
-    }, 600);
+    setDocSize(pct);
+    localStorage.setItem("docPanelSize", String(pct));
   }
 
   // Center the sheet in the pane whenever it stops fitting (doc open/close)

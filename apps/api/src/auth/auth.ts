@@ -24,12 +24,6 @@ export const auth = betterAuth({
         required: false,
         defaultValue: 'gold',
       },
-      // Doc panel width, % of the window (user-resizable split)
-      docPanelSize: {
-        type: 'number',
-        required: false,
-        defaultValue: 50,
-      },
     },
   },
   plugins: [
