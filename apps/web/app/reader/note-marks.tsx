@@ -1,4 +1,5 @@
 import type { FullNote, Note } from "@biblestdy/shared";
+import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import {
@@ -287,25 +288,25 @@ export function NoteMarks({
           ))}
         </svg>
 
-        {/* Full-note links: a static † + title beside the mark, opens the doc */}
+        {/* Full-note links: a typeset chip (index-tab, NOT handwriting) in the
+            interline gap above the mark's end — distinct from inline-note pen
+            text, and never sitting on the running text */}
         {docMarks.map((m) => (
           <button
             key={m.doc.id}
             type="button"
             title={m.doc.title || "Open note"}
             onClick={() => onOpenFullNote(m.doc.id)}
-            className="pointer-events-auto absolute max-w-40 cursor-pointer overflow-hidden font-serif text-[0.72rem] leading-none whitespace-nowrap italic text-ellipsis hover:underline"
-            style={
-              m.lines > 1
-                ? { left: m.box.x - BRACKET_GAP - 2, top: m.box.y - 14, color: NOTE_INK_TEXT }
-                : {
-                    left: m.box.x + m.box.w + 14,
-                    top: m.box.y + m.box.h / 2 - 5,
-                    color: NOTE_INK_TEXT,
-                  }
-            }
+            className="pointer-events-auto absolute flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden rounded-full border bg-popover px-1.5 py-px font-mono text-[0.58rem] leading-none whitespace-nowrap transition-colors hover:bg-accent"
+            style={{
+              left: m.lines > 1 ? m.box.x - BRACKET_GAP : m.box.x + m.box.w - 10,
+              top: m.box.y - 18,
+              color: NOTE_INK_TEXT,
+              borderColor: NOTE_INK,
+            }}
           >
-            † {m.doc.title || "note"}
+            <FileText className="size-2.5 shrink-0" />
+            <span className="overflow-hidden text-ellipsis">{m.doc.title || "note"}</span>
           </button>
         ))}
 
