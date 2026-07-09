@@ -3,7 +3,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { authClient } from "~/lib/auth-client";
 import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
 import { NoteDocPanel } from "./note-doc-panel";
@@ -49,6 +51,24 @@ export function PaginatedChapter({
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const openDoc = fullNotesApi.fullNotes.find((f) => f.id === openDocId) ?? null;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data: session } = authClient.useSession();
+  const stored = session?.user.docPanelSize;
+  const docSize = typeof stored === "number" && stored >= 20 && stored <= 65 ? stored : 50;
+  const splitSave = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Persist the split the user drags to (debounced; % of window on the user)
+  function onSplitChange(layout: Record<string, number>, meta: { isUserInteraction: boolean }) {
+    if (!meta.isUserInteraction || !openDoc) return;
+    const reader = layout.reader;
+    const doc = layout.doc;
+    if (typeof reader !== "number" || typeof doc !== "number") return;
+    const pct = (doc / (reader + doc)) * 100;
+    if (Math.abs(pct - docSize) < 0.5) return;
+    if (splitSave.current) clearTimeout(splitSave.current);
+    splitSave.current = setTimeout(() => {
+      void authClient.updateUser({ docPanelSize: pct });
+    }, 600);
+  }
 
   // Center the sheet in the pane whenever it stops fitting (doc open/close)
   useEffect(() => {
@@ -111,11 +131,20 @@ export function PaginatedChapter({
 
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col">
-      <div className="flex min-h-0 w-full flex-1">
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="min-h-0 w-full flex-1"
+        onLayoutChanged={onSplitChange}
+      >
       {/* The SHEET is a fixed-size artifact (text + margins) — print-fixed, it
           never reflows. The reading pane is a viewport onto it: when the doc
-          panel takes half the width, the pane scrolls instead of squeezing. */}
-      <div className="flex min-h-0 flex-1 flex-col">
+          panel takes part of the width, the pane scrolls instead of squeezing. */}
+      <ResizablePanel
+        id="reader"
+        minSize="35%"
+        defaultSize={openDoc ? `${100 - docSize}%` : "100%"}
+        className="flex min-h-0 flex-col"
+      >
       <div className="relative min-h-0 flex-1">
         <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
           {/* isolate: local stacking context so the -z-10 leader arrows paint
@@ -225,19 +254,22 @@ export function PaginatedChapter({
           </Button>
         </span>
       </footer>
-      </div>
+      </ResizablePanel>
 
       {openDoc && (
-        <div className="z-30 w-1/2 shrink-0 border-l border-border shadow-xl">
-          <NoteDocPanel
-            doc={openDoc}
-            onEdit={fullNotesApi.edit}
-            onRemove={fullNotesApi.remove}
-            onClose={() => setOpenDocId(null)}
-          />
-        </div>
+        <>
+          <ResizableHandle withHandle />
+          <ResizablePanel id="doc" defaultSize={`${docSize}%`} minSize="20%" maxSize="65%">
+            <NoteDocPanel
+              doc={openDoc}
+              onEdit={fullNotesApi.edit}
+              onRemove={fullNotesApi.remove}
+              onClose={() => setOpenDocId(null)}
+            />
+          </ResizablePanel>
+        </>
       )}
-      </div>
+      </ResizablePanelGroup>
     </main>
   );
 }

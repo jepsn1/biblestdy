@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, real, text, timestamp } from 'drizzle-orm/pg-core';
 
 /**
  * Better Auth core tables (magic-link flow uses `verification`).
@@ -14,6 +14,8 @@ export const user = pgTable('user', {
   defaultHighlightColor: text('default_highlight_color')
     .notNull()
     .default('gold'),
+  // Doc panel width, % of the window (user-resizable split)
+  docPanelSize: real('doc_panel_size').notNull().default(50),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
