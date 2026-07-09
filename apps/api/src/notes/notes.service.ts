@@ -39,7 +39,12 @@ export class NotesService {
   async update(
     userId: string,
     id: string,
-    patch: { text?: string; offsetX?: number; offsetY?: number; width?: number },
+    patch: {
+      text?: string;
+      offsetX?: number;
+      offsetY?: number;
+      width?: number;
+    },
   ): Promise<Note | null> {
     const [row] = await db
       .update(note)

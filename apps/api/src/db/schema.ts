@@ -50,3 +50,25 @@ export const note = pgTable('note', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+/**
+ * A full note: standalone markdown document anchored to a span (issue #7).
+ * Single anchor for now — #8 (multi-anchor) will move anchors to a join table.
+ */
+export const fullNote = pgTable('full_note', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  translationId: text('translation_id').notNull(),
+  book: text('book').notNull(),
+  chapter: integer('chapter').notNull(),
+  title: text('title').notNull().default(''),
+  body: text('body').notNull().default(''),
+  startVerse: integer('start_verse').notNull(),
+  startWord: integer('start_word').notNull(),
+  endVerse: integer('end_verse').notNull(),
+  endWord: integer('end_word').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});

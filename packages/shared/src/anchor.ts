@@ -106,6 +106,19 @@ export interface NewNote extends Anchor {
   text: string
 }
 
+/** A full note: standalone markdown document anchored to a span. */
+export interface FullNote extends Anchor {
+  id: string
+  title: string
+  body: string
+}
+
+/** Create payload for a full note. */
+export interface NewFullNote extends Anchor {
+  title?: string
+  body?: string
+}
+
 /** True if the two anchors address the exact same span. */
 export function sameAnchor(a: Anchor, b: Anchor): boolean {
   return (
