@@ -1,11 +1,13 @@
 # Next steps
 
-State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP, Neon, all routes gated). Plus design system, paginated reader, books sidebar + filter, section headings. CI green, 26 tests.
+State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP, all routes gated). Plus design system, paginated reader, books sidebar + filter, section headings. CI green, 26 tests.
+
+2026-07-09: **deployed to prod** on own server (see CLAUDE.md Prod) — live once router forwards 80/443 to the box (Marcus); cert auto-issues then. Fresh prod `BETTER_AUTH_SECRET` set ✓. Login codes: `docker logs biblestdy-api`.
 
 ## Pilot-time (before real users)
 
 - [ ] **Email service** — auth currently logs magic link + OTP to the api console (no email sent). For real users, wire Resend (or Postmark/SES) into `sendMagicLink`/`sendVerificationOTP` in `apps/api/src/auth/auth.ts`, one email w/ both link + code. Domain picked: **biblestdy.com** — still needs DNS verification for deliverability.
-- [ ] Fresh `BETTER_AUTH_SECRET` in production.
+- [x] Fresh `BETTER_AUTH_SECRET` in production ✓ 2026-07-09.
 
 ## Marcus (homework, unblocks work below)
 

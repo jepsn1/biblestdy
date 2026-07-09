@@ -11,6 +11,13 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 - `pnpm test` / `pnpm typecheck` / `pnpm lint` — must be green before commit. CI mirrors these.
 - `packages/shared` emits CJS to `dist/` — **rebuild (`pnpm --filter @biblestdy/shared build`) after editing it**, or api/web see stale exports. Vite prebundles it (`optimizeDeps.include`).
 
+## Prod
+
+- Self-hosted at **biblestdy.com** (see STACK.md Deploy; server manual = jepsn1/infra AGENTS.md). Deploy: `make deploy` in `/srv/apps/biblestdy`.
+- API = container `biblestdy-api` on docker network `web`, no published ports; SPA = static `apps/web/build/client` served by infra Caddy (`/api/*` proxied to the container).
+- Envs: root `.env` = prod (compose env_file), `apps/api/.env` = dev. DBs on shared postgres: prod `biblestdy`, dev `biblestdy_dev` — dev `db:push` can never touch prod.
+- No email service yet: magic link/OTP print to `docker logs biblestdy-api`.
+
 ## Conventions
 
 - Commits: author `jepsn1 <jepsn1@users.noreply.github.com>` via `git -c user.name=... -c user.email=...` (gh CLI v2.4 = single account; owner login is jepsn1, work login mk-logbuy gets overwritten — see memory).
