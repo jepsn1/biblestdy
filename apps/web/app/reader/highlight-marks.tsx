@@ -18,11 +18,14 @@ export function HighlightMarks({
   regionRef,
   contentRef,
   page,
+  dimmed = false,
 }: {
   highlights: Highlight[];
   regionRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLElement | null>;
   page: number;
+  /** Spotlight active elsewhere — the marker layer recedes with the page. */
+  dimmed?: boolean;
 }) {
   const [rects, setRects] = useState<MarkRect[]>([]);
 
@@ -107,7 +110,10 @@ export function HighlightMarks({
   }, [highlights, page, regionRef, contentRef]);
 
   return (
-    <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
+    <svg
+      className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible transition-opacity duration-250"
+      style={{ opacity: dimmed ? 0.25 : 1 }}
+    >
       {rects.map((r) => (
         <path key={r.key} d={markerPath(r.x, r.y, r.w, r.h, r.key)} fill={r.color} />
       ))}

@@ -141,6 +141,9 @@ export function AnnotationMarks({
   onPlace: (id: string, patch: { offsetX?: number; offsetY?: number; width?: number }) => void;
   onOpenNote: (id: string) => void;
 }) {
+  const spotlight =
+    selectedMarkId != null &&
+    noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
   const [regionSize, setRegionSize] = useState({ w: 0, h: 0 });
@@ -309,7 +312,7 @@ export function AnnotationMarks({
               stroke={NOTE_INK}
               strokeWidth={active ? 1.8 : 1.4}
               strokeLinecap="round"
-              opacity={active ? 1 : 0.75}
+              opacity={spotlight ? 0.12 : active ? 1 : 0.75}
             />
           );
         })}
@@ -339,7 +342,7 @@ export function AnnotationMarks({
                 stroke={NOTE_INK}
                 strokeWidth={active ? 2 : 1.5}
                 strokeLinecap="round"
-                opacity={active ? 1 : 0.75}
+                opacity={spotlight ? 0.12 : active ? 1 : 0.75}
               />
             );
           })}
@@ -368,7 +371,7 @@ export function AnnotationMarks({
                 stroke={selected ? NOTE_INK_SELECTED : NOTE_INK}
                 strokeWidth={selected || active ? 2.2 : 1.5}
                 strokeLinecap="round"
-                opacity={selected || active ? 1 : 0.75}
+                opacity={selected ? 1 : spotlight ? 0.12 : active ? 1 : 0.75}
               />
             );
           })}
@@ -399,6 +402,7 @@ export function AnnotationMarks({
               top: m.box.y - 18,
               color: selected ? NOTE_INK_SELECTED : NOTE_INK_TEXT,
               borderColor: selected ? NOTE_INK_SELECTED : NOTE_INK,
+              opacity: selected ? 1 : spotlight ? 0.25 : 1,
             }}
           >
             <FileText className="size-2.5 shrink-0" />
@@ -415,12 +419,13 @@ export function AnnotationMarks({
           return (
             <div
               key={p.annotation.id}
-              className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
+              className={`pointer-events-auto absolute -translate-y-1/2 transition-opacity duration-250 ${dragging ? "select-none" : ""}`}
               style={{
                 left: g.boxLeft,
                 top: g.cy,
                 width: g.w,
                 textAlign: g.side === "left" ? "right" : "left",
+                opacity: spotlight ? 0.25 : 1,
               }}
               onMouseEnter={() => onFocus(p.annotation.id)}
               onMouseLeave={() => !isEditing && onFocus(null)}

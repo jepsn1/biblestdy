@@ -238,6 +238,7 @@ export function PaginatedChapter({
               noteMarks={noteMarks}
               allNotes={allNotes}
               activeAnnotationId={activeAnnotationId}
+              selectedMarkId={selectedMarkId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}
@@ -255,6 +256,10 @@ export function PaginatedChapter({
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}
+          dimmed={
+            selectedMarkId != null &&
+            noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
+          }
         />
 
         <AnnotationMarks

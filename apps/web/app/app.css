@@ -178,6 +178,16 @@
   animation: ink-pulse 1.8s ease-in-out infinite;
 }
 
+/* Spotlight: while a reference is selected, the rest of the page recedes and
+   the selected span stays at full contrast (ink layers dim in-component) */
+[data-spotlight] :is(h1, sup, [data-word], [data-section]) {
+  opacity: 0.3;
+  transition: opacity 250ms ease;
+}
+[data-spotlight] [data-spotlit] [data-word] {
+  opacity: 1;
+}
+
 /* MDXEditor (full-note panel): sit on our tokens instead of its defaults */
 .mdxeditor {
   --baseBg: transparent;
