@@ -80,10 +80,13 @@ export function leaderPath(
     // Short hop: a single soft curve, no room for choreography
     pts = quad([x1, y1], [(x1 + x2) / 2, my], [x2, y2], 10, 1.4);
   } else {
-    const A: [number, number] = [x1 + out * (12 + rnd() * 6), y1]; // straight exit
-    const B: [number, number] = [A[0] + out * (18 + rnd() * 10), my]; // after the bend
-    const exit = quad([x1, y1], [(x1 + A[0]) / 2, y1], A, 3, 0.8);
-    const bend = quad(A, [A[0] + out * 5, my], B, 5, 1.2); // the bend, right by the note
+    // Drop nearly vertically RIGHT beside the note box — the box usually sits
+    // in whitespace, so the descent avoids crossing other lines of text; only
+    // the level run enters the column, riding inside one interline gap.
+    const A: [number, number] = [x1 + out * (5 + rnd() * 3), y1]; // tiny exit
+    const B: [number, number] = [A[0] + out * (6 + rnd() * 4), my]; // after the drop
+    const exit = quad([x1, y1], [(x1 + A[0]) / 2, y1], A, 2, 0.6);
+    const bend = quad(A, [A[0] + out * 2, my], B, 5, 1.2); // the drop, hugging the box
     const run = quad(B, [(B[0] + x2) / 2, my + bow], [x2, y2], 8, 1.6); // level run, soft arrival
     pts = [...exit, ...bend.slice(1), ...run.slice(1)];
   }
