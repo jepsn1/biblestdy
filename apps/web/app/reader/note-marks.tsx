@@ -47,7 +47,10 @@ function geom(
     w = resize.w;
   }
   const side: "left" | "right" = cx < aCX ? "left" : "right";
-  const above = cy < p.box.y - 12;
+  // Flip to the top approach as soon as the note rises past the circle's
+  // centerline (small bias keeps untouched lane notes on the classic
+  // under-run) — flipping later forces a hard bend near the arrowhead.
+  const above = cy < aCY - 4;
   const noteEdgeX = side === "left" ? cx + w / 2 : cx - w / 2;
   // Land anywhere along the loop's arc, at the point facing the note, with
   // the landing height following the ellipse's curve — many touch points,
