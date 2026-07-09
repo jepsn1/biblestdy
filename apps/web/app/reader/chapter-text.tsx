@@ -9,7 +9,7 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
-import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
+import { HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -189,16 +189,16 @@ export function ChapterText({
               const active = seg.note && seg.note.id === activeNoteId;
               const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
-                const style: React.CSSProperties = {};
-                if (hit) style.backgroundColor = HIGHLIGHT_BG[hit.color];
+                // Highlight wash is painted by HighlightMarks (full line-height,
+                // behind the text) — the span only carries the data-hl handle.
                 return (
                   <span
                     key={i}
                     data-verse={v.verse}
                     data-word={i}
+                    data-hl={hit?.id}
                     onClick={(e) => onWordClick(e, hit?.id, seg.note?.id)}
                     className={hit || seg.note ? "cursor-pointer" : undefined}
-                    style={style}
                   >
                     {word}{" "}
                   </span>

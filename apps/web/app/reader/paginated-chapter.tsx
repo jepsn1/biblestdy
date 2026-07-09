@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ChapterText } from "./chapter-text";
+import { HighlightMarks } from "./highlight-marks";
 import { NoteMarks } from "./note-marks";
 import { useHighlights } from "./use-highlights";
 import { useNotes } from "./use-notes";
@@ -117,6 +118,14 @@ export function PaginatedChapter({
             />
           </div>
         </div>
+
+        {/* Before NoteMarks: same underlay stratum, so pen arrows paint over marker */}
+        <HighlightMarks
+          highlights={highlights}
+          regionRef={regionRef}
+          contentRef={contentBoxRef}
+          page={page}
+        />
 
         <NoteMarks
           notes={notesApi.notes}
