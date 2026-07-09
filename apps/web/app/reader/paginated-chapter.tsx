@@ -257,7 +257,7 @@ export function PaginatedChapter({
         <>
           <ResizableHandle withHandle />
           {/* min = what the editor toolbar needs in one row */}
-          <ResizablePanel id="doc" defaultSize={`${docSize}%`} minSize="31rem" maxSize="65%">
+          <ResizablePanel id="doc" defaultSize={`${docSize}%`} minSize="35rem" maxSize="65%">
             <NoteDocPanel
               doc={openDoc}
               onEdit={fullNotesApi.edit}
