@@ -74,8 +74,10 @@ export function leaderPath(
     return out;
   };
 
-  // Under-run: note edge -> corner, sagging to the run depth
-  const run = quad([x1, y1], [(x1 + x2) / 2, my + 4], [ax, my], 9, 1.6);
+  // Under-run: note edge -> corner, bowing away from the text (down when
+  // approaching from below, up when from above) — same softness both ways
+  const bow = approach === "up" ? 4 : -4;
+  const run = quad([x1, y1], [(x1 + x2) / 2, my + bow], [ax, my], 9, 1.6);
   // Hook: corner -> tip, turning hard; control at the corner keeps it sharp
   const hook = quad([ax, my], [x2 + dir, my], [x2, y2], 4, 0.8);
   const pts = [...run, ...hook.slice(1)];
