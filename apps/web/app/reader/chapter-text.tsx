@@ -9,7 +9,7 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
-import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH, NOTE_INK } from "./highlight-colors";
+import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -26,8 +26,8 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
 }
 
-/** Dotted corner brackets: opening word gets top-left, closing word bottom-right. */
-const CORNER = `1.5px dotted ${NOTE_INK}`;
+// Noted spans carry no inline decoration — NoteGlosses draws a hand-drawn ink
+// loop around [data-note-anchor] spans plus the interlinear gloss above them.
 
 type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
 
@@ -187,24 +187,10 @@ export function ChapterText({
             </sup>
             {groupByNote(v.verse, tokens, noteCoverage).map((seg, si) => {
               const active = seg.note && seg.note.id === activeNoteId;
-              const wordSpans = seg.words.map(({ word, i }, wi) => {
+              const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
                 const style: React.CSSProperties = {};
                 if (hit) style.backgroundColor = HIGHLIGHT_BG[hit.color];
-                if (seg.note && wi === 0) {
-                  style.borderLeft = CORNER;
-                  style.borderTop = CORNER;
-                  style.borderTopLeftRadius = "5px";
-                  style.paddingLeft = "3px";
-                  style.paddingTop = "1px";
-                }
-                if (seg.note && wi === seg.words.length - 1) {
-                  style.borderRight = CORNER;
-                  style.borderBottom = CORNER;
-                  style.borderBottomRightRadius = "5px";
-                  style.paddingRight = "3px";
-                  style.paddingBottom = "1px";
-                }
                 return (
                   <span
                     key={i}
@@ -222,7 +208,11 @@ export function ChapterText({
                 <span
                   key={si}
                   data-note-anchor={seg.note.id}
-                  style={active ? { backgroundColor: "oklch(0.83 0.1 85 / 0.12)", borderRadius: "5px" } : undefined}
+                  style={
+                    active
+                      ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }
+                      : undefined
+                  }
                 >
                   {wordSpans}
                 </span>

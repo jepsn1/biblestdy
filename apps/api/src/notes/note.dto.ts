@@ -1,4 +1,13 @@
-import { IsInt, IsString, Min, MaxLength, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 /** Inline notes are short — cap the length so full notes (#7) stay the home for long-form. */
 const MAX_INLINE = 500;
@@ -39,8 +48,25 @@ export class CreateNoteDto {
 }
 
 export class UpdateNoteDto {
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(MAX_INLINE)
-  text!: string;
+  text?: string;
+
+  /** Dragged position, offset from the anchored words' center (px). */
+  @IsOptional()
+  @IsNumber()
+  offsetX?: number;
+
+  @IsOptional()
+  @IsNumber()
+  offsetY?: number;
+
+  /** User-resized box width (px). */
+  @IsOptional()
+  @IsNumber()
+  @Min(90)
+  @Max(600)
+  width?: number;
 }

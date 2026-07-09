@@ -1,4 +1,11 @@
-import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  integer,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { user } from './auth-schema';
 
 /**
@@ -35,6 +42,11 @@ export const note = pgTable('note', {
   startWord: integer('start_word').notNull(),
   endVerse: integer('end_verse').notNull(),
   endWord: integer('end_word').notNull(),
+  // Dragged position, offset from the anchored words' center; null = auto
+  offsetX: real('offset_x'),
+  offsetY: real('offset_y'),
+  // User-resized box width (px); null = default lane width
+  width: real('width'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

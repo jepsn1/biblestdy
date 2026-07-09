@@ -35,15 +35,15 @@ export class NotesService {
     return toNote(row);
   }
 
-  /** Updates the text of a note the user owns; null if not found. */
-  async updateText(
+  /** Updates text and/or dragged position of a note the user owns; null if not found. */
+  async update(
     userId: string,
     id: string,
-    text: string,
+    patch: { text?: string; offsetX?: number; offsetY?: number; width?: number },
   ): Promise<Note | null> {
     const [row] = await db
       .update(note)
-      .set({ text, updatedAt: new Date() })
+      .set({ ...patch, updatedAt: new Date() })
       .where(and(eq(note.id, id), eq(note.userId, userId)))
       .returning();
     return row ? toNote(row) : null;
@@ -69,5 +69,8 @@ function toNote(row: typeof note.$inferSelect): Note {
     startWord: row.startWord,
     endVerse: row.endVerse,
     endWord: row.endWord,
+    offsetX: row.offsetX,
+    offsetY: row.offsetY,
+    width: row.width,
   };
 }

@@ -54,7 +54,15 @@ export class NotesController {
     @Param('id') id: string,
     @Body() dto: UpdateNoteDto,
   ): Promise<Note> {
-    const updated = await this.notes.updateText(req.user.id, id, dto.text);
+    if (
+      dto.text === undefined &&
+      dto.offsetX === undefined &&
+      dto.offsetY === undefined &&
+      dto.width === undefined
+    ) {
+      throw new BadRequestException('nothing to update');
+    }
+    const updated = await this.notes.update(req.user.id, id, dto);
     if (!updated) throw new NotFoundException();
     return updated;
   }

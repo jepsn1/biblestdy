@@ -49,5 +49,18 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     if (res.ok) setNotes((n) => n.filter((x) => x.id !== id));
   }
 
-  return { notes, add, edit, remove };
+  /** Persist a dragged position (offset from the anchor's center) and/or a
+   * resized width. Optimistic: the note was just placed there, so update
+   * local state immediately. */
+  async function place(id: string, patch: { offsetX?: number; offsetY?: number; width?: number }) {
+    setNotes((n) => n.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    await fetch(`/api/notes/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+  }
+
+  return { notes, add, edit, remove, place };
 }

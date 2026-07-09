@@ -13,7 +13,7 @@ function make(overrides: Partial<NotesService> = {}) {
   const service = {
     listForChapter: vi.fn(),
     create: vi.fn(),
-    updateText: vi.fn(),
+    update: vi.fn(),
     remove: vi.fn(),
     ...overrides,
   };
@@ -63,17 +63,36 @@ describe('NotesController', () => {
   it('updates an owned note', async () => {
     const updated = { id: 'n1', text: 'edited' } as Note;
     const { service, controller } = make({
-      updateText: vi.fn().mockResolvedValue(updated),
+      update: vi.fn().mockResolvedValue(updated),
     });
     expect(await controller.update(req, 'n1', { text: 'edited' })).toBe(
       updated,
     );
-    expect(service.updateText).toHaveBeenCalledWith('user-1', 'n1', 'edited');
+    expect(service.update).toHaveBeenCalledWith('user-1', 'n1', {
+      text: 'edited',
+    });
+  });
+
+  it('saves a dragged position', async () => {
+    const updated = { id: 'n1', offsetX: -120, offsetY: 40 } as Note;
+    const { service, controller } = make({
+      update: vi.fn().mockResolvedValue(updated),
+    });
+    const dto = { offsetX: -120, offsetY: 40 };
+    expect(await controller.update(req, 'n1', dto)).toBe(updated);
+    expect(service.update).toHaveBeenCalledWith('user-1', 'n1', dto);
+  });
+
+  it('rejects an empty update', async () => {
+    const { controller } = make();
+    await expect(controller.update(req, 'n1', {})).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('404s updating a note the user does not own', async () => {
     const { controller } = make({
-      updateText: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue(null),
     });
     await expect(controller.update(req, 'nope', { text: 'x' })).rejects.toThrow(
       NotFoundException,

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ChapterText } from "./chapter-text";
-import { MarginNotes } from "./margin-notes";
+import { NoteGlosses } from "./note-glosses";
 import { useHighlights } from "./use-highlights";
 import { useNotes } from "./use-notes";
 
@@ -92,14 +92,16 @@ export function PaginatedChapter({
 
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col">
-      <div ref={regionRef} className="relative min-h-0 flex-1">
+      {/* isolate: local stacking context so the -z-10 leader arrows paint
+          behind the text but still above the page background */}
+      <div ref={regionRef} className="relative isolate min-h-0 flex-1">
         <div
           ref={contentBoxRef}
           className="relative mx-auto h-full max-w-2xl overflow-hidden px-6 pt-10 pb-6 lg:max-w-3xl"
         >
           <div
             ref={contentRef}
-            className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-16 lg:columns-2"
+            className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 lg:columns-2"
             style={{ transform: `translateX(-${page * stride}px)` }}
           >
             <ChapterText
@@ -116,7 +118,7 @@ export function PaginatedChapter({
           </div>
         </div>
 
-        <MarginNotes
+        <NoteGlosses
           notes={notesApi.notes}
           regionRef={regionRef}
           contentRef={contentBoxRef}
@@ -125,6 +127,7 @@ export function PaginatedChapter({
           onFocus={setActiveNoteId}
           onEdit={notesApi.edit}
           onRemove={notesApi.remove}
+          onPlace={notesApi.place}
         />
 
         {/* Edge tap zones, like flipping a page */}

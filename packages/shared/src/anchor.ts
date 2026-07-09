@@ -92,6 +92,13 @@ export interface NewHighlight extends Anchor {
 export interface Note extends Anchor {
   id: string
   text: string
+  /** Where the user dragged the note, as an offset from the anchored words'
+   * center (px). Null/absent = automatic placement. Anchor-relative so the
+   * note travels with its verse across reflow/pagination. */
+  offsetX?: number | null
+  offsetY?: number | null
+  /** User-resized box width (px); null/absent = default. */
+  width?: number | null
 }
 
 /** Create payload for a note. */
