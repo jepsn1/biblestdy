@@ -4,6 +4,11 @@ import { useQueries } from "@tanstack/react-query";
 import { api } from "~/lib/query";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "~/components/ui/resizable";
+import {
   BlockTypeSelect,
   BoldItalicUnderlineToggles,
   codeBlockPlugin,
@@ -72,11 +77,11 @@ function ReferencesTable({
   const chapterOf = new Map(chapterKeys.map(([key], i) => [key, results[i].data]));
 
   return (
-    <section className="shrink-0 border-t border-border px-3 py-2">
-      <h3 className="mb-1 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
+    <section className="flex h-full min-h-0 flex-col px-3 py-2">
+      <h3 className="mb-1 shrink-0 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
         References
       </h3>
-      <ScrollArea className="max-h-40" viewportClassName="max-h-40">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col">
         {note.anchors.map((a) => {
           const isSelected = a.id === selectedAnchorId;
@@ -205,6 +210,8 @@ export function NotePanel({
         </button>
       </header>
 
+      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+        <ResizablePanel id="editor" defaultSize="72%" minSize="30%" className="flex min-h-0 flex-col">
       <MDXEditor
         key={note.id}
         markdown={note.body}
@@ -239,12 +246,17 @@ export function NotePanel({
         ]}
       />
 
-      <ReferencesTable
-        note={note}
-        selectedAnchorId={selectedAnchorId}
-        onShowAnchor={onShowAnchor}
-        onDetach={onDetach}
-      />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel id="references" defaultSize="28%" minSize="10%" maxSize="60%">
+          <ReferencesTable
+            note={note}
+            selectedAnchorId={selectedAnchorId}
+            onShowAnchor={onShowAnchor}
+            onDetach={onDetach}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
         <button
