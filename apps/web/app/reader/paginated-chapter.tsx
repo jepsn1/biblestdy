@@ -103,7 +103,9 @@ export function PaginatedChapter({
 
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col">
-      <div className="flex min-h-0 w-full flex-1">
+      {/* relative: the doc panel OVERLAYS the reader — it must never squeeze
+          the text, reflow invalidates every hand-placed annotation */}
+      <div className="relative flex min-h-0 w-full flex-1">
       {/* isolate: local stacking context so the -z-10 leader arrows paint
           behind the text but still above the page background */}
       <div ref={regionRef} className="relative isolate min-h-0 flex-1">
@@ -113,9 +115,7 @@ export function PaginatedChapter({
         >
           <div
             ref={contentRef}
-            className={`h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 ${
-              openDoc ? "" : "lg:columns-2" /* single column beside the doc panel */
-            }`}
+            className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 lg:columns-2"
             style={{ transform: `translateX(-${page * stride}px)` }}
           >
             <ChapterText
@@ -173,12 +173,14 @@ export function PaginatedChapter({
       </div>
 
       {openDoc && (
-        <NoteDocPanel
-          doc={openDoc}
-          onEdit={fullNotesApi.edit}
-          onRemove={fullNotesApi.remove}
-          onClose={() => setOpenDocId(null)}
-        />
+        <div className="absolute inset-y-0 right-0 z-30 flex shadow-xl">
+          <NoteDocPanel
+            doc={openDoc}
+            onEdit={fullNotesApi.edit}
+            onRemove={fullNotesApi.remove}
+            onClose={() => setOpenDocId(null)}
+          />
+        </div>
       )}
       </div>
 

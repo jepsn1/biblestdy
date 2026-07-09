@@ -33,5 +33,6 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 ## Watch-outs
 
 - Anchor design: anchor to verse-relative word offsets, NOT rendered-DOM offsets; sections are never anchorable.
+- **Page geometry is print-fixed.** Hand-placed annotations (dragged note boxes, gutter glosses) assume word positions never move. NEVER reflow the text in response to UI state — panels must overlay, not squeeze (doc panel does this); column count/width/font are fixed on desktop. Mobile pass (#13): SCALE the page down like a printed sheet, don't reflow it.
 - Long chapters (Ps 119) paginate fine but col-flow within spread — revisit if annoying.
 - API.Bible Starter = non-commercial; Pro $29/mo when charging. 24h cache keeps quota low.
