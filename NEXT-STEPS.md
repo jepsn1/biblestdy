@@ -4,13 +4,14 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 ## Pilot-time (before real users)
 
-- [ ] **Email service** — auth currently logs magic link + OTP to the api console (no email sent). For real users, wire Resend (or Postmark/SES) into `sendMagicLink`/`sendVerificationOTP` in `apps/api/src/auth/auth.ts`, one email w/ both link + code. Needs a **domain** for biblestdy + DNS verification (deliverability). Gated on picking a domain.
+- [ ] **Email service** — auth currently logs magic link + OTP to the api console (no email sent). For real users, wire Resend (or Postmark/SES) into `sendMagicLink`/`sendVerificationOTP` in `apps/api/src/auth/auth.ts`, one email w/ both link + code. Domain picked: **biblestdy.com** — still needs DNS verification for deliverability.
 - [ ] Fresh `BETTER_AUTH_SECRET` in production.
 
 ## Marcus (homework, unblocks work below)
 
-- [ ] **Neon**: console.neon.tech → new project `biblestdy` (EU) → paste into `apps/api/.env`:
-  `DATABASE_URL=postgresql://...`
+- [ ] **DB switched Neon → local Postgres** (2026-07-09, see STACK.md): `apps/api/.env` →
+  `DATABASE_URL=postgresql://postgres:<pw from /srv/infra/compose/.env>@localhost:5432/biblestdy`
+  then run migrations. If the old Neon project has data worth keeping, dump it first (`pg_dump <neon-url> | psql <local-url>`), then delete the Neon project.
 - [ ] **API.Bible key** → `apps/api/.env`: `API_BIBLE_KEY=...`
   Picks: NIV + 2 of NLT/CSB/NASB. (ESV not on API.Bible; no Danish in public picks.)
 - [ ] **Send Bibelselskabet email** (rettigheder@bibelselskabet.dk) — free non-commercial pilot license for Bibelen 2020, delivered via DBL key → API.Bible. Danish draft: session 2026-07-08 / ask Claude to re-draft.
@@ -26,7 +27,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 - Credit pricing + starting balance?
 - Topics: user-authored only, or AI-suggested from day one?
-- Deploy targets at pilot time (SPA: Vercel/CF Pages; API: Railway/Render/Fly).
+- ~~Deploy targets~~ resolved 2026-07-09: self-host on own server (biblestdy.com, Caddy + Docker, local Postgres — see STACK.md Deploy).
 
 ## Watch-outs
 
