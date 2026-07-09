@@ -30,11 +30,12 @@ function mulberry32(seed: number): () => number {
 
 /**
  * A hand-drawn vertical bracket beside a multi-line span: short top foot,
- * wobbly spine from y1 to y2, short bottom foot. One pen stroke.
+ * wobbly spine from y1 to y2, short bottom foot. One pen stroke. `dir` is
+ * which way the feet point: 1 = right (bracket left of the text), -1 = left.
  */
-export function bracketPath(x: number, y1: number, y2: number, seed: string): string {
+export function bracketPath(x: number, y1: number, y2: number, seed: string, dir = 1): string {
   const rnd = mulberry32(hashSeed(seed + ":bracket"));
-  const foot = 6 + rnd() * 3;
+  const foot = dir * (6 + rnd() * 3);
   const pts: [number, number][] = [[x + foot, y1 + (rnd() - 0.5) * 2]];
   pts.push([x + (rnd() - 0.5) * 1.5, y1 + (rnd() - 0.5) * 1.5]);
   const steps = Math.max(3, Math.round((y2 - y1) / 14));

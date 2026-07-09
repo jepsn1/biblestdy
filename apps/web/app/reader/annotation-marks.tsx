@@ -30,10 +30,16 @@ const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
 
 type Box = { x: number; y: number; w: number; h: number };
 /** lines: distinct text lines the span covers — 1 = circle it, 2+ = bracket */
-type Placement = { annotation: Annotation; box: Box; lines: number; laneCenter: { x: number; y: number } };
+type Placement = {
+  annotation: Annotation;
+  box: Box;
+  lines: number;
+  colSide: "left" | "right"; // which column of the spread the span sits in
+  laneCenter: { x: number; y: number };
+};
 /** A full annotation's mark: same circle/bracket by geometry, plus a static † label
  * beside it that opens the document panel. */
-type NoteTab = { note: Note; box: Box; lines: number };
+type NoteTab = { note: Note; box: Box; lines: number; colSide: "left" | "right" };
 
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
@@ -68,8 +74,10 @@ function geom(
   let anchorX: number;
   let anchorY: number;
   if (p.lines > 1) {
-    // Bracketed span: bind to the bracket's spine, at the annotation's height
-    anchorX = p.box.x - BRACKET_GAP - 3;
+    // Bracketed span: bind to the bracket's spine, at the annotation's height.
+    // The bracket lives on the span's outer-margin side (its column side).
+    anchorX =
+      p.colSide === "left" ? p.box.x - BRACKET_GAP - 3 : p.box.x + p.box.w + BRACKET_GAP + 3;
     anchorY = Math.min(Math.max(cy, p.box.y + 8), p.box.y + p.box.h - 8);
   } else {
     // Circled span: land anywhere along the loop's arc, at the point facing
@@ -196,6 +204,7 @@ export function AnnotationMarks({
           annotation,
           box: m.box,
           lines: m.lines,
+          colSide: side,
           laneCenter: {
             x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
             y: m.box.y + m.box.h / 2,
@@ -207,7 +216,13 @@ export function AnnotationMarks({
       const tabs: NoteTab[] = [];
       for (const note of notes) {
         const m = measureAnchor(`note:${note.id}`);
-        if (m) tabs.push({ note, box: m.box, lines: m.lines });
+        if (m)
+          tabs.push({
+            note,
+            box: m.box,
+            lines: m.lines,
+            colSide: m.mid < centerX ? "left" : "right",
+          });
       }
       setNoteTabs(tabs);
     };
@@ -256,10 +271,13 @@ export function AnnotationMarks({
                 d={
                   p.lines > 1
                     ? bracketPath(
-                        p.box.x - BRACKET_GAP,
+                        p.colSide === "left"
+                          ? p.box.x - BRACKET_GAP
+                          : p.box.x + p.box.w + BRACKET_GAP,
                         p.box.y + 2,
                         p.box.y + p.box.h - 2,
                         p.annotation.id,
+                        p.colSide === "left" ? 1 : -1,
                       )
                     : scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.annotation.id)
                 }
@@ -276,7 +294,15 @@ export function AnnotationMarks({
               key={m.note.id}
               d={
                 m.lines > 1
-                  ? bracketPath(m.box.x - BRACKET_GAP, m.box.y + 2, m.box.y + m.box.h - 2, m.note.id)
+                  ? bracketPath(
+                      m.colSide === "left"
+                        ? m.box.x - BRACKET_GAP
+                        : m.box.x + m.box.w + BRACKET_GAP,
+                      m.box.y + 2,
+                      m.box.y + m.box.h - 2,
+                      m.note.id,
+                      m.colSide === "left" ? 1 : -1,
+                    )
                   : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.note.id)
               }
               fill="none"
@@ -299,7 +325,15 @@ export function AnnotationMarks({
             onClick={() => onOpenNote(m.note.id)}
             className="pointer-events-auto absolute flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden rounded-full border bg-popover px-1.5 py-px font-mono text-[0.58rem] leading-none whitespace-nowrap transition-colors hover:bg-accent"
             style={{
-              left: m.lines > 1 ? m.box.x - BRACKET_GAP : m.box.x + m.box.w - 10,
+              left:
+                m.lines > 1
+                  ? m.colSide === "left"
+                    ? m.box.x - BRACKET_GAP
+                    : undefined
+                  : m.box.x + m.box.w - 10,
+              ...(m.lines > 1 && m.colSide === "right"
+                ? { left: m.box.x + m.box.w + BRACKET_GAP, transform: "translateX(-100%)" }
+                : {}),
               top: m.box.y - 18,
               color: NOTE_INK_TEXT,
               borderColor: NOTE_INK,
