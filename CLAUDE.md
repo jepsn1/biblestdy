@@ -8,6 +8,7 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 
 - Node ≥22.22 required (`nvm use`; system node 20 breaks React Router 8). pnpm 10 workspace.
 - `pnpm dev` — builds shared, runs web (5173) + api (3001, prefix `/api`, proxied in dev). Port 3000 is often taken by another project.
+- Dev server reachable from LAN (`http://192.168.18.7:5173`) and WAN at **https://dev.biblestdy.com** behind caddy basic_auth (user `marcus`, password: `/srv/infra/compose/.dev-password`). Vite binds 0.0.0.0; UFW walls off WAN.
 - `pnpm test` / `pnpm typecheck` / `pnpm lint` — must be green before commit. CI mirrors these.
 - `packages/shared` emits CJS to `dist/` — **rebuild (`pnpm --filter @biblestdy/shared build`) after editing it**, or api/web see stale exports. Vite prebundles it (`optimizeDeps.include`).
 

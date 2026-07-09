@@ -12,6 +12,9 @@ export default defineConfig({
     include: ["@biblestdy/shared"],
   },
   server: {
+    // Reachable from LAN + via caddy at dev.biblestdy.com (basic_auth) — UFW blocks WAN
+    host: true,
+    allowedHosts: ["dev.biblestdy.com"],
     // Dev-only: forward API calls to the NestJS server
     proxy: {
       "/api": "http://localhost:3001",
