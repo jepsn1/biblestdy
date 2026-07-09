@@ -242,6 +242,7 @@ export function PaginatedChapter({
               noteMarks={noteMarks}
               allNotes={allNotes}
               activeAnnotationId={activeAnnotationId}
+              selectedMarkId={selectedMarkId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}

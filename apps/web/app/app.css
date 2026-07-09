@@ -158,6 +158,16 @@
   --selection: oklch(0.83 0.1 85 / 30%);
 }
 
+/* Reference spotlight: other ink is hidden (in-component); the words dim just
+   enough that the active view state is legible, the selected span stays lit */
+[data-spotlight] :is(h1, sup, [data-word], [data-section]) {
+  opacity: 0.55;
+  transition: opacity 200ms ease;
+}
+[data-spotlight] [data-spotlit] [data-word] {
+  opacity: 1;
+}
+
 /* MDXEditor (full-note panel): sit on our tokens instead of its defaults */
 .mdxeditor {
   --baseBg: transparent;
