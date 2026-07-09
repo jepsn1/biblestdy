@@ -54,7 +54,7 @@ function geom(
   // picked by where the note actually is.
   const rx = p.box.w / 2 + SCRIBBLE_PAD_X;
   const ry = p.box.h / 2 + SCRIBBLE_PAD_Y;
-  const t = Math.min(Math.max((cx - p.box.x) / p.box.w, 0.1), 0.9);
+  const t = Math.min(Math.max((cx - p.box.x) / p.box.w, 0.02), 0.98);
   const ex = (t - 0.5) * p.box.w; // x-offset from the loop's center
   const bulge = ry * Math.sqrt(Math.max(0, 1 - (ex / rx) ** 2));
   const anchorX = p.box.x + p.box.w * t;
