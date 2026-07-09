@@ -168,6 +168,11 @@
   border-radius: 0;
   border-bottom: 1px solid var(--border);
 }
+/* Popups (block-type select, link dialog) portal outside the panel's stacking
+   context — without a z-index they end up behind the editor content */
+.mdxeditor-popup-container {
+  z-index: 100;
+}
 
 @layer base {
   * {

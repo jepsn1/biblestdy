@@ -96,7 +96,7 @@ export function NoteDocPanel({
         onChange={setBody}
         placeholder="Write your note…"
         className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
-        contentEditableClassName="font-serif text-sm leading-relaxed"
+        contentEditableClassName="font-serif text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-xl [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-lg [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
         plugins={[
           headingsPlugin(),
           listsPlugin(),
