@@ -23,11 +23,10 @@ Decisions for v1 (see `VISION.md` for product, issue #1 for the v1 PRD). Rationa
 
 ## Deploy
 
-Self-hosted on our own server behind Caddy — see jepsn1/infra (its AGENTS.md = operating manual). Was Vercel/Neon; switched 2026-07-09. **Dev-only for now**; wiring below happens at pilot time.
+Self-hosted on our own server behind Caddy — see jepsn1/infra (its AGENTS.md = operating manual). Was Vercel/Neon; switched 2026-07-09. **Deployed 2026-07-09** — `make deploy` on the server; details in CLAUDE.md Prod.
 
 - Domain: **biblestdy.com** → server IP; Caddy auto-HTTPS.
-- SPA → static build served by Caddy. API → Docker container on shared `web` network. DB → shared local Postgres (`infra-postgres`).
-- At deploy time add: `Dockerfile`, `docker-compose.yml` (container `biblestdy`, network `web`, no published ports), `caddy/sites/biblestdy.caddy` in infra (`new-app.sh` generates it).
+- SPA → static build served by Caddy. API → container `biblestdy-api` on shared `web` network, no published ports (`caddy/sites/biblestdy.caddy` in infra routes `/api/*` to it). DB → shared local Postgres (`infra-postgres`): prod `biblestdy`, dev `biblestdy_dev`.
 
 ## Deep modules (testable in isolation)
 
