@@ -82,7 +82,7 @@ export function NoteDocPanel({
           data-lpignore="true"
           data-bwignore
           data-form-type="other"
-          className="min-w-0 flex-1 bg-transparent font-serif text-base font-medium outline-none placeholder:text-muted-foreground/60"
+          className="min-w-0 flex-1 bg-transparent font-serif text-xl font-medium outline-none placeholder:text-muted-foreground/60"
         />
         <button
           type="button"
