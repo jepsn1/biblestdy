@@ -90,10 +90,6 @@ export function PaginatedChapter({
     if (created) setOpenNoteId(created.id);
   }
 
-  async function attachNote(noteId: string, anchor: Parameters<typeof notesApi.add>[0]) {
-    const updated = await notesApi.attach(noteId, anchor);
-    if (updated) setOpenNoteId(updated.id); // show what the span now points at
-  }
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
 
@@ -185,7 +181,7 @@ export function PaginatedChapter({
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}
               onAddNote={(anchor) => void addNote(anchor)}
-              onAttachNote={(noteId, anchor) => void attachNote(noteId, anchor)}
+              onAttachNote={(noteId, anchor) => void notesApi.attach(noteId, anchor)}
               onOpenNote={setOpenNoteId}
               onFocusAnnotation={setActiveAnnotationId}
             />
