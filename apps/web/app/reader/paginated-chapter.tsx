@@ -153,7 +153,7 @@ export function PaginatedChapter({
         >
           <div
             ref={contentRef}
-            className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 lg:columns-2"
+            className="h-full text-justify font-serif text-lg leading-9 text-foreground/95 hyphens-auto transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 lg:columns-2"
             style={{ transform: `translateX(-${page * stride}px)` }}
           >
             <ChapterText
