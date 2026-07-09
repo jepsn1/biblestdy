@@ -175,9 +175,29 @@ export function ChapterText({
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
-    const startEl = wordElFromNode(range.startContainer);
-    const endEl = wordElFromNode(range.endContainer);
+    let startEl = wordElFromNode(range.startContainer);
+    let endEl = wordElFromNode(range.endContainer);
     if (!startEl || !endEl) return;
+    // Word spans render as "word␣" — a drag starting in the gap before a word
+    // anchors the range in the PREVIOUS span's trailing space (and a drag
+    // ending right before a word touches its span at offset 0). Nudge
+    // boundaries that cover no visible characters of their word.
+    const spans = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>("[data-verse][data-word]"),
+    );
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      const text = range.startContainer.textContent ?? "";
+      if (range.startOffset >= text.trimEnd().length) {
+        startEl = spans[spans.indexOf(startEl) + 1] ?? null;
+      }
+    }
+    if (range.endContainer.nodeType === Node.TEXT_NODE) {
+      const text = range.endContainer.textContent ?? "";
+      if (range.endOffset === 0 && text.trim() !== "") {
+        endEl = spans[spans.indexOf(endEl) - 1] ?? null;
+      }
+    }
+    if (!startEl || !endEl || spans.indexOf(startEl) > spans.indexOf(endEl)) return;
     const anchor = buildAnchor(
       { translationId: chapter.translationId, book: chapter.book, chapter: chapter.chapter },
       { verse: Number(startEl.dataset.verse), word: Number(startEl.dataset.word) },
