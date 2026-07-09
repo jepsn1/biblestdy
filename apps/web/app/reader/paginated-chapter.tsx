@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
 import { NoteDocPanel } from "./note-doc-panel";
@@ -51,8 +52,8 @@ export function PaginatedChapter({
 
   // Center the sheet in the pane whenever it stops fitting (doc open/close)
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTo({ left: (el.scrollWidth - el.clientWidth) / 2, behavior: "smooth" });
+    const vp = scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    if (vp) vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
   }, [openDocId]);
 
   async function addFullNote(anchor: Parameters<typeof fullNotesApi.add>[0]) {
@@ -114,8 +115,9 @@ export function PaginatedChapter({
       {/* The SHEET is a fixed-size artifact (text + margins) — print-fixed, it
           never reflows. The reading pane is a viewport onto it: when the doc
           panel takes half the width, the pane scrolls instead of squeezing. */}
+      <div className="flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} className="h-full overflow-x-auto">
+        <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
           {/* isolate: local stacking context so the -z-10 leader arrows paint
               behind the text but still above the page background */}
           <div ref={regionRef} className="relative isolate mx-auto h-full w-[75rem]">
@@ -168,7 +170,7 @@ export function PaginatedChapter({
         />
 
           </div>
-        </div>
+        </ScrollArea>
 
         {/* Page-flip zones, pinned to the pane edges */}
         <button
@@ -187,18 +189,6 @@ export function PaginatedChapter({
         >
           <ChevronRight className="size-5" />
         </button>
-      </div>
-
-      {openDoc && (
-        <div className="z-30 w-1/2 shrink-0 border-l border-border shadow-xl">
-          <NoteDocPanel
-            doc={openDoc}
-            onEdit={fullNotesApi.edit}
-            onRemove={fullNotesApi.remove}
-            onClose={() => setOpenDocId(null)}
-          />
-        </div>
-      )}
       </div>
 
       <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-6 py-3 font-mono text-[0.65rem] text-muted-foreground">
@@ -235,6 +225,19 @@ export function PaginatedChapter({
           </Button>
         </span>
       </footer>
+      </div>
+
+      {openDoc && (
+        <div className="z-30 w-1/2 shrink-0 border-l border-border shadow-xl">
+          <NoteDocPanel
+            doc={openDoc}
+            onEdit={fullNotesApi.edit}
+            onRemove={fullNotesApi.remove}
+            onClose={() => setOpenDocId(null)}
+          />
+        </div>
+      )}
+      </div>
     </main>
   );
 }
