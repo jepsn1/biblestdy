@@ -107,12 +107,19 @@ export function ChapterText({
     ? session.user.defaultHighlightColor
     : DEFAULT_HIGHLIGHT_COLOR;
 
-  const hlCoverage = new Map<string, { id: string; color: HighlightColor }>();
-  coverInto(hlCoverage, chapter.verses, highlights.map((h) => ({ ...h, value: { id: h.id, color: h.color } })));
-  // Marks may overlap/nest (a circled word inside a bracketed passage) —
-  // cover smallest span first so the most specific mark wins clicks + wash.
-  const annotationCoverage = new Map<string, AnchorRef>();
+  // Marks and highlights may overlap/nest (a circled or re-marked word inside
+  // a larger span) — cover smallest span first so the most specific one wins
+  // clicks + wash. Rendering measures each mark's own word range regardless.
   const spanSize = (a: Anchor) => (a.endVerse - a.startVerse) * 1000 + (a.endWord - a.startWord);
+  const hlCoverage = new Map<string, { id: string; color: HighlightColor }>();
+  coverInto(
+    hlCoverage,
+    chapter.verses,
+    [...highlights]
+      .sort((a, b) => spanSize(a) - spanSize(b))
+      .map((h) => ({ ...h, value: { id: h.id, color: h.color } })),
+  );
+  const annotationCoverage = new Map<string, AnchorRef>();
   coverInto(
     annotationCoverage,
     chapter.verses,
@@ -218,13 +225,12 @@ export function ChapterText({
               const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
                 // Highlight wash is painted by HighlightMarks (full line-height,
-                // behind the text) — the span only carries the data-hl handle.
+                // behind the text), measured from this span's data-verse/word.
                 return (
                   <span
                     key={i}
                     data-verse={v.verse}
                     data-word={i}
-                    data-hl={hit?.id}
                     onClick={(e) => onWordClick(e, hit?.id, seg.annotation?.id)}
                     className={hit || seg.annotation ? "cursor-pointer" : undefined}
                   >

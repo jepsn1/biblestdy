@@ -5,7 +5,7 @@ import { markerPath } from "./scribble";
 
 /**
  * Marker layer. Highlights are drawn as full line-height rects measured from
- * the highlighted word spans ([data-hl]) and rendered BEHIND the text, so:
+ * each highlight's word range and rendered BEHIND the text, so:
  * wrapped lines tile with no white gap, the wash bridges spaces and verse
  * numbers, and all glyphs (verse numbers included) stay in front — like real
  * marker under real print.
@@ -35,28 +35,46 @@ export function HighlightMarks({
       const regionRect = region.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
       const out: MarkRect[] = [];
-      for (const hl of highlights) {
-        const els = region.querySelectorAll<HTMLElement>(`[data-hl="${hl.id}"]`);
-        if (els.length === 0) continue;
-        const lineH = parseFloat(getComputedStyle(els[0]).lineHeight) || 36;
-        // Merge word fragments into one run per line (same top, same column —
+      // Wider washes paint first so a nested highlight's color reads on top
+      const bySize = [...highlights].sort(
+        (a, b) =>
+          (b.endVerse - b.startVerse) * 1000 +
+          (b.endWord - b.startWord) -
+          ((a.endVerse - a.startVerse) * 1000 + (a.endWord - a.startWord)),
+      );
+      for (const hl of bySize) {
+        // Measure straight from the word spans — overlapping highlights all
+        // render, independent of any per-word ownership
+        const rects: DOMRect[] = [];
+        let lineH = 36;
+        for (let v = hl.startVerse; v <= hl.endVerse; v++) {
+          const els = region.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
+          for (const el of els) {
+            const w = Number(el.dataset.word);
+            if (v === hl.startVerse && w < hl.startWord) continue;
+            if (v === hl.endVerse && w > hl.endWord) continue;
+            const r = el.getBoundingClientRect();
+            if (r.width === 0) continue;
+            if (r.right < contentRect.left + 1 || r.left > contentRect.right - 1) continue;
+            lineH = parseFloat(getComputedStyle(el).lineHeight) || 36;
+            rects.push(r);
+          }
+        }
+        if (rects.length === 0) continue;
+        // Merge word rects into one run per line (same top, same column —
         // a large horizontal gap means the other column of the spread)
         type Run = { top: number; bottom: number; left: number; right: number };
         const runs: Run[] = [];
-        for (const el of els) {
-          for (const r of el.getClientRects()) {
-            if (r.width === 0) continue;
-            if (r.right < contentRect.left + 1 || r.left > contentRect.right - 1) continue;
-            const run = runs.find(
-              (q) => Math.abs(q.top - r.top) < 3 && r.left - q.right < 60 && q.left - r.right < 60,
-            );
-            if (run) {
-              run.left = Math.min(run.left, r.left);
-              run.right = Math.max(run.right, r.right);
-              run.bottom = Math.max(run.bottom, r.bottom);
-            } else {
-              runs.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
-            }
+        for (const r of rects) {
+          const run = runs.find(
+            (q) => Math.abs(q.top - r.top) < 3 && r.left - q.right < 60 && q.left - r.right < 60,
+          );
+          if (run) {
+            run.left = Math.min(run.left, r.left);
+            run.right = Math.max(run.right, r.right);
+            run.bottom = Math.max(run.bottom, r.bottom);
+          } else {
+            runs.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
           }
         }
         runs.forEach((run, i) => {
