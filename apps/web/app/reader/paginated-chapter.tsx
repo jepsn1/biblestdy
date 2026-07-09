@@ -1,7 +1,7 @@
-import type { Chapter, Translation } from "@biblestdy/shared";
+import type { Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -54,7 +54,12 @@ export function PaginatedChapter({
     chapter.book,
     chapter.chapter,
   );
-  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  // ?note=<id> keeps the panel open across chapter navigation (references
+  // table jumps); ?mark=<mark id> flips to the linked span and flashes it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [openNoteId, setOpenNoteId] = useState<string | null>(
+    () => searchParams.get("note"),
+  );
   // An open note may have no anchor here (opened, then detached from this
   // chapter) — the all-notes list still has it.
   const openNote =
@@ -89,6 +94,58 @@ export function PaginatedChapter({
     const created = await notesApi.add(anchor);
     if (created) setOpenNoteId(created.id);
   }
+
+  /** Flip to the page holding a note mark and flash its span. Transform
+   * cancels out of both rects, so this works from any current page. */
+  function jumpToMark(markId: string) {
+    const el = regionRef.current?.querySelector(
+      `[data-annotation-anchor="${CSS.escape(markId)}"]`,
+    );
+    const content = contentRef.current;
+    if (el && content && stride > 0) {
+      const target = Math.floor(
+        (el.getBoundingClientRect().left - content.getBoundingClientRect().left) / stride,
+      );
+      setPage(Math.max(0, Math.min(target, pageCount - 1)));
+    }
+    setActiveAnnotationId(markId);
+    window.setTimeout(
+      () => setActiveAnnotationId((current) => (current === markId ? null : current)),
+      2500,
+    );
+  }
+
+  /** References-table click: same chapter jumps in place, another chapter
+   * navigates with the note kept open and the mark flashed on arrival. */
+  function showAnchor(a: NoteAnchor) {
+    if (!openNoteId) return;
+    const markId = `note:${openNoteId}:${a.id}`;
+    const here =
+      a.translationId === chapter.translationId &&
+      a.book === chapter.book &&
+      a.chapter === chapter.chapter;
+    if (here) jumpToMark(markId);
+    else navigate(`/read/${a.book}/${a.chapter}?note=${openNoteId}&mark=${markId}`);
+  }
+
+  // Consume ?mark once the chapter's marks are rendered and measured.
+  const wantedMark = searchParams.get("mark");
+  useEffect(() => {
+    if (!wantedMark || stride === 0) return;
+    const el = regionRef.current?.querySelector(
+      `[data-annotation-anchor="${CSS.escape(wantedMark)}"]`,
+    );
+    if (!el) return; // notes still loading — retried when marks land
+    jumpToMark(wantedMark);
+    setSearchParams(
+      (params) => {
+        params.delete("mark");
+        return params;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedMark, stride, noteMarks.length]);
 
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
@@ -278,7 +335,19 @@ export function PaginatedChapter({
               onEdit={notesApi.edit}
               onRemove={notesApi.remove}
               onDetach={notesApi.detach}
-              onClose={() => setOpenNoteId(null)}
+              onShowAnchor={showAnchor}
+              onClose={() => {
+                setOpenNoteId(null);
+                if (searchParams.has("note")) {
+                  setSearchParams(
+                    (params) => {
+                      params.delete("note");
+                      return params;
+                    },
+                    { replace: true },
+                  );
+                }
+              }}
             />
           </ResizablePanel>
         </>

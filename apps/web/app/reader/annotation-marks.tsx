@@ -318,29 +318,32 @@ export function AnnotationMarks({
               />
             );
           })}
-          {noteTabs.map((m) => (
-            <path
-              key={m.mark.id}
-              d={
-                m.lines > 1
-                  ? bracketPath(
-                      m.colSide === "left"
-                        ? m.box.x - BRACKET_GAP
-                        : m.box.x + m.box.w + BRACKET_GAP,
-                      m.box.y + 2,
-                      m.box.y + m.box.h - 2,
-                      m.mark.id,
-                      m.colSide === "left" ? 1 : -1,
-                    )
-                  : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.mark.id)
-              }
-              fill="none"
-              stroke={NOTE_INK}
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              opacity={0.75}
-            />
-          ))}
+          {noteTabs.map((m) => {
+            const active = activeAnnotationId === `note:${m.mark.noteId}:${m.mark.id}`;
+            return (
+              <path
+                key={m.mark.id}
+                d={
+                  m.lines > 1
+                    ? bracketPath(
+                        m.colSide === "left"
+                          ? m.box.x - BRACKET_GAP
+                          : m.box.x + m.box.w + BRACKET_GAP,
+                        m.box.y + 2,
+                        m.box.y + m.box.h - 2,
+                        m.mark.id,
+                        m.colSide === "left" ? 1 : -1,
+                      )
+                    : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.mark.id)
+                }
+                fill="none"
+                stroke={NOTE_INK}
+                strokeWidth={active ? 2.2 : 1.5}
+                strokeLinecap="round"
+                opacity={active ? 1 : 0.75}
+              />
+            );
+          })}
         </svg>
 
         {/* Full-annotation links: a typeset chip (index-tab, NOT handwriting) in the

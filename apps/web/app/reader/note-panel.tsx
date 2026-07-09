@@ -1,5 +1,7 @@
-import type { Note } from "@biblestdy/shared";
-import { anchorReference, formatReference } from "@biblestdy/shared";
+import type { Chapter, Note, NoteAnchor } from "@biblestdy/shared";
+import { anchorReference, formatReference, words, wordRangeInVerse } from "@biblestdy/shared";
+import { useQueries } from "@tanstack/react-query";
+import { api } from "~/lib/query";
 import {
   BlockTypeSelect,
   BoldItalicUnderlineToggles,
@@ -24,8 +26,92 @@ import {
 import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 import { useIsDark } from "~/components/theme-toggle";
+
+/** The words an anchor covers, shortened for the references table. */
+function snippetOf(chapter: Chapter | undefined, a: NoteAnchor): string {
+  if (!chapter) return "";
+  const covered: string[] = [];
+  for (const v of chapter.verses) {
+    const tokens = words(v.text);
+    const r = wordRangeInVerse(a, v.verse, tokens.length);
+    if (r) covered.push(...tokens.slice(r.start, r.end + 1));
+  }
+  const s = covered.join(" ");
+  return s.length > 64 ? `${s.slice(0, 64).trimEnd()}…` : s;
+}
+
+/** Bottom section of the note view (issue on 2026-07-09: more blocks to come,
+ * references first): every passage the note anchors to — reference, the
+ * anchored words, unlink. Click a row to read there with the span flashed. */
+function ReferencesTable({
+  note,
+  onShowAnchor,
+  onDetach,
+}: {
+  note: Note;
+  onShowAnchor: (anchor: NoteAnchor) => void;
+  onDetach: (id: string, anchorId: string) => void;
+}) {
+  const chapterKeys = [
+    ...new Map(
+      note.anchors.map((a) => [`${a.translationId}/${a.book}/${a.chapter}`, a]),
+    ).entries(),
+  ];
+  const results = useQueries({
+    queries: chapterKeys.map(([, a]) => ({
+      queryKey: ["chapter", a.translationId, a.book, a.chapter],
+      queryFn: () =>
+        api<Chapter>(`/api/passages/${a.translationId}/${a.book}/${a.chapter}`),
+      staleTime: 60 * 60 * 1000, // scripture text is immutable, cache hard
+    })),
+  });
+  const chapterOf = new Map(chapterKeys.map(([key], i) => [key, results[i].data]));
+
+  return (
+    <section className="max-h-44 shrink-0 overflow-y-auto border-t border-border px-3 py-2">
+      <h3 className="mb-1 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
+        References
+      </h3>
+      <div className="flex flex-col">
+        {note.anchors.map((a) => (
+          <div
+            key={a.id}
+            role="button"
+            tabIndex={0}
+            title="Read this passage"
+            onClick={() => onShowAnchor(a)}
+            onKeyDown={(e) => e.key === "Enter" && onShowAnchor(a)}
+            className="group grid cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-3 rounded px-1.5 py-1 hover:bg-accent/50"
+          >
+            <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
+              {formatReference(anchorReference(a))}
+            </span>
+            <span className="truncate font-serif text-xs text-muted-foreground italic">
+              {snippetOf(chapterOf.get(`${a.translationId}/${a.book}/${a.chapter}`), a)}
+            </span>
+            {note.anchors.length > 1 ? (
+              <button
+                type="button"
+                aria-label="Remove this reference"
+                title="Remove this reference"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDetach(note.id, a.id);
+                }}
+                className="invisible self-center text-muted-foreground group-hover:visible hover:text-destructive"
+              >
+                <X className="size-3" />
+              </button>
+            ) : (
+              <span />
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 /**
  * Side-by-side editor for a full note (issue #7): title + WYSIWYG markdown
@@ -33,24 +119,26 @@ import { useIsDark } from "~/components/theme-toggle";
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
  * Autosaves (debounced) — closing never loses work.
  *
- * A chip row lists every passage the note anchors to (issue #8): click reads
- * there, × detaches. The last anchor is not removable — a note stays
- * reachable from Scripture; deleting the note is the way out.
+ * The references table at the bottom lists every passage the note anchors to
+ * (issue #8): click reads there with the span flashed, × unlinks. The last
+ * anchor is not removable — a note stays reachable from Scripture; deleting
+ * the note is the way out.
  */
 export function NotePanel({
   note,
   onEdit,
   onRemove,
   onDetach,
+  onShowAnchor,
   onClose,
 }: {
   note: Note;
   onEdit: (id: string, patch: { title?: string; body?: string }) => void;
   onRemove: (id: string) => void;
   onDetach: (id: string, anchorId: string) => void;
+  onShowAnchor: (anchor: NoteAnchor) => void;
   onClose: () => void;
 }) {
-  const navigate = useNavigate();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const dark = useIsDark();
@@ -103,39 +191,6 @@ export function NotePanel({
         </button>
       </header>
 
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-1.5">
-        {note.anchors.map((a) => (
-          <span
-            key={a.id}
-            className="flex items-center overflow-hidden rounded-full border border-border bg-muted/50 font-mono text-[0.6rem] leading-none text-muted-foreground"
-          >
-            <button
-              type="button"
-              title="Read this passage"
-              onClick={() => navigate(`/read/${a.book}/${a.chapter}`)}
-              className="px-2 py-1 hover:bg-accent hover:text-foreground"
-            >
-              {formatReference(anchorReference(a))}
-            </button>
-            {note.anchors.length > 1 && (
-              <button
-                type="button"
-                aria-label="Remove this anchor"
-                onClick={() => onDetach(note.id, a.id)}
-                className="py-1 pr-1.5 pl-0.5 hover:text-destructive"
-              >
-                <X className="size-2.5" />
-              </button>
-            )}
-          </span>
-        ))}
-        {note.anchors.length === 1 && (
-          <span className="font-mono text-[0.55rem] text-muted-foreground/60">
-            select text in the reader → Create note link… anchors this note there too
-          </span>
-        )}
-      </div>
-
       <MDXEditor
         key={note.id}
         markdown={note.body}
@@ -169,6 +224,8 @@ export function NotePanel({
           }),
         ]}
       />
+
+      <ReferencesTable note={note} onShowAnchor={onShowAnchor} onDetach={onDetach} />
 
       <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
         <button
