@@ -1,7 +1,7 @@
 import type { Note } from "@biblestdy/shared";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
-import { leaderPath, scribblePath } from "./note-scribble";
+import { leaderPath, SCRIBBLE_PAD_X, SCRIBBLE_PAD_Y, scribblePath } from "./note-scribble";
 
 /**
  * Pen annotations: every note is a circled span plus a draggable, resizable
@@ -49,8 +49,16 @@ function geom(
   const side: "left" | "right" = cx < aCX ? "left" : "right";
   const above = cy < p.box.y - 12;
   const noteEdgeX = side === "left" ? cx + w / 2 : cx - w / 2;
-  const anchorX = p.box.x + p.box.w * (side === "left" ? 0.3 : 0.7);
-  const anchorY = above ? p.box.y - 7 : p.box.y + p.box.h + 7;
+  // Land anywhere along the loop's arc, at the point facing the note, with
+  // the landing height following the ellipse's curve — many touch points,
+  // picked by where the note actually is.
+  const rx = p.box.w / 2 + SCRIBBLE_PAD_X;
+  const ry = p.box.h / 2 + SCRIBBLE_PAD_Y;
+  const t = Math.min(Math.max((cx - p.box.x) / p.box.w, 0.1), 0.9);
+  const ex = (t - 0.5) * p.box.w; // x-offset from the loop's center
+  const bulge = ry * Math.sqrt(Math.max(0, 1 - (ex / rx) ** 2));
+  const anchorX = p.box.x + p.box.w * t;
+  const anchorY = above ? aCY - bulge - 5 : aCY + bulge + 5;
   return {
     cx,
     cy,
