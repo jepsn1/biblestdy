@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ChapterText } from "./chapter-text";
-import { NoteGlosses } from "./note-glosses";
+import { NoteMarks } from "./note-marks";
 import { useHighlights } from "./use-highlights";
 import { useNotes } from "./use-notes";
 
@@ -118,7 +118,7 @@ export function PaginatedChapter({
           </div>
         </div>
 
-        <NoteGlosses
+        <NoteMarks
           notes={notesApi.notes}
           regionRef={regionRef}
           contentRef={contentBoxRef}

@@ -26,8 +26,8 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
 }
 
-// Noted spans carry no inline decoration — NoteGlosses draws a hand-drawn ink
-// loop around [data-note-anchor] spans plus the interlinear gloss above them.
+// Noted spans carry no inline decoration — NoteMarks draws a hand-drawn ink
+// loop around [data-note-anchor] spans plus the placed note box + arrow.
 
 type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
 

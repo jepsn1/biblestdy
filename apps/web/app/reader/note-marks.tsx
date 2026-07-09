@@ -4,36 +4,28 @@ import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-color
 import { leaderPath, scribblePath } from "./note-scribble";
 
 /**
- * Pen annotations, placed by note length — like a real annotated Bible:
- * - SHORT notes: interlinear gloss, tiny handwriting in the line-gap directly
- *   above the circled words (flatter circle so both fit the gap).
- * - LONG notes: a note box connected by a hand-drawn arrow into the circle.
- *   Draggable anywhere in the reader (Excalidraw-style): the arrow re-binds
- *   live while dragging, and the position — stored as an offset from the
- *   anchored words, so it travels with the verse across reflow/pagination —
- *   is saved on release.
- * Positions are measured from the DOM so it survives reflow/pagination.
+ * Pen annotations: every note is a circled span plus a draggable, resizable
+ * handwriting box (Excalidraw-style) connected by a hand-drawn arrow that
+ * re-binds live. Never-dragged notes start in the outer margin lane.
+ * Placement/width persist as an offset from the anchored words' center, so a
+ * note travels with its verse across reflow/pagination. Park the box right
+ * next to its circle and the arrow disappears — the interlinear-gloss look,
+ * placed by hand.
  */
 
-const GLOSS_MAX_CHARS = 36; // longer than this goes to a placed note box
-const GLOSS_LIFT = 8; // px above the mark's first line box — hugs the circle
-const GLOSS_CLEAR_LIFT = 15; // fallback lift: above the loop's top arc instead
-const GLOSS_INDENT = 16; // start past the loop's right bulge, beside it
-const GLOSS_PAD_Y = 1.5; // flatter loop under a gloss
-const EDITOR_W = 220;
-const LANE = 190; // px width of a note box
+const LANE = 190; // default box width, and the margin lane it starts in
 const GAP = 20; // px between content box and the default lane
+const MIN_W = 90;
+const MAX_W = 600;
+const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 type Box = { x: number; y: number; w: number; h: number };
-type Placement = { note: Note; box: Box } & (
-  | { kind: "gloss"; x: number; y: number; maxW: number }
-  | { kind: "margin"; laneCenter: { x: number; y: number } }
-);
+type Placement = { note: Note; box: Box; laneCenter: { x: number; y: number } };
 
-/** Note-box center, width and arrow endpoints for a margin note, honoring an
- * active drag/resize, then stored placement, then the default lane. */
-function marginGeom(
-  p: Extract<Placement, { kind: "margin" }>,
+/** Box center, width and arrow endpoints, honoring an active drag/resize,
+ * then stored placement, then the default lane. */
+function geom(
+  p: Placement,
   drag: { id: string; x: number; y: number } | null,
   resize: { id: string; cx: number; w: number } | null,
 ) {
@@ -56,23 +48,25 @@ function marginGeom(
   }
   const side: "left" | "right" = cx < aCX ? "left" : "right";
   const above = cy < p.box.y - 12;
+  const noteEdgeX = side === "left" ? cx + w / 2 : cx - w / 2;
+  const anchorX = p.box.x + p.box.w * (side === "left" ? 0.3 : 0.7);
+  const anchorY = above ? p.box.y - 7 : p.box.y + p.box.h + 7;
   return {
     cx,
     cy,
     w,
     side,
     boxLeft: cx - w / 2,
-    noteEdgeX: side === "left" ? cx + w / 2 : cx - w / 2,
-    anchorX: p.box.x + p.box.w * (side === "left" ? 0.3 : 0.7),
-    anchorY: above ? p.box.y - 7 : p.box.y + p.box.h + 7,
+    noteEdgeX,
+    anchorX,
+    anchorY,
     approach: (above ? "down" : "up") as "up" | "down",
+    // A box parked beside its circle needs no arrow — that's the gloss look
+    showArrow: Math.hypot(noteEdgeX - anchorX, cy - anchorY) > ARROW_MIN_DIST,
   };
 }
 
-const MIN_W = 90;
-const MAX_W = 600;
-
-export function NoteGlosses({
+export function NoteMarks({
   notes,
   regionRef,
   contentRef,
@@ -99,7 +93,12 @@ export function NoteGlosses({
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [resize, setResize] = useState<{ id: string; cx: number; w: number } | null>(null);
   const dragFrom = useRef<{ cx: number; cy: number; px: number; py: number } | null>(null);
-  const resizeFrom = useRef<{ edge: "left" | "right"; px: number; startW: number; fixedX: number } | null>(null);
+  const resizeFrom = useRef<{
+    edge: "left" | "right";
+    px: number;
+    startW: number;
+    fixedX: number;
+  } | null>(null);
   const didDrag = useRef(false);
 
   // Cancel edit when clicking outside the open editor.
@@ -121,16 +120,6 @@ export function NoteGlosses({
       const regionRect = region.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
       setRegionSize({ w: regionRect.width, h: regionRect.height });
-      const cs = getComputedStyle(content);
-      const innerLeft = contentRect.left + (parseFloat(cs.paddingLeft) || 0);
-      const innerRight = contentRect.right - (parseFloat(cs.paddingRight) || 0);
-      // Column geometry, to stop a gloss at its column's right edge
-      const colsEl = content.firstElementChild;
-      const colCs = colsEl ? getComputedStyle(colsEl) : null;
-      const colGap = colCs ? parseFloat(colCs.columnGap) || 0 : 0;
-      const twoCol = colCs?.columnCount === "2";
-      const colW = twoCol ? (innerRight - innerLeft - colGap) / 2 : innerRight - innerLeft;
-      // Default lanes for never-dragged notes
       const centerX = contentRect.left + contentRect.width / 2;
       const leftLaneRight = contentRect.left - regionRect.left - GAP;
       const rightLaneLeft = contentRect.right - regionRect.left + GAP;
@@ -154,38 +143,15 @@ export function NoteGlosses({
           w: right - left,
           h: bottom - top,
         };
-
-        if (note.text.length <= GLOSS_MAX_CHARS) {
-          const first = rects[0]; // topmost fragment — the gloss sits beside/above it
-          const firstMid = (first.left + first.right) / 2;
-          const colRight =
-            twoCol && firstMid > innerLeft + colW + colGap / 2 ? innerRight : innerLeft + colW;
-          // Preferred: tucked in the gap just past the loop's right edge, so
-          // the handwriting never crosses the circle's ink. If the circle
-          // ends too close to the column edge, start at the mark instead and
-          // lift the gloss fully above the loop's top arc.
-          const besideX = first.right + GLOSS_INDENT;
-          const beside = colRight - besideX >= 60;
-          items.push({
-            kind: "gloss",
-            note,
-            box,
-            x: (beside ? besideX : first.left) - regionRect.left,
-            y: first.top - regionRect.top - (beside ? GLOSS_LIFT : GLOSS_CLEAR_LIFT),
-            maxW: Math.max(60, colRight - (beside ? besideX : first.left)),
-          });
-        } else {
-          const side = (left + right) / 2 < centerX ? "left" : "right";
-          items.push({
-            kind: "margin",
-            note,
-            box,
-            laneCenter: {
-              x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
-              y: box.y + box.h / 2,
-            },
-          });
-        }
+        const side = (left + right) / 2 < centerX ? "left" : "right";
+        items.push({
+          note,
+          box,
+          laneCenter: {
+            x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
+            y: box.y + box.h / 2,
+          },
+        });
       }
       setPlacements(items);
     };
@@ -207,8 +173,8 @@ export function NoteGlosses({
           under the line of words and surfaces in the word spaces. */}
       <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
         {placements.map((p) => {
-          if (p.kind !== "margin") return null;
-          const g = marginGeom(p, drag, resize);
+          const g = geom(p, drag, resize);
+          if (!g.showArrow) return null;
           const active = p.note.id === activeNoteId;
           return (
             <path
@@ -231,14 +197,7 @@ export function NoteGlosses({
             return (
               <path
                 key={p.note.id}
-                d={scribblePath(
-                  p.box.x,
-                  p.box.y,
-                  p.box.w,
-                  p.box.h,
-                  p.note.id,
-                  p.kind === "gloss" ? GLOSS_PAD_Y : undefined,
-                )}
+                d={scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.note.id)}
                 fill="none"
                 stroke={NOTE_INK}
                 strokeWidth={active ? 2 : 1.5}
@@ -252,50 +211,43 @@ export function NoteGlosses({
         {placements.map((p) => {
           const active = p.note.id === activeNoteId;
           const isEditing = editing?.id === p.note.id;
-          const g = p.kind === "margin" ? marginGeom(p, drag, resize) : null;
+          const g = geom(p, drag, resize);
           const dragging = drag?.id === p.note.id;
-          const anchor = g
-            ? {
-                left: g.boxLeft,
-                top: g.cy,
-                width: g.w,
-                textAlign: g.side === "left" ? ("right" as const) : ("left" as const),
-              }
-            : p.kind === "gloss"
-              ? { left: p.x, top: p.y, maxWidth: isEditing ? undefined : p.maxW }
-              : {};
           return (
             <div
               key={p.note.id}
-              className={`pointer-events-auto absolute ${p.kind === "margin" ? "-translate-y-1/2" : ""} ${
-                dragging ? "select-none" : ""
-              }`}
-              style={anchor}
+              className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
+              style={{
+                left: g.boxLeft,
+                top: g.cy,
+                width: g.w,
+                textAlign: g.side === "left" ? "right" : "left",
+              }}
               onMouseEnter={() => onFocus(p.note.id)}
               onMouseLeave={() => !isEditing && onFocus(null)}
               onPointerDown={(e) => {
-                if (p.kind !== "margin" || isEditing || e.button !== 0 || !g) return;
+                if (isEditing || e.button !== 0) return;
                 dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
                 didDrag.current = false;
                 e.currentTarget.setPointerCapture(e.pointerId);
               }}
               onPointerMove={(e) => {
                 const from = dragFrom.current;
-                if (p.kind !== "margin" || !from) return;
+                if (!from) return;
                 const dx = e.clientX - from.px;
                 const dy = e.clientY - from.py;
                 if (!didDrag.current && Math.hypot(dx, dy) < 4) return;
                 didDrag.current = true;
                 setDrag({
                   id: p.note.id,
-                  x: Math.min(Math.max(from.cx + dx, LANE / 2), regionSize.w - LANE / 2),
+                  x: Math.min(Math.max(from.cx + dx, g.w / 2), regionSize.w - g.w / 2),
                   y: Math.min(Math.max(from.cy + dy, 12), regionSize.h - 12),
                 });
               }}
               onPointerUp={() => {
                 const from = dragFrom.current;
                 dragFrom.current = null;
-                if (p.kind !== "margin" || !from) return;
+                if (!from) return;
                 if (didDrag.current && drag?.id === p.note.id) {
                   const aCX = p.box.x + p.box.w / 2;
                   const aCY = p.box.y + p.box.h / 2;
@@ -304,65 +256,61 @@ export function NoteGlosses({
                 setDrag(null);
               }}
             >
-              {p.kind === "margin" && !isEditing && g && (
-                <>
-                  {(["left", "right"] as const).map((edge) => (
-                    <div
-                      key={edge}
-                      className={`absolute inset-y-0 ${edge === "left" ? "-left-1.5" : "-right-1.5"} w-3 cursor-ew-resize`}
-                      onPointerDown={(e) => {
-                        if (e.button !== 0) return;
-                        e.stopPropagation();
-                        resizeFrom.current = {
-                          edge,
-                          px: e.clientX,
-                          startW: g.w,
-                          // The opposite edge stays pinned so the arrow doesn't jump
-                          fixedX: edge === "left" ? g.cx + g.w / 2 : g.cx - g.w / 2,
-                        };
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                      }}
-                      onPointerMove={(e) => {
-                        const from = resizeFrom.current;
-                        if (!from) return;
-                        e.stopPropagation();
-                        const dx = e.clientX - from.px;
-                        const w = Math.min(
-                          Math.max(from.edge === "right" ? from.startW + dx : from.startW - dx, MIN_W),
-                          MAX_W,
-                        );
-                        didDrag.current = true;
-                        setResize({
-                          id: p.note.id,
-                          w,
-                          cx: from.edge === "right" ? from.fixedX + w / 2 : from.fixedX - w / 2,
+              {!isEditing &&
+                (["left", "right"] as const).map((edge) => (
+                  <div
+                    key={edge}
+                    className={`absolute inset-y-0 ${edge === "left" ? "-left-1.5" : "-right-1.5"} w-3 cursor-ew-resize`}
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.stopPropagation();
+                      resizeFrom.current = {
+                        edge,
+                        px: e.clientX,
+                        startW: g.w,
+                        // The opposite edge stays pinned so the arrow doesn't jump
+                        fixedX: edge === "left" ? g.cx + g.w / 2 : g.cx - g.w / 2,
+                      };
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                    }}
+                    onPointerMove={(e) => {
+                      const from = resizeFrom.current;
+                      if (!from) return;
+                      e.stopPropagation();
+                      const dx = e.clientX - from.px;
+                      const w = Math.min(
+                        Math.max(from.edge === "right" ? from.startW + dx : from.startW - dx, MIN_W),
+                        MAX_W,
+                      );
+                      didDrag.current = true;
+                      setResize({
+                        id: p.note.id,
+                        w,
+                        cx: from.edge === "right" ? from.fixedX + w / 2 : from.fixedX - w / 2,
+                      });
+                    }}
+                    onPointerUp={(e) => {
+                      const from = resizeFrom.current;
+                      resizeFrom.current = null;
+                      if (!from) return;
+                      e.stopPropagation();
+                      if (resize?.id === p.note.id) {
+                        const aCX = p.box.x + p.box.w / 2;
+                        const aCY = p.box.y + p.box.h / 2;
+                        onPlace(p.note.id, {
+                          width: resize.w,
+                          offsetX: resize.cx - aCX,
+                          offsetY: g.cy - aCY,
                         });
-                      }}
-                      onPointerUp={(e) => {
-                        const from = resizeFrom.current;
-                        resizeFrom.current = null;
-                        if (!from) return;
-                        e.stopPropagation();
-                        if (resize?.id === p.note.id) {
-                          const aCX = p.box.x + p.box.w / 2;
-                          const aCY = p.box.y + p.box.h / 2;
-                          onPlace(p.note.id, {
-                            width: resize.w,
-                            offsetX: resize.cx - aCX,
-                            offsetY: g.cy - aCY,
-                          });
-                        }
-                        setResize(null);
-                      }}
-                    />
-                  ))}
-                </>
-              )}
+                      }
+                      setResize(null);
+                    }}
+                  />
+                ))}
               {isEditing ? (
                 <div
                   data-note-editing
                   className="flex flex-col gap-1 rounded border border-border bg-popover p-1.5 text-left shadow-lg"
-                  style={{ width: p.kind === "gloss" ? EDITOR_W : undefined }}
                 >
                   <textarea
                     autoFocus
@@ -414,13 +362,9 @@ export function NoteGlosses({
                     }
                     setEditing({ id: p.note.id, text: p.note.text });
                   }}
-                  className={
-                    p.kind === "gloss"
-                      ? "cursor-text overflow-hidden font-serif text-[0.72rem] leading-none italic text-ellipsis whitespace-nowrap"
-                      : `-mx-1 rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50 ${
-                          dragging ? "cursor-grabbing" : "cursor-grab"
-                        }`
-                  }
+                  className={`-mx-1 rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50 ${
+                    dragging ? "cursor-grabbing" : "cursor-grab"
+                  }`}
                   style={{ color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT }}
                 >
                   {p.note.text}
