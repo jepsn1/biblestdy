@@ -1,4 +1,4 @@
-import type { Anchor, Chapter, Highlight, HighlightColor, Note } from "@biblestdy/shared";
+import type { Anchor, Chapter, FullNote, Highlight, HighlightColor, Note } from "@biblestdy/shared";
 import {
   buildAnchor,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -29,10 +29,17 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
 // Noted spans carry no inline decoration — NoteMarks draws a hand-drawn ink
 // loop around [data-note-anchor] spans plus the placed note box + arrow.
 
-type WordSeg = { note: Note | null; words: { word: string; i: number }[] };
+/** Inline notes and full notes share the anchor pipeline; full-note ids are
+ * namespaced "full:<id>" so clicks/marks can tell them apart. */
+type AnchorRef = { id: string };
+type WordSeg = { note: AnchorRef | null; words: { word: string; i: number }[] };
 
-/** Split a verse's words into runs of the same note (null = un-noted). */
-function groupByNote(verse: number, tokens: string[], noteCoverage: Map<string, Note>): WordSeg[] {
+/** Split a verse's words into runs of the same anchored note (null = un-noted). */
+function groupByNote(
+  verse: number,
+  tokens: string[],
+  noteCoverage: Map<string, AnchorRef>,
+): WordSeg[] {
   const segs: WordSeg[] = [];
   tokens.forEach((word, i) => {
     const note = noteCoverage.get(`${verse}:${i}`) ?? null;
@@ -71,20 +78,26 @@ export function ChapterText({
   heading,
   highlights,
   notes,
+  fullNotes,
   activeNoteId,
   onAddHighlight,
   onRemoveHighlight,
   onAddNote,
+  onAddFullNote,
+  onOpenFullNote,
   onFocusNote,
 }: {
   chapter: Chapter;
   heading: string;
   highlights: Highlight[];
   notes: Note[];
+  fullNotes: FullNote[];
   activeNoteId: string | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
   onAddNote: (anchor: Anchor, text: string) => void;
+  onAddFullNote: (anchor: Anchor) => void;
+  onOpenFullNote: (id: string) => void;
   onFocusNote: (id: string | null) => void;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
@@ -96,8 +109,13 @@ export function ChapterText({
 
   const hlCoverage = new Map<string, { id: string; color: HighlightColor }>();
   coverInto(hlCoverage, chapter.verses, highlights.map((h) => ({ ...h, value: { id: h.id, color: h.color } })));
-  const noteCoverage = new Map<string, Note>();
-  coverInto(noteCoverage, chapter.verses, notes.map((n) => ({ ...n, value: n })));
+  const noteCoverage = new Map<string, AnchorRef>();
+  coverInto(noteCoverage, chapter.verses, notes.map((n) => ({ ...n, value: { id: n.id } })));
+  coverInto(
+    noteCoverage,
+    chapter.verses,
+    fullNotes.map((f) => ({ ...f, value: { id: `full:${f.id}` } })),
+  );
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
@@ -142,9 +160,14 @@ export function ChapterText({
   }
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
+    if (noteId?.startsWith("full:")) {
+      event.stopPropagation();
+      onOpenFullNote(noteId.slice(5)); // open the document panel
+      return;
+    }
     if (noteId) {
       event.stopPropagation();
-      onFocusNote(noteId); // highlight the matching margin note
+      onFocusNote(noteId); // highlight the matching placed note
       return;
     }
     if (!hlId) return;
@@ -267,6 +290,18 @@ export function ChapterText({
                     }}
                   >
                     Note
+                  </button>
+                  <button
+                    type="button"
+                    title="Full markdown note, opens side-by-side editor"
+                    className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
+                    onClick={() => {
+                      onAddFullNote(menu.anchor);
+                      window.getSelection()?.removeAllRanges();
+                      setMenu(null);
+                    }}
+                  >
+                    Doc
                   </button>
                 </div>
               )}

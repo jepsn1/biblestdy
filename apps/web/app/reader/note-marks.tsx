@@ -1,4 +1,4 @@
-import type { Note } from "@biblestdy/shared";
+import type { FullNote, Note } from "@biblestdy/shared";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import {
@@ -30,6 +30,9 @@ const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
 type Box = { x: number; y: number; w: number; h: number };
 /** lines: distinct text lines the span covers — 1 = circle it, 2+ = bracket */
 type Placement = { note: Note; box: Box; lines: number; laneCenter: { x: number; y: number } };
+/** A full note's mark: same circle/bracket by geometry, plus a static † label
+ * beside it that opens the document panel. */
+type DocMark = { doc: FullNote; box: Box; lines: number };
 
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
@@ -95,6 +98,7 @@ function geom(
 
 export function NoteMarks({
   notes,
+  fullNotes,
   regionRef,
   contentRef,
   page,
@@ -103,8 +107,10 @@ export function NoteMarks({
   onEdit,
   onRemove,
   onPlace,
+  onOpenFullNote,
 }: {
   notes: Note[];
+  fullNotes: FullNote[];
   regionRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLElement | null>;
   page: number;
@@ -113,8 +119,10 @@ export function NoteMarks({
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
   onPlace: (id: string, patch: { offsetX?: number; offsetY?: number; width?: number }) => void;
+  onOpenFullNote: (id: string) => void;
 }) {
   const [placements, setPlacements] = useState<Placement[]>([]);
+  const [docMarks, setDocMarks] = useState<DocMark[]>([]);
   const [regionSize, setRegionSize] = useState({ w: 0, h: 0 });
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -151,39 +159,56 @@ export function NoteMarks({
       const leftLaneRight = contentRect.left - regionRect.left - GAP;
       const rightLaneLeft = contentRect.right - regionRect.left + GAP;
 
-      const items: Placement[] = [];
-      for (const note of notes) {
-        const el = region.querySelector<HTMLElement>(`[data-note-anchor="${note.id}"]`);
-        if (!el) continue;
-        // Line fragments on the current page (clipped/translated-out are skipped)
+      /** Box + line count of an anchor's fragments on the current page
+       * (clipped/translated-out fragments are skipped); null if off-page. */
+      const measureAnchor = (anchorId: string) => {
+        const el = region.querySelector<HTMLElement>(`[data-note-anchor="${anchorId}"]`);
+        if (!el) return null;
         const rects = [...el.getClientRects()].filter(
           (r) => r.width > 0 && r.right >= contentRect.left + 1 && r.left <= contentRect.right - 1,
         );
-        if (rects.length === 0) continue;
+        if (rects.length === 0) return null;
         const left = Math.min(...rects.map((r) => r.left));
         const right = Math.max(...rects.map((r) => r.right));
         const top = Math.min(...rects.map((r) => r.top));
         const bottom = Math.max(...rects.map((r) => r.bottom));
-        const box: Box = {
-          x: left - regionRect.left,
-          y: top - regionRect.top,
-          w: right - left,
-          h: bottom - top,
-        };
         const tops: number[] = [];
         for (const r of rects) if (!tops.some((t) => Math.abs(t - r.top) < 3)) tops.push(r.top);
-        const side = (left + right) / 2 < centerX ? "left" : "right";
+        return {
+          box: {
+            x: left - regionRect.left,
+            y: top - regionRect.top,
+            w: right - left,
+            h: bottom - top,
+          } as Box,
+          lines: tops.length,
+          mid: (left + right) / 2,
+        };
+      };
+
+      const items: Placement[] = [];
+      for (const note of notes) {
+        const m = measureAnchor(note.id);
+        if (!m) continue;
+        const side = m.mid < centerX ? "left" : "right";
         items.push({
           note,
-          box,
-          lines: tops.length,
+          box: m.box,
+          lines: m.lines,
           laneCenter: {
             x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
-            y: box.y + box.h / 2,
+            y: m.box.y + m.box.h / 2,
           },
         });
       }
       setPlacements(items);
+
+      const docs: DocMark[] = [];
+      for (const doc of fullNotes) {
+        const m = measureAnchor(`full:${doc.id}`);
+        if (m) docs.push({ doc, box: m.box, lines: m.lines });
+      }
+      setDocMarks(docs);
     };
 
     measure();
@@ -195,7 +220,7 @@ export function NoteMarks({
       clearTimeout(t);
       ro.disconnect();
     };
-  }, [notes, page, regionRef, contentRef]);
+  }, [notes, fullNotes, page, regionRef, contentRef]);
 
   return (
     <>
@@ -245,7 +270,44 @@ export function NoteMarks({
               />
             );
           })}
+          {docMarks.map((m) => (
+            <path
+              key={m.doc.id}
+              d={
+                m.lines > 1
+                  ? bracketPath(m.box.x - BRACKET_GAP, m.box.y + 2, m.box.y + m.box.h - 2, m.doc.id)
+                  : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.doc.id)
+              }
+              fill="none"
+              stroke={NOTE_INK}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              opacity={0.75}
+            />
+          ))}
         </svg>
+
+        {/* Full-note links: a static † + title beside the mark, opens the doc */}
+        {docMarks.map((m) => (
+          <button
+            key={m.doc.id}
+            type="button"
+            title={m.doc.title || "Open note"}
+            onClick={() => onOpenFullNote(m.doc.id)}
+            className="pointer-events-auto absolute max-w-40 cursor-pointer overflow-hidden font-serif text-[0.72rem] leading-none whitespace-nowrap italic text-ellipsis hover:underline"
+            style={
+              m.lines > 1
+                ? { left: m.box.x - BRACKET_GAP - 2, top: m.box.y - 14, color: NOTE_INK_TEXT }
+                : {
+                    left: m.box.x + m.box.w + 14,
+                    top: m.box.y + m.box.h / 2 - 5,
+                    color: NOTE_INK_TEXT,
+                  }
+            }
+          >
+            † {m.doc.title || "note"}
+          </button>
+        ))}
 
         {placements.map((p) => {
           const active = p.note.id === activeNoteId;

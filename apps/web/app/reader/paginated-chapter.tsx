@@ -5,7 +5,9 @@ import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
+import { NoteDocPanel } from "./note-doc-panel";
 import { NoteMarks } from "./note-marks";
+import { useFullNotes } from "./use-full-notes";
 import { useHighlights } from "./use-highlights";
 import { useNotes } from "./use-notes";
 
@@ -42,6 +44,14 @@ export function PaginatedChapter({
     chapter.chapter,
   );
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
+  const fullNotesApi = useFullNotes(chapter.translationId, chapter.book, chapter.chapter);
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const openDoc = fullNotesApi.fullNotes.find((f) => f.id === openDocId) ?? null;
+
+  async function addFullNote(anchor: Parameters<typeof fullNotesApi.add>[0]) {
+    const created = await fullNotesApi.add(anchor);
+    if (created) setOpenDocId(created.id);
+  }
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
 
@@ -93,6 +103,7 @@ export function PaginatedChapter({
 
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col">
+      <div className="flex min-h-0 w-full flex-1">
       {/* isolate: local stacking context so the -z-10 leader arrows paint
           behind the text but still above the page background */}
       <div ref={regionRef} className="relative isolate min-h-0 flex-1">
@@ -102,7 +113,9 @@ export function PaginatedChapter({
         >
           <div
             ref={contentRef}
-            className="h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 lg:columns-2"
+            className={`h-full font-serif text-lg leading-9 text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 ${
+              openDoc ? "" : "lg:columns-2" /* single column beside the doc panel */
+            }`}
             style={{ transform: `translateX(-${page * stride}px)` }}
           >
             <ChapterText
@@ -110,10 +123,13 @@ export function PaginatedChapter({
               heading={heading}
               highlights={highlights}
               notes={notesApi.notes}
+              fullNotes={fullNotesApi.fullNotes}
               activeNoteId={activeNoteId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddNote={notesApi.add}
+              onAddFullNote={(anchor) => void addFullNote(anchor)}
+              onOpenFullNote={setOpenDocId}
               onFocusNote={setActiveNoteId}
             />
           </div>
@@ -129,6 +145,7 @@ export function PaginatedChapter({
 
         <NoteMarks
           notes={notesApi.notes}
+          fullNotes={fullNotesApi.fullNotes}
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}
@@ -137,6 +154,7 @@ export function PaginatedChapter({
           onEdit={notesApi.edit}
           onRemove={notesApi.remove}
           onPlace={notesApi.place}
+          onOpenFullNote={setOpenDocId}
         />
 
         {/* Edge tap zones, like flipping a page */}
@@ -152,6 +170,16 @@ export function PaginatedChapter({
           onClick={goNext}
           className="absolute inset-y-0 right-0 z-20 w-8 cursor-e-resize opacity-0"
         />
+      </div>
+
+      {openDoc && (
+        <NoteDocPanel
+          doc={openDoc}
+          onEdit={fullNotesApi.edit}
+          onRemove={fullNotesApi.remove}
+          onClose={() => setOpenDocId(null)}
+        />
+      )}
       </div>
 
       <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-6 py-3 font-mono text-[0.65rem] text-muted-foreground">
