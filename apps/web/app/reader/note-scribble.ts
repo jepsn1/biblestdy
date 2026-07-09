@@ -43,14 +43,15 @@ export function leaderPath(
   approach: "up" | "down" = "up",
 ): string {
   const rnd = mulberry32(hashSeed(seed + ":leader"));
-  // Two strokes of one gesture: a long run through the interline gap, then a
-  // sharp hook into the circle.
+  // One gesture, bends by the TEXT not the circle: a short straight exit from
+  // the note, a bend down/up to the travel level, a level run through the
+  // interline gap, then a soft tangential arrival at the circle.
   const my =
     approach === "up"
-      ? Math.max(y1, y2) + 2 + rnd() * 3 // stay inside the gap below
+      ? Math.max(y1, y2) + 2 + rnd() * 3 // travel in the gap below
       : Math.min(y1, y2) - 2 - rnd() * 3; // …or the gap above
-  const dir = Math.sign(x1 - x2) || 1; // which side the note is on
-  const ax = x2 + dir * (10 + rnd() * 6); // corner: just before the tip, note side
+  const out = Math.sign(x2 - x1) || 1; // toward the circle
+  const bow = approach === "up" ? 4 : -4;
 
   const quad = (
     p0: [number, number],
@@ -74,13 +75,18 @@ export function leaderPath(
     return out;
   };
 
-  // Under-run: note edge -> corner, bowing away from the text (down when
-  // approaching from below, up when from above) — same softness both ways
-  const bow = approach === "up" ? 4 : -4;
-  const run = quad([x1, y1], [(x1 + x2) / 2, my + bow], [ax, my], 9, 1.6);
-  // Hook: corner -> tip, turning hard; control at the corner keeps it sharp
-  const hook = quad([ax, my], [x2 + dir, my], [x2, y2], 4, 0.8);
-  const pts = [...run, ...hook.slice(1)];
+  let pts: [number, number][];
+  if (Math.abs(x2 - x1) < 60) {
+    // Short hop: a single soft curve, no room for choreography
+    pts = quad([x1, y1], [(x1 + x2) / 2, my], [x2, y2], 10, 1.4);
+  } else {
+    const A: [number, number] = [x1 + out * (12 + rnd() * 6), y1]; // straight exit
+    const B: [number, number] = [A[0] + out * (18 + rnd() * 10), my]; // after the bend
+    const exit = quad([x1, y1], [(x1 + A[0]) / 2, y1], A, 3, 0.8);
+    const bend = quad(A, [A[0] + out * 5, my], B, 5, 1.2); // the bend, right by the note
+    const run = quad(B, [(B[0] + x2) / 2, my + bow], [x2, y2], 8, 1.6); // level run, soft arrival
+    pts = [...exit, ...bend.slice(1), ...run.slice(1)];
+  }
   const steps = pts.length - 1;
   let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
   for (let i = 1; i < pts.length - 1; i++) {
