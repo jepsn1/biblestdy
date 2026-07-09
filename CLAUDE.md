@@ -17,7 +17,7 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 - Self-hosted at **biblestdy.com** (see STACK.md Deploy; server manual = jepsn1/infra AGENTS.md). Deploy: `make deploy` in `/srv/apps/biblestdy`.
 - API = container `biblestdy-api` on docker network `web`, no published ports; SPA = static `apps/web/build/client` served by infra Caddy (`/api/*` proxied to the container).
 - Envs: root `.env` = prod (compose env_file), `apps/api/.env` = dev. DBs on shared postgres: prod `biblestdy`, dev `biblestdy_dev` — dev `db:push` can never touch prod.
-- No email service yet: magic link/OTP print to `docker logs biblestdy-api`.
+- Auth emails via Resend (`RESEND_API_KEY` in root `.env`; dev has no key -> link/OTP print to console / `docker logs biblestdy-api`). Sender domain must stay verified at resend.com/domains.
 
 ## Conventions
 

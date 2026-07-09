@@ -6,7 +6,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 ## Pilot-time (before real users)
 
-- [ ] **Email service** — auth currently logs magic link + OTP to the api console (no email sent). For real users, wire Resend (or Postmark/SES) into `sendMagicLink`/`sendVerificationOTP` in `apps/api/src/auth/auth.ts`, one email w/ both link + code. Domain picked: **biblestdy.com** — still needs DNS verification for deliverability.
+- [x] **Email service** ✓ 2026-07-09 — Resend wired (`apps/api/src/auth/email.ts`), link + OTP coalesced into one email; no key (dev) -> console log. BLOCKED on: verify biblestdy.com at resend.com/domains → add their DNS records (SPF/DKIM/MX) at simply.com. Until then Resend returns 403 (logged, not sent).
 - [x] Fresh `BETTER_AUTH_SECRET` in production ✓ 2026-07-09.
 
 ## Marcus (homework, unblocks work below)

@@ -1,19 +1,16 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP, magicLink } from 'better-auth/plugins';
-import { Logger } from '@nestjs/common';
 import { db, schema } from '../db';
-
-const logger = new Logger('Auth');
+import { queueAuthEmail } from './email';
 
 /**
  * Better Auth instance. Passwordless — no passwords, ever (see VISION.md:
  * accounts exist solely for the user's own multi-device sync). Users can
  * either click the magic link or type the OTP code; both are sent.
  *
- * Dev: link + code are logged to the api console instead of being emailed.
- * A real sender (e.g. Resend) slots into these callbacks at pilot time —
- * and should combine link + code into one email.
+ * Emails go through Resend (email.ts), link + code coalesced into one email.
+ * Without RESEND_API_KEY (dev): link + code are logged to the api console.
  */
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:5173',
@@ -32,15 +29,13 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: ({ email, url }) => {
-        // TODO(pilot): send via real email provider
-        logger.log(`Magic link for ${email}: ${url}`);
+        queueAuthEmail(email, { url });
         return Promise.resolve();
       },
     }),
     emailOTP({
       sendVerificationOTP: ({ email, otp }) => {
-        // TODO(pilot): send via real email provider (same email as the link)
-        logger.log(`OTP for ${email}: ${otp}`);
+        queueAuthEmail(email, { otp });
         return Promise.resolve();
       },
     }),
