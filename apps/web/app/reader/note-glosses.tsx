@@ -17,6 +17,8 @@ import { leaderPath, scribblePath } from "./note-scribble";
 
 const GLOSS_MAX_CHARS = 36; // longer than this goes to a placed note box
 const GLOSS_LIFT = 11; // px above the mark's first line box — hugs the circle
+const GLOSS_CLEAR_LIFT = 17; // fallback lift: above the loop's top arc instead
+const GLOSS_INDENT = 12; // start past the loop's right bulge, beside it
 const GLOSS_PAD_Y = 2; // flatter loop under a gloss
 const EDITOR_W = 220;
 const LANE = 190; // px width of a note box
@@ -154,17 +156,23 @@ export function NoteGlosses({
         };
 
         if (note.text.length <= GLOSS_MAX_CHARS) {
-          const first = rects[0]; // topmost fragment — the gloss sits above it
+          const first = rects[0]; // topmost fragment — the gloss sits beside/above it
           const firstMid = (first.left + first.right) / 2;
           const colRight =
             twoCol && firstMid > innerLeft + colW + colGap / 2 ? innerRight : innerLeft + colW;
+          // Preferred: tucked in the gap just past the loop's right edge, so
+          // the handwriting never crosses the circle's ink. If the circle
+          // ends too close to the column edge, start at the mark instead and
+          // lift the gloss fully above the loop's top arc.
+          const besideX = first.right + GLOSS_INDENT;
+          const beside = colRight - besideX >= 60;
           items.push({
             kind: "gloss",
             note,
             box,
-            x: first.left - regionRect.left,
-            y: first.top - regionRect.top - GLOSS_LIFT,
-            maxW: Math.max(60, colRight - first.left),
+            x: (beside ? besideX : first.left) - regionRect.left,
+            y: first.top - regionRect.top - (beside ? GLOSS_LIFT : GLOSS_CLEAR_LIFT),
+            maxW: Math.max(60, colRight - (beside ? besideX : first.left)),
           });
         } else {
           const side = (left + right) / 2 < centerX ? "left" : "right";
