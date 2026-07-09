@@ -29,6 +29,31 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
+ * A hand-drawn vertical bracket beside a multi-line span: short top foot,
+ * wobbly spine from y1 to y2, short bottom foot. One pen stroke.
+ */
+export function bracketPath(x: number, y1: number, y2: number, seed: string): string {
+  const rnd = mulberry32(hashSeed(seed + ":bracket"));
+  const foot = 6 + rnd() * 3;
+  const pts: [number, number][] = [[x + foot, y1 + (rnd() - 0.5) * 2]];
+  pts.push([x + (rnd() - 0.5) * 1.5, y1 + (rnd() - 0.5) * 1.5]);
+  const steps = Math.max(3, Math.round((y2 - y1) / 14));
+  for (let i = 1; i < steps; i++)
+    pts.push([x + (rnd() - 0.5) * 2.4, y1 + ((y2 - y1) * i) / steps]);
+  pts.push([x + (rnd() - 0.5) * 1.5, y2 + (rnd() - 0.5) * 1.5]);
+  pts.push([x + foot, y2 + (rnd() - 0.5) * 2]);
+
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+    const my = (pts[i][1] + pts[i + 1][1]) / 2;
+    d += ` Q ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+  }
+  const last = pts[pts.length - 1];
+  return d + ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
+}
+
+/**
  * A marker stroke: the rect (x, y, w, h) with wobbly long edges and softly
  * bulged ends, like one pass of a real highlighter. Closed path, meant to be
  * filled. Deterministic per seed.

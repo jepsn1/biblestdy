@@ -1,7 +1,13 @@
 import type { Note } from "@biblestdy/shared";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
-import { leaderPath, SCRIBBLE_PAD_X, SCRIBBLE_PAD_Y, scribblePath } from "./note-scribble";
+import {
+  bracketPath,
+  leaderPath,
+  SCRIBBLE_PAD_X,
+  SCRIBBLE_PAD_Y,
+  scribblePath,
+} from "./note-scribble";
 
 /**
  * Pen annotations: every note is a circled span plus a draggable, resizable
@@ -19,8 +25,11 @@ const MIN_W = 90;
 const MAX_W = 600;
 const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
+const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
+
 type Box = { x: number; y: number; w: number; h: number };
-type Placement = { note: Note; box: Box; laneCenter: { x: number; y: number } };
+/** lines: distinct text lines the span covers — 1 = circle it, 2+ = bracket */
+type Placement = { note: Note; box: Box; lines: number; laneCenter: { x: number; y: number } };
 
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
@@ -52,16 +61,23 @@ function geom(
   // under-run) — flipping later forces a hard bend near the arrowhead.
   const above = cy < aCY - 4;
   const noteEdgeX = side === "left" ? cx + w / 2 : cx - w / 2;
-  // Land anywhere along the loop's arc, at the point facing the note, with
-  // the landing height following the ellipse's curve — many touch points,
-  // picked by where the note actually is.
-  const rx = p.box.w / 2 + SCRIBBLE_PAD_X;
-  const ry = p.box.h / 2 + SCRIBBLE_PAD_Y;
-  const t = Math.min(Math.max((cx - p.box.x) / p.box.w, 0.02), 0.98);
-  const ex = (t - 0.5) * p.box.w; // x-offset from the loop's center
-  const bulge = ry * Math.sqrt(Math.max(0, 1 - (ex / rx) ** 2));
-  const anchorX = p.box.x + p.box.w * t;
-  const anchorY = above ? aCY - bulge - 5 : aCY + bulge + 5;
+  let anchorX: number;
+  let anchorY: number;
+  if (p.lines > 1) {
+    // Bracketed span: bind to the bracket's spine, at the note's height
+    anchorX = p.box.x - BRACKET_GAP - 3;
+    anchorY = Math.min(Math.max(cy, p.box.y + 8), p.box.y + p.box.h - 8);
+  } else {
+    // Circled span: land anywhere along the loop's arc, at the point facing
+    // the note, the landing height following the ellipse's curve.
+    const rx = p.box.w / 2 + SCRIBBLE_PAD_X;
+    const ry = p.box.h / 2 + SCRIBBLE_PAD_Y;
+    const t = Math.min(Math.max((cx - p.box.x) / p.box.w, 0.02), 0.98);
+    const ex = (t - 0.5) * p.box.w; // x-offset from the loop's center
+    const bulge = ry * Math.sqrt(Math.max(0, 1 - (ex / rx) ** 2));
+    anchorX = p.box.x + p.box.w * t;
+    anchorY = above ? aCY - bulge - 5 : aCY + bulge + 5;
+  }
   return {
     cx,
     cy,
@@ -154,10 +170,13 @@ export function NoteMarks({
           w: right - left,
           h: bottom - top,
         };
+        const tops: number[] = [];
+        for (const r of rects) if (!tops.some((t) => Math.abs(t - r.top) < 3)) tops.push(r.top);
         const side = (left + right) / 2 < centerX ? "left" : "right";
         items.push({
           note,
           box,
+          lines: tops.length,
           laneCenter: {
             x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
             y: box.y + box.h / 2,
@@ -208,7 +227,16 @@ export function NoteMarks({
             return (
               <path
                 key={p.note.id}
-                d={scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.note.id)}
+                d={
+                  p.lines > 1
+                    ? bracketPath(
+                        p.box.x - BRACKET_GAP,
+                        p.box.y + 2,
+                        p.box.y + p.box.h - 2,
+                        p.note.id,
+                      )
+                    : scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.note.id)
+                }
                 fill="none"
                 stroke={NOTE_INK}
                 strokeWidth={active ? 2 : 1.5}
