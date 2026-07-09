@@ -6,7 +6,7 @@
 
 /** How far the loop swings beyond the text box. */
 export const SCRIBBLE_PAD_X = 7;
-export const SCRIBBLE_PAD_Y = 4;
+export const SCRIBBLE_PAD_Y = 2.5;
 
 function hashSeed(s: string): number {
   let h = 0x811c9dc5;

@@ -16,10 +16,10 @@ import { leaderPath, scribblePath } from "./note-scribble";
  */
 
 const GLOSS_MAX_CHARS = 36; // longer than this goes to a placed note box
-const GLOSS_LIFT = 11; // px above the mark's first line box — hugs the circle
-const GLOSS_CLEAR_LIFT = 17; // fallback lift: above the loop's top arc instead
-const GLOSS_INDENT = 12; // start past the loop's right bulge, beside it
-const GLOSS_PAD_Y = 2; // flatter loop under a gloss
+const GLOSS_LIFT = 8; // px above the mark's first line box — hugs the circle
+const GLOSS_CLEAR_LIFT = 15; // fallback lift: above the loop's top arc instead
+const GLOSS_INDENT = 16; // start past the loop's right bulge, beside it
+const GLOSS_PAD_Y = 1.5; // flatter loop under a gloss
 const EDITOR_W = 220;
 const LANE = 190; // px width of a note box
 const GAP = 20; // px between content box and the default lane
