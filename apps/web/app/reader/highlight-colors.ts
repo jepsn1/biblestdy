@@ -1,16 +1,24 @@
 import type { HighlightColor } from "@biblestdy/shared";
 
-/** Shared ink for note marks — the dotted underline and its leader line. */
-export const NOTE_INK = "oklch(0.83 0.1 85 / 0.7)";
+/** Pen ink — everything the "pen" draws: scribble loops, leader lines, margin
+ * handwriting. A different material from the gold UI accent and the marker
+ * washes (like blue pen over orange highlighter on paper). Ballpoint blue;
+ * per-theme values live in app.css (dark on paper, lightened on charcoal). */
+export const NOTE_INK = "var(--note-ink)";
+/** Margin note handwriting, active / at rest. */
+export const NOTE_INK_TEXT_ACTIVE = "var(--note-ink-text-active)";
+export const NOTE_INK_TEXT = "var(--note-ink-text)";
+/** Soft wash behind the circled words while their note is active. */
+export const NOTE_INK_WASH = "var(--note-ink-wash)";
 
-/** Muted highlight backgrounds tuned for the dark parchment theme. */
+/** Marker washes — themed in app.css (saturated on paper, muted on charcoal). */
 export const HIGHLIGHT_BG: Record<HighlightColor, string> = {
-  gold: "oklch(0.83 0.10 85 / 0.28)",
-  amber: "oklch(0.76 0.13 60 / 0.28)",
-  green: "oklch(0.72 0.12 150 / 0.26)",
-  blue: "oklch(0.70 0.11 240 / 0.32)",
-  rose: "oklch(0.68 0.16 15 / 0.30)",
-  purple: "oklch(0.66 0.16 300 / 0.32)",
+  gold: "var(--hl-gold)",
+  amber: "var(--hl-amber)",
+  green: "var(--hl-green)",
+  blue: "var(--hl-blue)",
+  rose: "var(--hl-rose)",
+  purple: "var(--hl-purple)",
 };
 
 /** More saturated dot for the color picker. */

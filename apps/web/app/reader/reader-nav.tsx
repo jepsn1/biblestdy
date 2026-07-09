@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { SidebarTrigger } from "~/components/ui/sidebar";
+import { ThemeToggle } from "~/components/theme-toggle";
 
 export function ReaderNav({ book, chapter }: { book: string; chapter: number }) {
   const navigate = useNavigate();
@@ -92,6 +93,8 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
             /
           </kbd>
         </form>
+
+        <ThemeToggle />
       </div>
     </nav>
   );
