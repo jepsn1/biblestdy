@@ -10,6 +10,7 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 - `pnpm dev` — builds shared, runs web (5173) + api (3001, prefix `/api`, proxied in dev). Port 3000 is often taken by another project.
 - Dev server reachable from LAN (`http://192.168.18.7:5173`) and WAN at **https://dev.biblestdy.com** behind caddy basic_auth (user `marcus`, password: `/srv/infra/compose/.dev-password`). Vite binds 0.0.0.0; UFW walls off WAN.
 - `pnpm test` / `pnpm typecheck` / `pnpm lint` — must be green before commit. CI mirrors these.
+- **Commit often**: checkpoint after every green iteration (feature step, refactor, tuning round) — small commits we can roll back to, not one multi-feature diff at sign-off. Don't wait for design approval to commit; approval gates the milestone, not the checkpoint.
 - `packages/shared` emits CJS to `dist/` — **rebuild (`pnpm --filter @biblestdy/shared build`) after editing it**, or api/web see stale exports. Vite prebundles it (`optimizeDeps.include`).
 
 ## Prod

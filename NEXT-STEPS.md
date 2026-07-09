@@ -2,7 +2,7 @@
 
 State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP, all routes gated). Plus design system, paginated reader, books sidebar + filter, section headings. CI green, 26 tests.
 
-2026-07-09: **deployed to prod** on own server (see CLAUDE.md Prod) — live once router forwards 80/443 to the box (Marcus); cert auto-issues then. Fresh prod `BETTER_AUTH_SECRET` set ✓. Login codes: `docker logs biblestdy-api`.
+2026-07-09: **deployed to prod** on own server (see CLAUDE.md Prod) — blocked on Parknet public IP (CGNAT; ordered), then it's live at biblestdy.com. Resend auth emails wired (prod+dev) ✓. Same day: paper theme (default) + charcoal toggle; hand-drawn annotation system (pen-ink scribble circles, interlinear glosses ≤36 chars, else draggable/resizable note boxes with under-text arrows; placement persisted anchor-relative). Prod db still needs `db:push` for note offset/width columns before deploying this.
 
 ## Pilot-time (before real users)
 
