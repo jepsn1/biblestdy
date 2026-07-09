@@ -5,8 +5,6 @@ import {
   codeBlockPlugin,
   codeMirrorPlugin,
   CreateLink,
-  diffSourcePlugin,
-  DiffSourceToggleWrapper,
   headingsPlugin,
   InsertTable,
   InsertThematicBreak,
@@ -107,11 +105,10 @@ export function NoteDocPanel({
           thematicBreakPlugin(),
           codeBlockPlugin({ defaultCodeBlockLanguage: "" }),
           codeMirrorPlugin({ codeBlockLanguages: { "": "Plain", js: "JavaScript" } }),
-          diffSourcePlugin({ viewMode: "rich-text" }),
           markdownShortcutPlugin(),
           toolbarPlugin({
             toolbarContents: () => (
-              <DiffSourceToggleWrapper>
+              <>
                 <UndoRedo />
                 <BoldItalicUnderlineToggles />
                 <BlockTypeSelect />
@@ -119,7 +116,7 @@ export function NoteDocPanel({
                 <CreateLink />
                 <InsertTable />
                 <InsertThematicBreak />
-              </DiffSourceToggleWrapper>
+              </>
             ),
           }),
         ]}
