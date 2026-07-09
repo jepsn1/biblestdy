@@ -76,6 +76,12 @@ export function NoteDocPanel({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Untitled note"
+          // Keep password managers/autofill out of a document title
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
+          data-form-type="other"
           className="min-w-0 flex-1 bg-transparent font-serif text-base font-medium outline-none placeholder:text-muted-foreground/60"
         />
         <button
