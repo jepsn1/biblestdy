@@ -1,7 +1,7 @@
 import type { Highlight } from "@biblestdy/shared";
 import { useLayoutEffect, useState, type RefObject } from "react";
 import { HIGHLIGHT_BG } from "./highlight-colors";
-import { markerPath } from "./note-scribble";
+import { markerPath } from "./scribble";
 
 /**
  * Marker layer. Highlights are drawn as full line-height rects measured from

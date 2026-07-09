@@ -28,8 +28,8 @@ export const highlight = pgTable('highlight', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-/** A short inline note anchored to a word-span, owned by one user. */
-export const note = pgTable('note', {
+/** A short inline annotation (handwritten scribble) on a word-span, owned by one user. */
+export const annotation = pgTable('annotation', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id')
     .notNull()
@@ -42,7 +42,7 @@ export const note = pgTable('note', {
   startWord: integer('start_word').notNull(),
   endVerse: integer('end_verse').notNull(),
   endWord: integer('end_word').notNull(),
-  // Dragged position, offset from the anchored words' center; null = auto
+  // Dragged box position, offset from the anchored words' center; null = auto
   offsetX: real('offset_x'),
   offsetY: real('offset_y'),
   // User-resized box width (px); null = default lane width
@@ -52,10 +52,10 @@ export const note = pgTable('note', {
 });
 
 /**
- * A full note: standalone markdown document anchored to a span (issue #7).
+ * A note: standalone markdown document anchored to a span (issue #7).
  * Single anchor for now — #8 (multi-anchor) will move anchors to a join table.
  */
-export const fullNote = pgTable('full_note', {
+export const note = pgTable('note', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id')
     .notNull()

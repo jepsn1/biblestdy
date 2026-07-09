@@ -12,15 +12,15 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { FullNote } from '@biblestdy/shared';
+import type { Annotation } from '@biblestdy/shared';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
-import { CreateFullNoteDto, UpdateFullNoteDto } from './full-note.dto';
-import { FullNotesService } from './full-notes.service';
+import { CreateAnnotationDto, UpdateAnnotationDto } from './annotation.dto';
+import { AnnotationsService } from './annotations.service';
 
-@Controller('full-notes')
+@Controller('annotations')
 @UseGuards(SessionGuard)
-export class FullNotesController {
-  constructor(private readonly fullNotes: FullNotesService) {}
+export class AnnotationsController {
+  constructor(private readonly annotations: AnnotationsService) {}
 
   @Get()
   async list(
@@ -28,14 +28,14 @@ export class FullNotesController {
     @Query('translation') translationId: string,
     @Query('book') book: string,
     @Query('chapter') chapter: string,
-  ): Promise<FullNote[]> {
+  ): Promise<Annotation[]> {
     const chapterNum = Number(chapter);
     if (!translationId || !book || !Number.isInteger(chapterNum)) {
       throw new BadRequestException(
         'translation, book and chapter are required',
       );
     }
-    return this.fullNotes.listForChapter(
+    return this.annotations.listForChapter(
       req.user.id,
       translationId,
       book,
@@ -46,21 +46,26 @@ export class FullNotesController {
   @Post()
   create(
     @Req() req: AuthedRequest,
-    @Body() dto: CreateFullNoteDto,
-  ): Promise<FullNote> {
-    return this.fullNotes.create(req.user.id, dto);
+    @Body() dto: CreateAnnotationDto,
+  ): Promise<Annotation> {
+    return this.annotations.create(req.user.id, dto);
   }
 
   @Patch(':id')
   async update(
     @Req() req: AuthedRequest,
     @Param('id') id: string,
-    @Body() dto: UpdateFullNoteDto,
-  ): Promise<FullNote> {
-    if (dto.title === undefined && dto.body === undefined) {
+    @Body() dto: UpdateAnnotationDto,
+  ): Promise<Annotation> {
+    if (
+      dto.text === undefined &&
+      dto.offsetX === undefined &&
+      dto.offsetY === undefined &&
+      dto.width === undefined
+    ) {
       throw new BadRequestException('nothing to update');
     }
-    const updated = await this.fullNotes.update(req.user.id, id, dto);
+    const updated = await this.annotations.update(req.user.id, id, dto);
     if (!updated) throw new NotFoundException();
     return updated;
   }
@@ -70,7 +75,7 @@ export class FullNotesController {
     @Req() req: AuthedRequest,
     @Param('id') id: string,
   ): Promise<{ ok: true }> {
-    const removed = await this.fullNotes.remove(req.user.id, id);
+    const removed = await this.annotations.remove(req.user.id, id);
     if (!removed) throw new NotFoundException();
     return { ok: true };
   }

@@ -4,7 +4,7 @@ import type { Note, NewNote } from '@biblestdy/shared';
 import { db } from '../db';
 import { note } from '../db/schema';
 
-/** Persistence for inline notes. All queries are scoped to a single user. */
+/** Persistence for full markdown notes. All queries scoped to one user. */
 @Injectable()
 export class NotesService {
   async listForChapter(
@@ -30,21 +30,16 @@ export class NotesService {
   async create(userId: string, data: NewNote): Promise<Note> {
     const [row] = await db
       .insert(note)
-      .values({ userId, ...data })
+      .values({ userId, title: '', body: '', ...data })
       .returning();
     return toNote(row);
   }
 
-  /** Updates text and/or dragged position of a note the user owns; null if not found. */
+  /** Updates title/body of a full note the user owns; null if not found. */
   async update(
     userId: string,
     id: string,
-    patch: {
-      text?: string;
-      offsetX?: number;
-      offsetY?: number;
-      width?: number;
-    },
+    patch: { title?: string; body?: string },
   ): Promise<Note | null> {
     const [row] = await db
       .update(note)
@@ -69,13 +64,11 @@ function toNote(row: typeof note.$inferSelect): Note {
     translationId: row.translationId,
     book: row.book,
     chapter: row.chapter,
-    text: row.text,
+    title: row.title,
+    body: row.body,
     startVerse: row.startVerse,
     startWord: row.startWord,
     endVerse: row.endVerse,
     endWord: row.endWord,
-    offsetX: row.offsetX,
-    offsetY: row.offsetY,
-    width: row.width,
   };
 }

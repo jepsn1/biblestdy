@@ -15,8 +15,8 @@ export {
   type Highlight,
   type NewHighlight,
   type HighlightColor,
+  type Annotation,
+  type NewAnnotation,
   type Note,
   type NewNote,
-  type FullNote,
-  type NewFullNote,
 } from './anchor.js'

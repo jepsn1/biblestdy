@@ -54,12 +54,7 @@ export class NotesController {
     @Param('id') id: string,
     @Body() dto: UpdateNoteDto,
   ): Promise<Note> {
-    if (
-      dto.text === undefined &&
-      dto.offsetX === undefined &&
-      dto.offsetY === undefined &&
-      dto.width === undefined
-    ) {
+    if (dto.title === undefined && dto.body === undefined) {
       throw new BadRequestException('nothing to update');
     }
     const updated = await this.notes.update(req.user.id, id, dto);

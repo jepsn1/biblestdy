@@ -7,11 +7,11 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/componen
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
-import { NoteDocPanel } from "./note-doc-panel";
-import { NoteMarks } from "./note-marks";
-import { useFullNotes } from "./use-full-notes";
-import { useHighlights } from "./use-highlights";
+import { NotePanel } from "./note-panel";
+import { AnnotationMarks } from "./annotation-marks";
 import { useNotes } from "./use-notes";
+import { useHighlights } from "./use-highlights";
+import { useAnnotations } from "./use-annotations";
 
 /**
  * Book-style pagination. The chapter flows through fixed-height CSS columns
@@ -39,43 +39,43 @@ export function PaginatedChapter({
   const [page, setPage] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [stride, setStride] = useState(0);
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   const { highlights, add, remove } = useHighlights(
     chapter.translationId,
     chapter.book,
     chapter.chapter,
   );
+  const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter);
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
-  const fullNotesApi = useFullNotes(chapter.translationId, chapter.book, chapter.chapter);
-  const [openDocId, setOpenDocId] = useState<string | null>(null);
-  const openDoc = fullNotesApi.fullNotes.find((f) => f.id === openDocId) ?? null;
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const openNote = notesApi.notes.find((f) => f.id === openNoteId) ?? null;
   const scrollRef = useRef<HTMLDivElement>(null);
   // Split width is a per-device ergonomic preference -> localStorage, not DB
-  const [docSize, setDocSize] = useState(() => {
+  const [noteSize, setNoteSize] = useState(() => {
     if (typeof localStorage === "undefined") return 50;
-    const v = Number(localStorage.getItem("docPanelSize"));
+    const v = Number(localStorage.getItem("notePanelSize"));
     return v >= 20 && v <= 65 ? v : 50;
   });
 
   function onSplitChange(layout: Record<string, number>, meta: { isUserInteraction: boolean }) {
-    if (!meta.isUserInteraction || !openDoc) return;
+    if (!meta.isUserInteraction || !openNote) return;
     const reader = layout.reader;
-    const doc = layout.doc;
-    if (typeof reader !== "number" || typeof doc !== "number") return;
-    const pct = (doc / (reader + doc)) * 100;
-    setDocSize(pct);
-    localStorage.setItem("docPanelSize", String(pct));
+    const note = layout.note;
+    if (typeof reader !== "number" || typeof note !== "number") return;
+    const pct = (note / (reader + note)) * 100;
+    setNoteSize(pct);
+    localStorage.setItem("notePanelSize", String(pct));
   }
 
   // Center the sheet in the pane whenever it stops fitting (doc open/close)
   useEffect(() => {
     const vp = scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
     if (vp) vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
-  }, [openDocId]);
+  }, [openNoteId]);
 
-  async function addFullNote(anchor: Parameters<typeof fullNotesApi.add>[0]) {
-    const created = await fullNotesApi.add(anchor);
-    if (created) setOpenDocId(created.id);
+  async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
+    const created = await notesApi.add(anchor);
+    if (created) setOpenNoteId(created.id);
   }
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
@@ -139,7 +139,7 @@ export function PaginatedChapter({
       <ResizablePanel
         id="reader"
         minSize="35%"
-        defaultSize={openDoc ? `${100 - docSize}%` : "100%"}
+        defaultSize={openNote ? `${100 - noteSize}%` : "100%"}
         className="flex min-h-0 flex-col"
       >
       <div className="relative min-h-0 flex-1">
@@ -160,20 +160,20 @@ export function PaginatedChapter({
               chapter={chapter}
               heading={heading}
               highlights={highlights}
+              annotations={annotationsApi.annotations}
               notes={notesApi.notes}
-              fullNotes={fullNotesApi.fullNotes}
-              activeNoteId={activeNoteId}
+              activeAnnotationId={activeAnnotationId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
-              onAddNote={notesApi.add}
-              onAddFullNote={(anchor) => void addFullNote(anchor)}
-              onOpenFullNote={setOpenDocId}
-              onFocusNote={setActiveNoteId}
+              onAddAnnotation={annotationsApi.add}
+              onAddNote={(anchor) => void addNote(anchor)}
+              onOpenNote={setOpenNoteId}
+              onFocusAnnotation={setActiveAnnotationId}
             />
           </div>
         </div>
 
-        {/* Before NoteMarks: same underlay stratum, so pen arrows paint over marker */}
+        {/* Before AnnotationMarks: same underlay stratum, so pen arrows paint over marker */}
         <HighlightMarks
           highlights={highlights}
           regionRef={regionRef}
@@ -181,18 +181,18 @@ export function PaginatedChapter({
           page={page}
         />
 
-        <NoteMarks
+        <AnnotationMarks
+          annotations={annotationsApi.annotations}
           notes={notesApi.notes}
-          fullNotes={fullNotesApi.fullNotes}
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}
-          activeNoteId={activeNoteId}
-          onFocus={setActiveNoteId}
-          onEdit={notesApi.edit}
-          onRemove={notesApi.remove}
-          onPlace={notesApi.place}
-          onOpenFullNote={setOpenDocId}
+          activeAnnotationId={activeAnnotationId}
+          onFocus={setActiveAnnotationId}
+          onEdit={annotationsApi.edit}
+          onRemove={annotationsApi.remove}
+          onPlace={annotationsApi.place}
+          onOpenNote={setOpenNoteId}
         />
 
           </div>
@@ -253,16 +253,16 @@ export function PaginatedChapter({
       </footer>
       </ResizablePanel>
 
-      {openDoc && (
+      {openNote && (
         <>
           <ResizableHandle withHandle />
           {/* min = what the editor toolbar needs in one row */}
-          <ResizablePanel id="doc" defaultSize={`${docSize}%`} minSize="35rem" maxSize="65%">
-            <NoteDocPanel
-              doc={openDoc}
-              onEdit={fullNotesApi.edit}
-              onRemove={fullNotesApi.remove}
-              onClose={() => setOpenDocId(null)}
+          <ResizablePanel id="note" defaultSize={`${noteSize}%`} minSize="35rem" maxSize="65%">
+            <NotePanel
+              note={openNote}
+              onEdit={notesApi.edit}
+              onRemove={notesApi.remove}
+              onClose={() => setOpenNoteId(null)}
             />
           </ResizablePanel>
         </>

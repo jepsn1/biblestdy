@@ -1,29 +1,23 @@
-import {
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsInt, IsOptional, IsString, Min, MaxLength } from 'class-validator';
 
-/** Inline notes are short — cap the length so full notes (#7) stay the home for long-form. */
-const MAX_INLINE = 500;
+const MAX_TITLE = 200;
+const MAX_BODY = 100_000; // it's a document, but not a book
 
 export class CreateNoteDto {
   @IsString()
-  @MinLength(1)
   translationId!: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  @MaxLength(MAX_INLINE)
-  text!: string;
+  @MaxLength(MAX_TITLE)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_BODY)
+  body?: string;
 
   @IsString()
-  @MinLength(1)
   book!: string;
 
   @IsInt()
@@ -50,23 +44,11 @@ export class CreateNoteDto {
 export class UpdateNoteDto {
   @IsOptional()
   @IsString()
-  @MinLength(1)
-  @MaxLength(MAX_INLINE)
-  text?: string;
-
-  /** Dragged position, offset from the anchored words' center (px). */
-  @IsOptional()
-  @IsNumber()
-  offsetX?: number;
+  @MaxLength(MAX_TITLE)
+  title?: string;
 
   @IsOptional()
-  @IsNumber()
-  offsetY?: number;
-
-  /** User-resized box width (px). */
-  @IsOptional()
-  @IsNumber()
-  @Min(90)
-  @Max(600)
-  width?: number;
+  @IsString()
+  @MaxLength(MAX_BODY)
+  body?: string;
 }

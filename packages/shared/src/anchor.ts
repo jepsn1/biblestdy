@@ -88,33 +88,33 @@ export interface NewHighlight extends Anchor {
   color: HighlightColor
 }
 
-/** A short inline note anchored to a span. */
-export interface Note extends Anchor {
+/** A short inline annotation: handwritten scribble anchored to a span. */
+export interface Annotation extends Anchor {
   id: string
   text: string
-  /** Where the user dragged the note, as an offset from the anchored words'
+  /** Where the user dragged the annotation box, as an offset from the anchored words'
    * center (px). Null/absent = automatic placement. Anchor-relative so the
-   * note travels with its verse across reflow/pagination. */
+   * box travels with its verse across reflow/pagination. */
   offsetX?: number | null
   offsetY?: number | null
   /** User-resized box width (px); null/absent = default. */
   width?: number | null
 }
 
-/** Create payload for a note. */
-export interface NewNote extends Anchor {
+/** Create payload for an annotation. */
+export interface NewAnnotation extends Anchor {
   text: string
 }
 
-/** A full note: standalone markdown document anchored to a span. */
-export interface FullNote extends Anchor {
+/** A note: standalone markdown document anchored to a span. */
+export interface Note extends Anchor {
   id: string
   title: string
   body: string
 }
 
-/** Create payload for a full note. */
-export interface NewFullNote extends Anchor {
+/** Create payload for a note. */
+export interface NewNote extends Anchor {
   title?: string
   body?: string
 }

@@ -1,4 +1,4 @@
-import type { FullNote } from "@biblestdy/shared";
+import type { Note } from "@biblestdy/shared";
 import {
   BlockTypeSelect,
   BoldItalicUnderlineToggles,
@@ -31,32 +31,32 @@ import { useIsDark } from "~/components/theme-toggle";
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
  * Autosaves (debounced) — closing never loses work.
  */
-export function NoteDocPanel({
-  doc,
+export function NotePanel({
+  note,
   onEdit,
   onRemove,
   onClose,
 }: {
-  doc: FullNote;
+  note: Note;
   onEdit: (id: string, patch: { title?: string; body?: string }) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState(doc.title);
-  const [body, setBody] = useState(doc.body);
+  const [title, setTitle] = useState(note.title);
+  const [body, setBody] = useState(note.body);
   const dark = useIsDark();
 
-  // Fresh doc -> fresh buffers (the editor itself resets via key={doc.id})
+  // Fresh note -> fresh buffers (the editor itself resets via key={note.id})
   useEffect(() => {
-    setTitle(doc.title);
-    setBody(doc.body);
+    setTitle(note.title);
+    setBody(note.body);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.id]);
+  }, [note.id]);
 
   // Debounced autosave
   useEffect(() => {
-    if (title === doc.title && body === doc.body) return;
-    const t = setTimeout(() => onEdit(doc.id, { title, body }), 800);
+    if (title === note.title && body === note.body) return;
+    const t = setTimeout(() => onEdit(note.id, { title, body }), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, body]);
@@ -67,7 +67,7 @@ export function NoteDocPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const dirty = title !== doc.title || body !== doc.body;
+  const dirty = title !== note.title || body !== note.body;
 
   return (
     <aside className="flex h-full w-full flex-col bg-background">
@@ -95,8 +95,8 @@ export function NoteDocPanel({
       </header>
 
       <MDXEditor
-        key={doc.id}
-        markdown={doc.body}
+        key={note.id}
+        markdown={note.body}
         onChange={setBody}
         placeholder="Write your note…"
         className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
@@ -133,7 +133,7 @@ export function NoteDocPanel({
           type="button"
           className="hover:text-destructive"
           onClick={() => {
-            onRemove(doc.id);
+            onRemove(note.id);
             onClose();
           }}
         >

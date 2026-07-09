@@ -1,4 +1,4 @@
-import type { FullNote, Note } from "@biblestdy/shared";
+import type { Note, Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
@@ -8,14 +8,14 @@ import {
   SCRIBBLE_PAD_X,
   SCRIBBLE_PAD_Y,
   scribblePath,
-} from "./note-scribble";
+} from "./scribble";
 
 /**
- * Pen annotations: every note is a circled span plus a draggable, resizable
+ * Pen annotations: every annotation is a circled span plus a draggable, resizable
  * handwriting box (Excalidraw-style) connected by a hand-drawn arrow that
- * re-binds live. Never-dragged notes start in the outer margin lane.
+ * re-binds live. Never-dragged annotations start in the outer margin lane.
  * Placement/width persist as an offset from the anchored words' center, so a
- * note travels with its verse across reflow/pagination. Park the box right
+ * annotation travels with its verse across reflow/pagination. Park the box right
  * next to its circle and the arrow disappears — the interlinear-gloss look,
  * placed by hand.
  */
@@ -30,10 +30,10 @@ const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
 
 type Box = { x: number; y: number; w: number; h: number };
 /** lines: distinct text lines the span covers — 1 = circle it, 2+ = bracket */
-type Placement = { note: Note; box: Box; lines: number; laneCenter: { x: number; y: number } };
-/** A full note's mark: same circle/bracket by geometry, plus a static † label
+type Placement = { annotation: Annotation; box: Box; lines: number; laneCenter: { x: number; y: number } };
+/** A full annotation's mark: same circle/bracket by geometry, plus a static † label
  * beside it that opens the document panel. */
-type DocMark = { doc: FullNote; box: Box; lines: number };
+type NoteTab = { note: Note; box: Box; lines: number };
 
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
@@ -46,34 +46,34 @@ function geom(
   const aCY = p.box.y + p.box.h / 2;
   let cx: number;
   let cy: number;
-  if (drag && drag.id === p.note.id) {
+  if (drag && drag.id === p.annotation.id) {
     ({ x: cx, y: cy } = drag);
-  } else if (p.note.offsetX != null && p.note.offsetY != null) {
-    cx = aCX + p.note.offsetX;
-    cy = aCY + p.note.offsetY;
+  } else if (p.annotation.offsetX != null && p.annotation.offsetY != null) {
+    cx = aCX + p.annotation.offsetX;
+    cy = aCY + p.annotation.offsetY;
   } else {
     ({ x: cx, y: cy } = p.laneCenter);
   }
-  let w = p.note.width ?? LANE;
-  if (resize && resize.id === p.note.id) {
+  let w = p.annotation.width ?? LANE;
+  if (resize && resize.id === p.annotation.id) {
     cx = resize.cx;
     w = resize.w;
   }
   const side: "left" | "right" = cx < aCX ? "left" : "right";
-  // Flip to the top approach as soon as the note rises past the circle's
-  // centerline (small bias keeps untouched lane notes on the classic
+  // Flip to the top approach as soon as the annotation rises past the circle's
+  // centerline (small bias keeps untouched lane annotations on the classic
   // under-run) — flipping later forces a hard bend near the arrowhead.
   const above = cy < aCY - 4;
   const noteEdgeX = side === "left" ? cx + w / 2 : cx - w / 2;
   let anchorX: number;
   let anchorY: number;
   if (p.lines > 1) {
-    // Bracketed span: bind to the bracket's spine, at the note's height
+    // Bracketed span: bind to the bracket's spine, at the annotation's height
     anchorX = p.box.x - BRACKET_GAP - 3;
     anchorY = Math.min(Math.max(cy, p.box.y + 8), p.box.y + p.box.h - 8);
   } else {
     // Circled span: land anywhere along the loop's arc, at the point facing
-    // the note, the landing height following the ellipse's curve.
+    // the annotation, the landing height following the ellipse's curve.
     const rx = p.box.w / 2 + SCRIBBLE_PAD_X;
     const ry = p.box.h / 2 + SCRIBBLE_PAD_Y;
     const t = Math.min(Math.max((cx - p.box.x) / p.box.w, 0.02), 0.98);
@@ -97,33 +97,33 @@ function geom(
   };
 }
 
-export function NoteMarks({
+export function AnnotationMarks({
+  annotations,
   notes,
-  fullNotes,
   regionRef,
   contentRef,
   page,
-  activeNoteId,
+  activeAnnotationId,
   onFocus,
   onEdit,
   onRemove,
   onPlace,
-  onOpenFullNote,
+  onOpenNote,
 }: {
+  annotations: Annotation[];
   notes: Note[];
-  fullNotes: FullNote[];
   regionRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLElement | null>;
   page: number;
-  activeNoteId: string | null;
+  activeAnnotationId: string | null;
   onFocus: (id: string | null) => void;
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
   onPlace: (id: string, patch: { offsetX?: number; offsetY?: number; width?: number }) => void;
-  onOpenFullNote: (id: string) => void;
+  onOpenNote: (id: string) => void;
 }) {
   const [placements, setPlacements] = useState<Placement[]>([]);
-  const [docMarks, setDocMarks] = useState<DocMark[]>([]);
+  const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
   const [regionSize, setRegionSize] = useState({ w: 0, h: 0 });
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -141,7 +141,7 @@ export function NoteMarks({
   useEffect(() => {
     if (!editing) return;
     const onDown = (e: PointerEvent) => {
-      if (!(e.target as HTMLElement).closest("[data-note-editing]")) setEditing(null);
+      if (!(e.target as HTMLElement).closest("[data-annotation-editing]")) setEditing(null);
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
@@ -163,7 +163,7 @@ export function NoteMarks({
       /** Box + line count of an anchor's fragments on the current page
        * (clipped/translated-out fragments are skipped); null if off-page. */
       const measureAnchor = (anchorId: string) => {
-        const el = region.querySelector<HTMLElement>(`[data-note-anchor="${anchorId}"]`);
+        const el = region.querySelector<HTMLElement>(`[data-annotation-anchor="${anchorId}"]`);
         if (!el) return null;
         const rects = [...el.getClientRects()].filter(
           (r) => r.width > 0 && r.right >= contentRect.left + 1 && r.left <= contentRect.right - 1,
@@ -188,12 +188,12 @@ export function NoteMarks({
       };
 
       const items: Placement[] = [];
-      for (const note of notes) {
-        const m = measureAnchor(note.id);
+      for (const annotation of annotations) {
+        const m = measureAnchor(annotation.id);
         if (!m) continue;
         const side = m.mid < centerX ? "left" : "right";
         items.push({
-          note,
+          annotation,
           box: m.box,
           lines: m.lines,
           laneCenter: {
@@ -204,12 +204,12 @@ export function NoteMarks({
       }
       setPlacements(items);
 
-      const docs: DocMark[] = [];
-      for (const doc of fullNotes) {
-        const m = measureAnchor(`full:${doc.id}`);
-        if (m) docs.push({ doc, box: m.box, lines: m.lines });
+      const tabs: NoteTab[] = [];
+      for (const note of notes) {
+        const m = measureAnchor(`note:${note.id}`);
+        if (m) tabs.push({ note, box: m.box, lines: m.lines });
       }
-      setDocMarks(docs);
+      setNoteTabs(tabs);
     };
 
     measure();
@@ -221,7 +221,7 @@ export function NoteMarks({
       clearTimeout(t);
       ro.disconnect();
     };
-  }, [notes, fullNotes, page, regionRef, contentRef]);
+  }, [annotations, notes, page, regionRef, contentRef]);
 
   return (
     <>
@@ -231,11 +231,11 @@ export function NoteMarks({
         {placements.map((p) => {
           const g = geom(p, drag, resize);
           if (!g.showArrow) return null;
-          const active = p.note.id === activeNoteId;
+          const active = p.annotation.id === activeAnnotationId;
           return (
             <path
-              key={p.note.id}
-              d={leaderPath(g.noteEdgeX, g.cy, g.anchorX, g.anchorY, p.note.id, g.approach)}
+              key={p.annotation.id}
+              d={leaderPath(g.noteEdgeX, g.cy, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
               fill="none"
               stroke={NOTE_INK}
               strokeWidth={active ? 1.8 : 1.4}
@@ -249,19 +249,19 @@ export function NoteMarks({
       <div className="pointer-events-none absolute inset-0 z-10">
         <svg className="absolute inset-0 h-full w-full overflow-visible">
           {placements.map((p) => {
-            const active = p.note.id === activeNoteId;
+            const active = p.annotation.id === activeAnnotationId;
             return (
               <path
-                key={p.note.id}
+                key={p.annotation.id}
                 d={
                   p.lines > 1
                     ? bracketPath(
                         p.box.x - BRACKET_GAP,
                         p.box.y + 2,
                         p.box.y + p.box.h - 2,
-                        p.note.id,
+                        p.annotation.id,
                       )
-                    : scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.note.id)
+                    : scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.annotation.id)
                 }
                 fill="none"
                 stroke={NOTE_INK}
@@ -271,13 +271,13 @@ export function NoteMarks({
               />
             );
           })}
-          {docMarks.map((m) => (
+          {noteTabs.map((m) => (
             <path
-              key={m.doc.id}
+              key={m.note.id}
               d={
                 m.lines > 1
-                  ? bracketPath(m.box.x - BRACKET_GAP, m.box.y + 2, m.box.y + m.box.h - 2, m.doc.id)
-                  : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.doc.id)
+                  ? bracketPath(m.box.x - BRACKET_GAP, m.box.y + 2, m.box.y + m.box.h - 2, m.note.id)
+                  : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.note.id)
               }
               fill="none"
               stroke={NOTE_INK}
@@ -288,15 +288,15 @@ export function NoteMarks({
           ))}
         </svg>
 
-        {/* Full-note links: a typeset chip (index-tab, NOT handwriting) in the
-            interline gap above the mark's end — distinct from inline-note pen
+        {/* Full-annotation links: a typeset chip (index-tab, NOT handwriting) in the
+            interline gap above the mark's end — distinct from inline-annotation pen
             text, and never sitting on the running text */}
-        {docMarks.map((m) => (
+        {noteTabs.map((m) => (
           <button
-            key={m.doc.id}
+            key={m.note.id}
             type="button"
-            title={m.doc.title || "Open note"}
-            onClick={() => onOpenFullNote(m.doc.id)}
+            title={m.note.title || "Open annotation"}
+            onClick={() => onOpenNote(m.note.id)}
             className="pointer-events-auto absolute flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden rounded-full border bg-popover px-1.5 py-px font-mono text-[0.58rem] leading-none whitespace-nowrap transition-colors hover:bg-accent"
             style={{
               left: m.lines > 1 ? m.box.x - BRACKET_GAP : m.box.x + m.box.w - 10,
@@ -306,18 +306,18 @@ export function NoteMarks({
             }}
           >
             <FileText className="size-2.5 shrink-0" />
-            <span className="overflow-hidden text-ellipsis">{m.doc.title || "note"}</span>
+            <span className="overflow-hidden text-ellipsis">{m.note.title || "annotation"}</span>
           </button>
         ))}
 
         {placements.map((p) => {
-          const active = p.note.id === activeNoteId;
-          const isEditing = editing?.id === p.note.id;
+          const active = p.annotation.id === activeAnnotationId;
+          const isEditing = editing?.id === p.annotation.id;
           const g = geom(p, drag, resize);
-          const dragging = drag?.id === p.note.id;
+          const dragging = drag?.id === p.annotation.id;
           return (
             <div
-              key={p.note.id}
+              key={p.annotation.id}
               className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
               style={{
                 left: g.boxLeft,
@@ -325,7 +325,7 @@ export function NoteMarks({
                 width: g.w,
                 textAlign: g.side === "left" ? "right" : "left",
               }}
-              onMouseEnter={() => onFocus(p.note.id)}
+              onMouseEnter={() => onFocus(p.annotation.id)}
               onMouseLeave={() => !isEditing && onFocus(null)}
               onPointerDown={(e) => {
                 if (isEditing || e.button !== 0) return;
@@ -341,7 +341,7 @@ export function NoteMarks({
                 if (!didDrag.current && Math.hypot(dx, dy) < 4) return;
                 didDrag.current = true;
                 setDrag({
-                  id: p.note.id,
+                  id: p.annotation.id,
                   x: Math.min(Math.max(from.cx + dx, g.w / 2), regionSize.w - g.w / 2),
                   y: Math.min(Math.max(from.cy + dy, 12), regionSize.h - 12),
                 });
@@ -350,10 +350,10 @@ export function NoteMarks({
                 const from = dragFrom.current;
                 dragFrom.current = null;
                 if (!from) return;
-                if (didDrag.current && drag?.id === p.note.id) {
+                if (didDrag.current && drag?.id === p.annotation.id) {
                   const aCX = p.box.x + p.box.w / 2;
                   const aCY = p.box.y + p.box.h / 2;
-                  onPlace(p.note.id, { offsetX: drag.x - aCX, offsetY: drag.y - aCY });
+                  onPlace(p.annotation.id, { offsetX: drag.x - aCX, offsetY: drag.y - aCY });
                 }
                 setDrag(null);
               }}
@@ -386,7 +386,7 @@ export function NoteMarks({
                       );
                       didDrag.current = true;
                       setResize({
-                        id: p.note.id,
+                        id: p.annotation.id,
                         w,
                         cx: from.edge === "right" ? from.fixedX + w / 2 : from.fixedX - w / 2,
                       });
@@ -396,10 +396,10 @@ export function NoteMarks({
                       resizeFrom.current = null;
                       if (!from) return;
                       e.stopPropagation();
-                      if (resize?.id === p.note.id) {
+                      if (resize?.id === p.annotation.id) {
                         const aCX = p.box.x + p.box.w / 2;
                         const aCY = p.box.y + p.box.h / 2;
-                        onPlace(p.note.id, {
+                        onPlace(p.annotation.id, {
                           width: resize.w,
                           offsetX: resize.cx - aCX,
                           offsetY: g.cy - aCY,
@@ -411,16 +411,16 @@ export function NoteMarks({
                 ))}
               {isEditing ? (
                 <div
-                  data-note-editing
+                  data-annotation-editing
                   className="flex flex-col gap-1 rounded border border-border bg-popover p-1.5 text-left shadow-lg"
                 >
                   <textarea
                     autoFocus
                     value={editing.text}
-                    onChange={(e) => setEditing({ id: p.note.id, text: e.target.value })}
+                    onChange={(e) => setEditing({ id: p.annotation.id, text: e.target.value })}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        onEdit(p.note.id, editing.text.trim());
+                        onEdit(p.annotation.id, editing.text.trim());
                         setEditing(null);
                       }
                       if (e.key === "Escape") setEditing(null);
@@ -432,7 +432,7 @@ export function NoteMarks({
                       type="button"
                       className="px-1 text-muted-foreground hover:text-destructive"
                       onClick={() => {
-                        onRemove(p.note.id);
+                        onRemove(p.annotation.id);
                         setEditing(null);
                       }}
                     >
@@ -444,7 +444,7 @@ export function NoteMarks({
                       className="px-1 text-primary hover:opacity-80"
                       onClick={() => {
                         const t = editing.text.trim();
-                        if (t) onEdit(p.note.id, t);
+                        if (t) onEdit(p.annotation.id, t);
                         setEditing(null);
                       }}
                     >
@@ -456,20 +456,20 @@ export function NoteMarks({
                 <p
                   role="button"
                   tabIndex={0}
-                  title={p.note.text}
+                  title={p.annotation.text}
                   onClick={() => {
                     if (didDrag.current) {
                       didDrag.current = false;
                       return; // a drag, not a click
                     }
-                    setEditing({ id: p.note.id, text: p.note.text });
+                    setEditing({ id: p.annotation.id, text: p.annotation.text });
                   }}
                   className={`-mx-1 rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50 ${
                     dragging ? "cursor-grabbing" : "cursor-grab"
                   }`}
                   style={{ color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT }}
                 >
-                  {p.note.text}
+                  {p.annotation.text}
                 </p>
               )}
             </div>

@@ -1,4 +1,4 @@
-import type { Anchor, Chapter, FullNote, Highlight, HighlightColor, Note } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation } from "@biblestdy/shared";
 import {
   buildAnchor,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -26,26 +26,26 @@ function sectionsBefore(chapter: Chapter, verse: number): string[] {
   return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
 }
 
-// Noted spans carry no inline decoration — NoteMarks draws a hand-drawn ink
-// loop around [data-note-anchor] spans plus the placed note box + arrow.
+// Marked spans carry no inline decoration — AnnotationMarks draws a hand-drawn
+// ink loop around [data-annotation-anchor] spans plus the placed box + arrow.
 
-/** Inline notes and full notes share the anchor pipeline; full-note ids are
- * namespaced "full:<id>" so clicks/marks can tell them apart. */
+/** Annotations and notes (markdown docs) share the anchor pipeline; note ids
+ * are namespaced "note:<id>" so clicks/marks can tell them apart. */
 type AnchorRef = { id: string };
-type WordSeg = { note: AnchorRef | null; words: { word: string; i: number }[] };
+type WordSeg = { annotation: AnchorRef | null; words: { word: string; i: number }[] };
 
-/** Split a verse's words into runs of the same anchored note (null = un-noted). */
-function groupByNote(
+/** Split a verse's words into runs of the same anchored mark (null = unmarked). */
+function groupByAnnotation(
   verse: number,
   tokens: string[],
-  noteCoverage: Map<string, AnchorRef>,
+  annotationCoverage: Map<string, AnchorRef>,
 ): WordSeg[] {
   const segs: WordSeg[] = [];
   tokens.forEach((word, i) => {
-    const note = noteCoverage.get(`${verse}:${i}`) ?? null;
+    const annotation = annotationCoverage.get(`${verse}:${i}`) ?? null;
     const last = segs[segs.length - 1];
-    if (last && (last.note?.id ?? null) === (note?.id ?? null)) last.words.push({ word, i });
-    else segs.push({ note, words: [{ word, i }] });
+    if (last && (last.annotation?.id ?? null) === (annotation?.id ?? null)) last.words.push({ word, i });
+    else segs.push({ annotation, words: [{ word, i }] });
   });
   return segs;
 }
@@ -77,28 +77,28 @@ export function ChapterText({
   chapter,
   heading,
   highlights,
+  annotations,
   notes,
-  fullNotes,
-  activeNoteId,
+  activeAnnotationId,
   onAddHighlight,
   onRemoveHighlight,
+  onAddAnnotation,
   onAddNote,
-  onAddFullNote,
-  onOpenFullNote,
-  onFocusNote,
+  onOpenNote,
+  onFocusAnnotation,
 }: {
   chapter: Chapter;
   heading: string;
   highlights: Highlight[];
+  annotations: Annotation[];
   notes: Note[];
-  fullNotes: FullNote[];
-  activeNoteId: string | null;
+  activeAnnotationId: string | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
-  onAddNote: (anchor: Anchor, text: string) => void;
-  onAddFullNote: (anchor: Anchor) => void;
-  onOpenFullNote: (id: string) => void;
-  onFocusNote: (id: string | null) => void;
+  onAddAnnotation: (anchor: Anchor, text: string) => void;
+  onAddNote: (anchor: Anchor) => void;
+  onOpenNote: (id: string) => void;
+  onFocusAnnotation: (id: string | null) => void;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
   const [draft, setDraft] = useState("");
@@ -109,12 +109,12 @@ export function ChapterText({
 
   const hlCoverage = new Map<string, { id: string; color: HighlightColor }>();
   coverInto(hlCoverage, chapter.verses, highlights.map((h) => ({ ...h, value: { id: h.id, color: h.color } })));
-  const noteCoverage = new Map<string, AnchorRef>();
-  coverInto(noteCoverage, chapter.verses, notes.map((n) => ({ ...n, value: { id: n.id } })));
+  const annotationCoverage = new Map<string, AnchorRef>();
+  coverInto(annotationCoverage, chapter.verses, annotations.map((n) => ({ ...n, value: { id: n.id } })));
   coverInto(
-    noteCoverage,
+    annotationCoverage,
     chapter.verses,
-    fullNotes.map((f) => ({ ...f, value: { id: `full:${f.id}` } })),
+    notes.map((f) => ({ ...f, value: { id: `note:${f.id}` } })),
   );
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
@@ -160,14 +160,14 @@ export function ChapterText({
   }
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
-    if (noteId?.startsWith("full:")) {
+    if (noteId?.startsWith("note:")) {
       event.stopPropagation();
-      onOpenFullNote(noteId.slice(5)); // open the document panel
+      onOpenNote(noteId.slice(5)); // open the note panel
       return;
     }
     if (noteId) {
       event.stopPropagation();
-      onFocusNote(noteId); // highlight the matching placed note
+      onFocusAnnotation(noteId); // highlight the matching placed annotation
       return;
     }
     if (!hlId) return;
@@ -185,7 +185,7 @@ export function ChapterText({
 
   function saveDraft() {
     const text = draft.trim();
-    if (text && menu?.kind === "compose") onAddNote(menu.anchor, text);
+    if (text && menu?.kind === "compose") onAddAnnotation(menu.anchor, text);
     window.getSelection()?.removeAllRanges();
     setMenu(null);
   }
@@ -208,8 +208,8 @@ export function ChapterText({
             <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
               {v.verse}
             </sup>
-            {groupByNote(v.verse, tokens, noteCoverage).map((seg, si) => {
-              const active = seg.note && seg.note.id === activeNoteId;
+            {groupByAnnotation(v.verse, tokens, annotationCoverage).map((seg, si) => {
+              const active = seg.annotation && seg.annotation.id === activeAnnotationId;
               const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
                 // Highlight wash is painted by HighlightMarks (full line-height,
@@ -220,17 +220,17 @@ export function ChapterText({
                     data-verse={v.verse}
                     data-word={i}
                     data-hl={hit?.id}
-                    onClick={(e) => onWordClick(e, hit?.id, seg.note?.id)}
-                    className={hit || seg.note ? "cursor-pointer" : undefined}
+                    onClick={(e) => onWordClick(e, hit?.id, seg.annotation?.id)}
+                    className={hit || seg.annotation ? "cursor-pointer" : undefined}
                   >
                     {word}{" "}
                   </span>
                 );
               });
-              return seg.note ? (
+              return seg.annotation ? (
                 <span
                   key={si}
-                  data-note-anchor={seg.note.id}
+                  data-annotation-anchor={seg.annotation.id}
                   style={
                     active
                       ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }
@@ -292,19 +292,19 @@ export function ChapterText({
                       setMenu({ ...menu, kind: "compose" });
                     }}
                   >
-                    Note
+                    Annotate
                   </button>
                   <button
                     type="button"
-                    title="Full markdown note, opens side-by-side editor"
+                    title="Note: a markdown document, opens the side-by-side editor"
                     className="rounded px-2.5 py-1 font-mono text-xs text-foreground hover:bg-accent"
                     onClick={() => {
-                      onAddFullNote(menu.anchor);
+                      onAddNote(menu.anchor);
                       window.getSelection()?.removeAllRanges();
                       setMenu(null);
                     }}
                   >
-                    Doc
+                    Note
                   </button>
                 </div>
               )}
@@ -318,7 +318,7 @@ export function ChapterText({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveDraft();
                     }}
-                    placeholder="Your note…"
+                    placeholder="Your annotation…"
                     className="h-20 resize-none rounded border border-border bg-background p-2 font-serif text-sm outline-none focus:border-primary/50"
                   />
                   <div className="flex items-center justify-between">
