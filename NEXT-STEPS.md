@@ -26,6 +26,10 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 2. ~~#5 Highlight a span~~ ✓ done.
 3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ built (pending dev DB migration + browser check, see above) → **#9 connections panel** (next) → **#10 tags/topics** → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile** (scale the fixed sheet, don't reflow — see watch-outs).
 
+## Ideas (someday)
+
+- **Annotation layers** (Marcus, 2026-07-09): clickable layers of annotations — e.g. one layer focused on Jesus, another on moral principles; flip between them to read the same text through different lenses. Likely builds on #10 tags/topics (a layer ≈ filter marks by topic).
+
 ## Open product questions (from VISION.md)
 
 - Credit pricing + starting balance?
