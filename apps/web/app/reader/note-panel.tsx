@@ -2,6 +2,7 @@ import type { Chapter, Note, NoteAnchor } from "@biblestdy/shared";
 import { anchorReference, formatReference, words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
 import { api } from "~/lib/query";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import {
   BlockTypeSelect,
   BoldItalicUnderlineToggles,
@@ -46,10 +47,12 @@ function snippetOf(chapter: Chapter | undefined, a: NoteAnchor): string {
  * anchored words, unlink. Click a row to read there with the span flashed. */
 function ReferencesTable({
   note,
+  selectedAnchorId,
   onShowAnchor,
   onDetach,
 }: {
   note: Note;
+  selectedAnchorId: string | null;
   onShowAnchor: (anchor: NoteAnchor) => void;
   onDetach: (id: string, anchorId: string) => void;
 }) {
@@ -69,20 +72,26 @@ function ReferencesTable({
   const chapterOf = new Map(chapterKeys.map(([key], i) => [key, results[i].data]));
 
   return (
-    <section className="max-h-44 shrink-0 overflow-y-auto border-t border-border px-3 py-2">
+    <section className="shrink-0 border-t border-border px-3 py-2">
       <h3 className="mb-1 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
         References
       </h3>
-      <div className="flex flex-col">
-        {note.anchors.map((a) => (
+      <ScrollArea className="max-h-40">
+        <div className="flex flex-col">
+        {note.anchors.map((a) => {
+          const isSelected = a.id === selectedAnchorId;
+          return (
           <div
             key={a.id}
             role="button"
             tabIndex={0}
-            title="Read this passage"
+            title={isSelected ? "Deselect" : "Read this passage"}
+            aria-pressed={isSelected}
             onClick={() => onShowAnchor(a)}
             onKeyDown={(e) => e.key === "Enter" && onShowAnchor(a)}
-            className="group grid cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-3 rounded px-1.5 py-1 hover:bg-accent/50"
+            className={`group grid cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-3 rounded px-1.5 py-1 ${
+              isSelected ? "bg-accent" : "hover:bg-accent/50"
+            }`}
           >
             <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
               {formatReference(anchorReference(a))}
@@ -107,8 +116,10 @@ function ReferencesTable({
               <span />
             )}
           </div>
-        ))}
-      </div>
+          );
+        })}
+        </div>
+      </ScrollArea>
     </section>
   );
 }
@@ -130,6 +141,7 @@ export function NotePanel({
   onRemove,
   onDetach,
   onShowAnchor,
+  selectedAnchorId,
   onClose,
 }: {
   note: Note;
@@ -137,6 +149,8 @@ export function NotePanel({
   onRemove: (id: string) => void;
   onDetach: (id: string, anchorId: string) => void;
   onShowAnchor: (anchor: NoteAnchor) => void;
+  /** Anchor id of the selected reference (its mark pulses in the reader). */
+  selectedAnchorId: string | null;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(note.title);
@@ -225,7 +239,12 @@ export function NotePanel({
         ]}
       />
 
-      <ReferencesTable note={note} onShowAnchor={onShowAnchor} onDetach={onDetach} />
+      <ReferencesTable
+        note={note}
+        selectedAnchorId={selectedAnchorId}
+        onShowAnchor={onShowAnchor}
+        onDetach={onDetach}
+      />
 
       <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
         <button

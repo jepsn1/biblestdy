@@ -40,6 +40,8 @@ export function PaginatedChapter({
   const [pageCount, setPageCount] = useState(1);
   const [stride, setStride] = useState(0);
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
+  // The reference selected in the note panel — its mark pulses amber
+  const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   const { highlights, add, remove } = useHighlights(
     chapter.translationId,
     chapter.book,
@@ -95,8 +97,9 @@ export function PaginatedChapter({
     if (created) setOpenNoteId(created.id);
   }
 
-  /** Flip to the page holding a note mark and flash its span. Transform
-   * cancels out of both rects, so this works from any current page. */
+  /** Flip to the page holding a note mark and select it — the mark pulses
+   * amber until deselected. Transform cancels out of both rects, so the page
+   * math works from any current page. */
   function jumpToMark(markId: string) {
     const el = regionRef.current?.querySelector(
       `[data-annotation-anchor="${CSS.escape(markId)}"]`,
@@ -108,18 +111,19 @@ export function PaginatedChapter({
       );
       setPage(Math.max(0, Math.min(target, pageCount - 1)));
     }
-    setActiveAnnotationId(markId);
-    window.setTimeout(
-      () => setActiveAnnotationId((current) => (current === markId ? null : current)),
-      2500,
-    );
+    setSelectedMarkId(markId);
   }
 
-  /** References-table click: same chapter jumps in place, another chapter
-   * navigates with the note kept open and the mark flashed on arrival. */
+  /** References-table click: select the reference (click again to deselect).
+   * Same chapter jumps in place, another chapter navigates with the note kept
+   * open and the mark selected on arrival. */
   function showAnchor(a: NoteAnchor) {
     if (!openNoteId) return;
     const markId = `note:${openNoteId}:${a.id}`;
+    if (selectedMarkId === markId) {
+      setSelectedMarkId(null);
+      return;
+    }
     const here =
       a.translationId === chapter.translationId &&
       a.book === chapter.book &&
@@ -234,6 +238,7 @@ export function PaginatedChapter({
               noteMarks={noteMarks}
               allNotes={allNotes}
               activeAnnotationId={activeAnnotationId}
+              selectedMarkId={selectedMarkId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}
@@ -260,6 +265,7 @@ export function PaginatedChapter({
           contentRef={contentBoxRef}
           page={page}
           activeAnnotationId={activeAnnotationId}
+          selectedMarkId={selectedMarkId}
           onFocus={setActiveAnnotationId}
           onEdit={annotationsApi.edit}
           onRemove={annotationsApi.remove}
@@ -336,8 +342,10 @@ export function PaginatedChapter({
               onRemove={notesApi.remove}
               onDetach={notesApi.detach}
               onShowAnchor={showAnchor}
+              selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
               onClose={() => {
                 setOpenNoteId(null);
+                setSelectedMarkId(null);
                 if (searchParams.has("note")) {
                   setSearchParams(
                     (params) => {

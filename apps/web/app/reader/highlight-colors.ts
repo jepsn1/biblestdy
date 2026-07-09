@@ -10,6 +10,10 @@ export const NOTE_INK_TEXT_ACTIVE = "var(--note-ink-text-active)";
 export const NOTE_INK_TEXT = "var(--note-ink-text)";
 /** Soft wash behind the circled words while their note is active. */
 export const NOTE_INK_WASH = "var(--note-ink-wash)";
+/** A reference selected in the note panel: its mark pulses in warm amber,
+ * unmistakably not the ballpoint blue. */
+export const NOTE_INK_SELECTED = "var(--note-ink-selected)";
+export const NOTE_INK_SELECTED_WASH = "var(--note-ink-selected-wash)";
 
 /** Marker washes — themed in app.css (saturated on paper, muted on charcoal). */
 export const HIGHLIGHT_BG: Record<HighlightColor, string> = {

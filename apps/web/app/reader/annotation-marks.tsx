@@ -1,7 +1,12 @@
 import type { Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
+import {
+  NOTE_INK,
+  NOTE_INK_SELECTED,
+  NOTE_INK_TEXT,
+  NOTE_INK_TEXT_ACTIVE,
+} from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
 import {
   bracketPath,
@@ -114,6 +119,7 @@ export function AnnotationMarks({
   contentRef,
   page,
   activeAnnotationId,
+  selectedMarkId,
   onFocus,
   onEdit,
   onRemove,
@@ -126,6 +132,8 @@ export function AnnotationMarks({
   contentRef: RefObject<HTMLElement | null>;
   page: number;
   activeAnnotationId: string | null;
+  /** Mark of the reference selected in the note panel — pulses amber. */
+  selectedMarkId: string | null;
   onFocus: (id: string | null) => void;
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
@@ -319,10 +327,13 @@ export function AnnotationMarks({
             );
           })}
           {noteTabs.map((m) => {
-            const active = activeAnnotationId === `note:${m.mark.noteId}:${m.mark.id}`;
+            const markId = `note:${m.mark.noteId}:${m.mark.id}`;
+            const active = activeAnnotationId === markId;
+            const selected = selectedMarkId === markId;
             return (
               <path
                 key={m.mark.id}
+                className={selected ? "animate-pulse" : undefined}
                 d={
                   m.lines > 1
                     ? bracketPath(
@@ -337,10 +348,10 @@ export function AnnotationMarks({
                     : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.mark.id)
                 }
                 fill="none"
-                stroke={NOTE_INK}
-                strokeWidth={active ? 2.2 : 1.5}
+                stroke={selected ? NOTE_INK_SELECTED : NOTE_INK}
+                strokeWidth={selected || active ? 2.2 : 1.5}
                 strokeLinecap="round"
-                opacity={active ? 1 : 0.75}
+                opacity={selected || active ? 1 : 0.75}
               />
             );
           })}

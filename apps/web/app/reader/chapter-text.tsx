@@ -11,7 +11,8 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
-import { HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
+import { ScrollArea } from "~/components/ui/scroll-area";
+import { HIGHLIGHT_SWATCH, NOTE_INK_SELECTED_WASH, NOTE_INK_WASH } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
 
 function isColor(value: unknown): value is HighlightColor {
@@ -85,6 +86,7 @@ export function ChapterText({
   noteMarks,
   allNotes,
   activeAnnotationId,
+  selectedMarkId,
   onAddHighlight,
   onRemoveHighlight,
   onAddAnnotation,
@@ -101,6 +103,8 @@ export function ChapterText({
   /** Every note of the user — the attach-an-existing-note picker. */
   allNotes: Note[];
   activeAnnotationId: string | null;
+  /** Mark of the reference selected in the note panel — pulses amber. */
+  selectedMarkId: string | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
   onAddAnnotation: (anchor: Anchor, text: string) => void;
@@ -261,6 +265,7 @@ export function ChapterText({
             </sup>
             {groupByAnnotation(v.verse, tokens, annotationCoverage).map((seg, si) => {
               const active = seg.annotation && seg.annotation.id === activeAnnotationId;
+              const selected = seg.annotation && seg.annotation.id === selectedMarkId;
               const wordSpans = seg.words.map(({ word, i }) => {
                 const hit = hlCoverage.get(`${v.verse}:${i}`);
                 // Highlight wash is painted by HighlightMarks (full line-height,
@@ -281,10 +286,13 @@ export function ChapterText({
                 <span
                   key={si}
                   data-annotation-anchor={seg.annotation.id}
+                  className={selected ? "animate-pulse" : undefined}
                   style={
-                    active
-                      ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }
-                      : undefined
+                    selected
+                      ? { backgroundColor: NOTE_INK_SELECTED_WASH, borderRadius: "3px" }
+                      : active
+                        ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }
+                        : undefined
                   }
                 >
                   {wordSpans}
@@ -366,7 +374,8 @@ export function ChapterText({
               )}
 
               {menu.kind === "attach" && (
-                <div className="flex max-h-56 w-64 flex-col overflow-y-auto p-1">
+                <ScrollArea className="max-h-56 w-64">
+                  <div className="flex flex-col p-1">
                   {allNotes.map((n) => (
                     <button
                       key={n.id}
@@ -387,7 +396,8 @@ export function ChapterText({
                       </span>
                     </button>
                   ))}
-                </div>
+                  </div>
+                </ScrollArea>
               )}
 
               {menu.kind === "compose" && (

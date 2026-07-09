@@ -101,6 +101,9 @@
   --note-ink-text: oklch(0.44 0.14 258 / 0.92);
   --note-ink-text-active: oklch(0.34 0.16 260);
   --note-ink-wash: oklch(0.5 0.15 255 / 8%);
+  /* A reference selected in the note panel: warm amber, clearly not the pen */
+  --note-ink-selected: oklch(0.6 0.16 60 / 0.95);
+  --note-ink-selected-wash: oklch(0.68 0.16 60 / 16%);
   /* Marker: translucent highlighter over dark text */
   --hl-gold: oklch(0.89 0.17 95 / 55%);
   --hl-amber: oklch(0.82 0.16 65 / 50%);
@@ -149,6 +152,8 @@
   --note-ink-text: oklch(0.66 0.11 252 / 90%);
   --note-ink-text-active: oklch(0.76 0.12 252);
   --note-ink-wash: oklch(0.72 0.1 245 / 10%);
+  --note-ink-selected: oklch(0.78 0.15 65 / 95%);
+  --note-ink-selected-wash: oklch(0.78 0.15 65 / 18%);
   --hl-gold: oklch(0.83 0.1 85 / 28%);
   --hl-amber: oklch(0.76 0.13 60 / 28%);
   --hl-green: oklch(0.72 0.12 150 / 26%);

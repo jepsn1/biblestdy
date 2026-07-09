@@ -27,6 +27,7 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 - Commits: author `jepsn1 <jepsn1@users.noreply.github.com>` via `git -c user.name=... -c user.email=...` (gh CLI v2.4 = single account; owner login is jepsn1, work login mk-logbuy gets overwritten — see memory).
 - Deep modules (Reference, Anchor, Annotation graph, Connections, Scripture provider) live behind small interfaces with isolated Vitest behavior tests — no browser/DB/live API in tests.
 - shadcn here is the **Base UI** variant: components use `render={<Link…/>}` not `asChild` (Button still has asChild-style usage via render). Add components: `pnpm dlx shadcn@latest add <name>` in `apps/web`.
+- **Scrolling UI: always the `ScrollArea` component** (`~/components/ui/scroll-area`), never raw `overflow-auto`/`overflow-scroll` (Marcus, 2026-07-09).
 - Design system: dark-first tokens in `apps/web/app/app.css` (warm charcoal / parchment / gold). Scripture = Literata (`font-serif`), UI = Geist, data-readouts = Geist Mono. Light theme = future `.light` override.
 - Annotations must anchor to `(translation, passage, word-span)` of verse text only — section headings (`Chapter.sections`) are editorial and never anchorable.
 
