@@ -18,5 +18,6 @@ export {
   type Annotation,
   type NewAnnotation,
   type Note,
+  type NoteAnchor,
   type NewNote,
 } from './anchor.js'

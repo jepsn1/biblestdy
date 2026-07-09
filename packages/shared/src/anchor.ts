@@ -106,14 +106,20 @@ export interface NewAnnotation extends Anchor {
   text: string
 }
 
-/** A note: standalone markdown document anchored to a span. */
-export interface Note extends Anchor {
+/** One of a note's anchors: an addressable span with its own id (issue #8). */
+export interface NoteAnchor extends Anchor {
+  id: string
+}
+
+/** A note: standalone markdown document anchored to one or more spans. */
+export interface Note {
   id: string
   title: string
   body: string
+  anchors: NoteAnchor[]
 }
 
-/** Create payload for a note. */
+/** Create payload for a note: its first anchor plus optional content. */
 export interface NewNote extends Anchor {
   title?: string
   body?: string

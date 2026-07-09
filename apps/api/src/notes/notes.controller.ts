@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Note } from '@biblestdy/shared';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
-import { CreateNoteDto, UpdateNoteDto } from './note.dto';
+import { AnchorDto, CreateNoteDto, UpdateNoteDto } from './note.dto';
 import { NotesService } from './notes.service';
 
 @Controller('notes')
@@ -22,13 +22,18 @@ import { NotesService } from './notes.service';
 export class NotesController {
   constructor(private readonly notes: NotesService) {}
 
+  /** No query params: ALL the user's notes (attach-picker). With
+   * translation+book+chapter: notes anchored somewhere in that chapter. */
   @Get()
   async list(
     @Req() req: AuthedRequest,
-    @Query('translation') translationId: string,
-    @Query('book') book: string,
-    @Query('chapter') chapter: string,
+    @Query('translation') translationId?: string,
+    @Query('book') book?: string,
+    @Query('chapter') chapter?: string,
   ): Promise<Note[]> {
+    if (!translationId && !book && !chapter) {
+      return this.notes.listAll(req.user.id);
+    }
     const chapterNum = Number(chapter);
     if (!translationId || !book || !Number.isInteger(chapterNum)) {
       throw new BadRequestException(
@@ -70,5 +75,32 @@ export class NotesController {
     const removed = await this.notes.remove(req.user.id, id);
     if (!removed) throw new NotFoundException();
     return { ok: true };
+  }
+
+  @Post(':id/anchors')
+  async addAnchor(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+    @Body() dto: AnchorDto,
+  ): Promise<Note> {
+    const updated = await this.notes.addAnchor(req.user.id, id, dto);
+    if (!updated) throw new NotFoundException();
+    return updated;
+  }
+
+  @Delete(':id/anchors/:anchorId')
+  async removeAnchor(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+    @Param('anchorId') anchorId: string,
+  ): Promise<Note> {
+    const result = await this.notes.removeAnchor(req.user.id, id, anchorId);
+    if (result === 'not-found') throw new NotFoundException();
+    if (result === 'last-anchor') {
+      throw new BadRequestException(
+        'a note keeps at least one anchor — delete the note instead',
+      );
+    }
+    return result;
   }
 }
