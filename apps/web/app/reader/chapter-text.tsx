@@ -86,7 +86,6 @@ export function ChapterText({
   noteMarks,
   allNotes,
   activeAnnotationId,
-  selectedMarkId,
   onAddHighlight,
   onRemoveHighlight,
   onAddAnnotation,
@@ -103,8 +102,6 @@ export function ChapterText({
   /** Every note of the user — the attach-an-existing-note picker. */
   allNotes: Note[];
   activeAnnotationId: string | null;
-  /** Mark of the reference selected in the note panel — spotlights the page. */
-  selectedMarkId: string | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
   onAddAnnotation: (anchor: Anchor, text: string) => void;
@@ -142,10 +139,6 @@ export function ChapterText({
       ...noteMarks.map((m) => ({ ...m, value: { id: `note:${m.noteId}:${m.id}` } })),
     ].sort((a, b) => spanSize(a) - spanSize(b)),
   );
-
-  const spotlight =
-    selectedMarkId != null &&
-    noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
@@ -250,7 +243,7 @@ export function ChapterText({
   }
 
   return (
-    <div onMouseUp={onMouseUp} data-spotlight={spotlight || undefined}>
+    <div onMouseUp={onMouseUp}>
       <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
       {chapter.verses.map((v) => {
         const tokens = words(v.text);
@@ -259,7 +252,6 @@ export function ChapterText({
             {sectionsBefore(chapter, v.verse).map((title) => (
               <span
                 key={title}
-                data-section
                 className="mt-6 mb-2 block font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase first:mt-0"
               >
                 {title}
@@ -290,7 +282,6 @@ export function ChapterText({
                 <span
                   key={si}
                   data-annotation-anchor={seg.annotation.id}
-                  data-spotlit={seg.annotation.id === selectedMarkId || undefined}
                   style={
                     active
                       ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }

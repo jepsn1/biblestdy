@@ -40,7 +40,7 @@ export function PaginatedChapter({
   const [pageCount, setPageCount] = useState(1);
   const [stride, setStride] = useState(0);
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
-  // The reference selected in the note panel — its mark pulses amber
+  // The reference selected in the note panel — only its mark stays drawn
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   const { highlights, add, remove } = useHighlights(
     chapter.translationId,
@@ -97,8 +97,8 @@ export function PaginatedChapter({
     if (created) setOpenNoteId(created.id);
   }
 
-  /** Flip to the page holding a note mark and select it — the mark pulses
-   * amber until deselected. Transform cancels out of both rects, so the page
+  /** Flip to the page holding a note mark and select it — every other mark
+   * hides until deselected. Transform cancels out of both rects, so the page
    * math works from any current page. */
   function jumpToMark(markId: string) {
     const el = regionRef.current?.querySelector(
@@ -216,7 +216,11 @@ export function PaginatedChapter({
         defaultSize={openNote ? `${100 - noteSize}%` : "100%"}
         className="flex min-h-0 flex-col"
       >
-      <div className="relative min-h-0 flex-1">
+      {/* Any click in the reader cancels the reference spotlight */}
+      <div
+        className="relative min-h-0 flex-1"
+        onClick={() => selectedMarkId && setSelectedMarkId(null)}
+      >
         <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
           {/* isolate: local stacking context so the -z-10 leader arrows paint
               behind the text but still above the page background */}
@@ -238,7 +242,6 @@ export function PaginatedChapter({
               noteMarks={noteMarks}
               allNotes={allNotes}
               activeAnnotationId={activeAnnotationId}
-              selectedMarkId={selectedMarkId}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}
@@ -256,7 +259,7 @@ export function PaginatedChapter({
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}
-          dimmed={
+          hidden={
             selectedMarkId != null &&
             noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
           }

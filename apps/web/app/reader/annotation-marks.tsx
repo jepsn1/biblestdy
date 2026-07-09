@@ -1,13 +1,7 @@
 import type { Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import {
-  NOTE_INK,
-  NOTE_INK_SELECTED,
-  NOTE_INK_SELECTED_WASH,
-  NOTE_INK_TEXT,
-  NOTE_INK_TEXT_ACTIVE,
-} from "./highlight-colors";
+import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
 import {
   bracketPath,
@@ -133,7 +127,8 @@ export function AnnotationMarks({
   contentRef: RefObject<HTMLElement | null>;
   page: number;
   activeAnnotationId: string | null;
-  /** Mark of the reference selected in the note panel — pulses amber. */
+  /** Mark of the reference selected in the note panel — while set, every
+   * other mark's ink is hidden so this one owns the page. */
   selectedMarkId: string | null;
   onFocus: (id: string | null) => void;
   onEdit: (id: string, text: string) => void;
@@ -146,6 +141,11 @@ export function AnnotationMarks({
     noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
+  // Spotlight: only the selected reference's mark is drawn
+  const shownPlacements = spotlight ? [] : placements;
+  const shownTabs = spotlight
+    ? noteTabs.filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
+    : noteTabs;
   const [regionSize, setRegionSize] = useState({ w: 0, h: 0 });
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -286,21 +286,7 @@ export function AnnotationMarks({
           selected reference's wash paints here too — marker behind the text,
           never a layer over it. */}
       <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
-        {noteTabs
-          .filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
-          .map((m) => (
-            <rect
-              key={m.mark.id}
-              className="animate-ink-pulse"
-              x={m.box.x - 3}
-              y={m.box.y - 2}
-              width={m.box.w + 6}
-              height={m.box.h + 4}
-              rx={4}
-              fill={NOTE_INK_SELECTED_WASH}
-            />
-          ))}
-        {placements.map((p) => {
+        {shownPlacements.map((p) => {
           const g = geom(p, drag, resize);
           if (!g.showArrow) return null;
           const active = p.annotation.id === activeAnnotationId;
@@ -312,7 +298,7 @@ export function AnnotationMarks({
               stroke={NOTE_INK}
               strokeWidth={active ? 1.8 : 1.4}
               strokeLinecap="round"
-              opacity={spotlight ? 0.12 : active ? 1 : 0.75}
+              opacity={active ? 1 : 0.75}
             />
           );
         })}
@@ -320,7 +306,7 @@ export function AnnotationMarks({
 
       <div className="pointer-events-none absolute inset-0 z-10">
         <svg className="absolute inset-0 h-full w-full overflow-visible">
-          {placements.map((p) => {
+          {shownPlacements.map((p) => {
             const active = p.annotation.id === activeAnnotationId;
             return (
               <path
@@ -342,18 +328,16 @@ export function AnnotationMarks({
                 stroke={NOTE_INK}
                 strokeWidth={active ? 2 : 1.5}
                 strokeLinecap="round"
-                opacity={spotlight ? 0.12 : active ? 1 : 0.75}
+                opacity={active ? 1 : 0.75}
               />
             );
           })}
-          {noteTabs.map((m) => {
+          {shownTabs.map((m) => {
             const markId = `note:${m.mark.noteId}:${m.mark.id}`;
-            const active = activeAnnotationId === markId;
-            const selected = selectedMarkId === markId;
+            const active = activeAnnotationId === markId || selectedMarkId === markId;
             return (
               <path
                 key={m.mark.id}
-                className={selected ? "animate-ink-pulse" : undefined}
                 d={
                   m.lines > 1
                     ? bracketPath(
@@ -368,10 +352,10 @@ export function AnnotationMarks({
                     : scribblePath(m.box.x, m.box.y, m.box.w, m.box.h, m.mark.id)
                 }
                 fill="none"
-                stroke={selected ? NOTE_INK_SELECTED : NOTE_INK}
-                strokeWidth={selected || active ? 2.2 : 1.5}
+                stroke={NOTE_INK}
+                strokeWidth={active ? 2 : 1.5}
                 strokeLinecap="round"
-                opacity={selected ? 1 : spotlight ? 0.12 : active ? 1 : 0.75}
+                opacity={active ? 1 : 0.75}
               />
             );
           })}
@@ -380,8 +364,7 @@ export function AnnotationMarks({
         {/* Full-annotation links: a typeset chip (index-tab, NOT handwriting) in the
             interline gap above the mark's end — distinct from inline-annotation pen
             text, and never sitting on the running text */}
-        {noteTabs.map((m) => {
-          const selected = selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`;
+        {shownTabs.map((m) => {
           return (
           <button
             key={m.mark.id}
@@ -400,9 +383,8 @@ export function AnnotationMarks({
                 ? { left: m.box.x + m.box.w + BRACKET_GAP, transform: "translateX(-100%)" }
                 : {}),
               top: m.box.y - 18,
-              color: selected ? NOTE_INK_SELECTED : NOTE_INK_TEXT,
-              borderColor: selected ? NOTE_INK_SELECTED : NOTE_INK,
-              opacity: selected ? 1 : spotlight ? 0.25 : 1,
+              color: NOTE_INK_TEXT,
+              borderColor: NOTE_INK,
             }}
           >
             <FileText className="size-2.5 shrink-0" />
@@ -411,7 +393,7 @@ export function AnnotationMarks({
           );
         })}
 
-        {placements.map((p) => {
+        {shownPlacements.map((p) => {
           const active = p.annotation.id === activeAnnotationId;
           const isEditing = editing?.id === p.annotation.id;
           const g = geom(p, drag, resize);
@@ -419,13 +401,12 @@ export function AnnotationMarks({
           return (
             <div
               key={p.annotation.id}
-              className={`pointer-events-auto absolute -translate-y-1/2 transition-opacity duration-250 ${dragging ? "select-none" : ""}`}
+              className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
               style={{
                 left: g.boxLeft,
                 top: g.cy,
                 width: g.w,
                 textAlign: g.side === "left" ? "right" : "left",
-                opacity: spotlight ? 0.25 : 1,
               }}
               onMouseEnter={() => onFocus(p.annotation.id)}
               onMouseLeave={() => !isEditing && onFocus(null)}
