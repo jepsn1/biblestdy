@@ -168,21 +168,48 @@ export function AnnotationMarks({
       const leftLaneRight = contentRect.left - regionRect.left - GAP;
       const rightLaneLeft = contentRect.right - regionRect.left + GAP;
 
-      /** Box + line count of an anchor's fragments on the current page
-       * (clipped/translated-out fragments are skipped); null if off-page. */
-      const measureAnchor = (anchorId: string) => {
-        const el = region.querySelector<HTMLElement>(`[data-annotation-anchor="${anchorId}"]`);
-        if (!el) return null;
-        const rects = [...el.getClientRects()].filter(
-          (r) => r.width > 0 && r.right >= contentRect.left + 1 && r.left <= contentRect.right - 1,
-        );
+      /** Box + line count of an anchor's words on the current page, measured
+       * straight from the [data-verse][data-word] spans — independent of any
+       * wrapper, so overlapping/nested marks all measure correctly. Null if
+       * fully off-page (clipped/translated-out words are skipped). */
+      const measureAnchor = (a: {
+        startVerse: number;
+        startWord: number;
+        endVerse: number;
+        endWord: number;
+      }) => {
+        const rects: DOMRect[] = [];
+        for (let v = a.startVerse; v <= a.endVerse; v++) {
+          const els = region.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
+          for (const el of els) {
+            const w = Number(el.dataset.word);
+            if (v === a.startVerse && w < a.startWord) continue;
+            if (v === a.endVerse && w > a.endWord) continue;
+            const r = el.getBoundingClientRect();
+            if (r.width === 0) continue;
+            if (r.right < contentRect.left + 1 || r.left > contentRect.right - 1) continue;
+            rects.push(r);
+          }
+        }
         if (rects.length === 0) return null;
         const left = Math.min(...rects.map((r) => r.left));
         const right = Math.max(...rects.map((r) => r.right));
         const top = Math.min(...rects.map((r) => r.top));
         const bottom = Math.max(...rects.map((r) => r.bottom));
-        const tops: number[] = [];
-        for (const r of rects) if (!tops.some((t) => Math.abs(t - r.top) < 3)) tops.push(r.top);
+        // Distinct (line, column) clusters — same top in the other column of
+        // the spread is a different line
+        const runs: { top: number; left: number; right: number }[] = [];
+        for (const r of rects) {
+          const run = runs.find(
+            (q) => Math.abs(q.top - r.top) < 3 && r.left - q.right < 60 && q.left - r.right < 60,
+          );
+          if (run) {
+            run.left = Math.min(run.left, r.left);
+            run.right = Math.max(run.right, r.right);
+          } else {
+            runs.push({ top: r.top, left: r.left, right: r.right });
+          }
+        }
         return {
           box: {
             x: left - regionRect.left,
@@ -190,14 +217,14 @@ export function AnnotationMarks({
             w: right - left,
             h: bottom - top,
           } as Box,
-          lines: tops.length,
+          lines: runs.length,
           mid: (left + right) / 2,
         };
       };
 
       const items: Placement[] = [];
       for (const annotation of annotations) {
-        const m = measureAnchor(annotation.id);
+        const m = measureAnchor(annotation);
         if (!m) continue;
         const side = m.mid < centerX ? "left" : "right";
         items.push({
@@ -215,7 +242,7 @@ export function AnnotationMarks({
 
       const tabs: NoteTab[] = [];
       for (const note of notes) {
-        const m = measureAnchor(`note:${note.id}`);
+        const m = measureAnchor(note);
         if (m)
           tabs.push({
             note,

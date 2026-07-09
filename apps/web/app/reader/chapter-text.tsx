@@ -109,12 +109,17 @@ export function ChapterText({
 
   const hlCoverage = new Map<string, { id: string; color: HighlightColor }>();
   coverInto(hlCoverage, chapter.verses, highlights.map((h) => ({ ...h, value: { id: h.id, color: h.color } })));
+  // Marks may overlap/nest (a circled word inside a bracketed passage) —
+  // cover smallest span first so the most specific mark wins clicks + wash.
   const annotationCoverage = new Map<string, AnchorRef>();
-  coverInto(annotationCoverage, chapter.verses, annotations.map((n) => ({ ...n, value: { id: n.id } })));
+  const spanSize = (a: Anchor) => (a.endVerse - a.startVerse) * 1000 + (a.endWord - a.startWord);
   coverInto(
     annotationCoverage,
     chapter.verses,
-    notes.map((f) => ({ ...f, value: { id: `note:${f.id}` } })),
+    [
+      ...annotations.map((n) => ({ ...n, value: { id: n.id } })),
+      ...notes.map((f) => ({ ...f, value: { id: `note:${f.id}` } })),
+    ].sort((a, b) => spanSize(a) - spanSize(b)),
   );
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
