@@ -207,6 +207,10 @@ export function ChapterText({
   }
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
+    // A drag that ends on a marked word also fires a click — that's the
+    // selection menu's turn, not remove/open.
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
     if (noteId?.startsWith("note:")) {
       event.stopPropagation();
       onOpenNote(noteId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel
