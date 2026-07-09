@@ -117,7 +117,9 @@ export function scribblePath(
   const cx = x + w / 2;
   const cy = y + h / 2;
   const rx = w / 2 + SCRIBBLE_PAD_X;
-  const ry = h / 2 + padY;
+  // Squash vertically: a quick pen circle hugs the x-height and lets
+  // ascenders/descenders poke through, rather than clearing the full em box.
+  const ry = (h * 0.72) / 2 + padY;
   const rot = (rnd() - 0.5) * 0.05; // ~±1.4° pen tilt
   const start = Math.PI * (0.6 + rnd() * 0.3); // begin lower-left, like a real gesture
   const sweep = Math.PI * 2 + 0.3 + rnd() * 0.35; // overshoot past the start
