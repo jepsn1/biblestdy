@@ -1,6 +1,7 @@
 import type { Highlight } from "@biblestdy/shared";
 import { useLayoutEffect, useState, type RefObject } from "react";
 import { HIGHLIGHT_BG } from "./highlight-colors";
+import { markerPath } from "./note-scribble";
 
 /**
  * Marker layer. Highlights are drawn as full line-height rects measured from
@@ -59,9 +60,10 @@ export function HighlightMarks({
           }
         }
         runs.forEach((run, i) => {
-          // Expand the glyph box to the full line box: adjacent lines tile
-          // exactly, no white strip and no double-alpha seam
-          const pad = Math.max(0, (lineH - (run.bottom - run.top)) / 2);
+          // Expand the glyph box to the full line box, plus a little extra so
+          // wobbled strokes of adjacent lines OVERLAP slightly — the faint
+          // darker band at the join is how stacked marker passes look on paper
+          const pad = Math.max(0, (lineH - (run.bottom - run.top)) / 2) + 1.5;
           out.push({
             key: `${hl.id}:${i}`,
             x: run.left - regionRect.left - 1,
@@ -89,7 +91,7 @@ export function HighlightMarks({
   return (
     <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
       {rects.map((r) => (
-        <rect key={r.key} x={r.x} y={r.y} width={r.w} height={r.h} fill={r.color} />
+        <path key={r.key} d={markerPath(r.x, r.y, r.w, r.h, r.key)} fill={r.color} />
       ))}
     </svg>
   );

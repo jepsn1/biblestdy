@@ -29,6 +29,39 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
+ * A marker stroke: the rect (x, y, w, h) with wobbly long edges and softly
+ * bulged ends, like one pass of a real highlighter. Closed path, meant to be
+ * filled. Deterministic per seed.
+ */
+export function markerPath(x: number, y: number, w: number, h: number, seed: string): string {
+  const rnd = mulberry32(hashSeed(seed + ":marker"));
+  const jEdge = () => (rnd() - 0.5) * 2.4; // long-edge wobble
+  const jAlong = () => (rnd() - 0.5) * 4;
+  const n = Math.max(2, Math.round(w / 26)); // a wobble point every ~26px
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= n; i++)
+    pts.push([x + (w * i) / n + (i === 0 || i === n ? 0 : jAlong()), y + jEdge()]);
+  pts.push([x + w + (rnd() - 0.5) * 3, y + h / 2]); // rounded right end
+  for (let i = n; i >= 0; i--)
+    pts.push([x + (w * i) / n + (i === 0 || i === n ? 0 : jAlong()), y + h + jEdge()]);
+  pts.push([x + (rnd() - 0.5) * 3, y + h / 2]); // rounded left end
+
+  // Smooth closed loop through midpoints
+  const mid = (a: [number, number], b: [number, number]): [number, number] => [
+    (a[0] + b[0]) / 2,
+    (a[1] + b[1]) / 2,
+  ];
+  const m0 = mid(pts[0], pts[1]);
+  let d = `M ${m0[0].toFixed(1)} ${m0[1].toFixed(1)}`;
+  for (let i = 1; i <= pts.length; i++) {
+    const p = pts[i % pts.length];
+    const m = mid(p, pts[(i + 1) % pts.length]);
+    d += ` Q ${p[0].toFixed(1)} ${p[1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+
+/**
  * Leader stroke from a note to its circle: a hand-drawn line that runs through
  * the interline gap and hooks into the circle, ending in a small arrowhead at
  * (x2, y2). `approach` "up" comes from below the text line into the circle's
