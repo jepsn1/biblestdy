@@ -9,9 +9,8 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 ## Marcus (homework, unblocks work below)
 
-- [ ] **DB switched Neon → local Postgres** (2026-07-09, see STACK.md): `apps/api/.env` →
-  `DATABASE_URL=postgresql://postgres:<pw from /srv/infra/compose/.env>@localhost:5432/biblestdy`
-  then run migrations. If the old Neon project has data worth keeping, dump it first (`pg_dump <neon-url> | psql <local-url>`), then delete the Neon project.
+- [x] **DB switched Neon → local Postgres** ✓ 2026-07-09 — dev env live on the server: `/srv/apps/biblestdy`, `apps/api/.env` set (fresh BETTER_AUTH_SECRET), `db:push` applied, 6 tables, all tests green. See `.env.example`.
+- [ ] **Old Neon project**: if it has data worth keeping, dump it (`pg_dump <neon-url> | psql <local-url>`), then delete the project either way.
 - [ ] **API.Bible key** → `apps/api/.env`: `API_BIBLE_KEY=...`
   Picks: NIV + 2 of NLT/CSB/NASB. (ESV not on API.Bible; no Danish in public picks.)
 - [ ] **Send Bibelselskabet email** (rettigheder@bibelselskabet.dk) — free non-commercial pilot license for Bibelen 2020, delivered via DBL key → API.Bible. Danish draft: session 2026-07-08 / ask Claude to re-draft.
