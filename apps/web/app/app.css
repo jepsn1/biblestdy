@@ -163,6 +163,21 @@
   --selection: oklch(0.83 0.1 85 / 30%);
 }
 
+/* Selected-reference marks breathe: only the INK fades, never the text —
+   applied to SVG strokes and underlay washes, so nothing sits over glyphs */
+@keyframes ink-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-ink-pulse {
+  animation: ink-pulse 1.8s ease-in-out infinite;
+}
+
 /* MDXEditor (full-note panel): sit on our tokens instead of its defaults */
 .mdxeditor {
   --baseBg: transparent;

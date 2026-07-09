@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import {
   NOTE_INK,
   NOTE_INK_SELECTED,
+  NOTE_INK_SELECTED_WASH,
   NOTE_INK_TEXT,
   NOTE_INK_TEXT_ACTIVE,
 } from "./highlight-colors";
@@ -278,8 +279,24 @@ export function AnnotationMarks({
   return (
     <>
       {/* Leader arrows render BELOW the text (negative z): the stroke dips
-          under the line of words and surfaces in the word spaces. */}
+          under the line of words and surfaces in the word spaces. The
+          selected reference's wash paints here too — marker behind the text,
+          never a layer over it. */}
       <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
+        {noteTabs
+          .filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
+          .map((m) => (
+            <rect
+              key={m.mark.id}
+              className="animate-ink-pulse"
+              x={m.box.x - 3}
+              y={m.box.y - 2}
+              width={m.box.w + 6}
+              height={m.box.h + 4}
+              rx={4}
+              fill={NOTE_INK_SELECTED_WASH}
+            />
+          ))}
         {placements.map((p) => {
           const g = geom(p, drag, resize);
           if (!g.showArrow) return null;
@@ -333,7 +350,7 @@ export function AnnotationMarks({
             return (
               <path
                 key={m.mark.id}
-                className={selected ? "animate-pulse" : undefined}
+                className={selected ? "animate-ink-pulse" : undefined}
                 d={
                   m.lines > 1
                     ? bracketPath(
@@ -360,7 +377,9 @@ export function AnnotationMarks({
         {/* Full-annotation links: a typeset chip (index-tab, NOT handwriting) in the
             interline gap above the mark's end — distinct from inline-annotation pen
             text, and never sitting on the running text */}
-        {noteTabs.map((m) => (
+        {noteTabs.map((m) => {
+          const selected = selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`;
+          return (
           <button
             key={m.mark.id}
             type="button"
@@ -378,14 +397,15 @@ export function AnnotationMarks({
                 ? { left: m.box.x + m.box.w + BRACKET_GAP, transform: "translateX(-100%)" }
                 : {}),
               top: m.box.y - 18,
-              color: NOTE_INK_TEXT,
-              borderColor: NOTE_INK,
+              color: selected ? NOTE_INK_SELECTED : NOTE_INK_TEXT,
+              borderColor: selected ? NOTE_INK_SELECTED : NOTE_INK,
             }}
           >
             <FileText className="size-2.5 shrink-0" />
             <span className="overflow-hidden text-ellipsis">{m.mark.title || "note"}</span>
           </button>
-        ))}
+          );
+        })}
 
         {placements.map((p) => {
           const active = p.annotation.id === activeAnnotationId;
