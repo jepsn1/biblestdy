@@ -1,11 +1,37 @@
 import type { FullNote } from "@biblestdy/shared";
+import {
+  BlockTypeSelect,
+  BoldItalicUnderlineToggles,
+  codeBlockPlugin,
+  codeMirrorPlugin,
+  CreateLink,
+  diffSourcePlugin,
+  DiffSourceToggleWrapper,
+  headingsPlugin,
+  InsertTable,
+  InsertThematicBreak,
+  linkDialogPlugin,
+  linkPlugin,
+  listsPlugin,
+  ListsToggle,
+  markdownShortcutPlugin,
+  MDXEditor,
+  quotePlugin,
+  tablePlugin,
+  thematicBreakPlugin,
+  toolbarPlugin,
+  UndoRedo,
+} from "@mdxeditor/editor";
+import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { useIsDark } from "~/components/theme-toggle";
 
 /**
- * Side-by-side editor for a full note (issue #7): title + markdown body with
- * a write/preview toggle. Autosaves (debounced) — closing never loses work.
+ * Side-by-side editor for a full note (issue #7): title + WYSIWYG markdown
+ * body (MDXEditor — markdown stays the DB format, users never have to see
+ * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
+ * Autosaves (debounced) — closing never loses work.
  */
 export function NoteDocPanel({
   doc,
@@ -20,13 +46,12 @@ export function NoteDocPanel({
 }) {
   const [title, setTitle] = useState(doc.title);
   const [body, setBody] = useState(doc.body);
-  const [tab, setTab] = useState<"write" | "preview">("write");
+  const dark = useIsDark();
 
-  // Fresh doc -> fresh buffers
+  // Fresh doc -> fresh buffers (the editor itself resets via key={doc.id})
   useEffect(() => {
     setTitle(doc.title);
     setBody(doc.body);
-    setTab("write");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.id]);
 
@@ -55,18 +80,6 @@ export function NoteDocPanel({
           placeholder="Untitled note"
           className="min-w-0 flex-1 bg-transparent font-serif text-base font-medium outline-none placeholder:text-muted-foreground/60"
         />
-        <div className="flex rounded border border-border font-mono text-[0.65rem]">
-          {(["write", "preview"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`px-2 py-0.5 ${tab === t ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
         <button
           type="button"
           aria-label="Close note"
@@ -77,18 +90,40 @@ export function NoteDocPanel({
         </button>
       </header>
 
-      {tab === "write" ? (
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Write in markdown…"
-          className="min-h-0 flex-1 resize-none bg-transparent p-3 font-serif text-sm leading-relaxed outline-none"
-        />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 font-serif text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-[0.85em] [&_h1]:mb-2 [&_h1]:text-xl [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-lg [&_h2]:font-medium [&_h3]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5">
-          <ReactMarkdown>{body || "*Nothing here yet.*"}</ReactMarkdown>
-        </div>
-      )}
+      <MDXEditor
+        key={doc.id}
+        markdown={doc.body}
+        onChange={setBody}
+        placeholder="Write your note…"
+        className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
+        contentEditableClassName="font-serif text-sm leading-relaxed"
+        plugins={[
+          headingsPlugin(),
+          listsPlugin(),
+          quotePlugin(),
+          linkPlugin(),
+          linkDialogPlugin(),
+          tablePlugin(),
+          thematicBreakPlugin(),
+          codeBlockPlugin({ defaultCodeBlockLanguage: "" }),
+          codeMirrorPlugin({ codeBlockLanguages: { "": "Plain", js: "JavaScript" } }),
+          diffSourcePlugin({ viewMode: "rich-text" }),
+          markdownShortcutPlugin(),
+          toolbarPlugin({
+            toolbarContents: () => (
+              <DiffSourceToggleWrapper>
+                <UndoRedo />
+                <BoldItalicUnderlineToggles />
+                <BlockTypeSelect />
+                <ListsToggle />
+                <CreateLink />
+                <InsertTable />
+                <InsertThematicBreak />
+              </DiffSourceToggleWrapper>
+            ),
+          }),
+        ]}
+      />
 
       <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
         <button
@@ -101,7 +136,7 @@ export function NoteDocPanel({
         >
           delete
         </button>
-        <span>{dirty ? "saving…" : "saved"} · markdown · esc closes</span>
+        <span>{dirty ? "saving…" : "saved"} · esc closes</span>
       </footer>
     </aside>
   );

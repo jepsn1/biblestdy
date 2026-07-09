@@ -158,6 +158,17 @@
   --selection: oklch(0.83 0.1 85 / 30%);
 }
 
+/* MDXEditor (full-note panel): sit on our tokens instead of its defaults */
+.mdxeditor {
+  --baseBg: transparent;
+  font-family: inherit;
+}
+.mdxeditor [role="toolbar"] {
+  background: var(--muted);
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

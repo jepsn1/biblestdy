@@ -17,6 +17,11 @@ function isDark() {
   return typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 }
 
+/** Reactive current-theme flag (updates when the toggle flips). */
+export function useIsDark() {
+  return useSyncExternalStore(subscribe, isDark, () => false);
+}
+
 export function ThemeToggle() {
   const dark = useSyncExternalStore(subscribe, isDark, () => false);
 
