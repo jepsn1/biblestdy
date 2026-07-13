@@ -6,6 +6,8 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 2026-07-13: **#8 done + closed** — dev DB migration applied (turned out already applied; NEXT-STEPS was stale), verified E2E against dev API (attach → listed in both chapters w/ all anchors; detach → drops from that chapter only; last anchor 400). **PROD migration still pending: run `migrations/2026-07-09-note-multi-anchor.sql` on prod before next `make deploy`.**
 
+2026-07-13 (later): **#9 connections panel built** — `GET /api/connections` (ConnectionsService over NoteStore: notes-here in text order, also-appears-in grouped per passage in canonical order, recent 5), Vitest'd in-memory (83 tests total); panel beside the reader (Waypoints toggle in nav, sticky via localStorage; open note takes the slot, closing it brings connections back; notes-here/recent open the note, elsewhere-notes navigate with `?note=`, passage links navigate). E2E-verified against dev API. UI needs Marcus eyeball, then close #9. No DB change — nothing new to migrate.
+
 2026-07-09: **deployed to prod** on own server (see CLAUDE.md Prod) — blocked on Parknet public IP (CGNAT; ordered), then it's live at biblestdy.com. Resend auth emails wired (prod+dev) ✓. Same day: paper theme (default) + charcoal toggle; full hand-drawn annotation system (scribble circles / brackets by span geometry, draggable+resizable boxes, under-text arrows with live Excalidraw-style binding, wobbly marker highlights, overlap/nesting support); **#7 full notes shipped + closed** (WYSIWYG markdown editor in a resizable panel); data layer on TanStack Query; terminology settled (annotation/note, see Conventions).
 
 ## Pilot-time (before real users)
@@ -26,7 +28,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 1. ~~**#4 Sign in**~~ ✓ done — Better Auth magic-link + OTP, Neon, guard, all routes gated.
 2. ~~#5 Highlight a span~~ ✓ done.
-3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → **#9 connections panel** (next) → **#10 tags/topics** → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile** (scale the fixed sheet, don't reflow — see watch-outs).
+3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → **#10 tags/topics** (next) → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile** (scale the fixed sheet, don't reflow — see watch-outs).
 
 ## Ideas (someday)
 
