@@ -1,4 +1,5 @@
 import type { Note } from './anchor.js'
+import type { Tag } from './tags.js'
 
 /** A passage connected to the current chapter through shared notes. */
 export interface PassageLink {
@@ -21,4 +22,8 @@ export interface ChapterConnections {
   alsoAppearsIn: PassageLink[]
   /** Most recently updated notes, newest first. */
   recent: Note[]
+  /** Topics this chapter touches (its own tags + tags of notes anchored here),
+   * by name. onPassage marks tags sitting on the chapter itself — those are
+   * removable from the panel. */
+  topics: (Tag & { onPassage: boolean })[]
 }

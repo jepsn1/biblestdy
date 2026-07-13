@@ -1,9 +1,11 @@
 import {
   integer,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema';
@@ -81,3 +83,47 @@ export const noteAnchor = pgTable('note_anchor', {
   endWord: integer('end_word').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+/** A user's tag/topic (issue #10) — name is normalized lowercase, unique per user. */
+export const tag = pgTable(
+  'tag',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [unique('tag_user_name').on(t.userId, t.name)],
+);
+
+/** A tag on a note. */
+export const noteTag = pgTable(
+  'note_tag',
+  {
+    noteId: uuid('note_id')
+      .notNull()
+      .references(() => note.id, { onDelete: 'cascade' }),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tag.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.noteId, t.tagId] })],
+);
+
+/** A tag on a passage — chapter granularity, the connections panel's unit. */
+export const passageTag = pgTable(
+  'passage_tag',
+  {
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tag.id, { onDelete: 'cascade' }),
+    translationId: text('translation_id').notNull(),
+    book: text('book').notNull(),
+    chapter: integer('chapter').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tagId, t.translationId, t.book, t.chapter] }),
+  ],
+);

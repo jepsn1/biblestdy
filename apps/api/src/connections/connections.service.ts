@@ -6,6 +6,7 @@ import {
 } from '@biblestdy/shared';
 import { toNote } from '../notes/notes.service';
 import type { AnchorRow, NoteStore } from '../notes/notes.store';
+import type { TagStore } from '../tags/tags.store';
 
 /** Recent notes shown as re-entry points — enough to resume, not a library. */
 const RECENT_LIMIT = 5;
@@ -18,7 +19,10 @@ const RECENT_LIMIT = 5;
  */
 @Injectable()
 export class ConnectionsService {
-  constructor(private readonly store: NoteStore) {}
+  constructor(
+    private readonly store: NoteStore,
+    private readonly tags: TagStore,
+  ) {}
 
   async forChapter(
     userId: string,
@@ -89,10 +93,24 @@ export class ConnectionsService {
       ),
     );
 
+    // Topics the chapter touches: its own tags plus tags of notes anchored here
+    const passage = { translationId, book, chapter };
+    const passageTags = await this.tags.tagsForPassage(userId, passage);
+    const noteTags = await this.tags.tagsForNotes(hereRows.map((r) => r.id));
+    const topics = new Map<
+      string,
+      { id: string; name: string; onPassage: boolean }
+    >();
+    for (const t of noteTags)
+      topics.set(t.id, { id: t.id, name: t.name, onPassage: false });
+    for (const t of passageTags)
+      topics.set(t.id, { id: t.id, name: t.name, onPassage: true });
+
     return {
       notesHere,
       alsoAppearsIn,
       recent: recentRows.map((row) => toNote(row, anchorsOf(row.id))),
+      topics: [...topics.values()].sort((a, b) => a.name.localeCompare(b.name)),
     };
   }
 }

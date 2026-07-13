@@ -23,3 +23,4 @@ export {
   type NewNote,
 } from './anchor.js'
 export type { ChapterConnections, PassageLink } from './connections.js'
+export type { Tag } from './tags.js'

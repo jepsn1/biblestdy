@@ -5,6 +5,7 @@ import { ConnectionsModule } from './connections/connections.module';
 import { HighlightsModule } from './highlights/highlights.module';
 import { NotesModule } from './notes/notes.module';
 import { ScriptureModule } from './scripture/scripture.module';
+import { TagsModule } from './tags/tags.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ScriptureModule } from './scripture/scripture.module';
     AnnotationsModule,
     NotesModule,
     ConnectionsModule,
+    TagsModule,
   ],
   controllers: [AppController],
 })

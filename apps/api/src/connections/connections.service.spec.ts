@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Anchor } from '@biblestdy/shared';
 import { InMemoryNoteStore } from '../notes/in-memory-store';
 import { NotesService } from '../notes/notes.service';
+import { InMemoryTagStore } from '../tags/in-memory-store';
+import { TagsService } from '../tags/tags.service';
 import { ConnectionsService } from './connections.service';
 
 const jhn3: Anchor = {
@@ -32,9 +34,11 @@ const psa23: Anchor = {
  * whatever the graph rules actually persisted. */
 function make() {
   const store = new InMemoryNoteStore();
+  const tagStore = new InMemoryTagStore();
   return {
     notes: new NotesService(store),
-    connections: new ConnectionsService(store),
+    tags: new TagsService(tagStore, store),
+    connections: new ConnectionsService(store, tagStore),
   };
 }
 
@@ -132,6 +136,29 @@ describe('ConnectionsService (panel assembly)', () => {
     expect(panel.notesHere).toEqual([]);
     expect(panel.alsoAppearsIn).toEqual([]);
     expect(panel.recent.map((n) => n.title)).toEqual(['Shepherd']);
+  });
+
+  it('topics union the chapter tags and the tags of notes anchored here', async () => {
+    const { notes, tags, connections } = make();
+    const note = await notes.create('u1', { ...jhn3, title: 'Grace' });
+    await tags.tagNote('u1', note.id, 'Love');
+    await tags.tagPassage(
+      'u1',
+      { translationId: 'WEB', book: 'JHN', chapter: 3 },
+      'gospel',
+    );
+    // Another user's tag on the same passage stays invisible
+    await tags.tagPassage(
+      'u2',
+      { translationId: 'WEB', book: 'JHN', chapter: 3 },
+      'other',
+    );
+
+    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
+    expect(panel.topics.map((t) => `${t.name}:${t.onPassage}`)).toEqual([
+      'gospel:true',
+      'love:false',
+    ]);
   });
 
   it('assembles only the requesting user own graph', async () => {
