@@ -1,3 +1,4 @@
+import type { Translation } from "@biblestdy/shared";
 import { getBook, parseReference } from "@biblestdy/shared";
 import { Waypoints } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -17,11 +18,17 @@ import { ThemeToggle } from "~/components/theme-toggle";
 export function ReaderNav({
   book,
   chapter,
+  translations,
+  translationId,
+  onSwitchTranslation,
   connectionsOpen,
   onToggleConnections,
 }: {
   book: string;
   chapter: number;
+  translations: Translation[];
+  translationId: string;
+  onSwitchTranslation: (id: string) => void;
   connectionsOpen: boolean;
   onToggleConnections: () => void;
 }) {
@@ -87,6 +94,23 @@ export function ReaderNav({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Translation switcher (#11): marks live per translation — switching
+            re-reads the chapter in the chosen version */}
+        {translations.length > 1 && (
+          <Select value={translationId} onValueChange={(v) => v && onSwitchTranslation(v)}>
+            <SelectTrigger aria-label="Translation" size="sm" className="font-mono">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {translations.map((t) => (
+                <SelectItem key={t.id} value={t.id} className="font-mono" title={t.name}>
+                  {t.abbreviation}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <form onSubmit={onJump} className="relative ml-auto">
           <Input

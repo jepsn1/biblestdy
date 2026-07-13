@@ -130,3 +130,22 @@ export function useNotes(translationId: string, book: string, chapter: number) {
 
   return { notes, add, edit, remove, attach, detach };
 }
+
+/** Per-verse counts of notes anchored here in OTHER translations (#11) —
+ * bridges versions until shadow notes. Key sits under ["notes"] so note
+ * mutations invalidate it too. */
+export function useOtherVersionCounts(
+  translationId: string,
+  book: string,
+  chapter: number,
+): Map<number, number> {
+  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  const { data = [] } = useQuery({
+    queryKey: ["notes", "other-versions", translationId, book, chapter],
+    queryFn: () =>
+      api<{ verse: number; count: number }[]>(`/api/notes/other-versions?${params}`).catch(
+        () => [],
+      ),
+  });
+  return new Map(data.map((c) => [c.verse, c.count]));
+}

@@ -46,6 +46,13 @@ export interface NoteStore {
   insertAnchor(noteId: string, anchor: Anchor): Promise<AnchorRow>;
   deleteAnchor(noteId: string, anchorId: string): Promise<boolean>;
   anchorsFor(noteIds: string[]): Promise<AnchorRow[]>;
+  /** The user's anchors in a chapter across ALL translations — the canonical
+   * (book, chapter) reference correlates versions (#11). */
+  anchorsInChapter(
+    userId: string,
+    book: string,
+    chapter: number,
+  ): Promise<AnchorRow[]>;
 }
 
 export class DrizzleNoteStore implements NoteStore {
@@ -146,5 +153,34 @@ export class DrizzleNoteStore implements NoteStore {
       .from(noteAnchor)
       .where(inArray(noteAnchor.noteId, noteIds))
       .orderBy(noteAnchor.createdAt);
+  }
+
+  async anchorsInChapter(
+    userId: string,
+    book: string,
+    chapter: number,
+  ): Promise<AnchorRow[]> {
+    const rows = await db
+      .select({
+        id: noteAnchor.id,
+        noteId: noteAnchor.noteId,
+        translationId: noteAnchor.translationId,
+        book: noteAnchor.book,
+        chapter: noteAnchor.chapter,
+        startVerse: noteAnchor.startVerse,
+        startWord: noteAnchor.startWord,
+        endVerse: noteAnchor.endVerse,
+        endWord: noteAnchor.endWord,
+      })
+      .from(noteAnchor)
+      .innerJoin(note, eq(note.id, noteAnchor.noteId))
+      .where(
+        and(
+          eq(note.userId, userId),
+          eq(noteAnchor.book, book),
+          eq(noteAnchor.chapter, chapter),
+        ),
+      );
+    return rows;
   }
 }

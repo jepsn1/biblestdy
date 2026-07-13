@@ -10,7 +10,7 @@ import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { AnnotationMarks } from "./annotation-marks";
-import { noteMarksInChapter, useAllNotes, useNotes } from "./use-notes";
+import { noteMarksInChapter, useAllNotes, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
 
@@ -57,6 +57,11 @@ export function PaginatedChapter({
   const allNotes = useAllNotes(true);
   const noteMarks = noteMarksInChapter(
     notesApi.notes,
+    chapter.translationId,
+    chapter.book,
+    chapter.chapter,
+  );
+  const otherVersionCounts = useOtherVersionCounts(
     chapter.translationId,
     chapter.book,
     chapter.chapter,
@@ -246,6 +251,7 @@ export function PaginatedChapter({
               annotations={annotationsApi.annotations}
               noteMarks={noteMarks}
               allNotes={allNotes}
+              otherVersionCounts={otherVersionCounts}
               activeAnnotationId={activeAnnotationId}
               selectedMarkId={selectedMarkId}
               onAddHighlight={add}

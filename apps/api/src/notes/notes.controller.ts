@@ -48,6 +48,28 @@ export class NotesController {
     );
   }
 
+  /** Per-verse counts of notes anchored here in OTHER translations (#11). */
+  @Get('other-versions')
+  otherVersions(
+    @Req() req: AuthedRequest,
+    @Query('translation') translationId?: string,
+    @Query('book') book?: string,
+    @Query('chapter') chapter?: string,
+  ): Promise<{ verse: number; count: number }[]> {
+    const chapterNum = Number(chapter);
+    if (!translationId || !book || !Number.isInteger(chapterNum)) {
+      throw new BadRequestException(
+        'translation, book and chapter are required',
+      );
+    }
+    return this.notes.otherVersionNoteCounts(
+      req.user.id,
+      translationId,
+      book,
+      chapterNum,
+    );
+  }
+
   @Post()
   create(@Req() req: AuthedRequest, @Body() dto: CreateNoteDto): Promise<Note> {
     return this.notes.create(req.user.id, dto);

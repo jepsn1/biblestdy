@@ -85,6 +85,7 @@ export function ChapterText({
   annotations,
   noteMarks,
   allNotes,
+  otherVersionCounts,
   activeAnnotationId,
   selectedMarkId,
   onAddHighlight,
@@ -102,6 +103,8 @@ export function ChapterText({
   noteMarks: NoteMark[];
   /** Every note of the user — the attach-an-existing-note picker. */
   allNotes: Note[];
+  /** verse -> count of the user's notes on OTHER translations (#11). */
+  otherVersionCounts: Map<number, number>;
   activeAnnotationId: string | null;
   /** Mark of the reference selected in the note panel — the rest of the page
    * dims slightly so the spotlight state is legible. */
@@ -269,6 +272,17 @@ export function ChapterText({
             <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
               {v.verse}
             </sup>
+            {(otherVersionCounts.get(v.verse) ?? 0) > 0 && (
+              // Notes live on their home translation; this bridges versions
+              <sup
+                title={`${otherVersionCounts.get(v.verse)} note${
+                  otherVersionCounts.get(v.verse) === 1 ? "" : "s"
+                } on other versions`}
+                className="mr-1 select-none align-super font-mono text-[0.55rem] text-muted-foreground"
+              >
+                ⁘{otherVersionCounts.get(v.verse)}
+              </sup>
+            )}
             {groupByAnnotation(v.verse, tokens, annotationCoverage).map((seg, si) => {
               const active = seg.annotation && seg.annotation.id === activeAnnotationId;
               const wordSpans = seg.words.map(({ word, i }) => {

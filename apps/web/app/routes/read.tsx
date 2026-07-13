@@ -1,7 +1,7 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
 import { formatReference, getBook } from "@biblestdy/shared";
 import { useState } from "react";
-import { data } from "react-router";
+import { data, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { requireAuth } from "~/lib/require-auth";
 import { BooksSidebar } from "../reader/books-sidebar";
@@ -9,17 +9,23 @@ import { PaginatedChapter } from "../reader/paginated-chapter";
 import { ReaderNav } from "../reader/reader-nav";
 import type { Route } from "./+types/read";
 
-// v1 slice: single translation — whatever the API offers first.
-let translationCache: Translation | undefined;
+let translationsCache: Translation[] | undefined;
 
-async function defaultTranslation(): Promise<Translation> {
-  if (translationCache) return translationCache;
+async function loadTranslations(): Promise<Translation[]> {
+  if (translationsCache) return translationsCache;
   const res = await fetch("/api/translations");
   if (!res.ok) throw data("Could not load translations", { status: 502 });
   const translations = (await res.json()) as Translation[];
   if (translations.length === 0) throw data("No translations available", { status: 502 });
-  translationCache = translations[0];
-  return translationCache;
+  translationsCache = translations;
+  return translations;
+}
+
+/** The reading translation (#11): sticky preference, first offered as default. */
+function pickTranslation(translations: Translation[]): Translation {
+  const preferred =
+    typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
+  return translations.find((t) => t.id === preferred) ?? translations[0];
 }
 
 export function meta({ params }: Route.MetaArgs) {
@@ -32,18 +38,24 @@ export function meta({ params }: Route.MetaArgs) {
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   await requireAuth();
-  const translation = await defaultTranslation();
+  const translations = await loadTranslations();
+  const translation = pickTranslation(translations);
   const res = await fetch(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
   if (res.status === 404 || res.status === 400) {
     throw data(`This chapter isn't available (yet).`, { status: 404 });
   }
   if (!res.ok) throw data("Could not load the chapter", { status: 502 });
   const chapter = (await res.json()) as Chapter;
-  return { chapter, translation };
+  return { chapter, translation, translations };
 }
 
 export default function Read({ loaderData }: Route.ComponentProps) {
-  const { chapter, translation } = loaderData;
+  const { chapter, translation, translations } = loaderData;
+  const revalidator = useRevalidator();
+  function switchTranslation(id: string) {
+    localStorage.setItem("translationId", id);
+    void revalidator.revalidate(); // reloads the chapter in the new version
+  }
   const heading = formatReference({ book: chapter.book, chapter: chapter.chapter });
   const book = getBook(chapter.book);
   const chapterCount = book?.chapters ?? 1;
@@ -68,6 +80,9 @@ export default function Read({ loaderData }: Route.ComponentProps) {
         <ReaderNav
           book={chapter.book}
           chapter={chapter.chapter}
+          translations={translations}
+          translationId={translation.id}
+          onSwitchTranslation={switchTranslation}
           connectionsOpen={connectionsOpen}
           onToggleConnections={toggleConnections}
         />

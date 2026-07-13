@@ -11,8 +11,9 @@ describe('ScriptureController (with fake provider)', () => {
 
   it('lists translations', async () => {
     const translations = await controller.listTranslations();
-    expect(translations).toHaveLength(1);
+    expect(translations).toHaveLength(2); // WEB2 = switcher fixture (#11)
     expect(translations[0]).toMatchObject({ id: 'WEB', language: 'en' });
+    expect(translations[1]).toMatchObject({ id: 'WEB2', language: 'en' });
   });
 
   it('serves a chapter with ordered verses', async () => {

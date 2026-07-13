@@ -92,4 +92,15 @@ export class InMemoryNoteStore implements NoteStore {
       this.anchors.filter((a) => noteIds.includes(a.noteId)),
     );
   }
+
+  anchorsInChapter(userId: string, book: string, chapter: number) {
+    const mine = new Set(
+      this.notes.filter((n) => n.userId === userId).map((n) => n.id),
+    );
+    return Promise.resolve(
+      this.anchors.filter(
+        (a) => mine.has(a.noteId) && a.book === book && a.chapter === chapter,
+      ),
+    );
+  }
 }

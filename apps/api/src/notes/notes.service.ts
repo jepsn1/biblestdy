@@ -96,6 +96,31 @@ export class NotesService {
     );
   }
 
+  /** Per-verse count of notes anchored to this chapter in OTHER translations
+   * (#11): the canonical (book, chapter, verse) reference correlates versions.
+   * A note counts once per verse its span covers; one note anchored twice on
+   * a verse still counts once. */
+  async otherVersionNoteCounts(
+    userId: string,
+    translationId: string,
+    book: string,
+    chapter: number,
+  ): Promise<{ verse: number; count: number }[]> {
+    const anchors = await this.store.anchorsInChapter(userId, book, chapter);
+    const notesPerVerse = new Map<number, Set<string>>();
+    for (const a of anchors) {
+      if (a.translationId === translationId) continue;
+      for (let verse = a.startVerse; verse <= a.endVerse; verse++) {
+        const set = notesPerVerse.get(verse) ?? new Set<string>();
+        set.add(a.noteId);
+        notesPerVerse.set(verse, set);
+      }
+    }
+    return [...notesPerVerse.entries()]
+      .map(([verse, ids]) => ({ verse, count: ids.size }))
+      .sort((a, b) => a.verse - b.verse);
+  }
+
   private async withAnchors(rows: NoteRow[]): Promise<Note[]> {
     const anchors = await this.store.anchorsFor(rows.map((r) => r.id));
     return rows.map((row) =>
