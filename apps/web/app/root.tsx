@@ -1,3 +1,5 @@
+import "~/lib/prism-global";
+
 import {
   isRouteErrorResponse,
   Links,
