@@ -8,6 +8,8 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 2026-07-13 (later): **#9 connections panel built** — `GET /api/connections` (ConnectionsService over NoteStore: notes-here in text order, also-appears-in grouped per passage in canonical order, recent 5), Vitest'd in-memory (83 tests total); panel beside the reader (Waypoints toggle in nav, sticky via localStorage; open note takes the slot, closing it brings connections back; notes-here/recent open the note, elsewhere-notes navigate with `?note=`, passage links navigate). E2E-verified against dev API. UI needs Marcus eyeball, then close #9. No DB change — nothing new to migrate.
 
+2026-07-13 (later still): **#11 translation switcher built** — fake provider gained WEB2 (same fixture text, distinct id — switcher exercisable keyless), sticky picker in reader nav (localStorage + loader revalidate), marks render only on home translation (per-translation queries, by construction), `GET /api/notes/other-versions` per-verse counts + ⁘N verse badge. Cross-version correlation Vitest'd (96 tests). E2E-verified. Real translations still gated on Marcus homework (API.Bible key). UI eyeball pending.
+
 2026-07-13 (later still): **#10 tags + topics built** — tag/note_tag/passage_tag tables (dev pushed; **PROD: run `migrations/2026-07-13-tags.sql` before next deploy, plus the #8 one**), TagStore seam + TagsService (names normalized lowercase, get-or-create, last-use deletes orphan tag, ownership checks), topics in connections payload (`onPassage` marks chapter's own tags), tag chips on note panel + connections Topics section (add = tags the passage), `/topic/:name` page (tagged notes + passages, links navigate). 93 tests. E2E-verified (tag/untag note+passage, topic aggregation, orphan cleanup, 404). UI eyeball pending like #9.
 
 2026-07-09: **deployed to prod** on own server (see CLAUDE.md Prod) — blocked on Parknet public IP (CGNAT; ordered), then it's live at biblestdy.com. Resend auth emails wired (prod+dev) ✓. Same day: paper theme (default) + charcoal toggle; full hand-drawn annotation system (scribble circles / brackets by span geometry, draggable+resizable boxes, under-text arrows with live Excalidraw-style binding, wobbly marker highlights, overlap/nesting support); **#7 full notes shipped + closed** (WYSIWYG markdown editor in a resizable panel); data layer on TanStack Query; terminology settled (annotation/note, see Conventions).
@@ -30,7 +32,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 1. ~~**#4 Sign in**~~ ✓ done — Better Auth magic-link + OTP, Neon, guard, all routes gated.
 2. ~~#5 Highlight a span~~ ✓ done.
-3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → ~~#10 tags/topics~~ ✓ built (UI eyeball pending) → **#11 translation switcher** (next — needs API.Bible key or a 2nd fake translation) → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile** (scale the fixed sheet, don't reflow — see watch-outs).
+3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → ~~#10 tags/topics~~ ✓ built (UI eyeball pending) → ~~#11 translation switcher~~ ✓ built (WEB2 fixture; real versions need API.Bible key) → **#12 i18n da+en** (next) → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile** (scale the fixed sheet, don't reflow — see watch-outs).
 
 ## Ideas (someday)
 
