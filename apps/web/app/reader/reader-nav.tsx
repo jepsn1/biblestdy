@@ -1,6 +1,8 @@
 import { getBook, parseReference } from "@biblestdy/shared";
+import { Waypoints } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -12,7 +14,17 @@ import {
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { ThemeToggle } from "~/components/theme-toggle";
 
-export function ReaderNav({ book, chapter }: { book: string; chapter: number }) {
+export function ReaderNav({
+  book,
+  chapter,
+  connectionsOpen,
+  onToggleConnections,
+}: {
+  book: string;
+  chapter: number;
+  connectionsOpen: boolean;
+  onToggleConnections: () => void;
+}) {
   const navigate = useNavigate();
   const jumpRef = useRef<HTMLInputElement>(null);
   const [jump, setJump] = useState("");
@@ -93,6 +105,17 @@ export function ReaderNav({ book, chapter }: { book: string; chapter: number }) 
             /
           </kbd>
         </form>
+
+        <Button
+          variant={connectionsOpen ? "secondary" : "ghost"}
+          size="icon-sm"
+          aria-label="Toggle connections panel"
+          aria-pressed={connectionsOpen}
+          title="Connections: notes here, shared passages, recent"
+          onClick={onToggleConnections}
+        >
+          <Waypoints />
+        </Button>
 
         <ThemeToggle />
       </div>

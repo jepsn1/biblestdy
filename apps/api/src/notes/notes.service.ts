@@ -107,7 +107,8 @@ export class NotesService {
   }
 }
 
-function toNote(row: NoteRow, anchors: AnchorRow[]): Note {
+/** Assembles the wire Note from its rows (also used by ConnectionsService). */
+export function toNote(row: NoteRow, anchors: AnchorRow[]): Note {
   return {
     id: row.id,
     title: row.title,

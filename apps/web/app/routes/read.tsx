@@ -1,5 +1,6 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
 import { formatReference, getBook } from "@biblestdy/shared";
+import { useState } from "react";
 import { data } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { requireAuth } from "~/lib/require-auth";
@@ -49,18 +50,35 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   const prevHref = chapter.chapter > 1 ? `/read/${chapter.book}/${chapter.chapter - 1}` : null;
   const nextHref =
     chapter.chapter < chapterCount ? `/read/${chapter.book}/${chapter.chapter + 1}` : null;
+  // Ambient study surface — remember open/closed across visits
+  const [connectionsOpen, setConnectionsOpen] = useState(
+    () => typeof localStorage !== "undefined" && localStorage.getItem("connectionsOpen") === "1",
+  );
+  function toggleConnections() {
+    setConnectionsOpen((open) => {
+      localStorage.setItem("connectionsOpen", open ? "0" : "1");
+      return !open;
+    });
+  }
 
   return (
     <SidebarProvider className="h-dvh overflow-hidden">
       <BooksSidebar book={chapter.book} />
       <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">
-        <ReaderNav book={chapter.book} chapter={chapter.chapter} />
+        <ReaderNav
+          book={chapter.book}
+          chapter={chapter.chapter}
+          connectionsOpen={connectionsOpen}
+          onToggleConnections={toggleConnections}
+        />
         <PaginatedChapter
           chapter={chapter}
           translation={translation}
           heading={heading}
           prevHref={prevHref}
           nextHref={nextHref}
+          connectionsOpen={connectionsOpen}
+          onCloseConnections={toggleConnections}
         />
       </SidebarInset>
     </SidebarProvider>

@@ -58,6 +58,8 @@ export function useNotes(translationId: string, book: string, chapter: number) {
    * instant; other chapters and the all-notes picker catch up here). */
   function invalidateAll() {
     void qc.invalidateQueries({ queryKey: ["notes"] });
+    // The connections panel is a view over the same graph
+    void qc.invalidateQueries({ queryKey: ["connections"] });
   }
 
   /** Creates an empty document on the anchor; returns it so the caller can

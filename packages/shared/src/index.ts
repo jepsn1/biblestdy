@@ -22,3 +22,4 @@ export {
   type NoteAnchor,
   type NewNote,
 } from './anchor.js'
+export type { ChapterConnections, PassageLink } from './connections.js'

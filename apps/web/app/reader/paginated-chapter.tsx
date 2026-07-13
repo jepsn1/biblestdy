@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ChapterText } from "./chapter-text";
+import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { AnnotationMarks } from "./annotation-marks";
@@ -25,12 +26,16 @@ export function PaginatedChapter({
   heading,
   prevHref,
   nextHref,
+  connectionsOpen,
+  onCloseConnections,
 }: {
   chapter: Chapter;
   translation: Translation;
   heading: string;
   prevHref: string | null;
   nextHref: string | null;
+  connectionsOpen: boolean;
+  onCloseConnections: () => void;
 }) {
   const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -338,6 +343,22 @@ export function PaginatedChapter({
         </span>
       </footer>
       </ResizablePanel>
+
+      {/* An open note takes the side slot; closing it brings connections back */}
+      {connectionsOpen && !openNote && (
+        <>
+          <ResizableHandle withHandle />
+          <ResizablePanel id="connections" defaultSize="24%" minSize="16rem" maxSize="40%">
+            <ConnectionsPanel
+              translationId={chapter.translationId}
+              book={chapter.book}
+              chapter={chapter.chapter}
+              onOpenNote={setOpenNoteId}
+              onClose={onCloseConnections}
+            />
+          </ResizablePanel>
+        </>
+      )}
 
       {openNote && (
         <>
