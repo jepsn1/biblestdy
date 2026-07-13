@@ -3,7 +3,9 @@ import { anchorReference, formatReference } from "@biblestdy/shared";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { TagChips } from "./tag-chips";
 import { useConnections } from "./use-connections";
+import { usePassageTags } from "./use-tags";
 
 /**
  * The connections panel (issue #9) — resurfacing at the point of reading:
@@ -25,6 +27,7 @@ export function ConnectionsPanel({
 }) {
   const navigate = useNavigate();
   const connections = useConnections(translationId, book, chapter, true);
+  const passageTags = usePassageTags(translationId, book, chapter);
 
   /** A note anchored here opens in place; one from elsewhere is read there,
    * arriving with its panel open (?note= survives navigation). */
@@ -82,6 +85,41 @@ export function ConnectionsPanel({
       <ScrollArea className="min-h-0 flex-1">
         {connections && (
           <div className="flex flex-col gap-5 p-2 pt-3">
+            <section>
+              <SectionTitle>Topics</SectionTitle>
+              {/* Union of this chapter's tags and its notes' tags; only tags
+                  ON the passage are removable here — note tags live with the
+                  note. Adding always tags the passage. */}
+              <div className="px-2">
+                <TagChips
+                  tags={connections.topics.filter((t) => t.onPassage)}
+                  onAdd={(name) => void passageTags.add(name)}
+                  onRemove={(t) => void passageTags.remove(t.id)}
+                  addLabel="+ tag passage"
+                />
+                {connections.topics.some((t) => !t.onPassage) && (
+                  <div className="mt-1.5">
+                    <span className="font-mono text-[0.6rem] text-muted-foreground">
+                      via notes:{" "}
+                    </span>
+                    {connections.topics
+                      .filter((t) => !t.onPassage)
+                      .map((t, i, arr) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => navigate(`/topic/${encodeURIComponent(t.name)}`)}
+                          className="font-mono text-[0.6rem] text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                        >
+                          {t.name}
+                          {i < arr.length - 1 ? ", " : ""}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
             <section>
               <SectionTitle>Anchored here</SectionTitle>
               {connections.notesHere.length === 0 && (

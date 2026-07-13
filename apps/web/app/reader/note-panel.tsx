@@ -33,6 +33,20 @@ import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useIsDark } from "~/components/theme-toggle";
+import { TagChips } from "./tag-chips";
+import { useNoteTags } from "./use-tags";
+
+/** The note's tags (issue #10) — own component so the query mounts per note. */
+function NoteTagsRow({ noteId }: { noteId: string }) {
+  const { tags, add, remove } = useNoteTags(noteId);
+  return (
+    <TagChips
+      tags={tags}
+      onAdd={(name) => void add(name)}
+      onRemove={(t) => void remove(t.id)}
+    />
+  );
+}
 
 /** The words an anchor covers, shortened for the references table. */
 function snippetOf(chapter: Chapter | undefined, a: NoteAnchor): string {
@@ -209,6 +223,11 @@ export function NotePanel({
           <X className="size-4" />
         </button>
       </header>
+
+      {/* Tags group study across the graph (issue #10) — chips open topic pages */}
+      <div className="border-b border-border px-3 py-1.5">
+        <NoteTagsRow noteId={note.id} />
+      </div>
 
       <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
         <ResizablePanel id="editor" defaultSize="72%" minSize="30%" className="flex min-h-0 flex-col">
