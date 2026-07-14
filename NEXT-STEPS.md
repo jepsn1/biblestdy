@@ -34,7 +34,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 1. ~~**#4 Sign in**~~ ✓ done — Better Auth magic-link + OTP, Neon, guard, all routes gated.
 2. ~~#5 Highlight a span~~ ✓ done.
-3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → ~~#10 tags/topics~~ ✓ built (UI eyeball pending) → ~~#11 translation switcher~~ ✓ built (WEB2 fixture; real versions need API.Bible key) → ~~#12 i18n da+en~~ ✓ built (proofread da copy) → **#13 PWA/mobile** (next — scale the sheet, don't reflow) → **#11 translation switcher** → **#12 i18n da+en** → **#13 PWA/mobile** (scale the fixed sheet, don't reflow — see watch-outs).
+3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → ~~#10 tags/topics~~ ✓ built (UI eyeball pending) → ~~#11 translation switcher~~ ✓ built (WEB2 fixture; real versions need API.Bible key) → ~~#12 i18n da+en~~ ✓ built (proofread da copy) → **#13 PWA/mobile** (next — scale the fixed sheet, don't reflow; see watch-outs).
 
 ## Ideas (someday)
 
