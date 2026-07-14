@@ -142,6 +142,9 @@ export function AnnotationMarks({
     noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
   const [placements, setPlacements] = useState<Placement[]>([]);
   const { t } = useTranslation();
+  // Current sheet scale (mobile, #13) — pointer deltas are visual px, box
+  // coordinates local px
+  const scaleRef = useRef(1);
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
   // Spotlight: only the selected reference's mark is drawn
   const shownPlacements = spotlight ? [] : placements;
@@ -179,10 +182,16 @@ export function AnnotationMarks({
     const measure = () => {
       const regionRect = region.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
-      setRegionSize({ w: regionRect.width, h: regionRect.height });
-      const centerX = contentRect.left + contentRect.width / 2;
-      const leftLaneRight = contentRect.left - regionRect.left - GAP;
-      const rightLaneLeft = contentRect.right - regionRect.left + GAP;
+      // Mobile sheet-scale (#13): rects are visual (scaled) px, overlays paint
+      // in the region's local space — divide the scale out everywhere.
+      const s = regionRect.width / region.offsetWidth || 1;
+      scaleRef.current = s;
+      setRegionSize({ w: region.offsetWidth, h: region.offsetHeight });
+      const centerX = (contentRect.left + contentRect.width / 2 - regionRect.left) / s;
+      const leftLaneRight = (contentRect.left - regionRect.left) / s - GAP;
+      const rightLaneLeft = (contentRect.right - regionRect.left) / s + GAP;
+      const contentLeft = (contentRect.left - regionRect.left) / s;
+      const contentRight = (contentRect.right - regionRect.left) / s;
 
       /** Box + line count of an anchor's words on the current page, measured
        * straight from the [data-verse][data-word] spans — independent of any
@@ -194,16 +203,22 @@ export function AnnotationMarks({
         endVerse: number;
         endWord: number;
       }) => {
-        const rects: DOMRect[] = [];
+        const rects: { left: number; top: number; right: number; bottom: number }[] = [];
         for (let v = a.startVerse; v <= a.endVerse; v++) {
           const els = region.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
           for (const el of els) {
             const w = Number(el.dataset.word);
             if (v === a.startVerse && w < a.startWord) continue;
             if (v === a.endVerse && w > a.endWord) continue;
-            const r = el.getBoundingClientRect();
-            if (r.width === 0) continue;
-            if (r.right < contentRect.left + 1 || r.left > contentRect.right - 1) continue;
+            const vr = el.getBoundingClientRect();
+            if (vr.width === 0) continue;
+            const r = {
+              left: (vr.left - regionRect.left) / s,
+              top: (vr.top - regionRect.top) / s,
+              right: (vr.right - regionRect.left) / s,
+              bottom: (vr.bottom - regionRect.top) / s,
+            };
+            if (r.right < contentLeft + 1 || r.left > contentRight - 1) continue;
             rects.push(r);
           }
         }
@@ -227,12 +242,7 @@ export function AnnotationMarks({
           }
         }
         return {
-          box: {
-            x: left - regionRect.left,
-            y: top - regionRect.top,
-            w: right - left,
-            h: bottom - top,
-          } as Box,
+          box: { x: left, y: top, w: right - left, h: bottom - top } as Box,
           lines: runs.length,
           mid: (left + right) / 2,
         };
@@ -421,8 +431,8 @@ export function AnnotationMarks({
               onPointerMove={(e) => {
                 const from = dragFrom.current;
                 if (!from) return;
-                const dx = e.clientX - from.px;
-                const dy = e.clientY - from.py;
+                const dx = (e.clientX - from.px) / scaleRef.current;
+                const dy = (e.clientY - from.py) / scaleRef.current;
                 if (!didDrag.current && Math.hypot(dx, dy) < 4) return;
                 didDrag.current = true;
                 setDrag({
@@ -464,7 +474,7 @@ export function AnnotationMarks({
                       const from = resizeFrom.current;
                       if (!from) return;
                       e.stopPropagation();
-                      const dx = e.clientX - from.px;
+                      const dx = (e.clientX - from.px) / scaleRef.current;
                       const w = Math.min(
                         Math.max(from.edge === "right" ? from.startW + dx : from.startW - dx, MIN_W),
                         MAX_W,

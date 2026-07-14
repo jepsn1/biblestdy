@@ -37,6 +37,11 @@ export function HighlightMarks({
     const measure = () => {
       const regionRect = region.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
+      // Mobile sheet-scale (#13): rects come back in visual (scaled) px, the
+      // overlay paints in the region's local space — divide the scale out.
+      const s = regionRect.width / region.offsetWidth || 1;
+      const contentLeft = (contentRect.left - regionRect.left) / s;
+      const contentRight = (contentRect.right - regionRect.left) / s;
       const out: MarkRect[] = [];
       // Wider washes paint first so a nested highlight's color reads on top
       const bySize = [...highlights].sort(
@@ -48,7 +53,7 @@ export function HighlightMarks({
       for (const hl of bySize) {
         // Measure straight from the word spans — overlapping highlights all
         // render, independent of any per-word ownership
-        const rects: DOMRect[] = [];
+        const rects: { left: number; top: number; right: number; bottom: number }[] = [];
         let lineH = 36;
         for (let v = hl.startVerse; v <= hl.endVerse; v++) {
           const els = region.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
@@ -56,9 +61,15 @@ export function HighlightMarks({
             const w = Number(el.dataset.word);
             if (v === hl.startVerse && w < hl.startWord) continue;
             if (v === hl.endVerse && w > hl.endWord) continue;
-            const r = el.getBoundingClientRect();
-            if (r.width === 0) continue;
-            if (r.right < contentRect.left + 1 || r.left > contentRect.right - 1) continue;
+            const vr = el.getBoundingClientRect();
+            if (vr.width === 0) continue;
+            const r = {
+              left: (vr.left - regionRect.left) / s,
+              top: (vr.top - regionRect.top) / s,
+              right: (vr.right - regionRect.left) / s,
+              bottom: (vr.bottom - regionRect.top) / s,
+            };
+            if (r.right < contentLeft + 1 || r.left > contentRight - 1) continue;
             lineH = parseFloat(getComputedStyle(el).lineHeight) || 36;
             rects.push(r);
           }
@@ -87,8 +98,8 @@ export function HighlightMarks({
           const pad = Math.max(0, (lineH - (run.bottom - run.top)) / 2) + 1.5;
           out.push({
             key: `${hl.id}:${i}`,
-            x: run.left - regionRect.left - 1,
-            y: run.top - regionRect.top - pad,
+            x: run.left - 1,
+            y: run.top - pad,
             w: run.right - run.left + 2,
             h: run.bottom - run.top + pad * 2,
             color: HIGHLIGHT_BG[hl.color],

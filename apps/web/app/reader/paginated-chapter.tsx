@@ -81,6 +81,22 @@ export function PaginatedChapter({
     allNotes.find((f) => f.id === openNoteId) ??
     null;
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Mobile (#13): the SHEET is print-fixed — scale it down to the viewport
+  // like a printed page, never reflow. Desktop panes never trigger this
+  // (viewport-gated), so panels keep overlaying, not squeezing.
+  const [sheetScale, setSheetScale] = useState(1);
+  useEffect(() => {
+    const rescale = () => {
+      const contentW = contentBoxRef.current?.offsetWidth ?? 0;
+      const vw = window.innerWidth;
+      setSheetScale(
+        vw < 640 && contentW > 0 ? Math.min(1, vw / (contentW + 8)) : 1,
+      );
+    };
+    rescale();
+    window.addEventListener("resize", rescale);
+    return () => window.removeEventListener("resize", rescale);
+  }, []);
   // Split width is a per-device ergonomic preference -> localStorage, not DB
   const [noteSize, setNoteSize] = useState(() => {
     if (typeof localStorage === "undefined") return 50;
@@ -98,11 +114,12 @@ export function PaginatedChapter({
     localStorage.setItem("notePanelSize", String(pct));
   }
 
-  // Center the sheet in the pane whenever it stops fitting (doc open/close)
+  // Center the sheet in the pane whenever it stops fitting (doc open/close,
+  // mobile scale applied)
   useEffect(() => {
     const vp = scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
     if (vp) vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
-  }, [openNoteId]);
+  }, [openNoteId, sheetScale]);
 
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
@@ -118,8 +135,10 @@ export function PaginatedChapter({
     );
     const content = contentRef.current;
     if (el && content && stride > 0) {
+      const contentRect = content.getBoundingClientRect();
+      const s = contentRect.width / content.offsetWidth || 1;
       const target = Math.floor(
-        (el.getBoundingClientRect().left - content.getBoundingClientRect().left) / stride,
+        (el.getBoundingClientRect().left - contentRect.left) / s / stride,
       );
       setPage(Math.max(0, Math.min(target, pageCount - 1)));
     }
@@ -236,7 +255,19 @@ export function PaginatedChapter({
         <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
           {/* isolate: local stacking context so the -z-10 leader arrows paint
               behind the text but still above the page background */}
-          <div ref={regionRef} className="relative isolate mx-auto h-full w-[75rem]">
+          <div
+            className="mx-auto h-full"
+            style={sheetScale < 1 ? { width: `calc(75rem * ${sheetScale})` } : undefined}
+          >
+          <div
+            ref={regionRef}
+            className="relative isolate mx-auto h-full w-[75rem] origin-top-left"
+            style={
+              sheetScale < 1
+                ? { transform: `scale(${sheetScale})`, height: `${100 / sheetScale}%` }
+                : undefined
+            }
+          >
         <div
           ref={contentBoxRef}
           className="relative mx-auto h-full max-w-2xl overflow-hidden px-6 pt-10 pb-6 lg:max-w-3xl"
@@ -294,6 +325,7 @@ export function PaginatedChapter({
           onOpenNote={setOpenNoteId}
         />
 
+          </div>
           </div>
         </ScrollArea>
 

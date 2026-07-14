@@ -115,7 +115,7 @@ export function ReaderNav({
           </Select>
         )}
 
-        <form onSubmit={onJump} className="relative ml-auto">
+        <form onSubmit={onJump} className="relative ml-auto hidden sm:block">
           <Input
             ref={jumpRef}
             aria-label={t("nav.goToReference")}
@@ -136,6 +136,7 @@ export function ReaderNav({
         <Button
           variant={connectionsOpen ? "secondary" : "ghost"}
           size="icon-sm"
+          className="ml-auto sm:ml-0"
           aria-label={t("nav.connectionsToggle")}
           aria-pressed={connectionsOpen}
           title={t("nav.connectionsHint")}
