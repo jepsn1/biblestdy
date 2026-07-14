@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation } from "@biblestdy/shared";
 import {
   anchorReference,
@@ -118,6 +119,7 @@ export function ChapterText({
   onFocusAnnotation: (id: string | null) => void;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
+  const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const { data: session } = authClient.useSession();
   const defaultColor: HighlightColor = isColor(session?.user.defaultHighlightColor)
@@ -275,9 +277,7 @@ export function ChapterText({
             {(otherVersionCounts.get(v.verse) ?? 0) > 0 && (
               // Notes live on their home translation; this bridges versions
               <sup
-                title={`${otherVersionCounts.get(v.verse)} note${
-                  otherVersionCounts.get(v.verse) === 1 ? "" : "s"
-                } on other versions`}
+                title={t("reader.otherVersions", { count: otherVersionCounts.get(v.verse) })}
                 className="mr-1 select-none align-super font-mono text-[0.55rem] text-muted-foreground"
               >
                 ⁘{otherVersionCounts.get(v.verse)}
@@ -341,8 +341,8 @@ export function ChapterText({
                       <button
                         key={color}
                         type="button"
-                        aria-label={`Highlight (${color})`}
-                        title={`Highlight (${color})`}
+                        aria-label={t("menu.highlight", { color })}
+                        title={t("menu.highlight", { color })}
                         onClick={() => addHighlight(color)}
                         className={`size-4 rounded-full transition-transform hover:scale-115 ${
                           color === defaultColor
@@ -356,18 +356,18 @@ export function ChapterText({
                   <div className="mx-1 my-0.5 h-px bg-border" />
                   <button
                     type="button"
-                    title="A short handwritten scribble next to the text"
+                    title={t("menu.annotateHint")}
                     className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                     onClick={() => {
                       setDraft("");
                       setMenu({ ...menu, kind: "compose" });
                     }}
                   >
-                    Annotate
+                    {t("menu.annotate")}
                   </button>
                   <button
                     type="button"
-                    title="A markdown document, opens the side-by-side editor"
+                    title={t("menu.createNoteHint")}
                     className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                     onClick={() => {
                       onAddNote(menu.anchor);
@@ -375,16 +375,16 @@ export function ChapterText({
                       setMenu(null);
                     }}
                   >
-                    Create new note
+                    {t("menu.createNote")}
                   </button>
                   {allNotes.length > 0 && (
                     <button
                       type="button"
-                      title="Anchor an existing note to this span too"
+                      title={t("menu.noteLinkHint")}
                       className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                       onClick={() => setMenu({ ...menu, kind: "attach" })}
                     >
-                      Create note link…
+                      {t("menu.noteLink")}
                     </button>
                   )}
                 </div>
@@ -405,7 +405,7 @@ export function ChapterText({
                       }}
                     >
                       <span className="truncate font-serif text-sm">
-                        {n.title || "Untitled note"}
+                        {n.title || t("note.untitled")}
                       </span>
                       <span className="shrink-0 font-mono text-[0.6rem] text-muted-foreground">
                         {n.anchors.length > 0 && formatReference(anchorReference(n.anchors[0]))}
@@ -426,17 +426,17 @@ export function ChapterText({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveDraft();
                     }}
-                    placeholder="Your annotation…"
+                    placeholder={t("menu.annotationPlaceholder")}
                     className="h-20 resize-none rounded border border-border bg-background p-2 font-serif text-sm outline-none focus:border-primary/50"
                   />
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[0.6rem] text-muted-foreground">⌘↵ to save</span>
+                    <span className="font-mono text-[0.6rem] text-muted-foreground">{t("menu.saveHint")}</span>
                     <button
                       type="button"
                       onClick={saveDraft}
                       className="rounded bg-primary px-2.5 py-1 font-mono text-xs text-primary-foreground hover:opacity-90"
                     >
-                      Save
+                      {t("menu.save")}
                     </button>
                   </div>
                 </div>
@@ -452,7 +452,7 @@ export function ChapterText({
                       setMenu(null);
                     }}
                   >
-                    Remove
+                    {t("menu.remove")}
                   </button>
                 </div>
               )}

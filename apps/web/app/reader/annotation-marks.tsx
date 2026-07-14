@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
@@ -140,6 +141,7 @@ export function AnnotationMarks({
     selectedMarkId != null &&
     noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
   const [placements, setPlacements] = useState<Placement[]>([]);
+  const { t } = useTranslation();
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
   // Spotlight: only the selected reference's mark is drawn
   const shownPlacements = spotlight ? [] : placements;
@@ -369,7 +371,7 @@ export function AnnotationMarks({
           <button
             key={m.mark.id}
             type="button"
-            title={m.mark.title || "Open note"}
+            title={m.mark.title || t("note.open")}
             onClick={() => onOpenNote(m.mark.noteId)}
             className="pointer-events-auto absolute flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden rounded-full border bg-popover px-1.5 py-px font-mono text-[0.58rem] leading-none whitespace-nowrap transition-colors hover:bg-accent"
             style={{
@@ -519,19 +521,19 @@ export function AnnotationMarks({
                         setEditing(null);
                       }}
                     >
-                      delete
+                      {t("note.delete")}
                     </button>
-                    <span className="text-muted-foreground">esc cancel</span>
+                    <span className="text-muted-foreground">{t("note.escCancel")}</span>
                     <button
                       type="button"
                       className="px-1 text-primary hover:opacity-80"
                       onClick={() => {
-                        const t = editing.text.trim();
-                        if (t) onEdit(p.annotation.id, t);
+                        const trimmed = editing.text.trim();
+                        if (trimmed) onEdit(p.annotation.id, trimmed);
                         setEditing(null);
                       }}
                     >
-                      save
+                      {t("note.save")}
                     </button>
                   </div>
                 </div>

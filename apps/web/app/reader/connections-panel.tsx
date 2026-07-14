@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Note } from "@biblestdy/shared";
 import { anchorReference, formatReference } from "@biblestdy/shared";
 import { X } from "lucide-react";
@@ -25,6 +26,7 @@ export function ConnectionsPanel({
   onOpenNote: (id: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const connections = useConnections(translationId, book, chapter, true);
   const passageTags = usePassageTags(translationId, book, chapter);
@@ -51,7 +53,7 @@ export function ConnectionsPanel({
         className="w-full rounded px-2 py-1.5 text-left hover:bg-accent"
       >
         <span className="block truncate font-serif text-sm">
-          {note.title || "Untitled note"}
+          {note.title || t("note.untitled")}
         </span>
         <span className="block truncate font-mono text-[0.6rem] text-muted-foreground">
           {note.anchors.map((a) => formatReference(anchorReference(a))).join(" · ")}
@@ -71,10 +73,10 @@ export function ConnectionsPanel({
   return (
     <aside className="flex h-full w-full flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="font-serif text-lg font-medium">Connections</span>
+        <span className="font-serif text-lg font-medium">{t("connections.title")}</span>
         <button
           type="button"
-          aria-label="Close connections"
+          aria-label={t("connections.close")}
           onClick={onClose}
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
@@ -86,29 +88,29 @@ export function ConnectionsPanel({
         {connections && (
           <div className="flex flex-col gap-5 p-2 pt-3">
             <section>
-              <SectionTitle>Topics</SectionTitle>
+              <SectionTitle>{t("connections.topics")}</SectionTitle>
               {/* Union of this chapter's tags and its notes' tags; only tags
                   ON the passage are removable here — note tags live with the
                   note. Adding always tags the passage. */}
               <div className="px-2">
                 <TagChips
-                  tags={connections.topics.filter((t) => t.onPassage)}
+                  tags={connections.topics.filter((tp) => tp.onPassage)}
                   onAdd={(name) => void passageTags.add(name)}
-                  onRemove={(t) => void passageTags.remove(t.id)}
-                  addLabel="+ tag passage"
+                  onRemove={(tp) => void passageTags.remove(tp.id)}
+                  addLabel={t("connections.tagPassage")}
                 />
-                {connections.topics.some((t) => !t.onPassage) && (
+                {connections.topics.some((tp) => !tp.onPassage) && (
                   <div className="mt-1.5">
                     <span className="font-mono text-[0.6rem] text-muted-foreground">
-                      via notes:{" "}
+                      {t("connections.viaNotes")}{" "}
                     </span>
                     {connections.topics
-                      .filter((t) => !t.onPassage)
-                      .map((t, i, arr) => (
+                      .filter((tp) => !tp.onPassage)
+                      .map((tp, i, arr) => (
                         <button
-                          key={t.id}
+                          key={tp.id}
                           type="button"
-                          onClick={() => navigate(`/topic/${encodeURIComponent(t.name)}`)}
+                          onClick={() => navigate(`/topic/${encodeURIComponent(tp.name)}`)}
                           className="font-mono text-[0.6rem] text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
                         >
                           {t.name}
@@ -121,10 +123,10 @@ export function ConnectionsPanel({
             </section>
 
             <section>
-              <SectionTitle>Anchored here</SectionTitle>
+              <SectionTitle>{t("connections.anchoredHere")}</SectionTitle>
               {connections.notesHere.length === 0 && (
                 <p className="px-2 font-serif text-xs text-muted-foreground italic">
-                  No notes on this chapter yet — select words to begin.
+                  {t("connections.emptyAnchored")}
                 </p>
               )}
               {connections.notesHere.map((n) => (
@@ -133,11 +135,10 @@ export function ConnectionsPanel({
             </section>
 
             <section>
-              <SectionTitle>Also appears in</SectionTitle>
+              <SectionTitle>{t("connections.alsoAppearsIn")}</SectionTitle>
               {connections.alsoAppearsIn.length === 0 && (
                 <p className="px-2 font-serif text-xs text-muted-foreground italic">
-                  No shared passages yet — anchor a note in two places to
-                  connect them.
+                  {t("connections.emptyShared")}
                 </p>
               )}
               {connections.alsoAppearsIn.map((p) => (
@@ -151,17 +152,17 @@ export function ConnectionsPanel({
                     {formatReference({ book: p.book, chapter: p.chapter })}
                   </span>
                   <span className="block truncate font-mono text-[0.6rem] text-muted-foreground">
-                    via {p.notes.map((n) => n.title || "Untitled note").join(", ")}
+                    {t("connections.via")} {p.notes.map((n) => n.title || t("note.untitled")).join(", ")}
                   </span>
                 </button>
               ))}
             </section>
 
             <section>
-              <SectionTitle>Recent notes</SectionTitle>
+              <SectionTitle>{t("connections.recent")}</SectionTitle>
               {connections.recent.length === 0 && (
                 <p className="px-2 font-serif text-xs text-muted-foreground italic">
-                  Nothing yet.
+                  {t("connections.emptyRecent")}
                 </p>
               )}
               {connections.recent.map((n) => (

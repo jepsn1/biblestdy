@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import type { Note, Tag } from "@biblestdy/shared";
 import { anchorReference, formatReference } from "@biblestdy/shared";
 import { ArrowLeft } from "lucide-react";
 import { data, Link } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import i18n from "~/lib/i18n";
 import { requireAuth } from "~/lib/require-auth";
 import type { Route } from "./+types/topic";
 
@@ -21,8 +23,8 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const res = await fetch(`/api/tags/topic/${encodeURIComponent(params.name)}`, {
     credentials: "include",
   });
-  if (res.status === 404) throw data("No such topic.", { status: 404 });
-  if (!res.ok) throw data("Could not load the topic", { status: 502 });
+  if (res.status === 404) throw data(i18n.t("topic.notFound"), { status: 404 });
+  if (!res.ok) throw data(i18n.t("topic.loadError"), { status: 502 });
   return { topic: (await res.json()) as Topic };
 }
 
@@ -30,6 +32,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
  * passages — each linking back into the reader. */
 export default function TopicPage({ loaderData }: Route.ComponentProps) {
   const { topic } = loaderData;
+  const { t } = useTranslation();
 
   return (
     <main className="h-dvh overflow-hidden bg-background">
@@ -40,21 +43,21 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
               to="/"
               className="mb-4 flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="size-3" /> back to reading
+              <ArrowLeft className="size-3" /> {t("topic.back")}
             </Link>
             <span className="font-mono text-[0.65rem] tracking-widest text-primary/80 uppercase">
-              Topic
+              {t("topic.label")}
             </span>
             <h1 className="font-serif text-3xl font-medium tracking-tight">{topic.tag.name}</h1>
           </header>
 
           <section>
             <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase">
-              Notes
+              {t("topic.notes")}
             </h2>
             {topic.notes.length === 0 && (
               <p className="font-serif text-sm text-muted-foreground italic">
-                No notes carry this tag.
+                {t("topic.emptyNotes")}
               </p>
             )}
             <div className="flex flex-col gap-1">
@@ -67,7 +70,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
                     className="rounded px-2 py-1.5 hover:bg-accent"
                   >
                     <span className="block truncate font-serif text-base">
-                      {n.title || "Untitled note"}
+                      {n.title || t("note.untitled")}
                     </span>
                     <span className="block truncate font-mono text-[0.65rem] text-muted-foreground">
                       {n.anchors.map((x) => formatReference(anchorReference(x))).join(" · ")}
@@ -80,11 +83,11 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 
           <section>
             <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase">
-              Passages
+              {t("topic.passages")}
             </h2>
             {topic.passages.length === 0 && (
               <p className="font-serif text-sm text-muted-foreground italic">
-                No passages carry this tag.
+                {t("topic.emptyPassages")}
               </p>
             )}
             <div className="flex flex-col gap-1">

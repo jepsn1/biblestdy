@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { BOOKS, findBook } from "@biblestdy/shared";
 import { LogOut } from "lucide-react";
 import { useState } from "react";
@@ -22,6 +23,7 @@ const OLD_TESTAMENT = BOOKS.slice(0, 39);
 const NEW_TESTAMENT = BOOKS.slice(39);
 
 export function BooksSidebar({ book }: { book: string }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState("");
   const query = filter.trim().toLowerCase();
 
@@ -38,25 +40,25 @@ export function BooksSidebar({ book }: { book: string }) {
   return (
     <Sidebar>
       <SidebarHeader className="gap-2 px-4 pt-3">
-        <Link to="/" className="flex select-none items-baseline gap-1.5" aria-label="Home">
+        <Link to="/" className="flex select-none items-baseline gap-1.5" aria-label={t("sidebar.home")}>
           <span className="font-mono text-sm font-semibold tracking-tight text-primary">
             biblestdy
           </span>
           <span className="font-mono text-[0.6rem] text-muted-foreground">v0</span>
         </Link>
         <SidebarInput
-          placeholder="Filter books…"
-          aria-label="Filter books"
+          placeholder={t("sidebar.filterBooks")}
+          aria-label={t("sidebar.filterBooks")}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
       </SidebarHeader>
       <SidebarContent>
         {oldTestament.length > 0 && (
-          <BookGroup label="Old Testament" books={oldTestament} current={book} />
+          <BookGroup label={t("sidebar.oldTestament")} books={oldTestament} current={book} />
         )}
         {newTestament.length > 0 && (
-          <BookGroup label="New Testament" books={newTestament} current={book} />
+          <BookGroup label={t("sidebar.newTestament")} books={newTestament} current={book} />
         )}
         {oldTestament.length === 0 && newTestament.length === 0 && (
           <p className="px-4 py-2 font-mono text-xs text-muted-foreground">No books match</p>
@@ -70,6 +72,7 @@ export function BooksSidebar({ book }: { book: string }) {
 }
 
 function SessionFooter() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
 
@@ -82,7 +85,7 @@ function SessionFooter() {
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Sign out"
+        aria-label={t("sidebar.signOut")}
         onClick={() =>
           void authClient.signOut().then(() => navigate("/signin"))
         }

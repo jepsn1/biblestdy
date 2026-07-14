@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { authClient } from "~/lib/auth-client";
+import i18n, { setUiLanguage } from "~/lib/i18n";
 import { redirectIfAuthed } from "~/lib/require-auth";
 
 export function meta() {
-  return [{ title: "Sign in — biblestdy" }];
+  return [{ title: i18n.t("signin.metaTitle") }];
 }
 
 export async function clientLoader() {
@@ -17,6 +19,7 @@ export async function clientLoader() {
 type Step = "email" | "code";
 
 export default function SignIn() {
+  const { t, i18n: i18next } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -35,7 +38,7 @@ export default function SignIn() {
     ]);
     setBusy(false);
     if (otp.error) {
-      setError("Could not send the code — try again.");
+      setError(t("signin.sendError"));
       return;
     }
     setStep("code");
@@ -48,7 +51,7 @@ export default function SignIn() {
     const { error } = await authClient.signIn.emailOtp({ email, otp: code });
     setBusy(false);
     if (error) {
-      setError("That code didn't match. Check it, or use the link in your email.");
+      setError(t("signin.codeError"));
       return;
     }
     navigate("/");
@@ -66,31 +69,29 @@ export default function SignIn() {
 
         {step === "email" ? (
           <form onSubmit={sendCode} className="rounded-lg border border-border bg-card p-6">
-            <h1 className="font-serif text-xl font-medium">Sign in</h1>
-            <p className="mt-1 mb-4 text-sm text-muted-foreground">
-              No password — we email you a code and a link.
-            </p>
+            <h1 className="font-serif text-xl font-medium">{t("signin.title")}</h1>
+            <p className="mt-1 mb-4 text-sm text-muted-foreground">{t("signin.subtitle")}</p>
             <Input
               type="email"
               required
               autoFocus
               placeholder="you@example.com"
-              aria-label="Email"
+              aria-label={t("signin.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="font-mono text-sm"
             />
             <Button type="submit" className="mt-3 w-full" disabled={busy}>
-              {busy ? "Sending…" : "Send code"}
+              {busy ? t("signin.sending") : t("signin.send")}
             </Button>
             {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
           </form>
         ) : (
           <form onSubmit={verifyCode} className="rounded-lg border border-border bg-card p-6">
-            <h1 className="font-serif text-xl font-medium">Enter your code</h1>
+            <h1 className="font-serif text-xl font-medium">{t("signin.codeTitle")}</h1>
             <p className="mt-1 mb-4 text-sm text-muted-foreground">
-              Sent to <span className="font-mono text-foreground">{email}</span>. Type the code, or
-              click the link in the same email.
+              {t("signin.sentTo")} <span className="font-mono text-foreground">{email}</span>.{" "}
+              {t("signin.typeCode")}
             </p>
             <Input
               inputMode="numeric"
@@ -98,13 +99,13 @@ export default function SignIn() {
               required
               autoFocus
               placeholder="123456"
-              aria-label="Verification code"
+              aria-label={t("signin.code")}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               className="text-center font-mono text-lg tracking-[0.5em]"
             />
             <Button type="submit" className="mt-3 w-full" disabled={busy}>
-              {busy ? "Verifying…" : "Verify & sign in"}
+              {busy ? t("signin.verifying") : t("signin.verify")}
             </Button>
             {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
             <button
@@ -116,14 +117,22 @@ export default function SignIn() {
               }}
               className="mt-3 w-full text-center font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
             >
-              ← use a different email
+              {t("signin.differentEmail")}
             </button>
           </form>
         )}
 
         <p className="mt-6 text-center font-mono text-[0.65rem] text-muted-foreground">
-          sign in to keep your study
+          {t("signin.footer")}
         </p>
+        <button
+          type="button"
+          aria-label={t("nav.language")}
+          onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
+          className="mx-auto mt-2 block text-center font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
+        >
+          {i18next.language.startsWith("da") ? "English" : "Dansk"}
+        </button>
       </div>
     </main>
   );

@@ -3,6 +3,7 @@ import { formatReference, getBook } from "@biblestdy/shared";
 import { useState } from "react";
 import { data, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
+import i18n from "~/lib/i18n";
 import { requireAuth } from "~/lib/require-auth";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { PaginatedChapter } from "../reader/paginated-chapter";
@@ -14,9 +15,9 @@ let translationsCache: Translation[] | undefined;
 async function loadTranslations(): Promise<Translation[]> {
   if (translationsCache) return translationsCache;
   const res = await fetch("/api/translations");
-  if (!res.ok) throw data("Could not load translations", { status: 502 });
+  if (!res.ok) throw data(i18n.t("error.translationsLoad"), { status: 502 });
   const translations = (await res.json()) as Translation[];
-  if (translations.length === 0) throw data("No translations available", { status: 502 });
+  if (translations.length === 0) throw data(i18n.t("error.noTranslations"), { status: 502 });
   translationsCache = translations;
   return translations;
 }
@@ -42,9 +43,9 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const translation = pickTranslation(translations);
   const res = await fetch(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
   if (res.status === 404 || res.status === 400) {
-    throw data(`This chapter isn't available (yet).`, { status: 404 });
+    throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
   }
-  if (!res.ok) throw data("Could not load the chapter", { status: 502 });
+  if (!res.ok) throw data(i18n.t("error.chapterLoad"), { status: 502 });
   const chapter = (await res.json()) as Chapter;
   return { chapter, translation, translations };
 }

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Chapter, Note, NoteAnchor } from "@biblestdy/shared";
 import { anchorReference, formatReference, words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
@@ -75,6 +76,7 @@ function ReferencesTable({
   onShowAnchor: (anchor: NoteAnchor) => void;
   onDetach: (id: string, anchorId: string) => void;
 }) {
+  const { t } = useTranslation();
   const chapterKeys = [
     ...new Map(
       note.anchors.map((a) => [`${a.translationId}/${a.book}/${a.chapter}`, a]),
@@ -93,7 +95,7 @@ function ReferencesTable({
   return (
     <section className="flex h-full min-h-0 flex-col px-3 py-2">
       <h3 className="mb-1 shrink-0 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
-        References
+        {t("note.references")}
       </h3>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col">
@@ -104,7 +106,7 @@ function ReferencesTable({
             key={a.id}
             role="button"
             tabIndex={0}
-            title={isSelected ? "Deselect" : "Read this passage"}
+            title={isSelected ? t("note.deselect") : t("note.readPassage")}
             aria-pressed={isSelected}
             onClick={() => onShowAnchor(a)}
             onKeyDown={(e) => e.key === "Enter" && onShowAnchor(a)}
@@ -121,8 +123,8 @@ function ReferencesTable({
             {note.anchors.length > 1 ? (
               <button
                 type="button"
-                aria-label="Remove this reference"
-                title="Remove this reference"
+                aria-label={t("note.removeReference")}
+                title={t("note.removeReference")}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDetach(note.id, a.id);
@@ -172,6 +174,7 @@ export function NotePanel({
   selectedAnchorId: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const dark = useIsDark();
@@ -186,8 +189,8 @@ export function NotePanel({
   // Debounced autosave
   useEffect(() => {
     if (title === note.title && body === note.body) return;
-    const t = setTimeout(() => onEdit(note.id, { title, body }), 800);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onEdit(note.id, { title, body }), 800);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, body]);
 
@@ -205,7 +208,7 @@ export function NotePanel({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Untitled note"
+          placeholder={t("note.titlePlaceholder")}
           // Keep password managers/autofill out of a document title
           autoComplete="off"
           data-1p-ignore
@@ -216,7 +219,7 @@ export function NotePanel({
         />
         <button
           type="button"
-          aria-label="Close note"
+          aria-label={t("note.close")}
           onClick={onClose}
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
@@ -235,7 +238,7 @@ export function NotePanel({
         key={note.id}
         markdown={note.body}
         onChange={setBody}
-        placeholder="Write your note…"
+        placeholder={t("note.bodyPlaceholder")}
         className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
         contentEditableClassName="font-serif text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-xl [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-lg [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
         plugins={[
@@ -286,9 +289,9 @@ export function NotePanel({
             onClose();
           }}
         >
-          delete
+          {t("note.delete")}
         </button>
-        <span>{dirty ? "saving…" : "saved"} · esc closes</span>
+        <span>{dirty ? t("note.saving") : t("note.saved")} · {t("note.escCloses")}</span>
       </footer>
     </aside>
   );

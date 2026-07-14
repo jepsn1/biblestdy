@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +39,7 @@ export function PaginatedChapter({
   onCloseConnections: () => void;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const contentBoxRef = useRef<HTMLDivElement>(null);
@@ -298,7 +300,7 @@ export function PaginatedChapter({
         {/* Page-flip zones, pinned to the pane edges */}
         <button
           type="button"
-          aria-label="Previous page"
+          aria-label={t("reader.prevPage")}
           onClick={goPrev}
           className="absolute inset-y-0 left-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
         >
@@ -306,7 +308,7 @@ export function PaginatedChapter({
         </button>
         <button
           type="button"
-          aria-label="Next page"
+          aria-label={t("reader.nextPage")}
           onClick={goNext}
           className="absolute inset-y-0 right-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
         >
@@ -316,7 +318,7 @@ export function PaginatedChapter({
 
       <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-6 py-3 font-mono text-[0.65rem] text-muted-foreground">
         <span className="truncate">
-          {chapter.book}.{chapter.chapter} · {chapter.verses.length} verses ·{" "}
+          {chapter.book}.{chapter.chapter} · {t("reader.verses", { count: chapter.verses.length })} ·{" "}
           {translation.abbreviation}
           {chapter.copyright ? ` · ${chapter.copyright}` : ""}
         </span>
@@ -328,7 +330,7 @@ export function PaginatedChapter({
           <Button
             variant="outline"
             size="icon-sm"
-            aria-label="Previous page"
+            aria-label={t("reader.prevPage")}
             onClick={goPrev}
             disabled={page === 0 && !prevHref}
           >
@@ -340,7 +342,7 @@ export function PaginatedChapter({
           <Button
             variant="outline"
             size="icon-sm"
-            aria-label="Next page"
+            aria-label={t("reader.nextPage")}
             onClick={goNext}
             disabled={page >= pageCount - 1 && !nextHref}
           >

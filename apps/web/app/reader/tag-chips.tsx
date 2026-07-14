@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Tag } from "@biblestdy/shared";
 import { X } from "lucide-react";
 import { useState } from "react";
@@ -11,7 +12,7 @@ export function TagChips({
   tags,
   onAdd,
   onRemove,
-  addLabel = "+ tag",
+  addLabel,
 }: {
   tags: Tag[];
   onAdd: (name: string) => void;
@@ -19,6 +20,7 @@ export function TagChips({
   onRemove?: (tag: Tag) => void;
   addLabel?: string;
 }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -31,19 +33,23 @@ export function TagChips({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {tags.map((t) => (
+      {tags.map((tg) => (
         <span
-          key={t.id}
+          key={tg.id}
           className="flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pr-1.5 pl-2 font-mono text-[0.65rem] text-muted-foreground"
         >
-          <Link to={`/topic/${encodeURIComponent(t.name)}`} title="Open topic" className="hover:text-primary">
-            {t.name}
+          <Link
+            to={`/topic/${encodeURIComponent(tg.name)}`}
+            title={t("tags.openTopic")}
+            className="hover:text-primary"
+          >
+            {tg.name}
           </Link>
           {onRemove && (
             <button
               type="button"
-              aria-label={`Remove tag ${t.name}`}
-              onClick={() => onRemove(t)}
+              aria-label={t("tags.remove", { name: tg.name })}
+              onClick={() => onRemove(tg)}
               className="rounded-full p-0.5 hover:text-destructive"
             >
               <X className="size-2.5" />
@@ -64,7 +70,7 @@ export function TagChips({
               setAdding(false);
             }
           }}
-          placeholder="tag…"
+          placeholder={t("tags.placeholder")}
           className="w-20 rounded-full border border-border bg-background px-2 py-0.5 font-mono text-[0.65rem] outline-none focus:border-primary/50"
         />
       ) : (
@@ -73,7 +79,7 @@ export function TagChips({
           onClick={() => setAdding(true)}
           className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-[0.65rem] text-muted-foreground hover:border-primary/50 hover:text-foreground"
         >
-          {addLabel}
+          {addLabel ?? t("tags.add")}
         </button>
       )}
     </div>

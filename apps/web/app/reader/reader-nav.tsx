@@ -1,5 +1,6 @@
 import type { Translation } from "@biblestdy/shared";
 import { getBook, parseReference } from "@biblestdy/shared";
+import { useTranslation } from "react-i18next";
 import { Waypoints } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
@@ -14,6 +15,7 @@ import {
 } from "~/components/ui/select";
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { setUiLanguage } from "~/lib/i18n";
 
 export function ReaderNav({
   book,
@@ -32,6 +34,7 @@ export function ReaderNav({
   connectionsOpen: boolean;
   onToggleConnections: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const jumpRef = useRef<HTMLInputElement>(null);
   const [jump, setJump] = useState("");
@@ -73,7 +76,7 @@ export function ReaderNav({
     <nav className="shrink-0 border-b border-border bg-background/85">
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
       <div className="flex items-center gap-2 px-4 py-2">
-        <SidebarTrigger aria-label="Toggle books sidebar" />
+        <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
 
         <div className="h-4 w-px bg-border" />
 
@@ -83,7 +86,7 @@ export function ReaderNav({
           value={String(chapter)}
           onValueChange={(value) => navigate(`/read/${book}/${String(value)}`)}
         >
-          <SelectTrigger aria-label="Chapter" size="sm" className="font-mono">
+          <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="font-mono">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -99,13 +102,13 @@ export function ReaderNav({
             re-reads the chapter in the chosen version */}
         {translations.length > 1 && (
           <Select value={translationId} onValueChange={(v) => v && onSwitchTranslation(v)}>
-            <SelectTrigger aria-label="Translation" size="sm" className="font-mono">
+            <SelectTrigger aria-label={t("nav.translation")} size="sm" className="font-mono">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {translations.map((t) => (
-                <SelectItem key={t.id} value={t.id} className="font-mono" title={t.name}>
-                  {t.abbreviation}
+              {translations.map((tr) => (
+                <SelectItem key={tr.id} value={tr.id} className="font-mono" title={tr.name}>
+                  {tr.abbreviation}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -115,8 +118,8 @@ export function ReaderNav({
         <form onSubmit={onJump} className="relative ml-auto">
           <Input
             ref={jumpRef}
-            aria-label="Go to reference"
-            placeholder="Go to reference…"
+            aria-label={t("nav.goToReference")}
+            placeholder={t("nav.goToReference")}
             value={jump}
             onChange={(e) => {
               setJump(e.target.value);
@@ -133,12 +136,25 @@ export function ReaderNav({
         <Button
           variant={connectionsOpen ? "secondary" : "ghost"}
           size="icon-sm"
-          aria-label="Toggle connections panel"
+          aria-label={t("nav.connectionsToggle")}
           aria-pressed={connectionsOpen}
-          title="Connections: notes here, shared passages, recent"
+          title={t("nav.connectionsHint")}
           onClick={onToggleConnections}
         >
           <Waypoints />
+        </Button>
+
+        {/* UI language (issue #12) — independent of the Scripture translation */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("nav.language")}
+          title={t("nav.language")}
+          onClick={() => setUiLanguage(i18n.language.startsWith("da") ? "en" : "da")}
+        >
+          <span className="font-mono text-[0.6rem] font-semibold">
+            {i18n.language.startsWith("da") ? "DA" : "EN"}
+          </span>
         </Button>
 
         <ThemeToggle />

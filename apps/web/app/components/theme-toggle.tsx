@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
@@ -23,6 +24,7 @@ export function useIsDark() {
 }
 
 export function ThemeToggle() {
+  const { t } = useTranslation();
   const dark = useSyncExternalStore(subscribe, isDark, () => false);
 
   function toggle() {
@@ -34,7 +36,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      aria-label={dark ? "Switch to paper theme" : "Switch to charcoal theme"}
+      aria-label={dark ? t("theme.toPaper") : t("theme.toCharcoal")}
       onClick={toggle}
       className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >
