@@ -26,6 +26,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#211d18" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        {/* Install-only service worker (#13, no offline) — prod build ships /sw.js */}
+        {import.meta.env.PROD && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js",{scope:"/"}))`,
+            }}
+          />
+        )}
         {/* Apply stored theme before first paint (paper is the default) */}
         <script
           dangerouslySetInnerHTML={{
