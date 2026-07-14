@@ -81,17 +81,24 @@ export function PaginatedChapter({
     allNotes.find((f) => f.id === openNoteId) ??
     null;
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Mobile (#13): the SHEET is print-fixed — scale it down to the viewport
-  // like a printed page, never reflow. Desktop panes never trigger this
-  // (viewport-gated), so panels keep overlaying, not squeezing.
-  const [sheetScale, setSheetScale] = useState(1);
+  // Mobile (#13): the SHEET is print-fixed (same 2-col folio as desktop) —
+  // phones read it one COLUMN per page, scaled to the viewport, never
+  // reflowed. mobile.offset pins the viewport to the left column slot.
+  const [mobile, setMobile] = useState<{ scale: number; offset: number } | null>(null);
   useEffect(() => {
     const rescale = () => {
-      const contentW = contentBoxRef.current?.offsetWidth ?? 0;
+      const box = contentBoxRef.current;
+      const flow = contentRef.current;
       const vw = window.innerWidth;
-      setSheetScale(
-        vw < 640 && contentW > 0 ? Math.min(1, vw / (contentW + 8)) : 1,
-      );
+      if (vw >= 640 || !box || !flow) {
+        setMobile(null);
+        return;
+      }
+      const gap = parseFloat(getComputedStyle(flow).columnGap || "0") || 0;
+      const colW = (flow.clientWidth - gap) / 2;
+      // Visible slice: one column + the sheet's own side padding as gutters
+      const scale = vw / (colW + 48);
+      setMobile({ scale, offset: box.offsetLeft * scale });
     };
     rescale();
     window.addEventListener("resize", rescale);
@@ -118,8 +125,13 @@ export function PaginatedChapter({
   // mobile scale applied)
   useEffect(() => {
     const vp = scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
-    if (vp) vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
-  }, [openNoteId, sheetScale]);
+    if (!vp) return;
+    // Mobile pins the viewport to the column slot — undo any pre-mobile
+    // centering that would otherwise survive under overflow:hidden
+    if (mobile) vp.scrollTo({ left: 0 });
+    else vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openNoteId, mobile]);
 
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
@@ -196,7 +208,8 @@ export function PaginatedChapter({
       const gap = parseFloat(getComputedStyle(content).columnGap || "0") || 0;
       const width = content.clientWidth;
       if (width === 0) return;
-      const nextStride = width + gap;
+      // Phones page column-by-column through the same fixed spread
+      const nextStride = window.innerWidth < 640 ? (width - gap) / 2 + gap : width + gap;
       setStride(nextStride);
       setPageCount(Math.max(1, Math.ceil((content.scrollWidth + gap) / nextStride)));
     };
@@ -252,29 +265,37 @@ export function PaginatedChapter({
         className="relative min-h-0 flex-1"
         onClick={() => selectedMarkId && setSelectedMarkId(null)}
       >
-        <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
+        {/* Mobile: the viewport is pinned to the left column slot (offset),
+            pages translate the flow through it — no free horizontal scroll */}
+        <ScrollArea
+          ref={scrollRef}
+          orientation={mobile ? "vertical" : "horizontal"}
+          className="h-full"
+          viewportClassName={mobile ? "overflow-hidden!" : undefined}
+        >
           {/* isolate: local stacking context so the -z-10 leader arrows paint
               behind the text but still above the page background */}
-          <div
-            className="mx-auto h-full"
-            style={sheetScale < 1 ? { width: `calc(75rem * ${sheetScale})` } : undefined}
-          >
+          <div className="mx-auto h-full">
           <div
             ref={regionRef}
             className="relative isolate mx-auto h-full w-[75rem] origin-top-left"
             style={
-              sheetScale < 1
-                ? { transform: `scale(${sheetScale})`, height: `${100 / sheetScale}%` }
+              mobile
+                ? {
+                    transform: `scale(${mobile.scale})`,
+                    height: `${100 / mobile.scale}%`,
+                    marginLeft: -mobile.offset,
+                  }
                 : undefined
             }
           >
         <div
           ref={contentBoxRef}
-          className="relative mx-auto h-full max-w-2xl overflow-hidden px-6 pt-10 pb-6 lg:max-w-3xl"
+          className="relative mx-auto h-full max-w-3xl overflow-hidden px-6 pt-10 pb-6"
         >
           <div
             ref={contentRef}
-            className="h-full text-justify font-serif text-lg leading-9 text-foreground/95 hyphens-auto transition-transform duration-300 [column-fill:auto] columns-1 gap-x-24 lg:columns-2"
+            className="h-full text-justify font-serif text-lg leading-9 text-foreground/95 hyphens-auto transition-transform duration-300 [column-fill:auto] columns-2 gap-x-24"
             style={{ transform: `translateX(-${page * stride}px)` }}
           >
             <ChapterText
@@ -313,6 +334,7 @@ export function PaginatedChapter({
         <AnnotationMarks
           annotations={annotationsApi.annotations}
           noteMarks={noteMarks}
+          compact={mobile != null}
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}

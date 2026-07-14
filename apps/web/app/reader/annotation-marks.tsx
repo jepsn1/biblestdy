@@ -116,6 +116,7 @@ export function AnnotationMarks({
   page,
   activeAnnotationId,
   selectedMarkId,
+  compact = false,
   onFocus,
   onEdit,
   onRemove,
@@ -131,6 +132,9 @@ export function AnnotationMarks({
   /** Mark of the reference selected in the note panel — while set, every
    * other mark's ink is hidden so this one owns the page. */
   selectedMarkId: string | null;
+  /** Phone view (#13): margin lanes are clipped — undragged boxes go under
+   * their anchor instead. */
+  compact?: boolean;
   onFocus: (id: string | null) => void;
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
@@ -258,10 +262,12 @@ export function AnnotationMarks({
           box: m.box,
           lines: m.lines,
           colSide: side,
-          laneCenter: {
-            x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
-            y: m.box.y + m.box.h / 2,
-          },
+          laneCenter: compact
+            ? { x: m.box.x + m.box.w / 2, y: m.box.y + m.box.h + 34 }
+            : {
+                x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
+                y: m.box.y + m.box.h / 2,
+              },
         });
       }
       setPlacements(items);
@@ -289,7 +295,7 @@ export function AnnotationMarks({
       clearTimeout(t);
       ro.disconnect();
     };
-  }, [annotations, noteMarks, page, regionRef, contentRef]);
+  }, [annotations, noteMarks, page, regionRef, contentRef, compact]);
 
   return (
     <>

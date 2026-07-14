@@ -9,7 +9,7 @@ import {
   words,
   wordRangeInVerse,
 } from "@biblestdy/shared";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -118,6 +118,7 @@ export function ChapterText({
   onOpenNote: (id: string) => void;
   onFocusAnnotation: (id: string | null) => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<Menu>(null);
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
@@ -156,6 +157,22 @@ export function ChapterText({
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
 
+  // Touch selection (long-press + handles) fires no mouse events — watch the
+  // selection itself, debounced so the menu appears once the handles settle.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const onSelectionChange = () => {
+      clearTimeout(timer);
+      timer = setTimeout(menuFromSelection, 400);
+    };
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("selectionchange", onSelectionChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterKey]);
+
   useEffect(() => {
     if (!menu) return;
     const close = (e: Event) => {
@@ -180,12 +197,12 @@ export function ChapterText({
     return { x: r.left + r.width / 2, y: r.top };
   }
 
-  function onMouseUp(event: React.MouseEvent) {
-    // The menu is portaled to <body> but React bubbles its events through this
-    // tree — a mouseup on a menu button must not rebuild the menu from the
-    // still-active text selection (it would remount the menu mid-click and
-    // swallow the button's click).
-    if ((event.target as HTMLElement).closest("[data-selection-menu]")) return;
+  /** Build the add-menu from the current text selection (shared by mouseup —
+   * desktop drags — and debounced selectionchange — touch selection handles,
+   * which never fire mouse events). */
+  function menuFromSelection() {
+    const root = rootRef.current;
+    if (!root) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
@@ -197,7 +214,7 @@ export function ChapterText({
     // ending right before a word touches its span at offset 0). Nudge
     // boundaries that cover no visible characters of their word.
     const spans = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>("[data-verse][data-word]"),
+      root.querySelectorAll<HTMLElement>("[data-verse][data-word]"),
     );
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       const text = range.startContainer.textContent ?? "";
@@ -218,6 +235,15 @@ export function ChapterText({
       { verse: Number(endEl.dataset.verse), word: Number(endEl.dataset.word) },
     );
     setMenu({ kind: "add", anchor, ...posOf(endEl) });
+  }
+
+  function onMouseUp(event: React.MouseEvent) {
+    // The menu is portaled to <body> but React bubbles its events through this
+    // tree — a mouseup on a menu button must not rebuild the menu from the
+    // still-active text selection (it would remount the menu mid-click and
+    // swallow the button's click).
+    if ((event.target as HTMLElement).closest("[data-selection-menu]")) return;
+    menuFromSelection();
   }
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
@@ -256,7 +282,7 @@ export function ChapterText({
   }
 
   return (
-    <div onMouseUp={onMouseUp} data-spotlight={spotlight || undefined}>
+    <div ref={rootRef} onMouseUp={onMouseUp} data-spotlight={spotlight || undefined}>
       <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
       {chapter.verses.map((v) => {
         const tokens = words(v.text);
