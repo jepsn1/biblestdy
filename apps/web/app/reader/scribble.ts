@@ -135,7 +135,12 @@ export function leaderPath(
   };
 
   let pts: [number, number][];
-  if (Math.abs(x2 - x1) < 60) {
+  if (Math.abs(x2 - x1) < Math.abs(y2 - y1) && Math.abs(x2 - x1) < 60) {
+    // Box parked right above/below its mark: one center-to-center drop,
+    // bowing gently sideways — never a level run back over the handwriting.
+    const bowX = (rnd() - 0.5) * 10 + (x2 - x1) / 2;
+    pts = quad([x1, y1], [x1 + bowX, (y1 + y2) / 2], [x2, y2], 10, 1.2);
+  } else if (Math.abs(x2 - x1) < 60) {
     // Short hop: a single soft curve, no room for choreography
     pts = quad([x1, y1], [(x1 + x2) / 2, my], [x2, y2], 10, 1.4);
   } else {

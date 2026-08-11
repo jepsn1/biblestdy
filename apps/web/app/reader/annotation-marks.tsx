@@ -50,6 +50,7 @@ function geom(
   p: Placement,
   drag: { id: string; x: number; y: number } | null,
   resize: { id: string; cx: number; w: number } | null,
+  boxH = 22, // measured handwriting-box height (default: one line)
 ) {
   const aCX = p.box.x + p.box.w / 2;
   const aCY = p.box.y + p.box.h / 2;
@@ -93,18 +94,25 @@ function geom(
     anchorX = p.box.x + p.box.w * t;
     anchorY = above ? aCY - bulge - 5 : aCY + bulge + 5;
   }
+  // Box parked above/below its mark (landing point under the text): the
+  // arrow departs bottom/top-CENTER, not the side edge — a side departure at
+  // text height strikes through the handwriting.
+  const vertical = anchorX > cx - w / 2 && anchorX < cx + w / 2;
+  const departX = vertical ? cx : noteEdgeX;
+  const departY = vertical ? (above ? cy + boxH / 2 + 3 : cy - boxH / 2 - 3) : cy;
   return {
     cx,
     cy,
     w,
     side,
     boxLeft: cx - w / 2,
-    noteEdgeX,
+    departX,
+    departY,
     anchorX,
     anchorY,
     approach: (above ? "down" : "up") as "up" | "down",
     // A box parked beside its circle needs no arrow — that's the gloss look
-    showArrow: Math.hypot(noteEdgeX - anchorX, cy - anchorY) > ARROW_MIN_DIST,
+    showArrow: Math.hypot(departX - anchorX, departY - anchorY) > ARROW_MIN_DIST,
   };
 }
 
@@ -159,6 +167,16 @@ export function AnnotationMarks({
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [resize, setResize] = useState<{ id: string; cx: number; w: number } | null>(null);
+  const boxHeights = useRef(new Map<string, number>());
+  const [, remeasured] = useState(0);
+  const measureBox = (id: string) => (el: HTMLDivElement | null) => {
+    if (!el) return;
+    const h = el.offsetHeight;
+    if (boxHeights.current.get(id) !== h) {
+      boxHeights.current.set(id, h);
+      remeasured((n) => n + 1); // arrows re-derive from the fresh height
+    }
+  };
   const dragFrom = useRef<{ cx: number; cy: number; px: number; py: number } | null>(null);
   const resizeFrom = useRef<{
     edge: "left" | "right";
@@ -305,13 +323,13 @@ export function AnnotationMarks({
           never a layer over it. */}
       <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
         {shownPlacements.map((p) => {
-          const g = geom(p, drag, resize);
+          const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id));
           if (!g.showArrow) return null;
           const active = p.annotation.id === activeAnnotationId;
           return (
             <path
               key={p.annotation.id}
-              d={leaderPath(g.noteEdgeX, g.cy, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
+              d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
               fill="none"
               stroke={NOTE_INK}
               strokeWidth={active ? 1.8 : 1.4}
@@ -419,6 +437,7 @@ export function AnnotationMarks({
           return (
             <div
               key={p.annotation.id}
+              ref={measureBox(p.annotation.id)}
               className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
               style={{
                 left: g.boxLeft,
