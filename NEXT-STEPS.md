@@ -1,5 +1,7 @@
 # Next steps
 
+2026-08-11 (night): **DEPLOYED TO PROD** — `make deploy` (make installed on the box now), API container rebuilt to HEAD, SPA rebuilt; api healthy, real NIV/WEB/NKJV live at biblestdy.com, JHN 3 verified. Prod fully caught up: #8-#12 features + API.Bible + both migrations. Remaining: #13 phone check → close #13 + #1.
+
 2026-08-11 (evening): **#11 closed** — real API.Bible text live in dev, picker shows abbr+name (trigger + content-sized dropdown), verse-marker parse fix, annotation arrow center-drop fix. Remaining eyeballs: #13 (phone). #9 #10 #12 closed same evening (side-slot unify fix along the way).
 
 2026-08-11 (later): **prod deploy prepped, one command from Marcus** — `migrations/run.mjs` (idempotent runner, schema_migration ledger; dev seeded), prod dry-run confirms both migrations pending, API_BIBLE_KEY added to prod root `.env`. Agent blocked from prod DB writes; Marcus runs:
