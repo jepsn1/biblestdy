@@ -56,11 +56,6 @@ function groupByAnnotation(
   return segs;
 }
 
-function wordElFromNode(node: Node | null): HTMLElement | null {
-  const el = node instanceof HTMLElement ? node : (node?.parentElement ?? null);
-  return el?.closest<HTMLElement>("[data-word]") ?? null;
-}
-
 function coverInto<T>(
   map: Map<string, T>,
   verses: Chapter["verses"],
@@ -202,24 +197,6 @@ export function ChapterText({
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
 
-  // Non-mobile touch devices (tablets with native selection): long-press +
-  // handles fire no mouse events — watch the selection itself, debounced so
-  // the menu appears once the handles settle. Phones use tap-select instead.
-  useEffect(() => {
-    if (mobile) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const onSelectionChange = () => {
-      clearTimeout(timer);
-      timer = setTimeout(menuFromSelection, 400);
-    };
-    document.addEventListener("selectionchange", onSelectionChange);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("selectionchange", onSelectionChange);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterKey, mobile]);
-
   // The menu owns the tap-selection's lifetime — menu gone, selection gone
   useEffect(() => {
     if (!menu) setTouchSel(null);
@@ -249,60 +226,57 @@ export function ChapterText({
     return { x: r.left + r.width / 2, y: r.top };
   }
 
-  /** Build the add-menu from the current text selection (shared by mouseup —
-   * desktop drags — and debounced selectionchange — touch selection handles,
-   * which never fire mouse events). */
-  function menuFromSelection() {
-    const root = rootRef.current;
-    if (!root) return;
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    let startEl = wordElFromNode(range.startContainer);
-    let endEl = wordElFromNode(range.endContainer);
-    if (!startEl || !endEl) return;
-    // Word spans render as "word␣" — a drag starting in the gap before a word
-    // anchors the range in the PREVIOUS span's trailing space (and a drag
-    // ending right before a word touches its span at offset 0). Nudge
-    // boundaries that cover no visible characters of their word.
-    const spans = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-verse][data-word]"),
-    );
-    if (range.startContainer.nodeType === Node.TEXT_NODE) {
-      const text = range.startContainer.textContent ?? "";
-      if (range.startOffset >= text.trimEnd().length) {
-        startEl = spans[spans.indexOf(startEl) + 1] ?? null;
-      }
-    }
-    if (range.endContainer.nodeType === Node.TEXT_NODE) {
-      const text = range.endContainer.textContent ?? "";
-      if (range.endOffset === 0 && text.trim() !== "") {
-        endEl = spans[spans.indexOf(endEl) - 1] ?? null;
-      }
-    }
-    if (!startEl || !endEl || spans.indexOf(startEl) > spans.indexOf(endEl)) return;
-    const anchor = buildAnchor(
-      { translationId: chapter.translationId, book: chapter.book, chapter: chapter.chapter },
-      { verse: Number(startEl.dataset.verse), word: Number(startEl.dataset.word) },
-      { verse: Number(endEl.dataset.verse), word: Number(endEl.dataset.word) },
-    );
-    setMenu({ kind: "add", anchor, ...posOf(endEl) });
+  /** Desktop drag-select: native selection is off everywhere (no half words
+   * possible) — a mouse drag paints the same word-snapped wash the phone
+   * handles do, and mouseup opens the menu. */
+  const dragSel = useRef<{ start: WordPos; moved: boolean } | null>(null);
+
+  function wordPosOf(target: EventTarget | null): WordPos | null {
+    const el = (target as HTMLElement | null)?.closest?.<HTMLElement>("[data-verse][data-word]");
+    if (!el || !rootRef.current?.contains(el)) return null;
+    return { verse: Number(el.dataset.verse), word: Number(el.dataset.word) };
   }
 
-  function onMouseUp(event: React.MouseEvent) {
-    // The menu is portaled to <body> but React bubbles its events through this
-    // tree — a mouseup on a menu button must not rebuild the menu from the
-    // still-active text selection (it would remount the menu mid-click and
-    // swallow the button's click).
-    if ((event.target as HTMLElement).closest("[data-selection-menu]")) return;
-    menuFromSelection();
+  function onPointerDown(event: React.PointerEvent) {
+    if (mobile || event.button !== 0) return;
+    const pos = wordPosOf(event.target);
+    if (pos) dragSel.current = { start: pos, moved: false };
+  }
+
+  function onPointerMove(event: React.PointerEvent) {
+    const drag = dragSel.current;
+    if (!drag || event.buttons !== 1) return;
+    const pos = wordPosOf(event.target);
+    if (!pos) return;
+    if (!drag.moved && pos.verse === drag.start.verse && pos.word === drag.start.word) return;
+    drag.moved = true;
+    setTouchSel({ a: drag.start, b: pos });
+  }
+
+  function onPointerUp() {
+    const drag = dragSel.current;
+    dragSel.current = null;
+    if (!drag?.moved) return;
+    setTouchSel((sel) => {
+      if (sel) {
+        const anchor = buildAnchor(
+          { translationId: chapter.translationId, book: chapter.book, chapter: chapter.chapter },
+          sel.a,
+          sel.b,
+        );
+        const endEl = rootRef.current?.querySelector<HTMLElement>(
+          `[data-verse="${anchor.endVerse}"][data-word="${anchor.endWord}"]`,
+        );
+        if (endEl) setMenu({ kind: "add", anchor, ...posOf(endEl) });
+      }
+      return sel;
+    });
   }
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
     // A drag that ends on a marked word also fires a click — that's the
     // selection menu's turn, not remove/open.
-    const sel = window.getSelection();
-    if (sel && !sel.isCollapsed) return;
+    if (touchSel && !mobile) return;
     if (noteId?.startsWith("note:")) {
       event.stopPropagation();
       onOpenNote(noteId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel
@@ -370,23 +344,25 @@ export function ChapterText({
     if (menu?.kind !== "add") return;
     onAddHighlight(menu.anchor, color);
     if (color !== defaultColor) void authClient.updateUser({ defaultHighlightColor: color });
-    window.getSelection()?.removeAllRanges();
     setMenu(null);
   }
 
   function saveDraft() {
     const text = draft.trim();
     if (text && menu?.kind === "compose") onAddAnnotation(menu.anchor, text);
-    window.getSelection()?.removeAllRanges();
     setMenu(null);
   }
 
   return (
     <div
       ref={rootRef}
-      onMouseUp={onMouseUp}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
       data-spotlight={spotlight || undefined}
-      className={mobile ? "select-none [-webkit-touch-callout:none]" : undefined}
+      // Native selection is off for everyone — selections are word-snapped by
+      // construction (drag wash on desktop, tap + handles on phones)
+      className="select-none [-webkit-touch-callout:none]"
     >
       <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
       {chapter.verses.map((v) => {
@@ -545,7 +521,6 @@ export function ChapterText({
                     className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
                     onClick={() => {
                       onAddNote(menu.anchor);
-                      window.getSelection()?.removeAllRanges();
                       setMenu(null);
                     }}
                   >
@@ -574,7 +549,6 @@ export function ChapterText({
                       className="flex items-baseline justify-between gap-2 rounded px-2.5 py-1.5 text-left hover:bg-accent"
                       onClick={() => {
                         onAttachNote(n.id, menu.anchor);
-                        window.getSelection()?.removeAllRanges();
                         setMenu(null);
                       }}
                     >
