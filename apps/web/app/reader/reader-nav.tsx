@@ -103,12 +103,19 @@ export function ReaderNav({
         {translations.length > 1 && (
           <Select value={translationId} onValueChange={(v) => v && onSwitchTranslation(v)}>
             <SelectTrigger aria-label={t("nav.translation")} size="sm" className="font-mono">
-              <SelectValue />
+              {/* Explicit label: SelectValue would fall back to the raw value
+                  (an opaque API.Bible id) in the trigger */}
+              {translations.find((tr) => tr.id === translationId)?.abbreviation ?? (
+                <SelectValue />
+              )}
             </SelectTrigger>
             <SelectContent>
               {translations.map((tr) => (
-                <SelectItem key={tr.id} value={tr.id} className="font-mono" title={tr.name}>
-                  {tr.abbreviation}
+                <SelectItem key={tr.id} value={tr.id} title={tr.name}>
+                  <span className="font-mono">{tr.abbreviation}</span>
+                  <span className="ml-2 max-w-52 truncate text-xs text-muted-foreground">
+                    {tr.name}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
