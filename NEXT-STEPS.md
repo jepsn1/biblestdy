@@ -1,5 +1,7 @@
 # Next steps
 
+2026-08-11 (evening): **#11 closed** — real API.Bible text live in dev, picker shows abbr+name (trigger + content-sized dropdown), verse-marker parse fix, annotation arrow center-drop fix. Remaining eyeballs: #9 #10 #12 #13.
+
 2026-08-11 (later): **prod deploy prepped, one command from Marcus** — `migrations/run.mjs` (idempotent runner, schema_migration ledger; dev seeded), prod dry-run confirms both migrations pending, API_BIBLE_KEY added to prod root `.env`. Agent blocked from prod DB writes; Marcus runs:
 `cd /srv/apps/biblestdy && DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2- | sed 's/@infra-postgres:/@localhost:/') node apps/api/migrations/run.mjs && make deploy`
 Then smoke-check biblestdy.com. Licensing parked in `docs/LICENSING.md`.
@@ -41,7 +43,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 1. ~~**#4 Sign in**~~ ✓ done — Better Auth magic-link + OTP, Neon, guard, all routes gated.
 2. ~~#5 Highlight a span~~ ✓ done.
-3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → ~~#10 tags/topics~~ ✓ built (UI eyeball pending) → ~~#11 translation switcher~~ ✓ built (WEB2 fixture; real versions need API.Bible key) → ~~#12 i18n da+en~~ ✓ built (proofread da copy) → ~~#13 PWA/mobile~~ ✓ built (needs real-phone touch check). **Queue done — all v1 slices built.** Next: Marcus eyeballs #9-#13 on dev.biblestdy.com (+ phone), closes issues; then prod deploy (run BOTH pending migrations first).
+3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ built (UI eyeball pending) → ~~#10 tags/topics~~ ✓ built (UI eyeball pending) → ~~#11 translation switcher~~ ✓ CLOSED 2026-08-11 (real NIV/WEB/NKJV, picker polish) → ~~#12 i18n da+en~~ ✓ built (proofread da copy) → ~~#13 PWA/mobile~~ ✓ built (needs real-phone touch check). **Queue done — all v1 slices built.** Next: Marcus eyeballs #9-#13 on dev.biblestdy.com (+ phone), closes issues; then prod deploy (run BOTH pending migrations first).
 
 ## Ideas (someday)
 
