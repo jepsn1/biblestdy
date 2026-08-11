@@ -29,9 +29,8 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 - [x] **DB switched Neon → local Postgres** ✓ 2026-07-09 — dev env live on the server: `/srv/apps/biblestdy`, `apps/api/.env` set (fresh BETTER_AUTH_SECRET), `db:push` applied, 6 tables, all tests green. See `.env.example`.
 - [ ] **Old Neon project**: if it has data worth keeping, dump it (`pg_dump <neon-url> | psql <local-url>`), then delete the project either way.
-- [x] **API.Bible key** ✓ 2026-08-11 — dev live on real text: NIV 2011 + WEB + NKJV (curated in `apibible.provider.ts`; key serves ~250 bibles, zero Danish). NLT/CSB/NASB not on the key — request per-publisher via API.Bible dashboard if wanted. Key also needed in PROD root `.env` before deploy. Verse-marker parsing bug found+fixed on real payloads.
-- [ ] **BPH (Bibelen på hverdagsdansk)**: closed license (Biblica, verified 2026-08-11). Request DRAFTED → `docs/biblica-bph-permission-request.md` — submit at biblica.com/permission-request-form (~10 business days; fill in your email). Parallel option: mail support@api.bible to pursue BPH on our key.
-- [ ] **Send Bibelselskabet email** (rettigheder@bibelselskabet.dk) — free non-commercial pilot license for Bibelen 2020, delivered via DBL key → API.Bible. Danish draft: session 2026-07-08 / ask Claude to re-draft.
+- [x] **API.Bible key** ✓ 2026-08-11 — dev live on real text (NIV/WEB/NKJV). Key also needed in PROD root `.env` before deploy.
+- [ ] **Licensing (BPH, Bibelen 2020, more English versions)** → all parked in `docs/LICENSING.md` (state + todos, BPH request draft ready to submit).
 - [ ] (someday) upgrade gh CLI ≥2.40 for multi-account (`jepsn1` overwrote `mk-logbuy`)
 
 ## Build queue (agreed order)
