@@ -10,6 +10,11 @@ const da: typeof en = {
     connectionsToggle: "Vis/skjul forbindelser",
     connectionsHint: "Forbindelser: noter her, delte skriftsteder, seneste",
     language: "Sprog",
+    install: "Installer app",
+    installIosTitle: "Installer p\u00e5 denne iPhone/iPad",
+    installIosStep1: "Tryk p\u00e5 Del-knappen i Safaris v\u00e6rkt\u00f8jslinje",
+    installIosStep2: "V\u00e6lg \u201cF\u00f8j til hjemmesk\u00e6rm\u201d",
+    installIosWhy: "biblestdy \u00e5bner i fuld sk\u00e6rm som en rigtig app \u2014 uden browserkrom.",
   },
   sidebar: {
     home: "Hjem",

@@ -1,11 +1,13 @@
 import type { Translation } from "@biblestdy/shared";
 import { getBook, parseReference } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
-import { Waypoints } from "lucide-react";
+import { MonitorDown, Share, SquarePlus, Waypoints } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { usePwaInstall } from "~/hooks/use-pwa-install";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,7 @@ export function ReaderNav({
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const pwa = usePwaInstall();
   const jumpRef = useRef<HTMLInputElement>(null);
   const [jump, setJump] = useState("");
   const [jumpError, setJumpError] = useState(false);
@@ -161,6 +164,52 @@ export function ReaderNav({
         >
           <Waypoints />
         </Button>
+
+        {/* Install as app: real prompt on Chromium; iOS Safari has no install
+            API — the button explains the Share → Add to Home Screen path */}
+        {pwa.kind === "prompt" && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("nav.install")}
+            title={t("nav.install")}
+            onClick={() => void pwa.install()}
+          >
+            <MonitorDown />
+          </Button>
+        )}
+        {pwa.kind === "ios-instructions" && (
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("nav.install")}
+                  title={t("nav.install")}
+                />
+              }
+            >
+              <MonitorDown />
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end">
+              <p className="mb-2 font-serif text-sm font-medium">{t("nav.installIosTitle")}</p>
+              <ol className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Share className="size-3.5 shrink-0 text-primary" />
+                  {t("nav.installIosStep1")}
+                </li>
+                <li className="flex items-center gap-2">
+                  <SquarePlus className="size-3.5 shrink-0 text-primary" />
+                  {t("nav.installIosStep2")}
+                </li>
+              </ol>
+              <p className="mt-2 font-mono text-[0.6rem] text-muted-foreground/70">
+                {t("nav.installIosWhy")}
+              </p>
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* UI language (issue #12) — independent of the Scripture translation */}
         <Button
