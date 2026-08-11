@@ -1,5 +1,7 @@
 # Next steps
 
+**2026-08-11: v1 COMPLETE.** All slices #1–#13 closed. Live at biblestdy.com — real NIV/WEB/NKJV (API.Bible), full annotation system, notes w/ multi-anchor + references, connections, tags/topics, i18n da+en, PWA + mobile (drawers, tap-select). Mobile + desktop selection both word-snapped. What's next = pick from: licensing follow-ups (`docs/LICENSING.md`), open product questions below, ideas (annotation layers), or v2 PRD.
+
 2026-08-11 (night): **DEPLOYED TO PROD** — `make deploy` (make installed on the box now), API container rebuilt to HEAD, SPA rebuilt; api healthy, real NIV/WEB/NKJV live at biblestdy.com, JHN 3 verified. Prod fully caught up: #8-#12 features + API.Bible + both migrations. Remaining: #13 phone check → close #13 + #1.
 
 2026-08-11 (evening): **#11 closed** — real API.Bible text live in dev, picker shows abbr+name (trigger + content-sized dropdown), verse-marker parse fix, annotation arrow center-drop fix. Remaining eyeballs: #13 (phone). #9 #10 #12 closed same evening (side-slot unify fix along the way).
@@ -45,7 +47,7 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 1. ~~**#4 Sign in**~~ ✓ done — Better Auth magic-link + OTP, Neon, guard, all routes gated.
 2. ~~#5 Highlight a span~~ ✓ done.
-3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ CLOSED 2026-08-11 (side slot unified) → ~~#10 tags/topics~~ ✓ CLOSED 2026-08-11 → ~~#11 translation switcher~~ ✓ CLOSED 2026-08-11 (real NIV/WEB/NKJV, picker polish) → ~~#12 i18n da+en~~ ✓ CLOSED 2026-08-11 → ~~#13 PWA/mobile~~ ✓ built (needs real-phone touch check). **Queue done — all v1 slices built.** Next: Marcus eyeballs #9-#13 on dev.biblestdy.com (+ phone), closes issues; then prod deploy (run BOTH pending migrations first).
+3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ CLOSED 2026-08-11 (side slot unified) → ~~#10 tags/topics~~ ✓ CLOSED 2026-08-11 → ~~#11 translation switcher~~ ✓ CLOSED 2026-08-11 (real NIV/WEB/NKJV, picker polish) → ~~#12 i18n da+en~~ ✓ CLOSED 2026-08-11 → ~~#13 PWA/mobile~~ ✓ CLOSED 2026-08-11 (drawers, tap-select, zoom off). **Queue done — all v1 slices built.** Next: Marcus eyeballs #9-#13 on dev.biblestdy.com (+ phone), closes issues; then prod deploy (run BOTH pending migrations first).
 
 ## Ideas (someday)
 
