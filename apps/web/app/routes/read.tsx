@@ -47,6 +47,8 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   }
   if (!res.ok) throw data(i18n.t("error.chapterLoad"), { status: 502 });
   const chapter = (await res.json()) as Chapter;
+  // Only a chapter that actually loaded may become the launch page
+  localStorage.setItem("lastRead", `${chapter.book}/${chapter.chapter}`);
   return { chapter, translation, translations };
 }
 
