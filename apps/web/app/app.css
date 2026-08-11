@@ -198,6 +198,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* The app is a fixed viewport (every route is h-dvh + internal scroll
+     areas) — the document itself must never scroll or rubber-band. Kills the
+     iOS PWA overscroll bounce at the page edges. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   ::selection {
     background: var(--selection);
   }
