@@ -230,6 +230,7 @@ export function ChapterText({
    * possible) — a mouse drag paints the same word-snapped wash the phone
    * handles do, and mouseup opens the menu. */
   const dragSel = useRef<{ start: WordPos; moved: boolean } | null>(null);
+  const justDragged = useRef(false);
 
   function wordPosOf(target: EventTarget | null): WordPos | null {
     const el = (target as HTMLElement | null)?.closest?.<HTMLElement>("[data-verse][data-word]");
@@ -240,7 +241,11 @@ export function ChapterText({
   function onPointerDown(event: React.PointerEvent) {
     if (mobile || event.button !== 0) return;
     const pos = wordPosOf(event.target);
-    if (pos) dragSel.current = { start: pos, moved: false };
+    if (!pos) return;
+    dragSel.current = { start: pos, moved: false };
+    // Instant feedback: the pressed word washes immediately. A no-drag
+    // release discards it (see onPointerUp) — click semantics stay intact.
+    setTouchSel({ a: pos, b: pos });
   }
 
   function onPointerMove(event: React.PointerEvent) {
@@ -256,7 +261,11 @@ export function ChapterText({
   function onPointerUp() {
     const drag = dragSel.current;
     dragSel.current = null;
-    if (!drag?.moved) return;
+    justDragged.current = !!drag?.moved;
+    if (!drag?.moved) {
+      setTouchSel(null); // press without drag = a click, not a selection
+      return;
+    }
     setTouchSel((sel) => {
       if (sel) {
         const anchor = buildAnchor(
@@ -275,8 +284,13 @@ export function ChapterText({
 
   function onWordClick(event: React.MouseEvent, hlId: string | undefined, noteId: string | undefined) {
     // A drag that ends on a marked word also fires a click — that's the
-    // selection menu's turn, not remove/open.
-    if (touchSel && !mobile) return;
+    // selection menu's turn, not remove/open. (Ref, not touchSel state: the
+    // mousedown wash sets state on every press and clears it async — a click
+    // would race the re-render.)
+    if (justDragged.current && !mobile) {
+      justDragged.current = false;
+      return;
+    }
     if (noteId?.startsWith("note:")) {
       event.stopPropagation();
       onOpenNote(noteId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel
