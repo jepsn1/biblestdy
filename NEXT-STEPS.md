@@ -49,6 +49,11 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 2. ~~#5 Highlight a span~~ ✓ done.
 3. ~~#6 Inline note~~ ✓ → ~~#7 Full md note~~ ✓ → ~~#8 multi-anchor~~ ✓ done → ~~#9 connections panel~~ ✓ CLOSED 2026-08-11 (side slot unified) → ~~#10 tags/topics~~ ✓ CLOSED 2026-08-11 → ~~#11 translation switcher~~ ✓ CLOSED 2026-08-11 (real NIV/WEB/NKJV, picker polish) → ~~#12 i18n da+en~~ ✓ CLOSED 2026-08-11 → ~~#13 PWA/mobile~~ ✓ CLOSED 2026-08-11 (drawers, tap-select, zoom off). **Queue done — all v1 slices built.** Next: Marcus eyeballs #9-#13 on dev.biblestdy.com (+ phone), closes issues; then prod deploy (run BOTH pending migrations first).
 
+## Postponed deliberately (Marcus, 2026-08-11)
+
+- **Markdown export/import** — wait until note linking/relations design settles; export format should capture links between notes, not just bodies. Don't build naively.
+- **Shadow notes** (reading other-version notes from the ⁘N badge) — wait until the note structure is where Marcus wants it.
+
 ## Ideas (someday)
 
 - **Annotation layers** (Marcus, 2026-07-09): clickable layers of annotations — e.g. one layer focused on Jesus, another on moral principles; flip between them to read the same text through different lenses. Likely builds on #10 tags/topics (a layer ≈ filter marks by topic).
