@@ -63,14 +63,20 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   const prevHref = chapter.chapter > 1 ? `/read/${chapter.book}/${chapter.chapter - 1}` : null;
   const nextHref =
     chapter.chapter < chapterCount ? `/read/${chapter.book}/${chapter.chapter + 1}` : null;
-  // Ambient study surface — remember open/closed across visits
-  const [connectionsOpen, setConnectionsOpen] = useState(
-    () => typeof localStorage !== "undefined" && localStorage.getItem("connectionsOpen") === "1",
+  // ONE side slot, content switches: 'connections' | a note id | null.
+  // Connections open/closed is the sticky ambient preference; a note borrows
+  // the slot and closing it falls back to that preference.
+  const [sideView, setSideView] = useState<string | null>(() =>
+    typeof localStorage !== "undefined" && localStorage.getItem("connectionsOpen") === "1"
+      ? "connections"
+      : null,
   );
   function toggleConnections() {
-    setConnectionsOpen((open) => {
-      localStorage.setItem("connectionsOpen", open ? "0" : "1");
-      return !open;
+    setSideView((view) => {
+      // From a note, Waypoints switches BACK to connections (never closes)
+      const next = view === "connections" ? null : "connections";
+      localStorage.setItem("connectionsOpen", next ? "1" : "0");
+      return next;
     });
   }
 
@@ -84,7 +90,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           translations={translations}
           translationId={translation.id}
           onSwitchTranslation={switchTranslation}
-          connectionsOpen={connectionsOpen}
+          connectionsOpen={sideView === "connections"}
           onToggleConnections={toggleConnections}
         />
         <PaginatedChapter
@@ -93,8 +99,8 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           heading={heading}
           prevHref={prevHref}
           nextHref={nextHref}
-          connectionsOpen={connectionsOpen}
-          onCloseConnections={toggleConnections}
+          sideView={sideView}
+          onSideViewChange={setSideView}
         />
       </SidebarInset>
     </SidebarProvider>

@@ -27,16 +27,17 @@ export function PaginatedChapter({
   heading,
   prevHref,
   nextHref,
-  connectionsOpen,
-  onCloseConnections,
+  sideView,
+  onSideViewChange,
 }: {
   chapter: Chapter;
   translation: Translation;
   heading: string;
   prevHref: string | null;
   nextHref: string | null;
-  connectionsOpen: boolean;
-  onCloseConnections: () => void;
+  /** The single side slot: 'connections' | a note id | null. */
+  sideView: string | null;
+  onSideViewChange: (view: string | null) => void;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -71,9 +72,19 @@ export function PaginatedChapter({
   // ?note=<id> keeps the panel open across chapter navigation (references
   // table jumps); ?mark=<mark id> flips to the linked span and flashes it.
   const [searchParams, setSearchParams] = useSearchParams();
-  const [openNoteId, setOpenNoteId] = useState<string | null>(
-    () => searchParams.get("note"),
-  );
+  const openNoteId = sideView !== null && sideView !== "connections" ? sideView : null;
+  /** Opening a note borrows the side slot; closing falls back to the sticky
+   * connections preference. */
+  const setOpenNoteId = (id: string | null) =>
+    onSideViewChange(
+      id ?? (localStorage.getItem("connectionsOpen") === "1" ? "connections" : null),
+    );
+  // ?note=<id> (cross-chapter reference jump) claims the slot on arrival
+  const wantedNote = searchParams.get("note");
+  useEffect(() => {
+    if (wantedNote) onSideViewChange(wantedNote);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedNote]);
   // An open note may have no anchor here (opened, then detached from this
   // chapter) — the all-notes list still has it.
   const openNote =
@@ -407,7 +418,7 @@ export function PaginatedChapter({
       </ResizablePanel>
 
       {/* An open note takes the side slot; closing it brings connections back */}
-      {connectionsOpen && !openNote && (
+      {sideView === "connections" && !openNote && (
         <>
           <ResizableHandle withHandle />
           <ResizablePanel id="connections" defaultSize="24%" minSize="16rem" maxSize="40%">
@@ -416,7 +427,10 @@ export function PaginatedChapter({
               book={chapter.book}
               chapter={chapter.chapter}
               onOpenNote={setOpenNoteId}
-              onClose={onCloseConnections}
+              onClose={() => {
+                localStorage.setItem("connectionsOpen", "0");
+                onSideViewChange(null);
+              }}
             />
           </ResizablePanel>
         </>
