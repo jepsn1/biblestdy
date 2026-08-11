@@ -1,5 +1,7 @@
 # Next steps
 
+2026-08-11: **API.Bible key live in dev** — real NIV/WEB/NKJV in the picker, fixture provider now only without key. BPH licensing researched: closed (see homework).
+
 State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP, all routes gated). Plus design system, paginated reader, books sidebar + filter, section headings. CI green, 26 tests.
 
 2026-07-09 (later): **#8 multi-anchor built** — note↔passage M:N via `note_anchor` join table, NoteStore seam (Drizzle + in-memory for tests), attach/detach endpoints, +Note… picker in selection menu, anchor chips in note panel (click = read there, × = detach, last anchor locked). 76 tests green.
@@ -27,8 +29,8 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 - [x] **DB switched Neon → local Postgres** ✓ 2026-07-09 — dev env live on the server: `/srv/apps/biblestdy`, `apps/api/.env` set (fresh BETTER_AUTH_SECRET), `db:push` applied, 6 tables, all tests green. See `.env.example`.
 - [ ] **Old Neon project**: if it has data worth keeping, dump it (`pg_dump <neon-url> | psql <local-url>`), then delete the project either way.
-- [ ] **API.Bible key** → `apps/api/.env`: `API_BIBLE_KEY=...`
-  Picks: NIV + 2 of NLT/CSB/NASB. (ESV not on API.Bible; no Danish in public picks.)
+- [x] **API.Bible key** ✓ 2026-08-11 — dev live on real text: NIV 2011 + WEB + NKJV (curated in `apibible.provider.ts`; key serves ~250 bibles, zero Danish). NLT/CSB/NASB not on the key — request per-publisher via API.Bible dashboard if wanted. Key also needed in PROD root `.env` before deploy. Verse-marker parsing bug found+fixed on real payloads.
+- [ ] **BPH (Bibelen på hverdagsdansk)**: checked 2026-08-11 — Biblica copyright, "all rights reserved", NOT in Biblica's open-license set and not on API.Bible's public catalog. Free on YouVersion = distribution deal, not a license we can use. Path if wanted: license request to Biblica (they run open.bible, may be receptive) → DBL → API.Bible key, same route as Bibelen 2020.
 - [ ] **Send Bibelselskabet email** (rettigheder@bibelselskabet.dk) — free non-commercial pilot license for Bibelen 2020, delivered via DBL key → API.Bible. Danish draft: session 2026-07-08 / ask Claude to re-draft.
 - [ ] (someday) upgrade gh CLI ≥2.40 for multi-account (`jepsn1` overwrote `mk-logbuy`)
 
