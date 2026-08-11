@@ -36,6 +36,6 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 - Provider seam: `apps/api/src/scripture/provider.ts`. No `API_BIBLE_KEY` env → FakeScriptureProvider (real WEB fixtures: JHN.3, GEN.1, PSA.23 + sample sections). With key → ApiBibleProvider + 24h cache.
 - API.Bible: Starter tier non-commercial, 5k calls/mo. Modern Danish (Bibelen 2020/1992) is NOT publicly on API.Bible — path is Det Danske Bibelselskab license → DBL access linked to API.Bible account (email drafted to rettigheder@bibelselskabet.dk). Bibelen på hverdagsdansk also absent from public picks.
 
-## No body scroll
+## No body scroll — EVER, app-wide (Marcus, 2026-08-11)
 
-Reader is paginated (`PaginatedChapter`): fixed-height CSS columns, translateX per spread. Keep it that way — any new reader UI must fit the viewport.
+The document never scrolls: `html`/`body` are locked in `app.css` (height 100%, overflow hidden, overscroll-behavior none — also kills the iOS PWA rubber-band). Every route is a fixed `h-dvh` viewport; anything that scrolls does so in an internal `ScrollArea`. Reader specifically is paginated (`PaginatedChapter`): fixed-height CSS columns, translateX per spread — any new reader UI must fit the viewport.
