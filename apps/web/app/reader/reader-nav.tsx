@@ -102,20 +102,29 @@ export function ReaderNav({
             re-reads the chapter in the chosen version */}
         {translations.length > 1 && (
           <Select value={translationId} onValueChange={(v) => v && onSwitchTranslation(v)}>
-            <SelectTrigger aria-label={t("nav.translation")} size="sm" className="font-mono">
+            <SelectTrigger aria-label={t("nav.translation")} size="sm">
               {/* Explicit label: SelectValue would fall back to the raw value
                   (an opaque API.Bible id) in the trigger */}
-              {translations.find((tr) => tr.id === translationId)?.abbreviation ?? (
-                <SelectValue />
-              )}
+              {(() => {
+                const tr = translations.find((x) => x.id === translationId);
+                return tr ? (
+                  <>
+                    <span className="font-mono">{tr.abbreviation}</span>
+                    <span className="hidden max-w-44 truncate text-xs text-muted-foreground lg:inline">
+                      {tr.name}
+                    </span>
+                  </>
+                ) : (
+                  <SelectValue />
+                );
+              })()}
             </SelectTrigger>
-            <SelectContent>
+            {/* Dropdown defaults to trigger width (now abbr-narrow) — size to content */}
+            <SelectContent className="w-auto min-w-(--anchor-width) max-w-80">
               {translations.map((tr) => (
                 <SelectItem key={tr.id} value={tr.id} title={tr.name}>
                   <span className="font-mono">{tr.abbreviation}</span>
-                  <span className="ml-2 max-w-52 truncate text-xs text-muted-foreground">
-                    {tr.name}
-                  </span>
+                  <span className="ml-2 truncate text-xs text-muted-foreground">{tr.name}</span>
                 </SelectItem>
               ))}
             </SelectContent>
