@@ -57,6 +57,8 @@ State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP
 
 ## Watch-outs
 
+- **Prod SPA is served from the live working tree** (`apps/web/build/client` via infra Caddy) — any dev-machine `pnpm web build` mutates prod frontend immediately, and can desync it from the older API container (seen 2026-08-11). Fix someday: build SPA into the container or a versioned release dir that deploy swaps atomically.
+
 - Anchor design: anchor to verse-relative word offsets, NOT rendered-DOM offsets; sections are never anchorable.
 - **Page geometry is print-fixed.** Hand-placed annotations (dragged note boxes, gutter glosses) assume word positions never move. NEVER reflow the text in response to UI state — panels must overlay, not squeeze (doc panel does this); column count/width/font are fixed on desktop. Mobile pass (#13): SCALE the page down like a printed sheet, don't reflow it.
 - Long chapters (Ps 119) paginate fine but col-flow within spread — revisit if annoying.
