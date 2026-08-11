@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, WordPos } from "@biblestdy/shared";
 import {
   anchorReference,
   buildAnchor,
@@ -9,7 +9,7 @@ import {
   words,
   wordRangeInVerse,
 } from "@biblestdy/shared";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -96,6 +96,7 @@ export function ChapterText({
   onAttachNote,
   onOpenNote,
   onFocusAnnotation,
+  mobile = false,
 }: {
   chapter: Chapter;
   heading: string;
@@ -117,9 +118,15 @@ export function ChapterText({
   onAttachNote: (noteId: string, anchor: Anchor) => void;
   onOpenNote: (id: string) => void;
   onFocusAnnotation: (id: string | null) => void;
+  /** Phone (#13): native selection is disabled — tapping a word selects it,
+   * the menu opens immediately, and two drag handles stretch the span. */
+  mobile?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<Menu>(null);
+  // Tap-selection (mobile): a = the end fixed at tap, b = the dragged end.
+  // Either handle may drag either end; buildAnchor normalizes the order.
+  const [touchSel, setTouchSel] = useState<{ a: WordPos; b: WordPos } | null>(null);
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const { data: session } = authClient.useSession();
@@ -150,6 +157,44 @@ export function ChapterText({
     ].sort((a, b) => spanSize(a) - spanSize(b)),
   );
 
+  // Tap-selection coverage, normalized (either end may be dragged past the other)
+  const selRange = touchSel
+    ? (() => {
+        const first =
+          touchSel.a.verse < touchSel.b.verse ||
+          (touchSel.a.verse === touchSel.b.verse && touchSel.a.word <= touchSel.b.word)
+            ? [touchSel.a, touchSel.b]
+            : [touchSel.b, touchSel.a];
+        return { start: first[0], end: first[1] };
+      })()
+    : null;
+  const inTouchSel = (verse: number, word: number) =>
+    selRange !== null &&
+    (verse > selRange.start.verse || (verse === selRange.start.verse && word >= selRange.start.word)) &&
+    (verse < selRange.end.verse || (verse === selRange.end.verse && word <= selRange.end.word));
+
+  // Handle positions, measured from the boundary words (fixed/viewport coords
+  // — getBoundingClientRect sees through the sheet's scale transform)
+  const [handleRects, setHandleRects] = useState<{ start: DOMRect; end: DOMRect } | null>(null);
+  useLayoutEffect(() => {
+    if (!selRange || !rootRef.current) {
+      setHandleRects(null);
+      return;
+    }
+    const find = (p: WordPos) =>
+      rootRef.current?.querySelector<HTMLElement>(
+        `[data-verse="${p.verse}"][data-word="${p.word}"]`,
+      );
+    const startEl = find(selRange.start);
+    const endEl = find(selRange.end);
+    if (startEl && endEl)
+      setHandleRects({
+        start: startEl.getBoundingClientRect(),
+        end: endEl.getBoundingClientRect(),
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touchSel]);
+
   const spotlight =
     selectedMarkId != null &&
     noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
@@ -157,9 +202,11 @@ export function ChapterText({
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => setMenu(null), [chapterKey]);
 
-  // Touch selection (long-press + handles) fires no mouse events — watch the
-  // selection itself, debounced so the menu appears once the handles settle.
+  // Non-mobile touch devices (tablets with native selection): long-press +
+  // handles fire no mouse events — watch the selection itself, debounced so
+  // the menu appears once the handles settle. Phones use tap-select instead.
   useEffect(() => {
+    if (mobile) return;
     let timer: ReturnType<typeof setTimeout>;
     const onSelectionChange = () => {
       clearTimeout(timer);
@@ -171,7 +218,12 @@ export function ChapterText({
       document.removeEventListener("selectionchange", onSelectionChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterKey]);
+  }, [chapterKey, mobile]);
+
+  // The menu owns the tap-selection's lifetime — menu gone, selection gone
+  useEffect(() => {
+    if (!menu) setTouchSel(null);
+  }, [menu]);
 
   useEffect(() => {
     if (!menu) return;
@@ -261,9 +313,57 @@ export function ChapterText({
       onFocusAnnotation(noteId); // highlight the matching placed annotation
       return;
     }
-    if (!hlId) return;
+    if (hlId) {
+      event.stopPropagation();
+      setMenu({ kind: "remove-hl", id: hlId, ...posOf(event.currentTarget as HTMLElement) });
+      return;
+    }
+    if (!mobile) return;
+    // Tap-select: one word selected, menu up immediately, handles stretch it
     event.stopPropagation();
-    setMenu({ kind: "remove-hl", id: hlId, ...posOf(event.currentTarget as HTMLElement) });
+    const el = event.currentTarget as HTMLElement;
+    const pos = { verse: Number(el.dataset.verse), word: Number(el.dataset.word) };
+    setTouchSel({ a: pos, b: pos });
+    setMenu({
+      kind: "add",
+      anchor: buildAnchor(
+        { translationId: chapter.translationId, book: chapter.book, chapter: chapter.chapter },
+        pos,
+        pos,
+      ),
+      ...posOf(el),
+    });
+  }
+
+  /** Drag one end of the tap-selection: the word under the pointer becomes
+   * that end; anchor + menu position follow live. Ends may cross — the pair
+   * is re-normalized so the handles never swap roles mid-drag. */
+  function dragHandle(which: "start" | "end", clientX: number, clientY: number) {
+    const hit = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-verse][data-word]");
+    if (!hit || !rootRef.current?.contains(hit)) return;
+    const pos = { verse: Number(hit.dataset.verse), word: Number(hit.dataset.word) };
+    setTouchSel((sel) => {
+      if (!sel) return sel;
+      const before = (x: WordPos, y: WordPos) =>
+        x.verse < y.verse || (x.verse === y.verse && x.word <= y.word);
+      const [start, end] = before(sel.a, sel.b) ? [sel.a, sel.b] : [sel.b, sel.a];
+      const next =
+        which === "start" ? { a: pos, b: end } : { a: start, b: pos };
+      const anchor = buildAnchor(
+        { translationId: chapter.translationId, book: chapter.book, chapter: chapter.chapter },
+        next.a,
+        next.b,
+      );
+      const endEl = rootRef.current?.querySelector<HTMLElement>(
+        `[data-verse="${anchor.endVerse}"][data-word="${anchor.endWord}"]`,
+      );
+      setMenu((m) =>
+        m?.kind === "add" ? { ...m, anchor, ...(endEl ? posOf(endEl) : {}) } : m,
+      );
+      return next;
+    });
   }
 
   function addHighlight(color: HighlightColor) {
@@ -282,7 +382,12 @@ export function ChapterText({
   }
 
   return (
-    <div ref={rootRef} onMouseUp={onMouseUp} data-spotlight={spotlight || undefined}>
+    <div
+      ref={rootRef}
+      onMouseUp={onMouseUp}
+      data-spotlight={spotlight || undefined}
+      className={mobile ? "select-none [-webkit-touch-callout:none]" : undefined}
+    >
       <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
       {chapter.verses.map((v) => {
         const tokens = words(v.text);
@@ -321,7 +426,12 @@ export function ChapterText({
                     data-verse={v.verse}
                     data-word={i}
                     onClick={(e) => onWordClick(e, hit?.id, seg.annotation?.id)}
-                    className={hit || seg.annotation ? "cursor-pointer" : undefined}
+                    className={hit || seg.annotation || mobile ? "cursor-pointer" : undefined}
+                    style={
+                      inTouchSel(v.verse, i)
+                        ? { backgroundColor: "var(--selection)" }
+                        : undefined
+                    }
                   >
                     {word}{" "}
                   </span>
@@ -347,6 +457,44 @@ export function ChapterText({
           </span>
         );
       })}
+
+      {/* Native-style selection handles: lollipops under the boundary words;
+          drag stretches the span, the menu follows the end word */}
+      {mobile &&
+        handleRects &&
+        createPortal(
+          <>
+            {(["start", "end"] as const).map((which) => {
+              const r = handleRects[which];
+              return (
+                <div
+                  key={which}
+                  data-selection-menu
+                  className="fixed z-50 -translate-x-1/2 touch-none"
+                  style={{
+                    left: which === "start" ? r.left : r.right,
+                    top: r.bottom - 2,
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  }}
+                  onPointerMove={(e) => {
+                    if (e.currentTarget.hasPointerCapture(e.pointerId))
+                      dragHandle(which, e.clientX, e.clientY);
+                  }}
+                >
+                  {/* Fat invisible hit area, small visible lollipop */}
+                  <div className="flex h-9 w-9 items-start justify-center">
+                    <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary/30 shadow-sm" />
+                  </div>
+                </div>
+              );
+            })}
+          </>,
+          document.body,
+        )}
 
       {menu &&
         createPortal(

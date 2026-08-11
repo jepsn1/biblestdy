@@ -339,6 +339,7 @@ export function PaginatedChapter({
               otherVersionCounts={otherVersionCounts}
               activeAnnotationId={activeAnnotationId}
               selectedMarkId={selectedMarkId}
+              mobile={!!mobile}
               onAddHighlight={add}
               onRemoveHighlight={remove}
               onAddAnnotation={annotationsApi.add}
