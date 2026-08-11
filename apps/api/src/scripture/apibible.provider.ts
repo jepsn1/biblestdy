@@ -4,6 +4,15 @@ import { ChapterNotFoundError, type ScriptureProvider } from './provider';
 const BASE_URL = 'https://api.scripture.api.bible/v1';
 /** Languages surfaced to the app (ISO 639-3 as used by API.Bible). */
 const LANGUAGES = new Set(['eng', 'dan']);
+/** Curated picks, in picker order (first = default). The key serves ~250
+ * bibles — without this the picker drowns. Danish absent from API.Bible's
+ * public catalog (BPH is closed-license; Bibelen 2020 pending Bibelselskabet
+ * license → DBL) — the language filter below keeps the door open. */
+const CURATED = [
+  '78a9f6124f344018-01', // NIV 2011
+  '9879dbb7cfe39e4d-01', // World English Bible
+  '63097d2a0a2f7db3-01', // New King James Version
+];
 
 interface ApiBibleSummary {
   id: string;
@@ -31,14 +40,20 @@ export class ApiBibleProvider implements ScriptureProvider {
 
   async listTranslations(): Promise<Translation[]> {
     const data = await this.get<ApiBibleSummary[]>('/bibles');
-    return data
-      .filter((b) => LANGUAGES.has(b.language.id))
-      .map((b) => ({
-        id: b.id,
-        name: b.name,
-        abbreviation: b.abbreviationLocal,
-        language: b.language.id === 'dan' ? 'da' : 'en',
-      }));
+    const eligible = data.filter((b) => LANGUAGES.has(b.language.id));
+    const curated = CURATED.map((id) =>
+      eligible.find((b) => b.id === id),
+    ).filter((b) => b !== undefined);
+    // Any Danish bible that ever lands on the key surfaces automatically
+    const danish = eligible.filter(
+      (b) => b.language.id === 'dan' && !CURATED.includes(b.id),
+    );
+    return [...curated, ...danish].map((b) => ({
+      id: b.id,
+      name: b.name,
+      abbreviation: b.abbreviationLocal,
+      language: b.language.id === 'dan' ? 'da' : 'en',
+    }));
   }
 
   async getChapter(
@@ -123,6 +138,9 @@ export function parseChapterContent(content: ContentNode[]): {
             });
           }
         }
+        // The marker's children are its printed label ("16") — never verse
+        // text; letting it through corrupts word-offset anchors.
+        continue;
       } else if (node.type === 'text' && node.text) {
         if (current !== undefined) {
           const parts = texts.get(current) ?? [];

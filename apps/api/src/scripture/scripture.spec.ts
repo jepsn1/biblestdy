@@ -78,6 +78,27 @@ describe('parseChapterContent (API.Bible json content)', () => {
     ]);
   });
 
+  it('drops the verse marker label — its number child is never verse text', () => {
+    // Real API.Bible shape: the verse tag carries its printed number as a
+    // text child. Leaking it shifts every word offset in the anchor system.
+    const { verses } = parseChapterContent([
+      {
+        type: 'tag',
+        name: 'para',
+        items: [
+          {
+            type: 'tag',
+            name: 'verse',
+            attrs: { number: '16' },
+            items: [{ type: 'text', text: '16' }],
+          },
+          { type: 'text', text: 'For God so loved the world' },
+        ],
+      },
+    ]);
+    expect(verses).toEqual([{ verse: 16, text: 'For God so loved the world' }]);
+  });
+
   it('ignores text before any verse marker and empty verses', () => {
     const { verses } = parseChapterContent([
       { type: 'text', text: 'Chapter heading noise' },
