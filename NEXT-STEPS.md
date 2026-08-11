@@ -1,5 +1,9 @@
 # Next steps
 
+2026-08-11 (later): **prod deploy prepped, one command from Marcus** — `migrations/run.mjs` (idempotent runner, schema_migration ledger; dev seeded), prod dry-run confirms both migrations pending, API_BIBLE_KEY added to prod root `.env`. Agent blocked from prod DB writes; Marcus runs:
+`cd /srv/apps/biblestdy && DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2- | sed 's/@infra-postgres:/@localhost:/') node apps/api/migrations/run.mjs && make deploy`
+Then smoke-check biblestdy.com. Licensing parked in `docs/LICENSING.md`.
+
 2026-08-11: **API.Bible key live in dev** — real NIV/WEB/NKJV in the picker, fixture provider now only without key. BPH licensing researched: closed (see homework).
 
 State as of 2026-07-08: #2 ✓ #3 ✓ #4 ✓ (auth: Better Auth magic-link + OTP, all routes gated). Plus design system, paginated reader, books sidebar + filter, section headings. CI green, 26 tests.
