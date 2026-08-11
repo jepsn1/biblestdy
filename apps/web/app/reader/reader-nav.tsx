@@ -123,8 +123,9 @@ export function ReaderNav({
             <SelectContent className="w-auto min-w-(--anchor-width) max-w-80">
               {translations.map((tr) => (
                 <SelectItem key={tr.id} value={tr.id} title={tr.name}>
-                  <span className="font-mono">{tr.abbreviation}</span>
-                  <span className="ml-2 truncate text-xs text-muted-foreground">{tr.name}</span>
+                  {/* Fixed abbr column: names align despite NIV/NKJV width gap */}
+                  <span className="w-12 shrink-0 font-mono">{tr.abbreviation}</span>
+                  <span className="truncate text-xs text-muted-foreground">{tr.name}</span>
                 </SelectItem>
               ))}
             </SelectContent>
