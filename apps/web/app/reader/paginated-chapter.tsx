@@ -254,6 +254,26 @@ export function PaginatedChapter({
     setPage((p) => Math.min(p, pageCount - 1));
   }, [pageCount]);
 
+  // Swipe page-flip (phones): horizontal flick anywhere on the pane. Word
+  // taps still click (no drag-select on mobile); handle/box drags capture
+  // their pointer so their moves never complete a swipe here.
+  const swipeFrom = useRef<{ x: number; y: number; t: number } | null>(null);
+  function onSwipeStart(e: React.PointerEvent) {
+    if (!mobile) return;
+    swipeFrom.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+  }
+  function onSwipeEnd(e: React.PointerEvent) {
+    const from = swipeFrom.current;
+    swipeFrom.current = null;
+    if (!from || !mobile) return;
+    const dx = e.clientX - from.x;
+    const dy = e.clientY - from.y;
+    const flick = performance.now() - from.t < 500;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5 || !flick) return;
+    if (dx < 0) goNext();
+    else goPrev();
+  }
+
   function goPrev() {
     if (page > 0) setPage(page - 1);
     else if (prevHref) navigate(prevHref);
@@ -295,6 +315,8 @@ export function PaginatedChapter({
       <div
         className="relative min-h-0 flex-1"
         onClick={() => selectedMarkId && setSelectedMarkId(null)}
+        onPointerDown={onSwipeStart}
+        onPointerUp={onSwipeEnd}
       >
         {/* Mobile: the viewport is pinned to the left column slot (offset),
             pages translate the flow through it — no free horizontal scroll */}
@@ -388,7 +410,7 @@ export function PaginatedChapter({
           type="button"
           aria-label={t("reader.prevPage")}
           onClick={goPrev}
-          className="absolute inset-y-0 left-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
+          className="absolute inset-y-0 left-0 z-20 hidden w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground sm:flex"
         >
           <ChevronLeft className="size-5" />
         </button>
@@ -396,7 +418,7 @@ export function PaginatedChapter({
           type="button"
           aria-label={t("reader.nextPage")}
           onClick={goNext}
-          className="absolute inset-y-0 right-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
+          className="absolute inset-y-0 right-0 z-20 hidden w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground sm:flex"
         >
           <ChevronRight className="size-5" />
         </button>
