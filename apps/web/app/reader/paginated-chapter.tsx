@@ -254,24 +254,99 @@ export function PaginatedChapter({
     setPage((p) => Math.min(p, pageCount - 1));
   }, [pageCount]);
 
-  // Swipe page-flip (phones): horizontal flick anywhere on the pane. Word
-  // taps still click (no drag-select on mobile); handle/box drags capture
-  // their pointer so their moves never complete a swipe here.
-  const swipeFrom = useRef<{ x: number; y: number; t: number } | null>(null);
+  // Swipe page-flip (phones): the page tracks the finger — text and ink
+  // layers translate live, release snaps back or completes the flip with the
+  // same 300ms ease the buttons use. Word taps stay clicks (a locked swipe
+  // moved too far to click); handle/box/chip drags are skipped at start.
+  const marksDragRef = useRef<HTMLDivElement>(null);
+  const swipeFrom = useRef<{ x: number; y: number; t: number; locked: boolean; dx: number } | null>(
+    null,
+  );
+
+  /** Move text + marks by dx (local px, page translate included), optionally
+   * with the settle transition. Inline styles win until the next page render. */
+  function setDragTransforms(dx: number, animate: boolean) {
+    const c = contentRef.current;
+    const m = marksDragRef.current;
+    if (!c || !m) return;
+    c.style.transition = animate ? "" : "none"; // '' = the class's 300ms ease
+    m.style.transition = animate ? "transform 300ms" : "none";
+    c.style.transform = `translateX(${-(page * stride) + dx}px)`;
+    m.style.transform = `translateX(${dx}px)`;
+  }
+
   function onSwipeStart(e: React.PointerEvent) {
     if (!mobile) return;
-    swipeFrom.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+    // Not from annotation boxes/chips/buttons — those own their drags
+    if ((e.target as HTMLElement).closest(".pointer-events-auto, button")) return;
+    swipeFrom.current = { x: e.clientX, y: e.clientY, t: performance.now(), locked: false, dx: 0 };
   }
-  function onSwipeEnd(e: React.PointerEvent) {
+
+  function onSwipeMove(e: React.PointerEvent) {
+    const from = swipeFrom.current;
+    if (!from || !mobile) return;
+    const dxVisual = e.clientX - from.x;
+    const dy = e.clientY - from.y;
+    if (!from.locked) {
+      if (Math.abs(dy) > 16 && Math.abs(dy) > Math.abs(dxVisual)) {
+        swipeFrom.current = null; // vertical gesture, not ours
+        return;
+      }
+      if (Math.abs(dxVisual) < 10 || Math.abs(dxVisual) < Math.abs(dy) * 1.2) return;
+      from.locked = true;
+    }
+    let dx = dxVisual / mobile.scale; // finger moves visual px, page lives in local px
+    const atStart = page === 0 && dx > 0;
+    const atEnd = page >= pageCount - 1 && dx < 0;
+    if (atStart || atEnd) dx /= 3; // chapter boundary: rubber resistance
+    from.dx = dx;
+    setDragTransforms(dx, false);
+  }
+
+  function onSwipeEnd() {
     const from = swipeFrom.current;
     swipeFrom.current = null;
-    if (!from || !mobile) return;
-    const dx = e.clientX - from.x;
-    const dy = e.clientY - from.y;
-    const flick = performance.now() - from.t < 500;
-    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5 || !flick) return;
-    if (dx < 0) goNext();
-    else goPrev();
+    if (!from || !mobile || !from.locked) return;
+    const flick = performance.now() - from.t < 300 && Math.abs(from.dx) > 36;
+    const commit = Math.abs(from.dx) > stride * 0.22 || flick;
+    const forward = from.dx < 0;
+    const canFlip = forward ? page < pageCount - 1 : page > 0;
+    if (commit && canFlip) {
+      // Finish the slide, then let React own the new page (same visual spot)
+      setDragTransforms(forward ? -stride : stride, true);
+      window.setTimeout(() => {
+        const c = contentRef.current;
+        const m = marksDragRef.current;
+        if (m) {
+          m.style.transition = "none";
+          m.style.transform = "";
+        }
+        if (c) c.style.transition = "none";
+        setPage((p) => (forward ? p + 1 : p - 1));
+        requestAnimationFrame(() => {
+          if (c) c.style.transition = "";
+          if (m) m.style.transition = "";
+        });
+      }, 310);
+      return;
+    }
+    setDragTransforms(0, true); // snap back (also the boundary rubber-band)
+    if (commit && !canFlip) {
+      if (forward && nextHref) navigate(nextHref);
+      else if (!forward && prevHref) navigate(prevHref);
+    }
+    window.setTimeout(() => {
+      const c = contentRef.current;
+      const m = marksDragRef.current;
+      if (c) {
+        c.style.transition = "";
+        c.style.transform = `translateX(${-(page * stride)}px)`;
+      }
+      if (m) {
+        m.style.transition = "";
+        m.style.transform = "";
+      }
+    }, 320);
   }
 
   function goPrev() {
@@ -316,7 +391,10 @@ export function PaginatedChapter({
         className="relative min-h-0 flex-1"
         onClick={() => selectedMarkId && setSelectedMarkId(null)}
         onPointerDown={onSwipeStart}
+        onPointerMove={onSwipeMove}
         onPointerUp={onSwipeEnd}
+        onPointerCancel={onSwipeEnd}
+        style={mobile ? { touchAction: "none" } : undefined}
       >
         {/* Mobile: the viewport is pinned to the left column slot (offset),
             pages translate the flow through it — no free horizontal scroll */}
@@ -373,6 +451,10 @@ export function PaginatedChapter({
           </div>
         </div>
 
+        {/* Marks ride the finger-drag with the text (transform applied to this
+            wrapper during a swipe); positioned so the layers' inset-0 anchors
+            here, which shares the region's box */}
+        <div ref={marksDragRef} className="pointer-events-none absolute inset-0">
         {/* Before AnnotationMarks: same underlay stratum, so pen arrows paint over marker */}
         <HighlightMarks
           highlights={highlights}
@@ -400,6 +482,7 @@ export function PaginatedChapter({
           onPlace={annotationsApi.place}
           onOpenNote={setOpenNoteId}
         />
+        </div>
 
           </div>
           </div>
