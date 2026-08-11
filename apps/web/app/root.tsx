@@ -25,7 +25,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang={i18n.language} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Zoom disabled: the reader is a fixed folio that manages its own scale;
+            pinch-zoom fights page-flip + annotation drag gestures */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        />
         <meta name="theme-color" content="#211d18" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />

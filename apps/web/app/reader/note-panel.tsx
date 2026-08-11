@@ -70,11 +70,13 @@ function ReferencesTable({
   selectedAnchorId,
   onShowAnchor,
   onDetach,
+  mobile = false,
 }: {
   note: Note;
   selectedAnchorId: string | null;
   onShowAnchor: (anchor: NoteAnchor) => void;
   onDetach: (id: string, anchorId: string) => void;
+  mobile?: boolean;
 }) {
   const { t } = useTranslation();
   const chapterKeys = [
@@ -110,9 +112,9 @@ function ReferencesTable({
             aria-pressed={isSelected}
             onClick={() => onShowAnchor(a)}
             onKeyDown={(e) => e.key === "Enter" && onShowAnchor(a)}
-            className={`group grid cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-3 rounded px-1.5 py-1 ${
-              isSelected ? "bg-accent" : "hover:bg-accent/50"
-            }`}
+            className={`group grid cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-3 rounded px-1.5 ${
+              mobile ? "py-2.5" : "py-1"
+            } ${isSelected ? "bg-accent" : "hover:bg-accent/50"}`}
           >
             <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
               {formatReference(anchorReference(a))}
@@ -129,7 +131,9 @@ function ReferencesTable({
                   e.stopPropagation();
                   onDetach(note.id, a.id);
                 }}
-                className="invisible self-center text-muted-foreground group-hover:visible hover:text-destructive"
+                className={`self-center text-muted-foreground hover:text-destructive ${
+                  mobile ? "" : "invisible group-hover:visible"
+                }`}
               >
                 <X className="size-3" />
               </button>
@@ -164,6 +168,7 @@ export function NotePanel({
   onShowAnchor,
   selectedAnchorId,
   onClose,
+  mobile = false,
 }: {
   note: Note;
   onEdit: (id: string, patch: { title?: string; body?: string }) => void;
@@ -173,6 +178,9 @@ export function NotePanel({
   /** Anchor id of the selected reference (spotlit in the reader). */
   selectedAnchorId: string | null;
   onClose: () => void;
+  /** Drawer build (#13): stacked layout, touch targets, slim toolbar —
+   * feature parity with the desktop split, not a squeezed clone of it. */
+  mobile?: boolean;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(note.title);
@@ -232,8 +240,8 @@ export function NotePanel({
         <NoteTagsRow noteId={note.id} />
       </div>
 
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-        <ResizablePanel id="editor" defaultSize="72%" minSize="30%" className="flex min-h-0 flex-col">
+      {(() => {
+        const editor = (
       <MDXEditor
         key={note.id}
         markdown={note.body}
@@ -253,32 +261,61 @@ export function NotePanel({
           codeMirrorPlugin({ codeBlockLanguages: { "": "Plain", js: "JavaScript" } }),
           markdownShortcutPlugin(),
           toolbarPlugin({
-            toolbarContents: () => (
-              <>
-                <UndoRedo />
-                <BoldItalicUnderlineToggles />
-                <BlockTypeSelect />
-                <ListsToggle />
-                <CreateLink />
-                <InsertTable />
-                <InsertThematicBreak />
-              </>
-            ),
+            toolbarContents: () =>
+              mobile ? (
+                // Thumb-width toolbar: the essentials, one row
+                <>
+                  <UndoRedo />
+                  <BoldItalicUnderlineToggles />
+                  <ListsToggle />
+                </>
+              ) : (
+                <>
+                  <UndoRedo />
+                  <BoldItalicUnderlineToggles />
+                  <BlockTypeSelect />
+                  <ListsToggle />
+                  <CreateLink />
+                  <InsertTable />
+                  <InsertThematicBreak />
+                </>
+              ),
           }),
         ]}
       />
-
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel id="references" defaultSize="28%" minSize="10%" maxSize="60%">
+        );
+        const references = (
           <ReferencesTable
             note={note}
             selectedAnchorId={selectedAnchorId}
             onShowAnchor={onShowAnchor}
             onDetach={onDetach}
+            mobile={mobile}
           />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        );
+        return mobile ? (
+          // Stacked: editor breathes, references capped below it
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">{editor}</div>
+            <div className="max-h-[30%] shrink-0 border-t border-border">{references}</div>
+          </div>
+        ) : (
+          <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+            <ResizablePanel
+              id="editor"
+              defaultSize="72%"
+              minSize="30%"
+              className="flex min-h-0 flex-col"
+            >
+              {editor}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel id="references" defaultSize="28%" minSize="10%" maxSize="60%">
+              {references}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        );
+      })()}
 
       <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
         <button
@@ -291,7 +328,10 @@ export function NotePanel({
         >
           {t("note.delete")}
         </button>
-        <span>{dirty ? t("note.saving") : t("note.saved")} · {t("note.escCloses")}</span>
+        <span>
+          {dirty ? t("note.saving") : t("note.saved")}
+          {!mobile && <> · {t("note.escCloses")}</>}
+        </span>
       </footer>
     </aside>
   );

@@ -19,12 +19,15 @@ export function ConnectionsPanel({
   chapter,
   onOpenNote,
   onClose,
+  mobile = false,
 }: {
   translationId: string;
   book: string;
   chapter: number;
   onOpenNote: (id: string) => void;
   onClose: () => void;
+  /** Drawer build (#13): touch-sized rows, drawer handle closes (no X). */
+  mobile?: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -50,7 +53,7 @@ export function ConnectionsPanel({
       <button
         type="button"
         onClick={() => openNote(note)}
-        className="w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+        className={`w-full rounded px-2 text-left hover:bg-accent ${mobile ? "py-2.5" : "py-1.5"}`}
       >
         <span className="block truncate font-serif text-sm">
           {note.title || t("note.untitled")}
@@ -74,14 +77,16 @@ export function ConnectionsPanel({
     <aside className="flex h-full w-full flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="font-serif text-lg font-medium">{t("connections.title")}</span>
-        <button
-          type="button"
-          aria-label={t("connections.close")}
-          onClick={onClose}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
+        {!mobile && (
+          <button
+            type="button"
+            aria-label={t("connections.close")}
+            onClick={onClose}
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        )}
       </header>
 
       <ScrollArea className="min-h-0 flex-1">
@@ -146,7 +151,7 @@ export function ConnectionsPanel({
                   key={`${p.translationId}/${p.book}.${p.chapter}`}
                   type="button"
                   onClick={() => navigate(`/read/${p.book}/${p.chapter}`)}
-                  className="w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+                  className={`w-full rounded px-2 text-left hover:bg-accent ${mobile ? "py-2.5" : "py-1.5"}`}
                 >
                   <span className="block font-serif text-sm">
                     {formatReference({ book: p.book, chapter: p.chapter })}

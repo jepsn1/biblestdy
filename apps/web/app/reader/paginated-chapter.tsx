@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next";
 import type { Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { ChapterText } from "./chapter-text";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
@@ -205,6 +206,25 @@ export function PaginatedChapter({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantedMark, stride, noteMarks.length]);
 
+
+  function closeConnections() {
+    localStorage.setItem("connectionsOpen", "0");
+    onSideViewChange(null);
+  }
+
+  function closeNote() {
+    setOpenNoteId(null);
+    setSelectedMarkId(null);
+    if (searchParams.has("note")) {
+      setSearchParams(
+        (params) => {
+          params.delete("note");
+          return params;
+        },
+        { replace: true },
+      );
+    }
+  }
 
   const chapterKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
 
@@ -417,8 +437,10 @@ export function PaginatedChapter({
       </footer>
       </ResizablePanel>
 
-      {/* An open note takes the side slot; closing it brings connections back */}
-      {sideView === "connections" && !openNote && (
+      {/* An open note takes the side slot; closing it brings connections back.
+          Desktop: resizable side panels. Phone (#13): bottom drawers — the
+          same content in its mobile build, app-sheet feel. */}
+      {!mobile && sideView === "connections" && !openNote && (
         <>
           <ResizableHandle withHandle />
           <ResizablePanel id="connections" defaultSize="24%" minSize="16rem" maxSize="40%">
@@ -427,16 +449,13 @@ export function PaginatedChapter({
               book={chapter.book}
               chapter={chapter.chapter}
               onOpenNote={setOpenNoteId}
-              onClose={() => {
-                localStorage.setItem("connectionsOpen", "0");
-                onSideViewChange(null);
-              }}
+              onClose={closeConnections}
             />
           </ResizablePanel>
         </>
       )}
 
-      {openNote && (
+      {!mobile && openNote && (
         <>
           <ResizableHandle withHandle />
           {/* min = what the editor toolbar needs in one row */}
@@ -448,24 +467,50 @@ export function PaginatedChapter({
               onDetach={notesApi.detach}
               onShowAnchor={showAnchor}
               selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
-              onClose={() => {
-                setOpenNoteId(null);
-                setSelectedMarkId(null);
-                if (searchParams.has("note")) {
-                  setSearchParams(
-                    (params) => {
-                      params.delete("note");
-                      return params;
-                    },
-                    { replace: true },
-                  );
-                }
-              }}
+              onClose={closeNote}
             />
           </ResizablePanel>
         </>
       )}
       </ResizablePanelGroup>
+
+      {mobile && (
+        <>
+          <Drawer
+            open={sideView === "connections" && !openNote}
+            onOpenChange={(open) => !open && closeConnections()}
+            showSwipeHandle
+          >
+            <DrawerContent style={{ "--drawer-height": "70dvh" } as React.CSSProperties}>
+              <ConnectionsPanel
+                translationId={chapter.translationId}
+                book={chapter.book}
+                chapter={chapter.chapter}
+                onOpenNote={setOpenNoteId}
+                onClose={closeConnections}
+                mobile
+              />
+            </DrawerContent>
+          </Drawer>
+
+          <Drawer open={!!openNote} onOpenChange={(open) => !open && closeNote()} showSwipeHandle>
+            <DrawerContent style={{ "--drawer-height": "92dvh" } as React.CSSProperties}>
+              {openNote && (
+                <NotePanel
+                  note={openNote}
+                  onEdit={notesApi.edit}
+                  onRemove={notesApi.remove}
+                  onDetach={notesApi.detach}
+                  onShowAnchor={showAnchor}
+                  selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
+                  onClose={closeNote}
+                  mobile
+                />
+              )}
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
     </main>
   );
 }
