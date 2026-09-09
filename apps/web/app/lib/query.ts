@@ -1,5 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
+import { apiUrl } from "./api-base";
+
 /** App-wide query client. Annotation data is per-user and only mutated from
  * this device, so a modest staleTime saves refetches when flipping between
  * chapters; mutations keep the cache correct via setQueryData. */
@@ -15,7 +17,7 @@ export const queryClient = new QueryClient({
 
 /** Fetch JSON with session cookies; throws on non-2xx. */
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     credentials: "include",
     ...init,
     headers: init?.body ? { "Content-Type": "application/json", ...init?.headers } : init?.headers,
