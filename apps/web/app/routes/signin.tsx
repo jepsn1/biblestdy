@@ -133,6 +133,12 @@ export default function SignIn() {
         >
           {i18next.language.startsWith("da") ? "English" : "Dansk"}
         </button>
+        <Link
+          to="/privacy"
+          className="mx-auto mt-1 block text-center font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
+        >
+          {t("settings.privacy")}
+        </Link>
       </div>
     </main>
   );
