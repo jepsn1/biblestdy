@@ -1,0 +1,17 @@
+{
+  "name": "@biblestdy/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Capacitor shell wrapping the built web SPA (issue #16)",
+  "scripts": {
+    "sync": "pnpm --filter @biblestdy/web build && ./scripts/copy-www.sh && cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.1"
+  }
+}
