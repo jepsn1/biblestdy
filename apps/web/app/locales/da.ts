@@ -112,6 +112,41 @@ const da: typeof en = {
     toPaper: "Skift til papirtema",
     toCharcoal: "Skift til kultema",
   },
+  settings: {
+    open: "Konto og indstillinger",
+    signedInAs: "Logget ind som",
+    theme: "Tema",
+    language: "Sprog",
+    version: "Version",
+    privacy: "Privatlivspolitik",
+    dangerZone: "Farezone",
+    deleteAccount: "Slet konto…",
+    deleteWarning:
+      "Sletter din konto og alt i den — noter, fremhævninger, annotationer, tags. Det kan ikke fortrydes.",
+    deleteConfirmWord: "slet",
+    deleteTypeToConfirm: "Skriv “{{word}}” for at bekræfte",
+    deleteConfirm: "Slet min konto",
+    deleteBusy: "Sletter…",
+    deleteError: "Sletningen mislykkedes — prøv igen.",
+    deleteCancel: "Behold min konto",
+  },
+  privacy: {
+    metaTitle: "Privatliv — biblestdy",
+    title: "Privatliv",
+    updated: "Senest opdateret",
+    storeTitle: "Hvad vi gemmer",
+    storeBody:
+      "Din mailadresse (bruges kun til at logge dig ind — ingen adgangskoder) og det studie du skaber: noter, fremhævninger, annotationer og tags, knyttet til din konto så det følger dig på tværs af enheder.",
+    trackTitle: "Hvad vi ikke gør",
+    trackBody:
+      "Ingen sporing, ingen analyse, ingen reklamer, ingen cookies ud over sessionen der holder dig logget ind. Dine data sælges eller deles aldrig med nogen.",
+    deleteTitle: "Sletning af dine data",
+    deleteBody:
+      "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt, du nogensinde har gemt.",
+    contactTitle: "Spørgsmål eller hjælp",
+    contactBody: "Skriv til os — support- og privatlivsspørgsmål i samme indbakke:",
+    backToApp: "tilbage til biblestdy",
+  },
   error: {
     oops: "Hovsa!",
     unexpected: "Der opstod en uventet fejl.",

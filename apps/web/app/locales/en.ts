@@ -110,6 +110,41 @@ export default {
     toPaper: "Switch to paper theme",
     toCharcoal: "Switch to charcoal theme",
   },
+  settings: {
+    open: "Account & settings",
+    signedInAs: "Signed in as",
+    theme: "Theme",
+    language: "Language",
+    version: "Version",
+    privacy: "Privacy policy",
+    dangerZone: "Danger zone",
+    deleteAccount: "Delete account…",
+    deleteWarning:
+      "Deletes your account and everything in it — notes, highlights, annotations, tags. There is no undo.",
+    deleteConfirmWord: "delete",
+    deleteTypeToConfirm: "Type “{{word}}” to confirm",
+    deleteConfirm: "Delete my account",
+    deleteBusy: "Deleting…",
+    deleteError: "Deletion failed — try again.",
+    deleteCancel: "Keep my account",
+  },
+  privacy: {
+    metaTitle: "Privacy — biblestdy",
+    title: "Privacy",
+    updated: "Last updated",
+    storeTitle: "What we store",
+    storeBody:
+      "Your email address (used only to sign you in — no passwords) and the study you create: notes, highlights, annotations and tags, each tied to your account so it follows you across devices.",
+    trackTitle: "What we don't do",
+    trackBody:
+      "No tracking, no analytics, no advertising, no cookies beyond the session that keeps you signed in. Your data is never sold or shared with anyone.",
+    deleteTitle: "Deleting your data",
+    deleteBody:
+      "You can delete your account at any time from the settings inside the app. Deletion is immediate and removes everything you ever stored.",
+    contactTitle: "Questions or help",
+    contactBody: "Write us — support and privacy questions alike:",
+    backToApp: "back to biblestdy",
+  },
   error: {
     oops: "Oops!",
     unexpected: "An unexpected error occurred.",

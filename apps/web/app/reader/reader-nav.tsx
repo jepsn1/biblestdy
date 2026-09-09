@@ -16,8 +16,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { SidebarTrigger } from "~/components/ui/sidebar";
-import { ThemeToggle } from "~/components/theme-toggle";
-import { setUiLanguage } from "~/lib/i18n";
+import { AccountChip } from "./account-settings";
 
 export function ReaderNav({
   book,
@@ -36,7 +35,7 @@ export function ReaderNav({
   connectionsOpen: boolean;
   onToggleConnections: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const pwa = usePwaInstall();
   const jumpRef = useRef<HTMLInputElement>(null);
@@ -211,20 +210,9 @@ export function ReaderNav({
           </Popover>
         )}
 
-        {/* UI language (issue #12) — independent of the Scripture translation */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("nav.language")}
-          title={t("nav.language")}
-          onClick={() => setUiLanguage(i18n.language.startsWith("da") ? "en" : "da")}
-        >
-          <span className="font-mono text-[0.6rem] font-semibold">
-            {i18n.language.startsWith("da") ? "DA" : "EN"}
-          </span>
-        </Button>
-
-        <ThemeToggle />
+        {/* Account chip (#17): settings surface — theme + language live in
+            there now, keeping the nav row lean */}
+        <AccountChip />
       </div>
     </nav>
   );
