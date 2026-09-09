@@ -9,6 +9,8 @@ const da: typeof en = {
     goToReference: "Gå til skriftsted…",
     connectionsToggle: "Vis/skjul forbindelser",
     connectionsHint: "Forbindelser: noter her, delte skriftsteder, seneste",
+    annotationsToggle: "Vis/skjul annotationsbokse",
+    annotationsHint: "Annotationer: vis eller skjul dine håndskrevne bokse",
     language: "Sprog",
     install: "Installer app",
     installIosTitle: "Installer p\u00e5 denne iPhone/iPad",

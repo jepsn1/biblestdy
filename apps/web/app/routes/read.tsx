@@ -73,6 +73,9 @@ export default function Read({ loaderData }: Route.ComponentProps) {
       ? "connections"
       : null,
   );
+  // Mobile annotation layer (#15): default OFF — reading shows only
+  // highlights/scribbles; the nav toggle reveals the boxes. Not persisted.
+  const [annotationBoxesOpen, setAnnotationBoxesOpen] = useState(false);
   function toggleConnections() {
     setSideView((view) => {
       // From a note, Waypoints switches BACK to connections (never closes)
@@ -94,6 +97,8 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           onSwitchTranslation={switchTranslation}
           connectionsOpen={sideView === "connections"}
           onToggleConnections={toggleConnections}
+          annotationBoxesOpen={annotationBoxesOpen}
+          onToggleAnnotationBoxes={() => setAnnotationBoxesOpen((v) => !v)}
         />
         <PaginatedChapter
           chapter={chapter}
@@ -103,6 +108,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           nextHref={nextHref}
           sideView={sideView}
           onSideViewChange={setSideView}
+          annotationBoxesOpen={annotationBoxesOpen}
         />
       </SidebarInset>
     </SidebarProvider>

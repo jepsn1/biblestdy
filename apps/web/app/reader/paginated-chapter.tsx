@@ -30,6 +30,7 @@ export function PaginatedChapter({
   nextHref,
   sideView,
   onSideViewChange,
+  annotationBoxesOpen,
 }: {
   chapter: Chapter;
   translation: Translation;
@@ -39,6 +40,8 @@ export function PaginatedChapter({
   /** The single side slot: 'connections' | a note id | null. */
   sideView: string | null;
   onSideViewChange: (view: string | null) => void;
+  /** Mobile annotation layer (#15): boxes shown only while toggled on. */
+  annotationBoxesOpen: boolean;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -471,6 +474,7 @@ export function PaginatedChapter({
           annotations={annotationsApi.annotations}
           noteMarks={noteMarks}
           compact={mobile != null}
+          showBoxes={annotationBoxesOpen}
           regionRef={regionRef}
           contentRef={contentBoxRef}
           page={page}

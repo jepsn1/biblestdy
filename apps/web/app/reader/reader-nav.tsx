@@ -1,7 +1,7 @@
 import type { Translation } from "@biblestdy/shared";
 import { getBook, parseReference } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
-import { MonitorDown, Share, SquarePlus, Waypoints } from "lucide-react";
+import { Layers, MonitorDown, Share, SquarePlus, Waypoints } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
@@ -27,6 +27,8 @@ export function ReaderNav({
   onSwitchTranslation,
   connectionsOpen,
   onToggleConnections,
+  annotationBoxesOpen,
+  onToggleAnnotationBoxes,
 }: {
   book: string;
   chapter: number;
@@ -35,6 +37,8 @@ export function ReaderNav({
   onSwitchTranslation: (id: string) => void;
   connectionsOpen: boolean;
   onToggleConnections: () => void;
+  annotationBoxesOpen: boolean;
+  onToggleAnnotationBoxes: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -163,6 +167,20 @@ export function ReaderNav({
           onClick={onToggleConnections}
         >
           <Waypoints />
+        </Button>
+
+        {/* Mobile-only (#15): annotation-box layer toggle — off = clean page
+            (washes + circles stay), on = computed boxes. Desktop always shows. */}
+        <Button
+          variant={annotationBoxesOpen ? "secondary" : "ghost"}
+          size="icon-sm"
+          className="sm:hidden"
+          aria-label={t("nav.annotationsToggle")}
+          aria-pressed={annotationBoxesOpen}
+          title={t("nav.annotationsHint")}
+          onClick={onToggleAnnotationBoxes}
+        >
+          <Layers />
         </Button>
 
         {/* Install as app: real prompt on Chromium; iOS Safari has no install

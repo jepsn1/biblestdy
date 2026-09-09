@@ -5,6 +5,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
 import {
+  layoutMobileAnnotations,
+  type BoxPlacement,
+  type ColumnGeometry,
+} from "./mobile-annotation-layout";
+import {
   bracketPath,
   leaderPath,
   SCRIBBLE_PAD_X,
@@ -36,6 +41,8 @@ type Placement = {
   annotation: Annotation;
   box: Box;
   lines: number;
+  /** Rect of the anchor's last text line — the mobile layout hangs the box off it. */
+  lastLine: Box;
   colSide: "left" | "right"; // which column of the spread the span sits in
   laneCenter: { x: number; y: number };
 };
@@ -51,6 +58,8 @@ function geom(
   drag: { id: string; x: number; y: number } | null,
   resize: { id: string; cx: number; w: number } | null,
   boxH = 22, // measured handwriting-box height (default: one line)
+  /** Mobile (#15): computed placement wins over stored offsets and the lane. */
+  fixed?: BoxPlacement,
 ) {
   const aCX = p.box.x + p.box.w / 2;
   const aCY = p.box.y + p.box.h / 2;
@@ -68,6 +77,11 @@ function geom(
   if (resize && resize.id === p.annotation.id) {
     cx = resize.cx;
     w = resize.w;
+  }
+  if (fixed) {
+    w = fixed.width;
+    cx = fixed.x + w / 2;
+    cy = fixed.y + boxH / 2;
   }
   const side: "left" | "right" = cx < aCX ? "left" : "right";
   // Flip to the top approach as soon as the annotation rises past the circle's
@@ -116,6 +130,37 @@ function geom(
   };
 }
 
+/** Mobile (#15): deterministic box slots from the pure layout module —
+ * per column, in text (anchor) order, stored x/y ignored entirely. */
+function mobileBoxPlacements(
+  placements: Placement[],
+  columns: { left: ColumnGeometry; right: ColumnGeometry },
+  heights: Map<string, number>,
+): Map<string, BoxPlacement> {
+  const byId = new Map<string, BoxPlacement>();
+  for (const side of ["left", "right"] as const) {
+    const group = placements
+      .filter((p) => p.colSide === side)
+      .sort(
+        (a, b) =>
+          a.annotation.startVerse - b.annotation.startVerse ||
+          a.annotation.startWord - b.annotation.startWord ||
+          a.annotation.endVerse - b.annotation.endVerse ||
+          a.annotation.endWord - b.annotation.endWord,
+      );
+    const placed = layoutMobileAnnotations(
+      group.map((p) => ({
+        id: p.annotation.id,
+        lineRects: [p.lastLine],
+        height: heights.get(p.annotation.id),
+      })),
+      columns[side],
+    );
+    for (const b of placed) byId.set(b.id, b);
+  }
+  return byId;
+}
+
 export function AnnotationMarks({
   annotations,
   noteMarks,
@@ -125,6 +170,7 @@ export function AnnotationMarks({
   activeAnnotationId,
   selectedMarkId,
   compact = false,
+  showBoxes = true,
   onFocus,
   onEdit,
   onRemove,
@@ -143,6 +189,9 @@ export function AnnotationMarks({
   /** Phone view (#13): margin lanes are clipped — undragged boxes go under
    * their anchor instead. */
   compact?: boolean;
+  /** Mobile layer toggle (#15): false hides annotation boxes (and their
+   * arrows) — circles/brackets and note chips stay. Desktop ignores it. */
+  showBoxes?: boolean;
   onFocus: (id: string | null) => void;
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
@@ -158,6 +207,11 @@ export function AnnotationMarks({
   // coordinates local px
   const scaleRef = useRef(1);
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
+  // Mobile (#15): the spread's two column slots, measured with the anchors
+  const [columns, setColumns] = useState<{
+    left: ColumnGeometry;
+    right: ColumnGeometry;
+  } | null>(null);
   // Spotlight: only the selected reference's mark is drawn
   const shownPlacements = spotlight ? [] : placements;
   const shownTabs = spotlight
@@ -251,7 +305,7 @@ export function AnnotationMarks({
         const bottom = Math.max(...rects.map((r) => r.bottom));
         // Distinct (line, column) clusters — same top in the other column of
         // the spread is a different line
-        const runs: { top: number; left: number; right: number }[] = [];
+        const runs: { top: number; left: number; right: number; bottom: number }[] = [];
         for (const r of rects) {
           const run = runs.find(
             (q) => Math.abs(q.top - r.top) < 3 && r.left - q.right < 60 && q.left - r.right < 60,
@@ -259,14 +313,22 @@ export function AnnotationMarks({
           if (run) {
             run.left = Math.min(run.left, r.left);
             run.right = Math.max(run.right, r.right);
+            run.bottom = Math.max(run.bottom, r.bottom);
           } else {
-            runs.push({ top: r.top, left: r.left, right: r.right });
+            runs.push({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
           }
         }
+        const last = runs.reduce((a, b) => (b.top > a.top ? b : a));
         return {
           box: { x: left, y: top, w: right - left, h: bottom - top } as Box,
           lines: runs.length,
           mid: (left + right) / 2,
+          lastLine: {
+            x: last.left,
+            y: last.top,
+            w: last.right - last.left,
+            h: last.bottom - last.top,
+          } as Box,
         };
       };
 
@@ -279,6 +341,7 @@ export function AnnotationMarks({
           annotation,
           box: m.box,
           lines: m.lines,
+          lastLine: m.lastLine,
           colSide: side,
           laneCenter: compact
             ? { x: m.box.x + m.box.w / 2, y: m.box.y + m.box.h + 34 }
@@ -289,6 +352,26 @@ export function AnnotationMarks({
         });
       }
       setPlacements(items);
+
+      // Mobile (#15): measure the spread's column slots for the computed
+      // layout. The flow is the content box's first child; offsets are layout
+      // px (transform/scale-free), matching the local space used above.
+      const flow = compact ? (content.firstElementChild as HTMLElement | null) : null;
+      if (flow) {
+        const colGap = parseFloat(getComputedStyle(flow).columnGap || "0") || 0;
+        const colW = (flow.clientWidth - colGap) / 2;
+        const contentTop = (contentRect.top - regionRect.top) / s;
+        const left: ColumnGeometry = {
+          x: contentLeft + flow.offsetLeft,
+          width: colW,
+          top: contentTop + flow.offsetTop,
+          height: flow.clientHeight,
+          lineHeight: parseFloat(getComputedStyle(flow).lineHeight || "0") || 36,
+        };
+        setColumns({ left, right: { ...left, x: left.x + colW + colGap } });
+      } else {
+        setColumns(null);
+      }
 
       const tabs: NoteTab[] = [];
       for (const mark of noteMarks) {
@@ -315,6 +398,13 @@ export function AnnotationMarks({
     };
   }, [annotations, noteMarks, page, regionRef, contentRef, compact]);
 
+  // Mobile (#15): computed slots override stored x/y; recomputed per render so
+  // fresh box-height measurements (remeasured bump) feed back into the stack.
+  const mobileBoxes =
+    compact && columns ? mobileBoxPlacements(placements, columns, boxHeights.current) : null;
+  // Mobile layer toggle: boxes+arrows hide, circles/brackets/chips stay
+  const boxesShown = !compact || showBoxes;
+
   return (
     <>
       {/* Leader arrows render BELOW the text (negative z): the stroke dips
@@ -322,9 +412,16 @@ export function AnnotationMarks({
           selected reference's wash paints here too — marker behind the text,
           never a layer over it. */}
       <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
-        {shownPlacements.map((p) => {
-          const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id));
-          if (!g.showArrow) return null;
+        {boxesShown &&
+          shownPlacements.map((p) => {
+            const g = geom(
+              p,
+              drag,
+              resize,
+              boxHeights.current.get(p.annotation.id),
+              mobileBoxes?.get(p.annotation.id),
+            );
+            if (!g.showArrow) return null;
           const active = p.annotation.id === activeAnnotationId;
           return (
             <path
@@ -429,10 +526,14 @@ export function AnnotationMarks({
           );
         })}
 
-        {shownPlacements.map((p) => {
+        {boxesShown &&
+          shownPlacements.map((p) => {
           const active = p.annotation.id === activeAnnotationId;
           const isEditing = editing?.id === p.annotation.id;
-          const g = geom(p, drag, resize);
+          // Mobile: computed slot, no dragging/resizing — placement is not a
+          // hand gesture on the phone, it's the layout module's job
+          const fixed = mobileBoxes?.get(p.annotation.id);
+          const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id), fixed);
           const dragging = drag?.id === p.annotation.id;
           return (
             <div
@@ -447,12 +548,16 @@ export function AnnotationMarks({
               }}
               onMouseEnter={() => onFocus(p.annotation.id)}
               onMouseLeave={() => !isEditing && onFocus(null)}
-              onPointerDown={(e) => {
-                if (isEditing || e.button !== 0) return;
-                dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
-                didDrag.current = false;
-                e.currentTarget.setPointerCapture(e.pointerId);
-              }}
+              onPointerDown={
+                fixed
+                  ? undefined
+                  : (e) => {
+                      if (isEditing || e.button !== 0) return;
+                      dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
+                      didDrag.current = false;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                    }
+              }
               onPointerMove={(e) => {
                 const from = dragFrom.current;
                 if (!from) return;
@@ -479,6 +584,7 @@ export function AnnotationMarks({
               }}
             >
               {!isEditing &&
+                !fixed &&
                 (["left", "right"] as const).map((edge) => (
                   <div
                     key={edge}
@@ -585,7 +691,7 @@ export function AnnotationMarks({
                     setEditing({ id: p.annotation.id, text: p.annotation.text });
                   }}
                   className={`-mx-1 rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50 ${
-                    dragging ? "cursor-grabbing" : "cursor-grab"
+                    fixed ? "" : dragging ? "cursor-grabbing" : "cursor-grab"
                   }`}
                   style={{ color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT }}
                 >

@@ -7,6 +7,8 @@ export default {
     goToReference: "Go to reference…",
     connectionsToggle: "Toggle connections panel",
     connectionsHint: "Connections: notes here, shared passages, recent",
+    annotationsToggle: "Toggle annotation boxes",
+    annotationsHint: "Annotations: show or hide your handwritten boxes",
     language: "Language",
     install: "Install app",
     installIosTitle: "Install on this iPhone/iPad",
