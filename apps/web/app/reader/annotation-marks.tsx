@@ -130,31 +130,57 @@ function geom(
   };
 }
 
-/** Mobile (#15): deterministic box slots from the pure layout module —
- * per column, in text (anchor) order, stored x/y ignored entirely. */
+/** The CSS-column flow's geometry — column slots repeat every
+ * `colWidth + colGap` from `x`, across ALL spreads (not just the first). */
+type FlowGeometry = {
+  x: number;
+  colWidth: number;
+  colGap: number;
+  top: number;
+  height: number;
+  lineHeight: number;
+};
+
+/** Mobile (#15): deterministic box slots from the pure layout module — per
+ * column, in text (anchor) order, stored x/y ignored entirely. The column a
+ * box belongs to is derived from its OWN anchor line (column index within the
+ * whole flow), so anchors on later pages land in their real column slot. */
 function mobileBoxPlacements(
   placements: Placement[],
-  columns: { left: ColumnGeometry; right: ColumnGeometry },
+  flow: FlowGeometry,
   heights: Map<string, number>,
 ): Map<string, BoxPlacement> {
+  const stride = flow.colWidth + flow.colGap;
+  const colIndex = (p: Placement) =>
+    stride > 0 ? Math.max(0, Math.round((p.lastLine.x - flow.x) / stride)) : 0;
+  const byCol = new Map<number, Placement[]>();
+  for (const p of placements) {
+    const i = colIndex(p);
+    byCol.set(i, [...(byCol.get(i) ?? []), p]);
+  }
   const byId = new Map<string, BoxPlacement>();
-  for (const side of ["left", "right"] as const) {
-    const group = placements
-      .filter((p) => p.colSide === side)
-      .sort(
-        (a, b) =>
-          a.annotation.startVerse - b.annotation.startVerse ||
-          a.annotation.startWord - b.annotation.startWord ||
-          a.annotation.endVerse - b.annotation.endVerse ||
-          a.annotation.endWord - b.annotation.endWord,
-      );
+  for (const [i, group] of byCol) {
+    group.sort(
+      (a, b) =>
+        a.annotation.startVerse - b.annotation.startVerse ||
+        a.annotation.startWord - b.annotation.startWord ||
+        a.annotation.endVerse - b.annotation.endVerse ||
+        a.annotation.endWord - b.annotation.endWord,
+    );
+    const column: ColumnGeometry = {
+      x: flow.x + i * stride,
+      width: flow.colWidth,
+      top: flow.top,
+      height: flow.height,
+      lineHeight: flow.lineHeight,
+    };
     const placed = layoutMobileAnnotations(
       group.map((p) => ({
         id: p.annotation.id,
         lineRects: [p.lastLine],
         height: heights.get(p.annotation.id),
       })),
-      columns[side],
+      column,
     );
     for (const b of placed) byId.set(b.id, b);
   }
@@ -207,11 +233,8 @@ export function AnnotationMarks({
   // coordinates local px
   const scaleRef = useRef(1);
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
-  // Mobile (#15): the spread's two column slots, measured with the anchors
-  const [columns, setColumns] = useState<{
-    left: ColumnGeometry;
-    right: ColumnGeometry;
-  } | null>(null);
+  // Mobile (#15): the column flow's geometry, measured with the anchors
+  const [columns, setColumns] = useState<FlowGeometry | null>(null);
   // Spotlight: only the selected reference's mark is drawn
   const shownPlacements = spotlight ? [] : placements;
   const shownTabs = spotlight
@@ -361,14 +384,14 @@ export function AnnotationMarks({
         const colGap = parseFloat(getComputedStyle(flow).columnGap || "0") || 0;
         const colW = (flow.clientWidth - colGap) / 2;
         const contentTop = (contentRect.top - regionRect.top) / s;
-        const left: ColumnGeometry = {
+        setColumns({
           x: contentLeft + flow.offsetLeft,
-          width: colW,
+          colWidth: colW,
+          colGap,
           top: contentTop + flow.offsetTop,
           height: flow.clientHeight,
           lineHeight: parseFloat(getComputedStyle(flow).lineHeight || "0") || 36,
-        };
-        setColumns({ left, right: { ...left, x: left.x + colW + colGap } });
+        });
       } else {
         setColumns(null);
       }
@@ -539,12 +562,16 @@ export function AnnotationMarks({
             <div
               key={p.annotation.id}
               ref={measureBox(p.annotation.id)}
-              className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
+              className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""} ${
+                // Computed slots sit over the text — a paper backdrop keeps
+                // the handwriting legible (desktop boxes live in clear space)
+                fixed ? "rounded border border-border bg-background/95 px-1.5 py-0.5 shadow-sm" : ""
+              }`}
               style={{
                 left: g.boxLeft,
                 top: g.cy,
                 width: g.w,
-                textAlign: g.side === "left" ? "right" : "left",
+                textAlign: fixed ? "left" : g.side === "left" ? "right" : "left",
               }}
               onMouseEnter={() => onFocus(p.annotation.id)}
               onMouseLeave={() => !isEditing && onFocus(null)}
