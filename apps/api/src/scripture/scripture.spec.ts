@@ -3,11 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { parseChapterContent } from './apibible.provider';
 import { CachingScriptureProvider } from './caching.provider';
 import { FakeScriptureProvider } from './fake.provider';
+import type { Response } from 'express';
+import type { AuthedRequest } from '../auth/session.guard';
+import { ReadingQuotaService } from '../reading-quota/service';
+import { InMemoryQuotaStore } from '../reading-quota/store';
 import type { ScriptureProvider } from './provider';
 import { ScriptureController } from './scripture.controller';
 
 describe('ScriptureController (with fake provider)', () => {
-  const controller = new ScriptureController(new FakeScriptureProvider());
+  const controller = new ScriptureController(
+    new FakeScriptureProvider(),
+    new ReadingQuotaService({ store: new InMemoryQuotaStore() }),
+  );
+  const req = { user: { id: 'reader-1' } } as AuthedRequest;
+  const res = { setHeader: () => undefined } as unknown as Response;
+  const getChapter = (translationId: string, book: string, chapter: number) =>
+    controller.getChapter(req, res, translationId, book, chapter);
 
   it('lists translations', async () => {
     const translations = await controller.listTranslations();
@@ -17,7 +28,7 @@ describe('ScriptureController (with fake provider)', () => {
   });
 
   it('serves a chapter with ordered verses', async () => {
-    const chapter = await controller.getChapter('WEB', 'JHN', 3);
+    const chapter = await getChapter('WEB', 'JHN', 3);
     expect(chapter).toMatchObject({
       translationId: 'WEB',
       book: 'JHN',
@@ -33,21 +44,21 @@ describe('ScriptureController (with fake provider)', () => {
   });
 
   it('accepts lowercase book ids', async () => {
-    const chapter = await controller.getChapter('WEB', 'psa', 23);
+    const chapter = await getChapter('WEB', 'psa', 23);
     expect(chapter.verses).toHaveLength(6);
   });
 
   it('rejects unknown books and out-of-range chapters', async () => {
-    await expect(controller.getChapter('WEB', 'XXX', 1)).rejects.toThrow(
+    await expect(getChapter('WEB', 'XXX', 1)).rejects.toThrow(
       BadRequestException,
     );
-    await expect(controller.getChapter('WEB', 'JHN', 22)).rejects.toThrow(
+    await expect(getChapter('WEB', 'JHN', 22)).rejects.toThrow(
       BadRequestException,
     );
   });
 
   it('404s chapters the provider does not have', async () => {
-    await expect(controller.getChapter('WEB', 'JHN', 4)).rejects.toThrow(
+    await expect(getChapter('WEB', 'JHN', 4)).rejects.toThrow(
       NotFoundException,
     );
   });

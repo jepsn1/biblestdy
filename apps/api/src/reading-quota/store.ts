@@ -50,7 +50,8 @@ export class InMemoryQuotaStore implements QuotaStore {
       return result;
     } finally {
       release();
-      for (const k of keys) if (this.locks.get(k) === held) this.locks.delete(k);
+      for (const k of keys)
+        if (this.locks.get(k) === held) this.locks.delete(k);
     }
   }
 }

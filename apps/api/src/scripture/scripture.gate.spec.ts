@@ -1,12 +1,17 @@
-import type { INestApplication } from '@nestjs/common';
+import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
+import { ReadingQuotaService } from '../reading-quota/service';
+import { InMemoryQuotaStore } from '../reading-quota/store';
 import { FakeScriptureProvider } from './fake.provider';
 import { SCRIPTURE_PROVIDER } from './provider';
 import { ScriptureController } from './scripture.controller';
 
-/** Scripture access gate (#26): text is only served to signed-in sessions. */
+/**
+ * Scripture access gate: text only for signed-in sessions (#26), chapter
+ * requests paced by the reading quota (#29, real policy, in-memory store).
+ */
 describe('Scripture access gate (HTTP, fake provider)', () => {
   let app: INestApplication | undefined;
 
@@ -20,14 +25,27 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
       controllers: [ScriptureController],
       providers: [
         { provide: SCRIPTURE_PROVIDER, useValue: new FakeScriptureProvider() },
+        {
+          provide: ReadingQuotaService,
+          useValue: new ReadingQuotaService({
+            store: new InMemoryQuotaStore(),
+          }),
+        },
       ],
     });
     // Signed out → the real guard (no cookie, so no DB lookup happens).
     // Signed in → stand-in guard that accepts the request.
     if (signedIn)
-      builder = builder
-        .overrideGuard(SessionGuard)
-        .useValue({ canActivate: () => true });
+      builder = builder.overrideGuard(SessionGuard).useValue({
+        canActivate: (ctx: ExecutionContext) => {
+          ctx.switchToHttp().getRequest<AuthedRequest>().user = {
+            id: 'reader-1',
+            email: 'reader@example.com',
+            name: 'Reader',
+          };
+          return true;
+        },
+      });
     const moduleRef = await builder.compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.listen(0);
@@ -58,5 +76,30 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
     const translations = await fetch(`${base}/translations`);
     expect(translations.status).toBe(200);
     expect(await translations.json()).toHaveLength(2);
+  });
+
+  it('429s the 21st rapid chapter request with Retry-After + reason', async () => {
+    const base = await start(true);
+    for (let i = 0; i < 20; i++) {
+      const ok = await fetch(`${base}/passages/WEB/JHN/3`);
+      expect(ok.status).toBe(200);
+    }
+    const limited = await fetch(`${base}/passages/WEB/JHN/3`);
+    expect(limited.status).toBe(429);
+    const retryAfter = Number(limited.headers.get('retry-after'));
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(3);
+    expect(await limited.json()).toEqual({
+      reason: 'pace',
+      retryAfterSeconds: retryAfter,
+    });
+  });
+
+  it('never throttles the translations list', async () => {
+    const base = await start(true);
+    for (let i = 0; i < 30; i++) {
+      const res = await fetch(`${base}/translations`);
+      expect(res.status).toBe(200);
+    }
   });
 });

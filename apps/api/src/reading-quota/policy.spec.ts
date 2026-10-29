@@ -44,13 +44,14 @@ describe('reading-quota policy: pace (token bucket)', () => {
 
   it('refills one token per 3 s, never above the burst', () => {
     let { state } = burst(null, 20, T0);
-    expect(burst(state, 2, T0 + 3000).decisions.map((d) => d.allowed)).toEqual(
-      [true, false],
-    );
+    expect(burst(state, 2, T0 + 3000).decisions.map((d) => d.allowed)).toEqual([
+      true,
+      false,
+    ]);
     ({ state } = burst(state, 2, T0 + 3 * 3000));
-    expect(burst(state, 4, T0 + 3 * 3000).decisions.map((d) => d.allowed)).toEqual(
-      [true, false, false, false],
-    );
+    expect(
+      burst(state, 4, T0 + 3 * 3000).decisions.map((d) => d.allowed),
+    ).toEqual([true, false, false, false]);
     // An hour idle tops up to the burst, not to 1200
     const idle = burst(state, 21, T0 + 3_600_000).decisions;
     expect(idle.filter((d) => d.allowed)).toHaveLength(20);

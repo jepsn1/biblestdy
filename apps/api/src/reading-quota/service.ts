@@ -78,7 +78,11 @@ export class ReadingQuotaService {
         const decisions = await Promise.all(
           subjects.map(async (s) => ({
             subject: s.key,
-            decision: decide({ state: await tx.load(s.key), now, limits: s.limits }),
+            decision: decide({
+              state: await tx.load(s.key),
+              now,
+              limits: s.limits,
+            }),
           })),
         );
         let denied: Extract<QuotaOutcome, { allowed: false }> | undefined;
@@ -95,7 +99,8 @@ export class ReadingQuotaService {
         // Allowed → every subject spends. Denied → nothing is spent; the
         // denial's next state (refill progress, later strikes) is persisted.
         for (const { subject, decision } of decisions)
-          if (!denied || !decision.allowed) await tx.save(subject, decision.next);
+          if (!denied || !decision.allowed)
+            await tx.save(subject, decision.next);
         return denied ?? { allowed: true };
       },
     );
