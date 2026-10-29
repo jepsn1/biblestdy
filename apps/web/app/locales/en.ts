@@ -152,7 +152,7 @@ export default {
   readingLimit: {
     title: "Time for a breather",
     pace: "You're turning pages faster than we can serve them. Try again in {{wait}}.",
-    daily: "You've reached today's reading limit. Try again in {{wait}}.",
+    daily: "You've reached today's reading limit. Come back tomorrow (in {{wait}}).",
     cooldown: "Reading is paused for a little while. Try again in {{wait}}.",
     seconds_one: "{{count}} second",
     seconds_other: "{{count}} seconds",
