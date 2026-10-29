@@ -37,6 +37,17 @@ and resurfaces whenever they return to a passage.
   annotations reference word positions and never reproduce the text.
 - The copyright notice is shown on every chapter (already implemented).
 
+**Protection against extraction (live since 2026-10-29):**
+Copyrighted text is served only to signed-in users, one chapter per request;
+there is no bulk, range or download endpoint. Each account and IP address is
+limited to a normal reading pace and a daily cap on distinct chapters (150 per
+account), with escalating waits of up to 24 hours for repeated overuse.
+Sign-up and sign-in are rate-limited per IP, so the cap can't be multiplied by
+creating accounts. Together these make copying a full translation impractical.
+
+**Applicant:** apply as the holding company (Biblica grants direct full-text
+licenses only to registered legal entities).
+
 **Why BPH:** Danish readers are our core audience, and BPH is the modern
 Danish translation they know and ask for.
 
