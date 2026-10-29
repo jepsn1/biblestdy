@@ -21,6 +21,20 @@ export interface SubjectLimits {
   dailyChapters: number;
 }
 
+/**
+ * Escalating cooldowns (#32): every denial is an overage that records a strike
+ * (at most one per `strikeEveryMs`). Strike n puts the subject in cooldown for
+ * `firstMs × factor^(n-1)`, capped at `maxMs`. Strikes decay by one per
+ * `decayMs` since the last strike.
+ */
+export interface CooldownPolicy {
+  firstMs: number;
+  factor: number;
+  maxMs: number;
+  strikeEveryMs: number;
+  decayMs: number;
+}
+
 /** Every throttling number in one place — tune here (user story 21). */
 export interface ReadingQuotaPolicy {
   /** Per signed-in account, subject `user:<id>`. */
@@ -30,11 +44,23 @@ export interface ReadingQuotaPolicy {
    * network (church, school, office) doesn't block its readers (story 9).
    */
   ip: SubjectLimits;
+  /** Same escalation for account and IP subjects; `null` = no cooldowns. */
+  cooldown: CooldownPolicy | null;
 }
+
+const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 
 export const READING_QUOTA_POLICY: ReadingQuotaPolicy = {
   account: { pace: { burst: 20, refillMs: 3000 }, dailyChapters: 150 },
   ip: { pace: { burst: 40, refillMs: 1500 }, dailyChapters: 400 },
+  cooldown: {
+    firstMs: MINUTE,
+    factor: 4,
+    maxMs: DAY,
+    strikeEveryMs: 10 * MINUTE,
+    decayMs: DAY,
+  },
 };
 
 /** Persisted per-subject state. `null` = never seen (fresh, full bucket). */
@@ -43,6 +69,12 @@ export interface QuotaState {
   tokens: number;
   /** Epoch ms the bucket was last topped up to `tokens`; refill counts from here. */
   refilledAt: number;
+  /** Strike count as of `lastStrikeAt` (decay is applied on read, not stored). */
+  strikes: number;
+  /** Epoch ms of the latest strike; `null` = never struck. */
+  lastStrikeAt: number | null;
+  /** Epoch ms the current cooldown ends; in the past (or 0) = none. */
+  cooldownUntil: number;
 }
 
 export type DenyReason = 'pace' | 'daily' | 'cooldown';
@@ -52,6 +84,8 @@ export interface DecideInput {
   /** Epoch ms. */
   now: number;
   limits: SubjectLimits;
+  /** Omitted or `null` → denials never strike (no cooldowns). */
+  cooldown?: CooldownPolicy | null;
   /** Distinct chapters this subject read today (Copenhagen day of `now`). */
   readToday: number;
   /** The requested chapter is among them: free against the daily cap. */
@@ -64,7 +98,7 @@ export type QuotaDecision =
       allowed: false;
       reason: DenyReason;
       retryAfterMs: number;
-      /** State to persist even on denial (refill progress; later strikes). */
+      /** State to persist even on denial (refill progress, strikes). */
       next: QuotaState;
     };
 
@@ -74,12 +108,24 @@ function refill(
   now: number,
   pace: PaceLimits,
 ): QuotaState {
-  if (!state) return { tokens: pace.burst, refilledAt: now };
+  if (!state)
+    return {
+      tokens: pace.burst,
+      refilledAt: now,
+      strikes: 0,
+      lastStrikeAt: null,
+      cooldownUntil: 0,
+    };
   const elapsed = Math.max(0, now - state.refilledAt);
   const periods = Math.floor(elapsed / pace.refillMs);
   const tokens = state.tokens + periods;
-  if (tokens >= pace.burst) return { tokens: pace.burst, refilledAt: now };
-  return { tokens, refilledAt: state.refilledAt + periods * pace.refillMs };
+  if (tokens >= pace.burst)
+    return { ...state, tokens: pace.burst, refilledAt: now };
+  return {
+    ...state,
+    tokens,
+    refilledAt: state.refilledAt + periods * pace.refillMs,
+  };
 }
 
 const COPENHAGEN = new Intl.DateTimeFormat('en-CA', {
@@ -127,36 +173,90 @@ export function msUntilCopenhagenMidnight(now: number): number {
   throw new Error(`no Copenhagen midnight after ${now}`);
 }
 
-/** Decide one chapter request for one subject. Denials consume nothing. */
-export function decide({
-  state,
-  now,
-  limits,
-  readToday,
-  alreadyReadToday,
-}: DecideInput): QuotaDecision {
-  const { pace } = limits;
-  const current = refill(state, now, pace);
+/** Strikes left after decay: one fewer per `decayMs` since the last strike. */
+function liveStrikes(
+  state: QuotaState,
+  now: number,
+  cooldown: CooldownPolicy,
+): number {
+  if (state.lastStrikeAt === null) return 0;
+  const decayed = Math.floor(
+    Math.max(0, now - state.lastStrikeAt) / cooldown.decayMs,
+  );
+  return Math.max(0, state.strikes - decayed);
+}
+
+/** Cooldown length for strike number `strike` (1-based). */
+function cooldownMs(strike: number, cooldown: CooldownPolicy): number {
+  return Math.min(
+    cooldown.maxMs,
+    cooldown.firstMs * cooldown.factor ** (strike - 1),
+  );
+}
+
+/** A denial: record a strike unless one landed within `strikeEveryMs`. */
+function strike(
+  state: QuotaState,
+  now: number,
+  cooldown: CooldownPolicy | null,
+): QuotaState {
+  if (!cooldown) return state;
+  if (
+    state.lastStrikeAt !== null &&
+    now - state.lastStrikeAt < cooldown.strikeEveryMs
+  )
+    return state;
+  const strikes = liveStrikes(state, now, cooldown) + 1;
+  return {
+    ...state,
+    strikes,
+    lastStrikeAt: now,
+    cooldownUntil: Math.max(
+      state.cooldownUntil,
+      now + cooldownMs(strikes, cooldown),
+    ),
+  };
+}
+
+/** The pace or daily limit this request hits, if any. */
+function overLimit(
+  current: QuotaState,
+  { now, limits, readToday, alreadyReadToday }: DecideInput,
+): { reason: 'pace' | 'daily'; retryAfterMs: number } | null {
   // Daily cap first: its wait (until midnight) outlasts any pace wait
   if (!alreadyReadToday && readToday >= limits.dailyChapters)
+    return { reason: 'daily', retryAfterMs: msUntilCopenhagenMidnight(now) };
+  if (current.tokens < 1)
     return {
-      allowed: false,
-      reason: 'daily',
-      retryAfterMs: msUntilCopenhagenMidnight(now),
-      next: current,
+      reason: 'pace',
+      retryAfterMs: current.refilledAt + limits.pace.refillMs - now,
     };
-  if (current.tokens >= 1) {
+  return null;
+}
+
+/**
+ * Decide one chapter request for one subject. Denials consume nothing, but
+ * each records a strike (throttled) that escalates the cooldown. During a
+ * cooldown the reason is `cooldown`; the retry-after is always the longest
+ * wait among every limit in force, so retrying then can succeed.
+ */
+export function decide(input: DecideInput): QuotaDecision {
+  const { state, now, limits, cooldown = null } = input;
+  const current = refill(state, now, limits.pace);
+  const over = overLimit(current, input);
+  const coolingDown = current.cooldownUntil > now;
+  if (!over && !coolingDown)
     return {
       allowed: true,
       reason: null,
       retryAfterMs: 0,
-      next: { tokens: current.tokens - 1, refilledAt: current.refilledAt },
+      next: { ...current, tokens: current.tokens - 1 },
     };
-  }
+  const next = strike(current, now, cooldown);
   return {
     allowed: false,
-    reason: 'pace',
-    retryAfterMs: current.refilledAt + pace.refillMs - now,
-    next: current,
+    reason: coolingDown || !over ? 'cooldown' : over.reason,
+    retryAfterMs: Math.max(over?.retryAfterMs ?? 0, next.cooldownUntil - now),
+    next,
   };
 }

@@ -95,6 +95,7 @@ export class ReadingQuotaService {
                 state: await tx.load(s.key),
                 now,
                 limits: s.limits,
+                cooldown: this.policy.cooldown,
                 readToday: today.count,
                 alreadyReadToday: today.includes,
               }),
@@ -112,8 +113,9 @@ export class ReadingQuotaService {
               subject,
             };
         }
-        // Allowed → every subject spends. Denied → nothing is spent; the
-        // denial's next state (refill progress, later strikes) is persisted.
+        // Allowed → every subject spends. Denied → nothing is spent; each
+        // denying subject's next state (refill progress, strike, cooldown) is
+        // persisted. Subjects that allowed are left untouched: no strike.
         for (const { subject, decision, firstReadToday } of decisions) {
           if (!denied || !decision.allowed)
             await tx.save(subject, decision.next);

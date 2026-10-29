@@ -56,6 +56,15 @@ describe("readingLimitMessage", () => {
     );
   });
 
+  it("explains a cooldown (minutes up to a day) without promising it's short (#32)", async () => {
+    expect(readingLimitMessage(await tFor("en"), { reason: "cooldown", retryAfterSeconds: 86400 })).toBe(
+      "You've hit the limit, so reading is paused. Try again in 24 hours.",
+    );
+    expect(readingLimitMessage(await tFor("da"), { reason: "cooldown", retryAfterSeconds: 60 })).toBe(
+      "Du har ramt grænsen, så læsningen er sat på pause. Prøv igen om 1 minut.",
+    );
+  });
+
   it("has a message for every reason in both languages", async () => {
     for (const lng of ["en", "da"] as const) {
       const t = await tFor(lng);

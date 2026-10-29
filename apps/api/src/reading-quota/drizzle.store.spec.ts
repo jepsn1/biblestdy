@@ -19,6 +19,7 @@ const url = process.env.DATABASE_URL ?? '';
 const MIGRATIONS = [
   '2026-10-29-reading-quota.sql',
   '2026-10-29-reading-quota-day.sql',
+  '2026-10-30-reading-quota-cooldown.sql',
 ];
 const devDb = /\/[\w-]+_(dev|test)(\?|$)/.test(url);
 

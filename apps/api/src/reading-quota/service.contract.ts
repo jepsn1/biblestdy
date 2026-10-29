@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ReadingQuotaPolicy } from './policy';
+import { READING_QUOTA_POLICY, type ReadingQuotaPolicy } from './policy';
 import {
   ReadingQuotaService,
   type QuotaCheck,
@@ -11,11 +11,19 @@ import type { QuotaStore } from './store';
 /**
  * Tiny policy so tests stay short: account burst 3, one token per 10 s, 5
  * distinct chapters/day; IP looser like the real one, burst 5, one token per
- * 4 s, 8 distinct chapters/day.
+ * 4 s, 8 distinct chapters/day. No cooldowns, so pace/daily waits show bare;
+ * cooldown tests use COOLDOWN_POLICY.
  */
 export const TEST_POLICY: ReadingQuotaPolicy = {
   account: { pace: { burst: 3, refillMs: 10_000 }, dailyChapters: 5 },
   ip: { pace: { burst: 5, refillMs: 4_000 }, dailyChapters: 8 },
+  cooldown: null,
+};
+
+/** TEST_POLICY plus the real cooldown escalation (1 min, ×4, …). */
+export const COOLDOWN_POLICY: ReadingQuotaPolicy = {
+  ...TEST_POLICY,
+  cooldown: READING_QUOTA_POLICY.cooldown,
 };
 
 const chapter = { translationId: 'WEB', book: 'JHN', chapter: 3 };
@@ -346,6 +354,76 @@ export function quotaServiceContract(
           retryAfterMs: 4_000,
           subject: `ip:${v4}`,
         });
+      });
+    });
+
+    describe('escalating cooldowns (#32)', () => {
+      const MIN = 60_000;
+      const cool = (store = ctx.store()) => service(store, [], COOLDOWN_POLICY);
+
+      it('a denial starts a cooldown: 429 cooldown until it ends, even with tokens back', async () => {
+        const s = cool();
+        await run(s, check(), 3);
+        expect(await s.check(check())).toEqual({
+          allowed: false,
+          reason: 'pace',
+          retryAfterMs: MIN,
+          subject: `user:${ctx.userId()}`,
+        });
+        now += 30_000; // 3 tokens refilled, still cooling down
+        expect(await s.check(check())).toEqual({
+          allowed: false,
+          reason: 'cooldown',
+          retryAfterMs: 30_000,
+          subject: `user:${ctx.userId()}`,
+        });
+        now += 30_000;
+        expect((await s.check(check())).allowed).toBe(true);
+      });
+
+      it('strikes persist and escalate across restarts (1 min, then 4 min)', async () => {
+        await run(cool(), check(), 4); // strike 1
+        now += 10 * MIN;
+        await run(cool(), check(), 3);
+        // Fresh instance: strike 2 → 4 minutes
+        expect(await cool().check(check())).toMatchObject({
+          allowed: false,
+          retryAfterMs: 4 * MIN,
+        });
+        now += 3 * MIN;
+        expect(await cool().check(check())).toMatchObject({
+          allowed: false,
+          reason: 'cooldown',
+          retryAfterMs: MIN,
+        });
+      });
+
+      it('applies to the IP subject too, without striking accounts it spared', async () => {
+        const s = cool();
+        await run(s, at(1, ip()), 3);
+        await run(s, at(2, ip()), 2);
+        expect(await s.check(at(2, ip()))).toEqual({
+          allowed: false,
+          reason: 'pace',
+          retryAfterMs: MIN,
+          subject: `ip:${ip()}`,
+        });
+        now += 30_000;
+        expect(await s.check(at(3, ip()))).toEqual({
+          allowed: false,
+          reason: 'cooldown',
+          retryAfterMs: 30_000,
+          subject: `ip:${ip()}`,
+        });
+        // Account 3 wasn't struck: fine from another network
+        expect((await s.check(at(3, ip(2)))).allowed).toBe(true);
+      });
+
+      it("an account's cooldown doesn't put its IP in cooldown", async () => {
+        const s = cool();
+        await run(s, at(1, ip()), 4); // account 1 struck; IP had tokens
+        now += 10_000;
+        expect((await s.check(at(2, ip()))).allowed).toBe(true);
       });
     });
   });
