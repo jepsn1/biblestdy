@@ -8,6 +8,7 @@ import { requireAuth } from "~/lib/require-auth";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { PaginatedChapter } from "../reader/paginated-chapter";
+import { readingLimitError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
 import type { Route } from "./+types/read";
 
@@ -46,6 +47,9 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   if (res.status === 404 || res.status === 400) {
     throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
   }
+  // Over the reading quota (#29): friendly wait message, no auto-retry
+  const limit = await readingLimitError(res, i18n.t);
+  if (limit) throw limit;
   if (!res.ok) throw data(i18n.t("error.chapterLoad"), { status: 502 });
   const chapter = (await res.json()) as Chapter;
   // Only a chapter that actually loaded may become the launch page

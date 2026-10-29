@@ -1,4 +1,5 @@
 import {
+  bigint,
   integer,
   pgTable,
   primaryKey,
@@ -127,3 +128,15 @@ export const passageTag = pgTable(
     primaryKey({ columns: [t.tagId, t.translationId, t.book, t.chapter] }),
   ],
 );
+
+/**
+ * Reading-quota state per subject (`user:<id>` / `ip:<address>`, #29). The
+ * store locks the row (SELECT … FOR UPDATE) for each decision; null tokens =
+ * fresh subject. Times are epoch ms.
+ */
+export const readingQuota = pgTable('reading_quota', {
+  subject: text('subject').primaryKey(),
+  tokens: integer('tokens'),
+  refilledAt: bigint('refilled_at', { mode: 'number' }),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});

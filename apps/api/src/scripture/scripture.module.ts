@@ -1,4 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
+import { db } from '../db';
+import { DrizzleQuotaStore } from '../reading-quota/drizzle.store';
+import { ReadingQuotaService } from '../reading-quota/service';
 import { ApiBibleProvider } from './apibible.provider';
 import { CachingScriptureProvider } from './caching.provider';
 import { FakeScriptureProvider } from './fake.provider';
@@ -18,6 +21,14 @@ import { ScriptureController } from './scripture.controller';
         );
         return new FakeScriptureProvider();
       },
+    },
+    {
+      provide: ReadingQuotaService,
+      useFactory: () =>
+        new ReadingQuotaService({
+          store: new DrizzleQuotaStore(db),
+          logger: new Logger('ReadingQuota'),
+        }),
     },
   ],
 })

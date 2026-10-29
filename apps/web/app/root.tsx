@@ -80,6 +80,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       error.status === 404
         ? (typeof error.data === "string" && error.data) || t("error.notFound")
         : error.statusText || details;
+    // Reading quota (#29): the loader already localized the wait message
+    if (error.status === 429) {
+      message = t("readingLimit.title");
+      if (typeof error.data === "string" && error.data) details = error.data;
+    }
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
     stack = error.stack;
