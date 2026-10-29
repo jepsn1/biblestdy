@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Param,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { getBook, type Chapter, type Translation } from '@biblestdy/shared';
 import {
@@ -13,8 +14,11 @@ import {
   SCRIPTURE_PROVIDER,
   type ScriptureProvider,
 } from './provider';
+import { SessionGuard } from '../auth/session.guard';
 
+/** Scripture text is licensed: signed-in sessions only (#26). */
 @Controller()
+@UseGuards(SessionGuard)
 export class ScriptureController {
   constructor(
     @Inject(SCRIPTURE_PROVIDER) private readonly provider: ScriptureProvider,

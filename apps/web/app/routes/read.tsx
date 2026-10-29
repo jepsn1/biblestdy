@@ -5,6 +5,7 @@ import { data, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import i18n from "~/lib/i18n";
 import { requireAuth } from "~/lib/require-auth";
+import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { ReaderNav } from "../reader/reader-nav";
@@ -14,7 +15,7 @@ let translationsCache: Translation[] | undefined;
 
 async function loadTranslations(): Promise<Translation[]> {
   if (translationsCache) return translationsCache;
-  const res = await fetch("/api/translations");
+  const res = await fetchScripture("/api/translations");
   if (!res.ok) throw data(i18n.t("error.translationsLoad"), { status: 502 });
   const translations = (await res.json()) as Translation[];
   if (translations.length === 0) throw data(i18n.t("error.noTranslations"), { status: 502 });
@@ -41,7 +42,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   await requireAuth();
   const translations = await loadTranslations();
   const translation = pickTranslation(translations);
-  const res = await fetch(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
+  const res = await fetchScripture(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
   if (res.status === 404 || res.status === 400) {
     throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
   }
