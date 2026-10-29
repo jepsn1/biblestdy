@@ -40,6 +40,8 @@ const da: typeof en = {
     createNoteHint: "Et markdown-dokument, åbner editoren ved siden af",
     noteLink: "Opret notelink…",
     noteLinkHint: "Forankr også en eksisterende note til dette udsnit",
+    copy: "Kopiér",
+    copyHint: "Kopierer teksten med henvisning (også ⌘C / Ctrl+C)",
     annotationPlaceholder: "Din annotation…",
     saveHint: "⌘↵ for at gemme",
     save: "Gem",
