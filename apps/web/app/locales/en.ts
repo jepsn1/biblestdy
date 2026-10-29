@@ -38,6 +38,8 @@ export default {
     createNoteHint: "A markdown document, opens the side-by-side editor",
     noteLink: "Create note link…",
     noteLinkHint: "Anchor an existing note to this span too",
+    copy: "Copy",
+    copyHint: "Copies the text with its reference (also ⌘C / Ctrl+C)",
     annotationPlaceholder: "Your annotation…",
     saveHint: "⌘↵ to save",
     save: "Save",

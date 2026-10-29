@@ -434,6 +434,7 @@ export function PaginatedChapter({
           >
             <ChapterText
               chapter={chapter}
+              translationAbbreviation={translation.abbreviation}
               heading={heading}
               highlights={highlights}
               annotations={annotationsApi.annotations}

@@ -12,6 +12,7 @@ import {
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
+import { formatCopy } from "./copy-attribution";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
@@ -76,6 +77,7 @@ function coverInto<T>(
 
 export function ChapterText({
   chapter,
+  translationAbbreviation,
   heading,
   highlights,
   annotations,
@@ -94,6 +96,8 @@ export function ChapterText({
   mobile = false,
 }: {
   chapter: Chapter;
+  /** Shown in the reference line of copied text, e.g. "(NIV)". */
+  translationAbbreviation: string;
   heading: string;
   highlights: Highlight[];
   annotations: Annotation[];
@@ -220,6 +224,42 @@ export function ChapterText({
       window.removeEventListener("resize", close);
     };
   }, [menu]);
+
+  // Copy (⌘C / Ctrl+C) while a selection's menu is up: native selection is
+  // off, so the browser has nothing to copy — supply the selected words plus
+  // reference + copyright line (#27). Selection itself is untouched.
+  const copyAnchor = menu?.kind === "add" ? menu.anchor : null;
+  useEffect(() => {
+    if (!copyAnchor) return;
+    const onCopy = (e: ClipboardEvent) => {
+      // A real text selection elsewhere (e.g. an input) keeps native copy
+      const native = window.getSelection();
+      if (native && !native.isCollapsed) return;
+      if (!e.clipboardData) return;
+      const { text, html } = formatCopy(chapter, copyAnchor, translationAbbreviation);
+      e.clipboardData.setData("text/plain", text);
+      e.clipboardData.setData("text/html", html);
+      e.preventDefault();
+    };
+    document.addEventListener("copy", onCopy);
+    return () => document.removeEventListener("copy", onCopy);
+  }, [copyAnchor, chapter, translationAbbreviation]);
+
+  async function copySelection(anchor: Anchor) {
+    const { text, html } = formatCopy(chapter, anchor, translationAbbreviation);
+    setMenu(null);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([text], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+    } catch {
+      // No ClipboardItem/rich write (older webviews) — plain text still carries the citation
+      await navigator.clipboard.writeText(text).catch(() => {});
+    }
+  }
 
   function posOf(el: HTMLElement): Pos {
     const r = el.getBoundingClientRect();
@@ -550,6 +590,15 @@ export function ChapterText({
                       {t("menu.noteLink")}
                     </button>
                   )}
+                  <div className="mx-1 my-0.5 h-px bg-border" />
+                  <button
+                    type="button"
+                    title={t("menu.copyHint")}
+                    className="rounded px-2.5 py-1.5 text-left font-mono text-xs text-foreground hover:bg-accent"
+                    onClick={() => void copySelection(menu.anchor)}
+                  >
+                    {t("menu.copy")}
+                  </button>
                 </div>
               )}
 
