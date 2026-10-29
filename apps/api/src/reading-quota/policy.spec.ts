@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   decide,
   READING_QUOTA_POLICY,
+  type QuotaDecision,
   type QuotaState,
   type SubjectLimits,
 } from './policy';
@@ -12,7 +13,7 @@ const T0 = Date.UTC(2026, 9, 29, 10, 0, 0);
 
 /** Fire `n` requests at `now`, threading state; returns the decisions. */
 function burst(state: QuotaState | null, n: number, now: number) {
-  const out = [];
+  const out: QuotaDecision[] = [];
   for (let i = 0; i < n; i++) {
     const d = decide({ state, now, limits });
     if (d.allowed) state = d.next;
