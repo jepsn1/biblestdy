@@ -1,11 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { ReadingQuotaPolicy } from './policy';
-import { ReadingQuotaService, type QuotaCheck } from './service';
+import {
+  ReadingQuotaService,
+  type QuotaCheck,
+  type QuotaOutcome,
+} from './service';
 import type { QuotaStore } from './store';
 
-/** Tiny policy so tests stay short: burst 3, one token per 10 s. */
+/**
+ * Tiny policy so tests stay short: account burst 3, one token per 10 s; IP
+ * looser like the real one, burst 5, one token per 4 s.
+ */
 export const TEST_POLICY: ReadingQuotaPolicy = {
   account: { pace: { burst: 3, refillMs: 10_000 } },
+  ip: { pace: { burst: 5, refillMs: 4_000 } },
 };
 
 const chapter = { translationId: 'WEB', book: 'JHN', chapter: 3 };
@@ -23,14 +32,36 @@ export function quotaServiceContract(
     const ctx = setup();
     let now = Date.UTC(2026, 9, 29, 10, 0, 0);
     const clock = () => now;
-    const service = (store = ctx.store(), warnings: string[] = []) =>
+    const service = (
+      store = ctx.store(),
+      warnings: string[] = [],
+      policy = TEST_POLICY,
+    ) =>
       new ReadingQuotaService({
         store,
-        policy: TEST_POLICY,
+        policy,
         now: clock,
         logger: { warn: (msg: string) => warnings.push(msg) },
       });
     const check = (): QuotaCheck => ({ userId: ctx.userId(), chapter });
+
+    // Fresh addresses per test: the Postgres store keeps rows across tests
+    let ipPrefix = '';
+    beforeEach(() => {
+      ipPrefix = `2001:db8:${randomUUID().slice(0, 4)}:${randomUUID().slice(0, 4)}::`;
+    });
+    const ip = (n = 1) => `${ipPrefix}${n}`;
+    const user = (n: number) => `${ctx.userId()}-${n}`;
+    const at = (u: number, addr: string | undefined): QuotaCheck => ({
+      userId: user(u),
+      ip: addr,
+      chapter,
+    });
+    const run = async (s: ReadingQuotaService, c: QuotaCheck, n: number) => {
+      const out: QuotaOutcome[] = [];
+      for (let i = 0; i < n; i++) out.push(await s.check(c));
+      return out;
+    };
 
     it('allows the burst, then denies with pace + retry-after', async () => {
       const s = service();
@@ -80,6 +111,98 @@ export function quotaServiceContract(
         Array.from({ length: 12 }, () => service(ctx.store()).check(check())),
       );
       expect(results.filter((r) => r.allowed)).toHaveLength(3);
+    });
+
+    describe('account + IP subjects (#31)', () => {
+      it('IP limit blocks two accounts sharing one IP', async () => {
+        const s = service();
+        await run(s, at(1, ip()), 3);
+        expect((await run(s, at(2, ip()), 2)).every((r) => r.allowed)).toBe(
+          true,
+        );
+        expect(await s.check(at(2, ip()))).toEqual({
+          allowed: false,
+          reason: 'pace',
+          retryAfterMs: 4_000,
+          subject: `ip:${ip()}`,
+        });
+      });
+
+      it('one account rotating IPs is still bound by account limits', async () => {
+        const s = service();
+        for (let n = 1; n <= 3; n++)
+          expect((await s.check(at(1, ip(n)))).allowed).toBe(true);
+        expect(await s.check(at(1, ip(4)))).toEqual({
+          allowed: false,
+          reason: 'pace',
+          retryAfterMs: 10_000,
+          subject: `user:${user(1)}`,
+        });
+      });
+
+      it('longest retry-after wins when both deny (account longer)', async () => {
+        const s = service();
+        await run(s, at(1, ip()), 3);
+        await run(s, at(2, ip()), 2);
+        // account: 10 s to next token; IP: 4 s
+        expect(await s.check(at(1, ip()))).toMatchObject({
+          retryAfterMs: 10_000,
+          subject: `user:${user(1)}`,
+        });
+      });
+
+      it('longest retry-after wins when both deny (IP longer)', async () => {
+        const slowIp: ReadingQuotaPolicy = {
+          ...TEST_POLICY,
+          ip: { pace: { burst: 5, refillMs: 60_000 } },
+        };
+        const s = service(ctx.store(), [], slowIp);
+        await run(s, at(1, ip()), 3);
+        await run(s, at(2, ip()), 2);
+        expect(await s.check(at(1, ip()))).toMatchObject({
+          retryAfterMs: 60_000,
+          subject: `ip:${ip()}`,
+        });
+      });
+
+      it("an account denial doesn't spend the IP's tokens", async () => {
+        const s = service();
+        await run(s, at(1, ip()), 3); // account 1 empty, IP has 2 left
+        const denied = await run(s, at(1, ip()), 10);
+        expect(denied.every((r) => !r.allowed)).toBe(true);
+        const other = await run(s, at(2, ip()), 3);
+        expect(other.map((r) => r.allowed)).toEqual([true, true, false]);
+      });
+
+      it("an IP denial doesn't spend the account's tokens", async () => {
+        const s = service();
+        await run(s, at(1, ip()), 3);
+        await run(s, at(2, ip()), 2); // IP empty
+        const denied = await run(s, at(3, ip()), 10);
+        expect(denied.every((r) => !r.allowed)).toBe(true);
+        const elsewhere = await run(s, at(3, ip(2)), 4);
+        expect(elsewhere.map((r) => r.allowed)).toEqual([
+          true,
+          true,
+          true,
+          false,
+        ]);
+      });
+
+      it('no IP → account limits only (no shared unknown-IP bucket)', async () => {
+        const s = service();
+        for (const addr of [undefined, '']) {
+          for (let u = 1; u <= 6; u++)
+            expect(
+              (await s.check(at(u + (addr === '' ? 10 : 0), addr))).allowed,
+            ).toBe(true);
+        }
+        await run(s, at(1, undefined), 2);
+        expect(await s.check(at(1, undefined))).toMatchObject({
+          allowed: false,
+          subject: `user:${user(1)}`,
+        });
+      });
     });
   });
 }

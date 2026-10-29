@@ -3,9 +3,9 @@
  * subject. No I/O, no clock — callers pass `now`. Storage lives in the quota
  * store, orchestration (account + IP subjects, logging) in the service.
  *
- * Slices: pace (#29, this), daily distinct-chapter cap (#30), IP subject
- * (#31), escalating cooldowns (#32). Each extends the policy object, the state
- * and the decide input additively.
+ * Slices: pace (#29), daily distinct-chapter cap (#30), IP subject (#31),
+ * escalating cooldowns (#32). Each extends the policy object, the state and
+ * the decide input additively.
  */
 
 /** Token bucket: `burst` requests at once, then one more per `refillMs`. */
@@ -14,18 +14,26 @@ export interface PaceLimits {
   refillMs: number;
 }
 
-/** All limits for one kind of subject (account, later IP). */
+/** All limits for one kind of subject (account or IP). */
 export interface SubjectLimits {
   pace: PaceLimits;
 }
 
 /** Every throttling number in one place — tune here (user story 21). */
 export interface ReadingQuotaPolicy {
+  /** Per signed-in account, subject `user:<id>`. */
   account: SubjectLimits;
+  /**
+   * Per client IP, subject `ip:<addr>`. Looser than the account so a shared
+   * network (church, school, office) doesn't block its readers (story 9).
+   * The daily cap (#30) adds 400 distinct chapters/day here.
+   */
+  ip: SubjectLimits;
 }
 
 export const READING_QUOTA_POLICY: ReadingQuotaPolicy = {
   account: { pace: { burst: 20, refillMs: 3000 } },
+  ip: { pace: { burst: 40, refillMs: 1500 } },
 };
 
 /** Persisted per-subject state. `null` = never seen (fresh, full bucket). */
