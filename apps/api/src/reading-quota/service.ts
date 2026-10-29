@@ -17,7 +17,7 @@ export interface ChapterRef {
 /** One chapter request: who is reading what. */
 export interface QuotaCheck {
   userId: string;
-  /** Client IP (req.ip). Checked as subject `ip:<addr>` from #31 on. */
+  /** Client IP (req.ip). Checked as subject `ip:<addr>`; absent → account only. */
   ip?: string;
   chapter: ChapterRef;
 }
@@ -64,9 +64,14 @@ export class ReadingQuotaService {
     this.logger = deps.logger;
   }
 
-  /** Subjects checked per request. #31 adds `ip:<addr>` with policy.ip. */
+  /** Subjects checked per request: the account, plus the IP when known. */
   private subjects(check: QuotaCheck): Subject[] {
-    return [{ key: `user:${check.userId}`, limits: this.policy.account }];
+    const subjects = [
+      { key: `user:${check.userId}`, limits: this.policy.account },
+    ];
+    if (check.ip)
+      subjects.push({ key: `ip:${check.ip}`, limits: this.policy.ip });
+    return subjects;
   }
 
   async check(check: QuotaCheck): Promise<QuotaOutcome> {

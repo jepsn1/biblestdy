@@ -30,6 +30,13 @@ describe('reading-quota policy: pace (token bucket)', () => {
     });
   });
 
+  it('IP policy = burst 40, refill 1 per 1.5 s (looser, shared networks)', () => {
+    expect(READING_QUOTA_POLICY.ip.pace).toEqual({
+      burst: 40,
+      refillMs: 1500,
+    });
+  });
+
   it('allows a fresh subject a full burst, then denies with reason pace', () => {
     const { decisions } = burst(null, 21, T0);
     expect(decisions.slice(0, 20).every((d) => d.allowed)).toBe(true);
