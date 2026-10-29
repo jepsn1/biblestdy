@@ -3,6 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP, magicLink } from 'better-auth/plugins';
 import { db, schema } from '../db';
 import { queueAuthEmail } from './email';
+import { AUTH_IP_ADDRESS, AUTH_RATE_LIMIT } from './rate-limit';
 
 /**
  * Better Auth instance. Passwordless — no passwords, ever (see VISION.md:
@@ -41,4 +42,8 @@ export const auth = betterAuth({
     }),
   ],
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? 'http://localhost:5173'],
+  // Per-IP throttling of OTP/magic-link/sign-in (rate-limit.ts), keyed on the
+  // proxy-resolved client IP (http/client-ip.ts).
+  rateLimit: AUTH_RATE_LIMIT,
+  advanced: { ipAddress: AUTH_IP_ADDRESS },
 });
