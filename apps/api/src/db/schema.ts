@@ -140,6 +140,13 @@ export const readingQuota = pgTable('reading_quota', {
   subject: text('subject').primaryKey(),
   tokens: integer('tokens'),
   refilledAt: bigint('refilled_at', { mode: 'number' }),
+  /** Cooldowns (#32): strike count as of lastStrikeAt; decay is computed. */
+  strikes: integer('strikes').notNull().default(0),
+  lastStrikeAt: bigint('last_strike_at', { mode: 'number' }),
+  /** Epoch ms the current cooldown ends; 0 = none. */
+  cooldownUntil: bigint('cooldown_until', { mode: 'number' })
+    .notNull()
+    .default(0),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

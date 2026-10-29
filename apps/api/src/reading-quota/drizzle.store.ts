@@ -31,7 +31,13 @@ export class DrizzleQuotaStore implements QuotaStore {
           r.subject,
           r.tokens === null || r.refilledAt === null
             ? null
-            : { tokens: r.tokens, refilledAt: r.refilledAt },
+            : {
+                tokens: r.tokens,
+                refilledAt: r.refilledAt,
+                strikes: r.strikes,
+                lastStrikeAt: r.lastStrikeAt,
+                cooldownUntil: r.cooldownUntil,
+              },
         ]),
       );
       const assertLocked = (subject: string) => {
@@ -51,6 +57,9 @@ export class DrizzleQuotaStore implements QuotaStore {
             .set({
               tokens: state.tokens,
               refilledAt: state.refilledAt,
+              strikes: state.strikes,
+              lastStrikeAt: state.lastStrikeAt,
+              cooldownUntil: state.cooldownUntil,
               updatedAt: sql`now()`,
             })
             .where(inArray(readingQuota.subject, [subject]));

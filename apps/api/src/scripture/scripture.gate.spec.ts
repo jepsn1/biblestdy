@@ -10,8 +10,8 @@ import { ScriptureController } from './scripture.controller';
 
 /**
  * Scripture access gate: text only for signed-in sessions (#26), chapter
- * requests paced and daily-capped by the reading quota (#29, #30; in-memory
- * store).
+ * requests paced, daily-capped and cooled down by the reading quota (#29, #30,
+ * #32; in-memory store).
  */
 describe('Scripture access gate (HTTP, fake provider)', () => {
   let app: INestApplication | undefined;
@@ -88,13 +88,34 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
     }
     const limited = await fetch(`${base}/passages/WEB/JHN/3`);
     expect(limited.status).toBe(429);
-    const retryAfter = Number(limited.headers.get('retry-after'));
-    expect(retryAfter).toBeGreaterThanOrEqual(1);
-    expect(retryAfter).toBeLessThanOrEqual(3);
+    // First strike: the wait covers the 1-minute cooldown it starts (#32)
+    expect(limited.headers.get('retry-after')).toBe('60');
     expect(await limited.json()).toEqual({
       reason: 'pace',
-      retryAfterSeconds: retryAfter,
+      retryAfterSeconds: 60,
     });
+  });
+
+  it('429s with reason cooldown while a cooldown runs (#32)', async () => {
+    let now = Date.UTC(2026, 9, 29, 10, 0);
+    const base = await start(
+      true,
+      new ReadingQuotaService({
+        store: new InMemoryQuotaStore(),
+        now: () => now,
+      }),
+    );
+    for (let i = 0; i < 21; i++) await fetch(`${base}/passages/WEB/JHN/3`);
+    now += 45_000; // tokens back, cooldown not over
+    const limited = await fetch(`${base}/passages/WEB/JHN/3`);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('retry-after')).toBe('15');
+    expect(await limited.json()).toEqual({
+      reason: 'cooldown',
+      retryAfterSeconds: 15,
+    });
+    now += 15_000;
+    expect((await fetch(`${base}/passages/WEB/JHN/3`)).status).toBe(200);
   });
 
   it('429s a distinct chapter over the daily cap until Copenhagen midnight', async () => {
@@ -105,6 +126,7 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
         policy: {
           account: { pace: { burst: 100, refillMs: 1000 }, dailyChapters: 2 },
           ip: { pace: { burst: 100, refillMs: 1000 }, dailyChapters: 100 },
+          cooldown: null,
         },
         now: () => Date.UTC(2026, 9, 29, 22, 30), // 23:30 Copenhagen
       }),
