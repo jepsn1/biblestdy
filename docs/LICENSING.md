@@ -22,6 +22,7 @@ Facts that matter:
 
 - [ ] **Submit BPH request**: paste `docs/biblica-bph-permission-request.md` into
       https://www.biblica.com/permission-request-form/ (fill in your email). ~10 business days.
+- [ ] Ask Biblica if BPH is on "express licensing" (non-commercial, no-AI apps can start immediately via ministry partners) — we have no AI today.
 - [ ] (parallel, optional) Email support@api.bible: "help us pursue BPH (Biblica) on our key".
 - [ ] **Send Bibelselskabet email** (rettigheder@bibelselskabet.dk) — free non-commercial
       pilot license for Bibelen 2020, delivered via DBL → API.Bible.

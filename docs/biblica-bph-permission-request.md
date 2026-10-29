@@ -8,7 +8,7 @@ pursue BPH access on our key (they offer this for specific translations).
 
 **Product name:** biblestdy (biblestdy.com)
 
-**Requesting:** Non-commercial digital display license for *Bibelen på
+**Requesting:** Worldwide, non-commercial digital display license for *Bibelen på
 hverdagsdansk* (BPH), ideally delivered as Digital Bible Library access linked
 to our API.Bible key (key id on request) — the same channel Biblica already
 uses for its other translations.
