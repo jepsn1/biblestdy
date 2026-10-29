@@ -10,7 +10,8 @@ import { ScriptureController } from './scripture.controller';
 
 /**
  * Scripture access gate: text only for signed-in sessions (#26), chapter
- * requests paced by the reading quota (#29, real policy, in-memory store).
+ * requests paced and daily-capped by the reading quota (#29, #30; in-memory
+ * store).
  */
 describe('Scripture access gate (HTTP, fake provider)', () => {
   let app: INestApplication | undefined;
@@ -20,16 +21,17 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
     app = undefined;
   });
 
-  async function start(signedIn: boolean): Promise<string> {
+  async function start(
+    signedIn: boolean,
+    quota = new ReadingQuotaService({ store: new InMemoryQuotaStore() }),
+  ): Promise<string> {
     let builder = Test.createTestingModule({
       controllers: [ScriptureController],
       providers: [
         { provide: SCRIPTURE_PROVIDER, useValue: new FakeScriptureProvider() },
         {
           provide: ReadingQuotaService,
-          useValue: new ReadingQuotaService({
-            store: new InMemoryQuotaStore(),
-          }),
+          useValue: quota,
         },
       ],
     });
@@ -93,6 +95,31 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
       reason: 'pace',
       retryAfterSeconds: retryAfter,
     });
+  });
+
+  it('429s a distinct chapter over the daily cap until Copenhagen midnight', async () => {
+    const base = await start(
+      true,
+      new ReadingQuotaService({
+        store: new InMemoryQuotaStore(),
+        policy: {
+          account: { pace: { burst: 100, refillMs: 1000 }, dailyChapters: 2 },
+          ip: { pace: { burst: 100, refillMs: 1000 }, dailyChapters: 100 },
+        },
+        now: () => Date.UTC(2026, 9, 29, 22, 30), // 23:30 Copenhagen
+      }),
+    );
+    for (const path of ['GEN/1', 'PSA/23'])
+      expect((await fetch(`${base}/passages/WEB/${path}`)).status).toBe(200);
+    const limited = await fetch(`${base}/passages/WEB/JHN/3`);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('retry-after')).toBe('1800');
+    expect(await limited.json()).toEqual({
+      reason: 'daily',
+      retryAfterSeconds: 1800,
+    });
+    // Re-opening a chapter already read today is free
+    expect((await fetch(`${base}/passages/WEB/GEN/1`)).status).toBe(200);
   });
 
   it('never throttles the translations list', async () => {

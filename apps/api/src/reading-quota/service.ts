@@ -1,18 +1,22 @@
 import {
+  addDays,
+  copenhagenDay,
   decide,
   READING_QUOTA_POLICY,
   type DenyReason,
   type ReadingQuotaPolicy,
   type SubjectLimits,
 } from './policy';
-import type { QuotaStore } from './store';
+import type { ChapterRef, QuotaStore } from './store';
 
-/** The chapter being requested (the daily cap, #30, counts distinct ones). */
-export interface ChapterRef {
-  translationId: string;
-  book: string;
-  chapter: number;
-}
+export type { ChapterRef };
+
+/** `::ffff:1.2.3.4` (IPv4 on a dual-stack socket) → `1.2.3.4`: one subject. */
+const ipKey = (ip: string) =>
+  ip.replace(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i, '$1');
+
+/** Day reads are kept this many days back from today, then pruned. */
+const KEEP_DAYS = 2;
 
 /** One chapter request: who is reading what. */
 export interface QuotaCheck {
@@ -70,7 +74,7 @@ export class ReadingQuotaService {
       { key: `user:${check.userId}`, limits: this.policy.account },
     ];
     if (check.ip)
-      subjects.push({ key: `ip:${check.ip}`, limits: this.policy.ip });
+      subjects.push({ key: `ip:${ipKey(check.ip)}`, limits: this.policy.ip });
     return subjects;
   }
 
@@ -80,15 +84,22 @@ export class ReadingQuotaService {
       subjects.map((s) => s.key),
       async (tx): Promise<QuotaOutcome> => {
         const now = this.now();
+        const day = copenhagenDay(now);
         const decisions = await Promise.all(
-          subjects.map(async (s) => ({
-            subject: s.key,
-            decision: decide({
-              state: await tx.load(s.key),
-              now,
-              limits: s.limits,
-            }),
-          })),
+          subjects.map(async (s) => {
+            const today = await tx.dayReads(s.key, day, check.chapter);
+            return {
+              subject: s.key,
+              firstReadToday: !today.includes,
+              decision: decide({
+                state: await tx.load(s.key),
+                now,
+                limits: s.limits,
+                readToday: today.count,
+                alreadyReadToday: today.includes,
+              }),
+            };
+          }),
         );
         let denied: Extract<QuotaOutcome, { allowed: false }> | undefined;
         for (const { subject, decision } of decisions) {
@@ -103,9 +114,12 @@ export class ReadingQuotaService {
         }
         // Allowed → every subject spends. Denied → nothing is spent; the
         // denial's next state (refill progress, later strikes) is persisted.
-        for (const { subject, decision } of decisions)
+        for (const { subject, decision, firstReadToday } of decisions) {
           if (!denied || !decision.allowed)
             await tx.save(subject, decision.next);
+          if (!denied && firstReadToday)
+            await tx.recordRead(subject, day, check.chapter);
+        }
         return denied ?? { allowed: true };
       },
     );
@@ -114,5 +128,10 @@ export class ReadingQuotaService {
         `reading quota denied subject=${outcome.subject} reason=${outcome.reason} retryAfterMs=${outcome.retryAfterMs}`,
       );
     return outcome;
+  }
+
+  /** Drop day reads older than KEEP_DAYS Copenhagen days (user story 24). */
+  prune(): Promise<void> {
+    return this.store.prune(addDays(copenhagenDay(this.now()), -KEEP_DAYS));
   }
 }

@@ -43,7 +43,16 @@ describe("readingLimitMessage", () => {
       "2 minutes",
     );
     expect(readingLimitMessage(t, { reason: "daily", retryAfterSeconds: 3600 })).toContain(
-      "1 hour.",
+      "1 hour)",
+    );
+  });
+
+  it("tells a reader at the daily cap to come back tomorrow", async () => {
+    expect(readingLimitMessage(await tFor("en"), { reason: "daily", retryAfterSeconds: 1800 })).toBe(
+      "You've reached today's reading limit. Come back tomorrow (in 30 minutes).",
+    );
+    expect(readingLimitMessage(await tFor("da"), { reason: "daily", retryAfterSeconds: 1800 })).toBe(
+      "Du har nået dagens læsegrænse. Kom tilbage i morgen (om 30 minutter).",
     );
   });
 

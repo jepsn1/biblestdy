@@ -154,7 +154,7 @@ const da: typeof en = {
   readingLimit: {
     title: "Tid til et pust",
     pace: "Du bladrer hurtigere, end vi kan følge med. Prøv igen om {{wait}}.",
-    daily: "Du har nået dagens læsegrænse. Prøv igen om {{wait}}.",
+    daily: "Du har nået dagens læsegrænse. Kom tilbage i morgen (om {{wait}}).",
     cooldown: "Læsningen er sat på pause et øjeblik. Prøv igen om {{wait}}.",
     seconds_one: "{{count}} sekund",
     seconds_other: "{{count}} sekunder",

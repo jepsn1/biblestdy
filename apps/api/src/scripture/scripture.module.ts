@@ -1,6 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
 import { db } from '../db';
 import { DrizzleQuotaStore } from '../reading-quota/drizzle.store';
+import { QuotaPruneSchedule } from '../reading-quota/prune.schedule';
 import { ReadingQuotaService } from '../reading-quota/service';
 import { ApiBibleProvider } from './apibible.provider';
 import { CachingScriptureProvider } from './caching.provider';
@@ -30,6 +31,7 @@ import { ScriptureController } from './scripture.controller';
           logger: new Logger('ReadingQuota'),
         }),
     },
+    QuotaPruneSchedule,
   ],
 })
 export class ScriptureModule {}
