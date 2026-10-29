@@ -149,6 +149,18 @@ export default {
     contactBody: "Write us — support and privacy questions alike:",
     backToApp: "back to biblestdy",
   },
+  readingLimit: {
+    title: "Time for a breather",
+    pace: "You're turning pages faster than we can serve them. Try again in {{wait}}.",
+    daily: "You've reached today's reading limit. Try again in {{wait}}.",
+    cooldown: "Reading is paused for a little while. Try again in {{wait}}.",
+    seconds_one: "{{count}} second",
+    seconds_other: "{{count}} seconds",
+    minutes_one: "{{count}} minute",
+    minutes_other: "{{count}} minutes",
+    hours_one: "{{count}} hour",
+    hours_other: "{{count}} hours",
+  },
   error: {
     oops: "Oops!",
     unexpected: "An unexpected error occurred.",

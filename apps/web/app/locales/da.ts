@@ -151,6 +151,18 @@ const da: typeof en = {
     contactBody: "Skriv til os — support- og privatlivsspørgsmål i samme indbakke:",
     backToApp: "tilbage til biblestdy",
   },
+  readingLimit: {
+    title: "Tid til et pust",
+    pace: "Du bladrer hurtigere, end vi kan følge med. Prøv igen om {{wait}}.",
+    daily: "Du har nået dagens læsegrænse. Prøv igen om {{wait}}.",
+    cooldown: "Læsningen er sat på pause et øjeblik. Prøv igen om {{wait}}.",
+    seconds_one: "{{count}} sekund",
+    seconds_other: "{{count}} sekunder",
+    minutes_one: "{{count}} minut",
+    minutes_other: "{{count}} minutter",
+    hours_one: "{{count}} time",
+    hours_other: "{{count}} timer",
+  },
   error: {
     oops: "Hovsa!",
     unexpected: "Der opstod en uventet fejl.",
