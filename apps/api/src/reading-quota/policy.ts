@@ -17,6 +17,8 @@ export interface PaceLimits {
 /** All limits for one kind of subject (account or IP). */
 export interface SubjectLimits {
   pace: PaceLimits;
+  /** Distinct chapters (translation+book+chapter) per Copenhagen day. */
+  dailyChapters: number;
 }
 
 /** Every throttling number in one place — tune here (user story 21). */
@@ -26,14 +28,13 @@ export interface ReadingQuotaPolicy {
   /**
    * Per client IP, subject `ip:<addr>`. Looser than the account so a shared
    * network (church, school, office) doesn't block its readers (story 9).
-   * The daily cap (#30) adds 400 distinct chapters/day here.
    */
   ip: SubjectLimits;
 }
 
 export const READING_QUOTA_POLICY: ReadingQuotaPolicy = {
-  account: { pace: { burst: 20, refillMs: 3000 } },
-  ip: { pace: { burst: 40, refillMs: 1500 } },
+  account: { pace: { burst: 20, refillMs: 3000 }, dailyChapters: 150 },
+  ip: { pace: { burst: 40, refillMs: 1500 }, dailyChapters: 400 },
 };
 
 /** Persisted per-subject state. `null` = never seen (fresh, full bucket). */
@@ -51,6 +52,10 @@ export interface DecideInput {
   /** Epoch ms. */
   now: number;
   limits: SubjectLimits;
+  /** Distinct chapters this subject read today (Copenhagen day of `now`). */
+  readToday: number;
+  /** The requested chapter is among them: free against the daily cap. */
+  alreadyReadToday: boolean;
 }
 
 export type QuotaDecision =
@@ -77,10 +82,69 @@ function refill(
   return { tokens, refilledAt: state.refilledAt + periods * pace.refillMs };
 }
 
+const COPENHAGEN = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Copenhagen',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** Copenhagen wall-clock fields at `now`. */
+function copenhagenParts(now: number) {
+  return Object.fromEntries(
+    COPENHAGEN.formatToParts(now).map((x) => [x.type, Number(x.value)]),
+  ) as Record<'year' | 'month' | 'day' | 'hour' | 'minute' | 'second', number>;
+}
+
+/** The daily cap's "day": calendar date in Europe/Copenhagen, `YYYY-MM-DD`. */
+export function copenhagenDay(now: number): string {
+  const { year, month, day } = copenhagenParts(now);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** `YYYY-MM-DD` shifted by whole calendar days. */
+export function addDays(day: string, days: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Ms from `now` to the next Copenhagen midnight (DST-aware: 23–25 h days). */
+export function msUntilCopenhagenMidnight(now: number): number {
+  const { year, month, day } = copenhagenParts(now);
+  // Copenhagen is UTC+1 or +2; DST switches at 01:00 UTC, never at midnight,
+  // so local midnight exists once and its offset is the one in force then.
+  const asUtc = Date.UTC(year, month - 1, day + 1);
+  for (const offsetH of [1, 2]) {
+    const candidate = asUtc - offsetH * 3_600_000;
+    const p = copenhagenParts(candidate);
+    if (p.hour === 0 && p.minute === 0 && p.second === 0)
+      return candidate - now;
+  }
+  throw new Error(`no Copenhagen midnight after ${now}`);
+}
+
 /** Decide one chapter request for one subject. Denials consume nothing. */
-export function decide({ state, now, limits }: DecideInput): QuotaDecision {
+export function decide({
+  state,
+  now,
+  limits,
+  readToday,
+  alreadyReadToday,
+}: DecideInput): QuotaDecision {
   const { pace } = limits;
   const current = refill(state, now, pace);
+  // Daily cap first: its wait (until midnight) outlasts any pace wait
+  if (!alreadyReadToday && readToday >= limits.dailyChapters)
+    return {
+      allowed: false,
+      reason: 'daily',
+      retryAfterMs: msUntilCopenhagenMidnight(now),
+      next: current,
+    };
   if (current.tokens >= 1) {
     return {
       allowed: true,

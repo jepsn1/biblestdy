@@ -1,5 +1,7 @@
 import {
   bigint,
+  date,
+  index,
   integer,
   pgTable,
   primaryKey,
@@ -140,3 +142,25 @@ export const readingQuota = pgTable('reading_quota', {
   refilledAt: bigint('refilled_at', { mode: 'number' }),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+/**
+ * Daily cap (#30): distinct chapters a quota subject read per Copenhagen
+ * calendar day. Written under the subject's reading_quota row lock; rows older
+ * than 2 days are pruned.
+ */
+export const readingQuotaDay = pgTable(
+  'reading_quota_day',
+  {
+    subject: text('subject').notNull(),
+    day: date('day', { mode: 'string' }).notNull(),
+    translationId: text('translation_id').notNull(),
+    book: text('book').notNull(),
+    chapter: integer('chapter').notNull(),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.subject, t.day, t.translationId, t.book, t.chapter],
+    }),
+    index('reading_quota_day_day_idx').on(t.day),
+  ],
+);

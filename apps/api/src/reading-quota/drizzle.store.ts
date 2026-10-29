@@ -1,8 +1,8 @@
-import { inArray, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { readingQuota } from '../db/schema';
+import { readingQuota, readingQuotaDay } from '../db/schema';
 import type { QuotaState } from './policy';
-import type { QuotaStore, QuotaTx } from './store';
+import type { ChapterRef, QuotaStore, QuotaTx } from './store';
 
 /**
  * Postgres quota store: one transaction per decision. Missing subject rows are
@@ -55,7 +55,54 @@ export class DrizzleQuotaStore implements QuotaStore {
             })
             .where(inArray(readingQuota.subject, [subject]));
         },
+        dayReads: async (subject, day, chapter) => {
+          assertLocked(subject);
+          const [row] = await tx
+            .select({
+              count: count(),
+              includes: sql<boolean>`coalesce(bool_or(${isChapter(chapter)}), false)`,
+            })
+            .from(readingQuotaDay)
+            .where(
+              and(
+                eq(readingQuotaDay.subject, subject),
+                eq(readingQuotaDay.day, day),
+              ),
+            );
+          return { count: row.count, includes: row.includes };
+        },
+        recordRead: async (subject, day, chapter) => {
+          assertLocked(subject);
+          await tx
+            .insert(readingQuotaDay)
+            .values({ subject, day, ...chapter })
+            .onConflictDoNothing();
+        },
       });
     });
   }
+
+  async prune(keepFromDay: string): Promise<void> {
+    await this.db
+      .delete(readingQuotaDay)
+      .where(lt(readingQuotaDay.day, keepFromDay));
+    // Lock placeholders that never got state (e.g. a subject whose request
+    // another subject denied). Rows with state are kept: they may carry
+    // strikes/cooldowns (#32) that must outlive a quiet spell.
+    await this.db
+      .delete(readingQuota)
+      .where(
+        and(
+          isNull(readingQuota.tokens),
+          lt(readingQuota.updatedAt, sql`${keepFromDay}::date`),
+        ),
+      );
+  }
 }
+
+const isChapter = (c: ChapterRef) =>
+  and(
+    eq(readingQuotaDay.translationId, c.translationId),
+    eq(readingQuotaDay.book, c.book),
+    eq(readingQuotaDay.chapter, c.chapter),
+  );
