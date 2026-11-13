@@ -3,14 +3,11 @@ import type { Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { cn, focusRing } from "~/lib/utils";
+import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
+import { lineRuns, placeRailChips, type Rect } from "./ink-geometry";
 import type { NoteMark } from "./use-notes";
-import {
-  columnIndexAt,
-  layoutMobileAnnotations,
-  type BoxPlacement,
-  type ColumnGeometry,
-} from "./mobile-annotation-layout";
+import { NOTE_OPENER } from "./note-panel";
 import {
   bracketPath,
   leaderPath,
@@ -38,14 +35,20 @@ const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
 
+/** Note chips (#63): the margin rail sits at least this far from the text
+ * column; chips are one 24px target tall. */
+const RAIL_GAP = 24;
+const CHIP_H = 24;
+const CHIP_MAX_REM = 10;
+/** Narrower than this, a chip shows its icon only. */
+const CHIP_LABEL_MIN = 56;
+
 type Box = { x: number; y: number; w: number; h: number };
 /** lines: distinct text lines the span covers — 1 = circle it, 2+ = bracket */
 type Placement = {
   annotation: Annotation;
   box: Box;
   lines: number;
-  /** Rect of the anchor's last text line — the mobile layout hangs the box off it. */
-  lastLine: Box;
   colSide: "left" | "right"; // which column of the spread the span sits in
   laneCenter: { x: number; y: number };
   /** Default box width: LANE, narrower when the pane's lanes shrink (#51). */
@@ -54,7 +57,17 @@ type Placement = {
 /** A note anchor's mark: same circle/bracket by geometry, plus a static chip
  * beside it that opens the document panel. One tab per anchor — a multi-anchor
  * note draws a mark at each of its spans in this chapter. */
-type NoteTab = { mark: NoteMark; box: Box; lines: number; colSide: "left" | "right" };
+type NoteTab = {
+  mark: NoteMark;
+  box: Box;
+  lines: number;
+  colSide: "left" | "right";
+  /** Vertical center of the mark's first visible line — its chip sits level. */
+  firstLineY: number;
+};
+
+/** Where the margin rail is (region-local px), measured with the anchors. */
+type RailEdges = { leftEnd: number; rightStart: number; width: number; rem: number };
 
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
@@ -63,8 +76,6 @@ function geom(
   drag: { id: string; x: number; y: number } | null,
   resize: { id: string; cx: number; w: number } | null,
   boxH = 22, // measured handwriting-box height (default: one line)
-  /** Mobile (#15): computed placement wins over stored offsets and the lane. */
-  fixed?: BoxPlacement,
 ) {
   const aCX = p.box.x + p.box.w / 2;
   const aCY = p.box.y + p.box.h / 2;
@@ -82,11 +93,6 @@ function geom(
   if (resize && resize.id === p.annotation.id) {
     cx = resize.cx;
     w = resize.w;
-  }
-  if (fixed) {
-    w = fixed.width;
-    cx = fixed.x + w / 2;
-    cy = fixed.y + boxH / 2;
   }
   const side: "left" | "right" = cx < aCX ? "left" : "right";
   // Flip to the top approach as soon as the annotation rises past the circle's
@@ -135,72 +141,17 @@ function geom(
   };
 }
 
-/** The CSS-column flow's geometry — column slots repeat every
- * `colWidth + colGap` from `x`, across ALL spreads (not just the first). */
-type FlowGeometry = {
-  x: number;
-  colWidth: number;
-  colGap: number;
-  top: number;
-  height: number;
-  lineHeight: number;
-};
-
-/** Mobile (#15): deterministic box slots from the pure layout module — per
- * column, in text (anchor) order, stored x/y ignored entirely. The column a
- * box belongs to is derived from its OWN anchor line (column index within the
- * whole flow), so anchors on later pages land in their real column slot. */
-function mobileBoxPlacements(
-  placements: Placement[],
-  flow: FlowGeometry,
-  heights: Map<string, number>,
-): Map<string, BoxPlacement> {
-  const stride = flow.colWidth + flow.colGap;
-  const colIndex = (p: Placement) => columnIndexAt(p.lastLine.x, flow.x, stride);
-  const byCol = new Map<number, Placement[]>();
-  for (const p of placements) {
-    const i = colIndex(p);
-    byCol.set(i, [...(byCol.get(i) ?? []), p]);
-  }
-  const byId = new Map<string, BoxPlacement>();
-  for (const [i, group] of byCol) {
-    group.sort(
-      (a, b) =>
-        a.annotation.startVerse - b.annotation.startVerse ||
-        a.annotation.startWord - b.annotation.startWord ||
-        a.annotation.endVerse - b.annotation.endVerse ||
-        a.annotation.endWord - b.annotation.endWord,
-    );
-    const column: ColumnGeometry = {
-      x: flow.x + i * stride,
-      width: flow.colWidth,
-      top: flow.top,
-      height: flow.height,
-      lineHeight: flow.lineHeight,
-    };
-    const placed = layoutMobileAnnotations(
-      group.map((p) => ({
-        id: p.annotation.id,
-        lineRects: [p.lastLine],
-        height: heights.get(p.annotation.id),
-      })),
-      column,
-    );
-    for (const b of placed) byId.set(b.id, b);
-  }
-  return byId;
-}
-
 export function AnnotationMarks({
   annotations,
   noteMarks,
   regionRef,
   contentRef,
-  page,
+  layoutKey,
   activeAnnotationId,
   selectedMarkId,
   compact = false,
-  showBoxes = true,
+  marginBoxes = true,
+  railChips = true,
   onFocus,
   onEdit,
   onRemove,
@@ -211,17 +162,22 @@ export function AnnotationMarks({
   noteMarks: NoteMark[];
   regionRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLElement | null>;
-  page: number;
+  /** Anything that moves the words without resizing the boxes (page,
+   * stride, column count, text size) — re-measure on change. */
+  layoutKey: string;
   activeAnnotationId: string | null;
   /** Mark of the reference selected in the note panel — while set, every
    * other mark's ink is hidden so this one owns the page. */
   selectedMarkId: string | null;
-  /** Phone view (#13, #44): single scroll column, no margin lanes — boxes get
-   * computed slots under their anchor, brackets sit on the left. */
+  /** Phone view (#13, #44): single scroll column — brackets sit on the left. */
   compact?: boolean;
-  /** Mobile layer toggle (#15): false hides annotation boxes (and their
-   * arrows) — circles/brackets and note chips stay. Desktop ignores it. */
-  showBoxes?: boolean;
+  /** Handwriting boxes + arrows in the margin lanes. False when there are no
+   * lanes (phones, narrow panes): ChapterText prints each annotation as a
+   * line under its verse instead (#63) — circles/brackets stay here. */
+  marginBoxes?: boolean;
+  /** Note chips in the margin rail (desktop). False on phones: a marker
+   * after the verse number instead (#63). */
+  railChips?: boolean;
   onFocus: (id: string | null) => void;
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
@@ -237,15 +193,14 @@ export function AnnotationMarks({
   // coordinates local px
   const scaleRef = useRef(1);
   const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
-  // Mobile (#15): the column flow's geometry, measured with the anchors
-  const [columns, setColumns] = useState<FlowGeometry | null>(null);
+  const [rail, setRail] = useState<RailEdges | null>(null);
   // Spotlight: only the selected reference's mark is drawn
   const shownPlacements = spotlight ? [] : placements;
   const shownTabs = spotlight
     ? noteTabs.filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
     : noteTabs;
   const [regionSize, setRegionSize] = useState({ w: 0, h: 0 });
-  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [resize, setResize] = useState<{ id: string; cx: number; w: number } | null>(null);
   const boxHeights = useRef(new Map<string, number>());
@@ -269,13 +224,13 @@ export function AnnotationMarks({
 
   // Cancel edit when clicking outside the open editor.
   useEffect(() => {
-    if (!editing) return;
+    if (!editingId) return;
     const onDown = (e: PointerEvent) => {
-      if (!(e.target as HTMLElement).closest("[data-annotation-editing]")) setEditing(null);
+      if (!(e.target as HTMLElement).closest("[data-annotation-editing]")) setEditingId(null);
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
-  }, [editing]);
+  }, [editingId]);
 
   useLayoutEffect(() => {
     const region = regionRef.current;
@@ -295,6 +250,18 @@ export function AnnotationMarks({
       const rightLaneLeft = (contentRect.right - regionRect.left) / s + GAP;
       const contentLeft = (contentRect.left - regionRect.left) / s;
       const contentRight = (contentRect.right - regionRect.left) / s;
+      // The text column's own edges (inside the content box's padding): the
+      // note rail keeps RAIL_GAP clear of them
+      const pad = getComputedStyle(content);
+      const textLeft = contentLeft + (parseFloat(pad.paddingLeft) || 0);
+      const textRight = contentRight - (parseFloat(pad.paddingRight) || 0);
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setRail({
+        leftEnd: textLeft - RAIL_GAP,
+        rightStart: textRight + RAIL_GAP,
+        width: region.offsetWidth,
+        rem,
+      });
 
       /** Box + line count of an anchor's words on the current page, measured
        * straight from the [data-verse][data-word] spans — independent of any
@@ -306,7 +273,7 @@ export function AnnotationMarks({
         endVerse: number;
         endWord: number;
       }) => {
-        const rects: { left: number; top: number; right: number; bottom: number }[] = [];
+        const rects: Rect[] = [];
         for (let v = a.startVerse; v <= a.endVerse; v++) {
           const els = region.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
           for (const el of els) {
@@ -332,30 +299,12 @@ export function AnnotationMarks({
         const bottom = Math.max(...rects.map((r) => r.bottom));
         // Distinct (line, column) clusters — same top in the other column of
         // the spread is a different line
-        const runs: { top: number; left: number; right: number; bottom: number }[] = [];
-        for (const r of rects) {
-          const run = runs.find(
-            (q) => Math.abs(q.top - r.top) < 3 && r.left - q.right < 60 && q.left - r.right < 60,
-          );
-          if (run) {
-            run.left = Math.min(run.left, r.left);
-            run.right = Math.max(run.right, r.right);
-            run.bottom = Math.max(run.bottom, r.bottom);
-          } else {
-            runs.push({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
-          }
-        }
-        const last = runs.reduce((a, b) => (b.top > a.top ? b : a));
+        const runs = lineRuns(rects);
         return {
           box: { x: left, y: top, w: right - left, h: bottom - top } as Box,
           lines: runs.length,
           mid: (left + right) / 2,
-          lastLine: {
-            x: last.left,
-            y: last.top,
-            w: last.right - last.left,
-            h: last.bottom - last.top,
-          } as Box,
+          firstLineY: (runs[0].top + runs[0].bottom) / 2,
         };
       };
 
@@ -370,52 +319,23 @@ export function AnnotationMarks({
         // edge page-flip strips
         const room =
           side === "left" ? leftLaneRight - EDGE : region.offsetWidth - EDGE - rightLaneLeft;
-        const laneWidth = compact ? LANE : Math.min(LANE, Math.max(MIN_W, room));
+        const laneWidth = Math.min(LANE, Math.max(MIN_W, room));
         items.push({
           annotation,
           box: m.box,
           lines: m.lines,
-          lastLine: m.lastLine,
           colSide: side,
           laneWidth,
-          laneCenter: compact
-            ? { x: m.box.x + m.box.w / 2, y: m.box.y + m.box.h + 34 }
-            : {
-                x:
-                  side === "left"
-                    ? Math.max(EDGE + laneWidth / 2, leftLaneRight - laneWidth / 2)
-                    : Math.min(
-                        region.offsetWidth - EDGE - laneWidth / 2,
-                        rightLaneLeft + laneWidth / 2,
-                      ),
-                y: m.box.y + m.box.h / 2,
-              },
+          laneCenter: {
+            x:
+              side === "left"
+                ? Math.max(EDGE + laneWidth / 2, leftLaneRight - laneWidth / 2)
+                : Math.min(region.offsetWidth - EDGE - laneWidth / 2, rightLaneLeft + laneWidth / 2),
+            y: m.box.y + m.box.h / 2,
+          },
         });
       }
       setPlacements(items);
-
-      // Mobile (#15): measure the flow's column slots for the computed
-      // layout. The flow is the content box's first child; offsets are layout
-      // px (transform/scale-free), matching the local space used above. Phones
-      // scroll one column (#44); a multi-column flow divides by its count.
-      const flow = compact ? (content.firstElementChild as HTMLElement | null) : null;
-      if (flow) {
-        const style = getComputedStyle(flow);
-        const count = Number(style.columnCount) || 1; // "auto" -> 1
-        const colGap = count > 1 ? parseFloat(style.columnGap || "0") || 0 : 0;
-        const colW = (flow.clientWidth - colGap * (count - 1)) / count;
-        const contentTop = (contentRect.top - regionRect.top) / s;
-        setColumns({
-          x: contentLeft + flow.offsetLeft,
-          colWidth: colW,
-          colGap,
-          top: contentTop + flow.offsetTop,
-          height: flow.clientHeight,
-          lineHeight: parseFloat(style.lineHeight || "0") || 36,
-        });
-      } else {
-        setColumns(null);
-      }
 
       const tabs: NoteTab[] = [];
       for (const mark of noteMarks) {
@@ -426,6 +346,7 @@ export function AnnotationMarks({
             box: m.box,
             lines: m.lines,
             colSide: compact || m.mid < centerX ? "left" : "right",
+            firstLineY: m.firstLineY,
           });
       }
       setNoteTabs(tabs);
@@ -445,14 +366,38 @@ export function AnnotationMarks({
       clearTimeout(t);
       ro.disconnect();
     };
-  }, [annotations, noteMarks, page, regionRef, contentRef, compact]);
+  }, [annotations, noteMarks, layoutKey, regionRef, contentRef, compact]);
 
-  // Mobile (#15): computed slots override stored x/y; recomputed per render so
-  // fresh box-height measurements (remeasured bump) feed back into the stack.
-  const mobileBoxes =
-    compact && columns ? mobileBoxPlacements(placements, columns, boxHeights.current) : null;
-  // Mobile layer toggle: boxes+arrows hide, circles/brackets/chips stay
-  const boxesShown = !compact || showBoxes;
+  // Note chips in the margin rail (#63): beside the mark's first line,
+  // stacked clear of each other and of default-placed annotation boxes.
+  const chips =
+    railChips && rail
+      ? placeRailChips(
+          shownTabs.map((m) => ({
+            id: m.mark.id,
+            side: m.colSide,
+            centerY: m.firstLineY,
+          })),
+          {
+            leftEnd: rail.leftEnd,
+            rightStart: rail.rightStart,
+            regionWidth: rail.width,
+            edge: 8,
+            chipH: CHIP_H,
+            gap: 4,
+            maxWidth: CHIP_MAX_REM * rail.rem,
+            obstacles: marginBoxes
+              ? shownPlacements
+                  .filter((p) => p.annotation.offsetX == null)
+                  .map((p) => {
+                    const h = boxHeights.current.get(p.annotation.id) ?? 22;
+                    return { side: p.colSide, top: p.laneCenter.y - h / 2, bottom: p.laneCenter.y + h / 2 };
+                  })
+              : [],
+          },
+        )
+      : null;
+  const chipById = new Map(chips?.map((c) => [c.id, c]) ?? []);
 
   return (
     <>
@@ -460,34 +405,28 @@ export function AnnotationMarks({
           under the line of words and surfaces in the word spaces. The
           selected reference's wash paints here too — marker behind the text,
           never a layer over it. */}
-      <svg className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
-        {boxesShown &&
+      <svg aria-hidden className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible">
+        {marginBoxes &&
           shownPlacements.map((p) => {
-            const g = geom(
-              p,
-              drag,
-              resize,
-              boxHeights.current.get(p.annotation.id),
-              mobileBoxes?.get(p.annotation.id),
-            );
+            const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id));
             if (!g.showArrow) return null;
-          const active = p.annotation.id === activeAnnotationId;
-          return (
-            <path
-              key={p.annotation.id}
-              d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
-              fill="none"
-              stroke={NOTE_INK}
-              strokeWidth={active ? 1.8 : 1.4}
-              strokeLinecap="round"
-              opacity={active ? 1 : 0.75}
-            />
-          );
-        })}
+            const active = p.annotation.id === activeAnnotationId;
+            return (
+              <path
+                key={p.annotation.id}
+                d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
+                fill="none"
+                stroke={NOTE_INK}
+                strokeWidth={active ? 1.8 : 1.4}
+                strokeLinecap="round"
+                opacity={active ? 1 : 0.75}
+              />
+            );
+          })}
       </svg>
 
       <div className="pointer-events-none absolute inset-0 z-10">
-        <svg className="absolute inset-0 h-full w-full overflow-visible">
+        <svg aria-hidden className="absolute inset-0 h-full w-full overflow-visible">
           {shownPlacements.map((p) => {
             const active = p.annotation.id === activeAnnotationId;
             return (
@@ -543,226 +482,189 @@ export function AnnotationMarks({
           })}
         </svg>
 
-        {/* Full-annotation links: a typeset chip (index-tab, NOT handwriting) in the
-            interline gap above the mark's end — distinct from inline-annotation pen
-            text, and never sitting on the running text */}
+        {/* Note links: a typeset chip (index-tab, NOT handwriting) in the
+            margin rail level with the mark's first line — never on the
+            running text (#63) */}
         {shownTabs.map((m) => {
+          const chip = chipById.get(m.mark.id);
+          if (!chip) return null;
+          const title = m.mark.title || t("note.untitled");
+          const labelled = chip.width >= CHIP_LABEL_MIN;
           return (
-          <button
-            key={m.mark.id}
-            type="button"
-            title={m.mark.title || t("note.open")}
-            onClick={() => onOpenNote(m.mark.noteId)}
-            className="pointer-events-auto absolute flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden rounded-full border bg-popover px-1.5 py-px font-mono text-[0.58rem] leading-none whitespace-nowrap transition-colors hover:bg-accent"
-            style={{
-              left:
-                m.lines > 1
-                  ? m.colSide === "left"
-                    ? m.box.x - BRACKET_GAP
-                    : undefined
-                  : m.box.x + m.box.w - 10,
-              ...(m.lines > 1 && m.colSide === "right"
-                ? { left: m.box.x + m.box.w + BRACKET_GAP, transform: "translateX(-100%)" }
-                : {}),
-              top: m.box.y - 18,
-              color: NOTE_INK_TEXT,
-              borderColor: NOTE_INK,
-            }}
-          >
-            <FileText className="size-2.5 shrink-0" />
-            <span className="overflow-hidden text-ellipsis">{m.mark.title || "note"}</span>
-          </button>
+            <button
+              key={m.mark.id}
+              type="button"
+              data-ink-box
+              {...{ [NOTE_OPENER]: m.mark.id }}
+              aria-label={t("reader.openNoteNamed", { title })}
+              title={title}
+              onClick={() => onOpenNote(m.mark.noteId)}
+              className={cn(
+                "pointer-events-auto absolute flex h-6 items-center",
+                chip.side === "left" ? "justify-end" : "justify-start",
+                focusRing,
+                "rounded-full",
+              )}
+              style={{ left: chip.x, top: chip.y, width: chip.width }}
+            >
+              <span
+                className={cn(
+                  "flex h-5 max-w-full items-center gap-1 overflow-hidden rounded-full border bg-popover font-sans text-xs leading-none whitespace-nowrap transition-colors hover:bg-accent",
+                  labelled ? "px-1.5" : "w-5 justify-center",
+                )}
+                style={{ color: NOTE_INK_TEXT, borderColor: NOTE_INK }}
+              >
+                <FileText className="size-3 shrink-0" />
+                {labelled && <span className="overflow-hidden text-ellipsis">{title}</span>}
+              </span>
+            </button>
           );
         })}
 
-        {boxesShown &&
+        {marginBoxes &&
           shownPlacements.map((p) => {
-          const active = p.annotation.id === activeAnnotationId;
-          const isEditing = editing?.id === p.annotation.id;
-          // Mobile: computed slot, no dragging/resizing — placement is not a
-          // hand gesture on the phone, it's the layout module's job
-          const fixed = mobileBoxes?.get(p.annotation.id);
-          const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id), fixed);
-          const dragging = drag?.id === p.annotation.id;
-          return (
-            <div
-              key={p.annotation.id}
-              ref={measureBox(p.annotation.id)}
-              className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""} ${
-                // Computed slots sit over the text — a paper backdrop keeps
-                // the handwriting legible (desktop boxes live in clear space)
-                fixed ? "rounded border border-border bg-background/95 px-1.5 py-0.5 shadow-sm" : ""
-              }`}
-              style={{
-                left: g.boxLeft,
-                top: g.cy,
-                width: g.w,
-                textAlign: fixed ? "left" : g.side === "left" ? "right" : "left",
-              }}
-              onMouseEnter={() => onFocus(p.annotation.id)}
-              onMouseLeave={() => !isEditing && onFocus(null)}
-              onPointerDown={
-                fixed
-                  ? undefined
-                  : (e) => {
-                      if (isEditing || e.button !== 0) return;
-                      dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
-                      didDrag.current = false;
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                    }
-              }
-              onPointerMove={(e) => {
-                const from = dragFrom.current;
-                if (!from) return;
-                const dx = (e.clientX - from.px) / scaleRef.current;
-                const dy = (e.clientY - from.py) / scaleRef.current;
-                if (!didDrag.current && Math.hypot(dx, dy) < 4) return;
-                didDrag.current = true;
-                setDrag({
-                  id: p.annotation.id,
-                  x: Math.min(Math.max(from.cx + dx, g.w / 2), regionSize.w - g.w / 2),
-                  y: Math.min(Math.max(from.cy + dy, 12), regionSize.h - 12),
-                });
-              }}
-              onPointerUp={() => {
-                const from = dragFrom.current;
-                dragFrom.current = null;
-                if (!from) return;
-                if (didDrag.current && drag?.id === p.annotation.id) {
-                  const aCX = p.box.x + p.box.w / 2;
-                  const aCY = p.box.y + p.box.h / 2;
-                  onPlace(p.annotation.id, { offsetX: drag.x - aCX, offsetY: drag.y - aCY });
-                }
-                setDrag(null);
-              }}
-            >
-              {!isEditing &&
-                !fixed &&
-                (["left", "right"] as const).map((edge) => (
-                  <div
-                    key={edge}
-                    className={`absolute inset-y-0 ${edge === "left" ? "-left-1.5" : "-right-1.5"} w-3 cursor-ew-resize`}
-                    onPointerDown={(e) => {
-                      if (e.button !== 0) return;
-                      e.stopPropagation();
-                      resizeFrom.current = {
-                        edge,
-                        px: e.clientX,
-                        startW: g.w,
-                        // The opposite edge stays pinned so the arrow doesn't jump
-                        fixedX: edge === "left" ? g.cx + g.w / 2 : g.cx - g.w / 2,
-                      };
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                    }}
-                    onPointerMove={(e) => {
-                      const from = resizeFrom.current;
-                      if (!from) return;
-                      e.stopPropagation();
-                      const dx = (e.clientX - from.px) / scaleRef.current;
-                      const w = Math.min(
-                        Math.max(from.edge === "right" ? from.startW + dx : from.startW - dx, MIN_W),
-                        MAX_W,
-                      );
-                      didDrag.current = true;
-                      setResize({
-                        id: p.annotation.id,
-                        w,
-                        cx: from.edge === "right" ? from.fixedX + w / 2 : from.fixedX - w / 2,
-                      });
-                    }}
-                    onPointerUp={(e) => {
-                      const from = resizeFrom.current;
-                      resizeFrom.current = null;
-                      if (!from) return;
-                      e.stopPropagation();
-                      if (resize?.id === p.annotation.id) {
-                        const aCX = p.box.x + p.box.w / 2;
-                        const aCY = p.box.y + p.box.h / 2;
-                        onPlace(p.annotation.id, {
-                          width: resize.w,
-                          offsetX: resize.cx - aCX,
-                          offsetY: g.cy - aCY,
+            const active = p.annotation.id === activeAnnotationId;
+            const isEditing = editingId === p.annotation.id;
+            const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id));
+            const dragging = drag?.id === p.annotation.id;
+            return (
+              <div
+                key={p.annotation.id}
+                ref={measureBox(p.annotation.id)}
+                data-ink-box
+                className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
+                style={{
+                  left: g.boxLeft,
+                  top: g.cy,
+                  width: g.w,
+                  textAlign: g.side === "left" ? "right" : "left",
+                }}
+                onPointerEnter={() => onFocus(p.annotation.id)}
+                onPointerLeave={() => !isEditing && onFocus(null)}
+                onPointerDown={(e) => {
+                  if (isEditing || e.button !== 0) return;
+                  dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
+                  didDrag.current = false;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const from = dragFrom.current;
+                  if (!from) return;
+                  const dx = (e.clientX - from.px) / scaleRef.current;
+                  const dy = (e.clientY - from.py) / scaleRef.current;
+                  if (!didDrag.current && Math.hypot(dx, dy) < 4) return;
+                  didDrag.current = true;
+                  setDrag({
+                    id: p.annotation.id,
+                    x: Math.min(Math.max(from.cx + dx, g.w / 2), regionSize.w - g.w / 2),
+                    y: Math.min(Math.max(from.cy + dy, 12), regionSize.h - 12),
+                  });
+                }}
+                onPointerUp={() => {
+                  const from = dragFrom.current;
+                  dragFrom.current = null;
+                  if (!from) return;
+                  if (didDrag.current && drag?.id === p.annotation.id) {
+                    const aCX = p.box.x + p.box.w / 2;
+                    const aCY = p.box.y + p.box.h / 2;
+                    onPlace(p.annotation.id, { offsetX: drag.x - aCX, offsetY: drag.y - aCY });
+                  }
+                  setDrag(null);
+                }}
+              >
+                {!isEditing &&
+                  (["left", "right"] as const).map((edge) => (
+                    <div
+                      key={edge}
+                      aria-hidden
+                      className={`absolute inset-y-0 ${edge === "left" ? "-left-1.5" : "-right-1.5"} w-3 cursor-ew-resize`}
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        resizeFrom.current = {
+                          edge,
+                          px: e.clientX,
+                          startW: g.w,
+                          // The opposite edge stays pinned so the arrow doesn't jump
+                          fixedX: edge === "left" ? g.cx + g.w / 2 : g.cx - g.w / 2,
+                        };
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                      }}
+                      onPointerMove={(e) => {
+                        const from = resizeFrom.current;
+                        if (!from) return;
+                        e.stopPropagation();
+                        const dx = (e.clientX - from.px) / scaleRef.current;
+                        const w = Math.min(
+                          Math.max(from.edge === "right" ? from.startW + dx : from.startW - dx, MIN_W),
+                          MAX_W,
+                        );
+                        didDrag.current = true;
+                        setResize({
+                          id: p.annotation.id,
+                          w,
+                          cx: from.edge === "right" ? from.fixedX + w / 2 : from.fixedX - w / 2,
                         });
-                      }
-                      setResize(null);
+                      }}
+                      onPointerUp={(e) => {
+                        const from = resizeFrom.current;
+                        resizeFrom.current = null;
+                        if (!from) return;
+                        e.stopPropagation();
+                        if (resize?.id === p.annotation.id) {
+                          const aCX = p.box.x + p.box.w / 2;
+                          const aCY = p.box.y + p.box.h / 2;
+                          onPlace(p.annotation.id, {
+                            width: resize.w,
+                            offsetX: resize.cx - aCX,
+                            offsetY: g.cy - aCY,
+                          });
+                        }
+                        setResize(null);
+                      }}
+                    />
+                  ))}
+                {isEditing ? (
+                  <AnnotationEditor
+                    text={p.annotation.text}
+                    onSave={(text) => {
+                      onEdit(p.annotation.id, text);
+                      setEditingId(null);
                     }}
+                    onRemove={() => {
+                      onRemove(p.annotation.id);
+                      setEditingId(null);
+                    }}
+                    onCancel={() => setEditingId(null)}
                   />
-                ))}
-              {isEditing ? (
-                <div
-                  data-annotation-editing
-                  className="flex flex-col gap-1 rounded border border-border bg-popover p-1.5 text-left shadow-lg"
-                >
-                  <textarea
-                    autoFocus
-                    value={editing.text}
-                    onChange={(e) => setEditing({ id: p.annotation.id, text: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        onEdit(p.annotation.id, editing.text.trim());
-                        setEditing(null);
+                ) : (
+                  // A real button (#61): Enter/Space open the editor too
+                  <button
+                    type="button"
+                    title={p.annotation.text}
+                    onClick={() => {
+                      if (didDrag.current) {
+                        didDrag.current = false;
+                        return; // a drag, not a click
                       }
-                      if (e.key === "Escape") setEditing(null);
+                      setEditingId(p.annotation.id);
                     }}
-                    aria-label={t("menu.annotationPlaceholder")}
                     className={cn(
-                      "h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-xs",
+                      "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50",
+                      dragging ? "cursor-grabbing" : "cursor-grab",
                       focusRing,
                     )}
-                  />
-                  <div className="flex items-center justify-between font-mono text-[0.6rem]">
-                    <button
-                      type="button"
-                      className="px-1 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        onRemove(p.annotation.id);
-                        setEditing(null);
-                      }}
-                    >
-                      {t("note.delete")}
-                    </button>
-                    <span className="text-muted-foreground">{t("note.escCancel")}</span>
-                    <button
-                      type="button"
-                      className="px-1 text-primary hover:opacity-80"
-                      onClick={() => {
-                        const trimmed = editing.text.trim();
-                        if (trimmed) onEdit(p.annotation.id, trimmed);
-                        setEditing(null);
-                      }}
-                    >
-                      {t("note.save")}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                // A real button (#61): Enter/Space open the editor too
-                <button
-                  type="button"
-                  title={p.annotation.text}
-                  onClick={() => {
-                    if (didDrag.current) {
-                      didDrag.current = false;
-                      return; // a drag, not a click
-                    }
-                    setEditing({ id: p.annotation.id, text: p.annotation.text });
-                  }}
-                  className={cn(
-                    "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50",
-                    fixed ? "" : dragging ? "cursor-grabbing" : "cursor-grab",
-                    focusRing,
-                  )}
-                  style={{
-                    color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT,
-                    textAlign: "inherit",
-                  }}
-                >
-                  {p.annotation.text}
-                </button>
-              )}
-            </div>
-          );
-        })}
+                    style={{
+                      color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT,
+                      textAlign: "inherit",
+                    }}
+                  >
+                    {p.annotation.text}
+                  </button>
+                )}
+              </div>
+            );
+          })}
       </div>
     </>
   );

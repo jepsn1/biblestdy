@@ -11,7 +11,7 @@ export function useAnnotations(translationId: string, book: string, chapter: num
   const key = ["annotations", translationId, book, chapter];
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
 
-  const { data: annotations = [] } = useQuery({
+  const { data: annotations = [], isFetched } = useQuery({
     queryKey: key,
     queryFn: () => api<Annotation[]>(`/api/annotations?${params}`).catch(() => []),
   });
@@ -78,5 +78,5 @@ export function useAnnotations(translationId: string, book: string, chapter: num
     );
   }
 
-  return { annotations, add, edit, remove, place, restore };
+  return { annotations, loaded: isFetched, add, edit, remove, place, restore };
 }

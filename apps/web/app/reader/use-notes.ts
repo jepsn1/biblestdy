@@ -31,12 +31,17 @@ export function noteMarksInChapter(
 
 /** ALL the user's notes — the attach-an-existing-note picker. */
 export function useAllNotes(enabled: boolean) {
-  const { data: notes = [] } = useQuery({
+  return useAllNotesQuery(enabled).notes;
+}
+
+/** All notes + whether they have loaded (first-use hint, #63). */
+export function useAllNotesQuery(enabled: boolean) {
+  const { data: notes = [], isFetched } = useQuery({
     queryKey: ["notes", "all"],
     queryFn: () => api<Note[]>("/api/notes").catch(() => []),
     enabled,
   });
-  return notes;
+  return { notes, loaded: isFetched };
 }
 
 /** Loads + mutates the current chapter's notes (markdown documents) for the

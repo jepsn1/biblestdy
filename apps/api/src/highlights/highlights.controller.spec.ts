@@ -15,6 +15,7 @@ function make(overrides: Partial<HighlightsService> = {}) {
     create: vi.fn(),
     remove: vi.fn(),
     restore: vi.fn(),
+    recolor: vi.fn(),
     ...overrides,
   };
   return { service, controller: new HighlightsController(service) };
@@ -93,5 +94,23 @@ describe('HighlightsController', () => {
     await expect(controller.restore(req, 'nope')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('recolors an owned highlight', async () => {
+    const updated = { id: 'h1', color: 'blue' } as Highlight;
+    const { service, controller } = make({
+      recolor: vi.fn().mockResolvedValue(updated),
+    });
+    await expect(controller.update(req, 'h1', { color: 'blue' })).resolves.toBe(
+      updated,
+    );
+    expect(service.recolor).toHaveBeenCalledWith('user-1', 'h1', 'blue');
+  });
+
+  it('404s when recoloring a highlight the user does not own', async () => {
+    const { controller } = make({ recolor: vi.fn().mockResolvedValue(null) });
+    await expect(
+      controller.update(req, 'nope', { color: 'blue' }),
+    ).rejects.toThrow(NotFoundException);
   });
 });

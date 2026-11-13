@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import type { Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
+import type { Anchor, Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
@@ -27,9 +27,9 @@ import { ChapterText } from "./chapter-text";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
-import { sheetLayout } from "./sheet-layout";
+import { boxesFitLane, LANE, RAIL, sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
-import { noteMarksInChapter, useAllNotes, useNotes, useOtherVersionCounts } from "./use-notes";
+import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
 
@@ -42,6 +42,16 @@ const SIDE_BY_SIDE_MIN = 55;
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
+
+/** First-use hint (#63) dismissed, or the reader has used the study tools. */
+const HINT_DONE_KEY = "firstUseHintDone";
+function readHintDone() {
+  try {
+    return localStorage.getItem(HINT_DONE_KEY) === "1";
+  } catch {
+    return true; // storage blocked: don't nag every visit
+  }
+}
 
 function useScrollMode() {
   const [scroll, setScroll] = useState(
@@ -121,14 +131,17 @@ export function PaginatedChapter({
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   // The reference selected in the note panel — only its mark stays drawn
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
-  const { highlights, add, remove } = useHighlights(
+  const { highlights, loaded: highlightsLoaded, add, remove, recolor } = useHighlights(
     chapter.translationId,
     chapter.book,
     chapter.chapter,
   );
   const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter);
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
-  const allNotes = useAllNotes(true);
+  const { notes: allNotes, loaded: allNotesLoaded } = useAllNotesQuery(true);
+  // The selection being made — its wash is painted with the highlights
+  const [selection, setSelection] = useState<Anchor | null>(null);
+  const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   const noteMarks = noteMarksInChapter(
     notesApi.notes,
     chapter.translationId,
@@ -221,10 +234,39 @@ export function PaginatedChapter({
     return () => observer.disconnect();
   }, [scrollMode, textSize]);
   const sideInDrawer = scrollMode || (areaRem > 0 && areaRem < SIDE_BY_SIDE_MIN);
-  const hasLanes = annotationsApi.annotations.length > 0;
   // Unmeasured (first paint): assume a roomy pane; the layout effect corrects
   // it before the browser paints.
-  const layout = sheetLayout(pane.width ? pane.width / pane.rem : 120, hasLanes);
+  const paneRem = pane.width ? pane.width / pane.rem : 120;
+  const hasAnnotations = annotationsApi.annotations.length > 0;
+  // Annotations off the text (#63): margin boxes only where a real lane
+  // fits; otherwise (phones, large text, narrow panes) each prints as a line
+  // under its verse. Note chips alone get a narrower rail.
+  const marginBoxes =
+    !scrollMode && hasAnnotations && boxesFitLane(sheetLayout(paneRem, LANE), pane.rem);
+  const layout = sheetLayout(
+    paneRem,
+    marginBoxes ? LANE : !scrollMode && noteMarks.length > 0 ? RAIL : 0,
+  );
+  const inlineAnnotations = scrollMode ? annotationBoxesOpen : !marginBoxes;
+
+  // First-use hint: until dismissed, or until the reader has anything
+  const [hintDone, setHintDone] = useState(true);
+  useEffect(() => setHintDone(readHintDone()), []);
+  const loaded = highlightsLoaded && annotationsApi.loaded && allNotesLoaded;
+  const hasStudy =
+    highlights.length > 0 || annotationsApi.annotations.length > 0 || allNotes.length > 0;
+  function dismissHint() {
+    setHintDone(true);
+    try {
+      localStorage.setItem(HINT_DONE_KEY, "1");
+    } catch {
+      // storage blocked: hidden for this visit only
+    }
+  }
+  useEffect(() => {
+    if (loaded && hasStudy && !hintDone) dismissHint();
+  }, [loaded, hasStudy, hintDone]);
+  const firstUseHint = loaded && !hasStudy && !hintDone;
 
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
@@ -542,8 +584,15 @@ export function PaginatedChapter({
       selectedMarkId={selectedMarkId}
       mobile={scrollMode}
       onAddHighlight={add}
+      onRecolorHighlight={recolor}
       onRemoveHighlight={remove}
       onAddAnnotation={annotationsApi.add}
+      onEditAnnotation={annotationsApi.edit}
+      onRemoveAnnotation={annotationsApi.remove}
+      onSelectionChange={onSelectionChange}
+      inlineAnnotations={inlineAnnotations}
+      firstUseHint={firstUseHint}
+      onDismissHint={dismissHint}
       onAddNote={(anchor) => void addNote(anchor)}
       onAttachNote={(noteId, anchor) => void notesApi.attach(noteId, anchor)}
       onOpenNote={setOpenNoteId}
@@ -551,14 +600,19 @@ export function PaginatedChapter({
     />
   );
 
+  /** Anything that moves the words without resizing a box: ink re-measures. */
+  const layoutKey = `${page}:${stride}:${layout.columns}:${textSize}:${inlineAnnotations}`;
+
   /** Ink layers share the region's box (inset-0); measured from word spans. */
   const inkLayers = (
     <div className="pointer-events-none absolute inset-0">
       <HighlightMarks
         highlights={highlights}
+        selection={selection}
         regionRef={regionRef}
         contentRef={contentBoxRef}
-        page={page}
+        flowRef={contentRef}
+        layoutKey={layoutKey}
         hidden={
           selectedMarkId != null &&
           noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
@@ -570,10 +624,11 @@ export function PaginatedChapter({
         annotations={annotationsApi.annotations}
         noteMarks={noteMarks}
         compact={scrollMode}
-        showBoxes={annotationBoxesOpen}
+        marginBoxes={marginBoxes}
+        railChips={!scrollMode}
         regionRef={regionRef}
         contentRef={contentBoxRef}
-        page={page}
+        layoutKey={layoutKey}
         activeAnnotationId={activeAnnotationId}
         selectedMarkId={selectedMarkId}
         onFocus={setActiveAnnotationId}
@@ -599,13 +654,14 @@ export function PaginatedChapter({
         defaultSize={openNote ? `${100 - noteSize}%` : "100%"}
         className="flex min-h-0 flex-col"
       >
-      {/* Any click in the reader cancels the reference spotlight (a mouse
-          nicety; keyboard users clear it from the note's references) */}
+      {/* Any press in the reader cancels the reference spotlight (a mouse
+          nicety; keyboard users clear it from the note's references).
+          Pointer-up: word presses stop it there (chapter-text.tsx) */}
       <div
         ref={paneRef}
         role="presentation"
         className="relative min-h-0 flex-1"
-        onClick={() => selectedMarkId && setSelectedMarkId(null)}
+        onPointerUp={() => selectedMarkId && setSelectedMarkId(null)}
       >
         {scrollMode ? (
           /* Phone: one ragged-right column, scrolled vertically. The ink

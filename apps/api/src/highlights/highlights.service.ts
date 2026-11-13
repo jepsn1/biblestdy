@@ -40,6 +40,26 @@ export class HighlightsService {
     return toHighlight(row);
   }
 
+  /** Changes an owned highlight's color; null if missing or not the user's. */
+  async recolor(
+    userId: string,
+    id: string,
+    color: HighlightColor,
+  ): Promise<Highlight | null> {
+    const [row] = await db
+      .update(highlight)
+      .set({ color })
+      .where(
+        and(
+          eq(highlight.id, id),
+          eq(highlight.userId, userId),
+          isNull(highlight.deletedAt),
+        ),
+      )
+      .returning();
+    return row ? toHighlight(row) : null;
+  }
+
   /** Soft-deletes (#64); true if a live row of the user's was deleted. */
   async remove(userId: string, id: string): Promise<boolean> {
     const deleted = await db

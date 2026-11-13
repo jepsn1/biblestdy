@@ -69,5 +69,6 @@ Then: **Keep** (what I'd hate to lose, bullets) and **Verdict** (one line).
 
 ## 7. Lessons (update after each review)
 
-- **2026-11-13 UI review:** the account's saved reader style overrides localStorage — the script now PATCHes `/api/preferences` per shot. The scripted mouse drag doesn't trigger the custom selection menu — capture it by hand. Capture sign-in in both locales (set `lang: "da"`), or reviewers flag English as a bug.
+- **2026-11-13 UI review:** the account's saved reader style overrides localStorage — the script now PATCHes `/api/preferences` per shot. Selection shots must drag words on the visible page (later pages' words sit off-screen) — fixed in #63. Capture sign-in in both locales (set `lang: "da"`), or reviewers flag English as a bug.
 - Product decisions that override panel advice are recorded in the review file (e.g. zoom lock stays; in-app text size instead).
+- **Parallel runs (#63):** give each worker its own user (`EMAIL=delivered+<label>@resend.dev tools/review/seed.sh`) and IP bucket (`CLIENT_IP=203.0.113.x` for ui-shots): the dev test user's reading quota and localhost's auth rate limit (100/min) are shared, and a drained bucket shows up as shots landing on /signin.

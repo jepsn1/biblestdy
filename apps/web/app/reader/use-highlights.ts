@@ -12,7 +12,7 @@ export function useHighlights(translationId: string, book: string, chapter: numb
   const key = ["highlights", translationId, book, chapter];
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
 
-  const { data: highlights = [] } = useQuery({
+  const { data: highlights = [], isFetched } = useQuery({
     queryKey: key,
     queryFn: () => api<Highlight[]>(`/api/highlights?${params}`).catch(() => []),
   });
@@ -54,5 +54,20 @@ export function useHighlights(translationId: string, book: string, chapter: numb
     });
   }
 
-  return { highlights, add, remove, restore };
+  /** New colour, same span. Optimistic; a failed save restores the old one. */
+  async function recolor(id: string, color: HighlightColor) {
+    const before = qc.getQueryData<Highlight[]>(key);
+    qc.setQueryData<Highlight[]>(key, (h = []) => h.map((x) => (x.id === id ? { ...x, color } : x)));
+    try {
+      await api<Highlight>(`/api/highlights/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ color }),
+      });
+    } catch (e) {
+      qc.setQueryData(key, before);
+      notifyError(e, { retry: () => recolor(id, color) });
+    }
+  }
+
+  return { highlights, loaded: isFetched, add, remove, restore, recolor };
 }
