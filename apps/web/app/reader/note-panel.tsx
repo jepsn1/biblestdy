@@ -203,16 +203,32 @@ export function NotePanel({
 
   // Opened from a note chip (desktop side panel): focus moves to the title;
   // closing the panel returns it to that chip. Drawers manage their own focus.
+  // The chip's id is kept in a ref: a re-run (StrictMode, note switch) finds
+  // focus already in the title, not on the chip.
+  const openerId = useRef<string | null>(null);
   useEffect(() => {
     if (mobile) return;
-    const opener = document.activeElement?.closest<HTMLElement>(`[${NOTE_OPENER}]`) ?? null;
-    if (!opener) return;
+    const opener = document.activeElement?.closest<HTMLElement>(`[${NOTE_OPENER}]`);
+    if (opener) {
+      openerId.current = opener.getAttribute(NOTE_OPENER);
+      titleRef.current?.focus({ preventScroll: true });
+    }
+    if (!openerId.current) return;
+    const id = openerId.current;
     const aside = titleRef.current?.closest("aside");
-    titleRef.current?.focus({ preventScroll: true });
     return () => {
       const active = document.activeElement;
-      if ((active === document.body || aside?.contains(active)) && opener.isConnected)
-        opener.focus({ preventScroll: true });
+      if (active !== document.body && !aside?.contains(active)) return;
+      // By id, not element: the reader re-lays out without the panel and the
+      // ink re-measures (~340ms) — the chip may be re-created meanwhile
+      const refocus = () => {
+        if (!document.activeElement || document.activeElement === document.body)
+          document
+            .querySelector<HTMLElement>(`[${NOTE_OPENER}="${CSS.escape(id)}"]`)
+            ?.focus({ preventScroll: true });
+      };
+      requestAnimationFrame(refocus);
+      window.setTimeout(refocus, 450);
     };
   }, [mobile, note.id]);
 

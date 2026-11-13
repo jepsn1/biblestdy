@@ -495,7 +495,7 @@ export function AnnotationMarks({
               key={m.mark.id}
               type="button"
               data-ink-box
-              {...{ [NOTE_OPENER]: "" }}
+              {...{ [NOTE_OPENER]: m.mark.id }}
               aria-label={t("reader.openNoteNamed", { title })}
               title={title}
               onClick={() => onOpenNote(m.mark.noteId)}

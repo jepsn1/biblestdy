@@ -566,7 +566,7 @@ export function ChapterText({
                         key={m.id}
                         type="button"
                         data-ink-box
-                        {...{ [NOTE_OPENER]: "" }}
+                        {...{ [NOTE_OPENER]: m.id }}
                         aria-label={t("reader.openNoteNamed", { title: m.title || t("note.untitled") })}
                         title={m.title || t("note.untitled")}
                         onClick={(e) => {
