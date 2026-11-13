@@ -4,6 +4,7 @@ import { anchorReference, formatReference } from "@biblestdy/shared";
 import { useEffect, useId, useRef } from "react";
 import { useNavigate } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { ListSkeleton } from "~/components/list-skeleton";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 import { TagChips } from "./tag-chips";
 import { useConnections } from "./use-connections";
@@ -118,6 +119,7 @@ export function ConnectionsPanel({
       </PanelHeader>
 
       <ScrollArea className="min-h-0 flex-1">
+        {!connections && <ListSkeleton className="p-2 pt-3" />}
         {connections && (
           <div className="flex flex-col gap-5 p-2 pt-3">
             <section>
@@ -129,7 +131,7 @@ export function ConnectionsPanel({
                 <TagChips
                   tags={connections.topics.filter((tp) => tp.onPassage)}
                   onAdd={(name) => void passageTags.add(name)}
-                  onRemove={(tp) => void passageTags.remove(tp.id)}
+                  onRemove={(tp) => void passageTags.remove(tp)}
                   addLabel={t("connections.tagPassage")}
                 />
                 {connections.topics.some((tp) => !tp.onPassage) && (

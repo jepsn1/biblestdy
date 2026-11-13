@@ -3,6 +3,17 @@ import { BOOKS, findBook, suggestBooks } from "@biblestdy/shared";
 import { LogOut } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import {
   Sidebar,
@@ -19,6 +30,7 @@ import {
 } from "~/components/ui/sidebar";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import { notifyError } from "~/lib/notify";
 
 const OLD_TESTAMENT = BOOKS.slice(0, 39);
 const NEW_TESTAMENT = BOOKS.slice(39);
@@ -101,6 +113,9 @@ export function BooksSidebar({ book }: { book: string }) {
   );
 }
 
+/** Signed-in email + a labelled "Log out" (#64). Confirmed first: signing in
+ * again means fetching a new email code — a costly mistake for a reader who
+ * only meant to close the sidebar. */
 function SessionFooter() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -108,20 +123,41 @@ function SessionFooter() {
 
   if (isPending || !session) return null;
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="truncate font-mono text-xs text-muted-foreground">
-        {session.user.email}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("sidebar.signOut")}
-        onClick={() =>
-          void authClient.signOut().then(() => navigate("/signin"))
-        }
-      >
-        <LogOut />
-      </Button>
+    <div className="flex flex-col gap-1">
+      <span className="truncate text-xs text-muted-foreground">{session.user.email}</span>
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 self-start text-muted-foreground max-sm:h-10"
+            />
+          }
+        >
+          <LogOut />
+          {t("sidebar.signOut")}
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("sidebar.signOutTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("sidebar.signOutWarning")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("sidebar.signOutCancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                void authClient
+                  .signOut()
+                  .then(() => navigate("/signin"))
+                  .catch((e: unknown) => notifyError(e, { message: t("toast.signOutFailed") }))
+              }
+            >
+              {t("sidebar.signOut")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

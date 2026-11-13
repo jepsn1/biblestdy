@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { STYLE_CLASS, saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
+import { notifyError } from "~/lib/notify";
 import { cn, focusRing } from "~/lib/utils";
 
 /** One-time onboarding (#45): the same verse in each reader style, one tap
@@ -30,8 +31,11 @@ export function StyleChooser({ verse, onDone }: { verse?: Verse; onDone: () => v
   async function accept() {
     if (busy) return;
     setBusy(true);
-    // Applied locally even if the save fails; the chooser returns next load
-    await saveReaderStyle(picked).catch(() => undefined);
+    // Applied locally even if the save fails (the chooser returns next load);
+    // the failure is said out loud (#64), with a retry
+    const save = () =>
+      saveReaderStyle(picked).catch((e: unknown) => notifyError(e, { retry: save }));
+    await save();
     onDone();
   }
 

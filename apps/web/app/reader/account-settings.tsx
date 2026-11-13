@@ -27,6 +27,7 @@ import { setUiLanguage } from "~/lib/i18n";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
+import { notifyError } from "~/lib/notify";
 import { api } from "~/lib/query";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 
@@ -171,6 +172,15 @@ function Segmented<T extends string>({
   );
 }
 
+/** Style/size apply locally at once; a failed account save says so (#64)
+ * — otherwise the next load would quietly revert it. */
+function saveStyle(style: Parameters<typeof saveReaderStyle>[0]) {
+  saveReaderStyle(style).catch((e: unknown) => notifyError(e, { retry: () => saveStyle(style) }));
+}
+function saveSize(size: Parameters<typeof saveTextSize>[0]) {
+  saveTextSize(size).catch((e: unknown) => notifyError(e, { retry: () => saveSize(size) }));
+}
+
 function SettingsContent({ email, onDelete }: { email: string; onDelete: () => void }) {
   const { t, i18n } = useTranslation();
   const ids = useId();
@@ -206,7 +216,7 @@ function SettingsContent({ email, onDelete }: { email: string; onDelete: () => v
         <Segmented
           value={style}
           labelledBy={`${ids}-style`}
-          onChange={(s) => void saveReaderStyle(s).catch(() => undefined)}
+          onChange={saveStyle}
           options={READER_STYLES.map((s) => ({ value: s, label: t(`readerStyle.${s}`) }))}
         />
       </SettingRow>
@@ -216,7 +226,7 @@ function SettingsContent({ email, onDelete }: { email: string; onDelete: () => v
         <Segmented
           value={String(textSize)}
           labelledBy={`${ids}-size`}
-          onChange={(s) => void saveTextSize(Number(s) as typeof textSize).catch(() => undefined)}
+          onChange={(s) => saveSize(Number(s) as typeof textSize)}
           options={TEXT_SIZES.map((s) => ({ value: String(s), label: `${s}%` }))}
         />
       </SettingRow>

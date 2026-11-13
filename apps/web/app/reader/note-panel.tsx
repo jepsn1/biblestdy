@@ -32,8 +32,11 @@ import {
   UndoRedo,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
-import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "~/components/ui/button";
+import { notifyError } from "~/lib/notify";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
@@ -46,7 +49,7 @@ function NoteTagsRow({ noteId }: { noteId: string }) {
     <TagChips
       tags={tags}
       onAdd={(name) => void add(name)}
-      onRemove={(t) => void remove(t.id)}
+      onRemove={(t) => void remove(t)}
     />
   );
 }
@@ -162,7 +165,9 @@ function ReferencesTable({
  * Side-by-side editor for a full note (issue #7): title + WYSIWYG markdown
  * body (MDXEditor — markdown stays the DB format, users never have to see
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
- * Autosaves (debounced) — closing never loses work.
+ * Autosaves (debounced) — closing flushes a pending save, so it never loses
+ * work. The footer's save state comes from the server (#64): "Saving…" until
+ * the PATCH answers, "Saved ✓" after, "Not saved · Retry" (+ toast) on failure.
  *
  * The references table at the bottom lists every passage the note anchors to
  * (issue #8): click reads there with the span flashed, × unlinks. The last
@@ -180,7 +185,8 @@ export function NotePanel({
   mobile = false,
 }: {
   note: Note;
-  onEdit: (id: string, patch: { title?: string; body?: string }) => void;
+  /** Resolves when the server saved; rejects on failure (save state). */
+  onEdit: (id: string, patch: { title?: string; body?: string }) => Promise<unknown>;
   onRemove: (id: string) => void;
   onDetach: (id: string, anchorId: string) => void;
   onShowAnchor: (anchor: NoteAnchor) => void;
@@ -196,20 +202,65 @@ export function NotePanel({
   const [body, setBody] = useState(note.body);
   const dark = useIsDark();
 
+  /** In-flight PATCHes, and whether the last one failed. */
+  const [inFlight, setInFlight] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const dirty = title !== note.title || body !== note.body;
+
+  // Latest buffers + save for the unmount flush and the Retry action
+  const latest = useRef({ id: note.id, title, body, dirty });
+  useEffect(() => {
+    latest.current = { id: note.id, title, body, dirty };
+  });
+
+  async function save(id: string, patch: { title: string; body: string }) {
+    setInFlight((n) => n + 1);
+    try {
+      await onEdit(id, patch);
+      setFailed(false);
+      toast.dismiss(`note-save-${id}`);
+    } catch (e) {
+      setFailed(true);
+      notifyError(e, {
+        id: `note-save-${id}`,
+        retry: () => {
+          const l = latest.current;
+          if (l.id === id) void save(id, { title: l.title, body: l.body });
+        },
+      });
+    } finally {
+      setInFlight((n) => n - 1);
+    }
+  }
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  });
+
   // Fresh note -> fresh buffers (the editor itself resets via key={note.id})
   useEffect(() => {
     setTitle(note.title);
     setBody(note.body);
+    setFailed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
   // Debounced autosave
   useEffect(() => {
     if (title === note.title && body === note.body) return;
-    const timer = setTimeout(() => onEdit(note.id, { title, body }), 800);
+    const timer = setTimeout(() => void save(note.id, { title, body }), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, body]);
+
+  // Closing (or switching notes) with a save still pending: flush it now
+  useEffect(
+    () => () => {
+      const l = latest.current;
+      if (l.dirty) void saveRef.current(l.id, { title: l.title, body: l.body });
+    },
+    [note.id],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -217,7 +268,7 @@ export function NotePanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const dirty = title !== note.title || body !== note.body;
+  const status = failed ? "failed" : dirty || inFlight > 0 ? "saving" : "saved";
 
   return (
     <aside className="flex h-full w-full flex-col bg-background">
@@ -324,20 +375,47 @@ export function NotePanel({
         );
       })()}
 
-      <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
-        <button
-          type="button"
-          className="hover:text-destructive"
+      <footer className="flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-xs text-muted-foreground">
+        {/* No confirm: the delete toast offers Undo (#64) */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-destructive max-sm:h-10"
           onClick={() => {
+            latest.current.dirty = false; // nothing to flush into a deleted note
             onRemove(note.id);
             onClose();
           }}
         >
-          {t("note.delete")}
-        </button>
-        <span>
-          {dirty ? t("note.saving") : t("note.saved")}
-          {!mobile && <> · {t("note.escCloses")}</>}
+          <Trash2 />
+          {t("note.deleteNote")}
+        </Button>
+        <span className="flex items-center gap-1.5">
+          {/* Not a live region: it flips on every keystroke. A failed save
+              is announced by its toast. */}
+          <span className="flex items-center gap-1">
+            {status === "failed" ? (
+              <span className="text-destructive">{t("note.notSaved")}</span>
+            ) : status === "saving" ? (
+              t("note.saving")
+            ) : (
+              <>
+                <Check className="size-3.5" aria-hidden />
+                {t("note.saved")}
+              </>
+            )}
+          </span>
+          {status === "failed" && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
+              onClick={() => void save(note.id, { title, body })}
+            >
+              {t("note.retry")}
+            </Button>
+          )}
+          {!mobile && <span className="font-mono">· {t("note.escCloses")}</span>}
         </span>
       </footer>
     </aside>
