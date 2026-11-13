@@ -11,7 +11,7 @@ export function meta() {
   return [{ title: i18n.t("privacy.metaTitle") }];
 }
 
-const SUPPORT_EMAIL = "support@biblestdy.com";
+const SUPPORT_EMAIL = "marcus@jepsn.com";
 
 export default function Privacy() {
   const { t } = useTranslation();
