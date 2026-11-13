@@ -6,6 +6,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -13,7 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Highlight } from '@biblestdy/shared';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
-import { CreateHighlightDto } from './create-highlight.dto';
+import { CreateHighlightDto, UpdateHighlightDto } from './create-highlight.dto';
 import { HighlightsService } from './highlights.service';
 
 @Controller('highlights')
@@ -48,6 +49,17 @@ export class HighlightsController {
     @Body() dto: CreateHighlightDto,
   ): Promise<Highlight> {
     return this.highlights.create(req.user.id, dto);
+  }
+
+  @Patch(':id')
+  async update(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateHighlightDto,
+  ): Promise<Highlight> {
+    const updated = await this.highlights.recolor(req.user.id, id, dto.color);
+    if (!updated) throw new NotFoundException();
+    return updated;
   }
 
   @Delete(':id')

@@ -33,11 +33,15 @@ import {
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
 import { useNoteTags } from "./use-tags";
+
+/** Marks a control that opens a note (margin chip, phone marker): the side
+ * panel takes focus from it and hands it back on close (#63). */
+export const NOTE_OPENER = "data-note-opener";
 
 /** The note's tags (issue #10) — own component so the query mounts per note. */
 function NoteTagsRow({ noteId }: { noteId: string }) {
@@ -195,6 +199,38 @@ export function NotePanel({
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const dark = useIsDark();
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  // Opened from a note chip (desktop side panel): focus moves to the title;
+  // closing the panel returns it to that chip. Drawers manage their own focus.
+  // The chip's id is kept in a ref: a re-run (StrictMode, note switch) finds
+  // focus already in the title, not on the chip.
+  const openerId = useRef<string | null>(null);
+  useEffect(() => {
+    if (mobile) return;
+    const opener = document.activeElement?.closest<HTMLElement>(`[${NOTE_OPENER}]`);
+    if (opener) {
+      openerId.current = opener.getAttribute(NOTE_OPENER);
+      titleRef.current?.focus({ preventScroll: true });
+    }
+    if (!openerId.current) return;
+    const id = openerId.current;
+    const aside = titleRef.current?.closest("aside");
+    return () => {
+      const active = document.activeElement;
+      if (active !== document.body && !aside?.contains(active)) return;
+      // By id, not element: the reader re-lays out without the panel and the
+      // ink re-measures (~340ms) — the chip may be re-created meanwhile
+      const refocus = () => {
+        if (!document.activeElement || document.activeElement === document.body)
+          document
+            .querySelector<HTMLElement>(`[${NOTE_OPENER}="${CSS.escape(id)}"]`)
+            ?.focus({ preventScroll: true });
+      };
+      requestAnimationFrame(refocus);
+      window.setTimeout(refocus, 450);
+    };
+  }, [mobile, note.id]);
 
   // Fresh note -> fresh buffers (the editor itself resets via key={note.id})
   useEffect(() => {
@@ -225,6 +261,7 @@ export function NotePanel({
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
       <PanelHeader onClose={onClose} closeLabel={t("note.close")} className="pl-3">
         <input
+          ref={titleRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t("note.titlePlaceholder")}

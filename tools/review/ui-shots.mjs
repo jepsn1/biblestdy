@@ -1,9 +1,13 @@
 // UI review evidence pack: screenshots of every screen/overlay + axe-core audit.
 // Usage (from a dir with `npm i playwright axe-core`): see docs/REVIEW-PROCESS.md.
 // Env: BASE (dev web url), COOKIES (curl cookie jar with better-auth.session_token), OUT (output dir),
-// ONLY (optional comma list of shot-name prefixes, e.g. ONLY=34,35 — re-shoot a few after a fix).
-// Known gap: the custom pointer selection in chapter-text.tsx is not triggered by page.mouse drags
-// (shot 10 comes out without the menu) — capture the selection menu by hand until fixed.
+// ONLY (optional comma list of shot-name prefixes, e.g. ONLY=34,35 — re-shoot a few after a fix),
+// CLIENT_IP (optional, e.g. 203.0.113.7: sent as X-Forwarded-For so a parallel run gets its own
+// auth rate-limit + reading-quota IP bucket instead of draining localhost's).
+// Selection shots drag across words on the CURRENT page: words on later pages have off-screen
+// boxes (the paged sheet translates them out), so a drag there selects nothing.
+// Every reader shot also runs a collision check (#63): no note chip / annotation box
+// ([data-ink-box]) may overlap a visible word — results in collisions.json, FAIL lines on stdout.
 // Seeds are not created here — run seed.sh first. Shots that fail print FAIL and are skipped.
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -14,12 +18,31 @@ fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch();
 const audits = {};
 async function ctxFor({ w = 1440, h = 900, theme = "light", lang = "en", auth = true, style = "paper", textSize = 100 }) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: w < 640 ? 2 : 1, hasTouch: w < 640, locale: lang === "da" ? "da-DK" : "en-US" });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: w < 640 ? 2 : 1, hasTouch: w < 640, locale: lang === "da" ? "da-DK" : "en-US", ...(process.env.CLIENT_IP ? { extraHTTPHeaders: { "X-Forwarded-For": process.env.CLIENT_IP } } : {}) });
   if (auth) await ctx.addCookies([{ name: "better-auth.session_token", value: token, domain: "localhost", path: "/" }]);
   await ctx.addInitScript(([theme, lang, style, WEB, textSize]) => { localStorage.setItem("translationId", WEB); localStorage.setItem("theme", theme); localStorage.setItem("i18nextLng", lang); localStorage.setItem("lang", lang); localStorage.setItem("readerStyle", style); localStorage.setItem("textSize", String(textSize)); }, [theme, lang, style, WEB, textSize]);
   return ctx;
 }
 const ONLY = process.env.ONLY?.split(",");
+const collisions = {};
+/** Ink boxes vs words actually on screen (inside the clipped sheet / scroll viewport). */
+const collide = (page) => page.evaluate(() => {
+  const text = document.getElementById("chapter-text");
+  if (!text) return null;
+  let clip = text.parentElement;
+  while (clip && getComputedStyle(clip).overflow === "visible") clip = clip.parentElement;
+  const c = (clip ?? document.body).getBoundingClientRect();
+  const inClip = (r) => r.width > 0 && r.right > c.left && r.left < c.right && r.bottom > c.top && r.top < c.bottom;
+  const words = [...text.querySelectorAll("[data-word]")].map((e) => e.getBoundingClientRect()).filter(inClip);
+  const hits = [];
+  for (const e of document.querySelectorAll("[data-ink-box]")) {
+    const b = e.getBoundingClientRect();
+    if (b.width === 0 || b.bottom < 0 || b.top > innerHeight) continue;
+    const w = words.find((w) => Math.min(b.right, w.right) - Math.max(b.left, w.left) > 0.5 && Math.min(b.bottom, w.bottom) - Math.max(b.top, w.top) > 0.5);
+    if (w) hits.push({ box: (e.getAttribute("aria-label") ?? e.textContent).slice(0, 40), at: [Math.round(b.left), Math.round(b.top)] });
+  }
+  return hits;
+});
 async function shot(name, opts, path, steps = async () => {}, audit = false) {
   if (ONLY && !ONLY.some((o) => name.startsWith(o))) return;
   const ctx = await ctxFor(opts); const page = await ctx.newPage();
@@ -29,6 +52,11 @@ async function shot(name, opts, path, steps = async () => {}, audit = false) {
     await page.goto(BASE + path); await page.waitForTimeout(2500);
     await steps(page); await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/${name}.png` });
+    if (path.startsWith("/read")) {
+      const hits = await collide(page);
+      collisions[name] = hits;
+      if (hits?.length) console.log("FAIL collision", name, JSON.stringify(hits));
+    }
     if (audit) {
       await page.addScriptTag({ content: axeSrc });
       const r = await page.evaluate(async () => (await window.axe.run(document, { resultTypes: ["violations"] })).violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, n: v.nodes.length, targets: v.nodes.slice(0, 4).map(n => n.target.join(" ")) })));
@@ -53,7 +81,9 @@ await shot("04-reader-desktop-clean-dark", { theme: "dark", style: "clean" }, R,
 await shot("05-reader-da", { lang: "da" }, R);
 await shot("06-sidebar-closed", {}, R, click(/books sidebar|Toggle Sidebar/i));
 await shot("09-jump-box-suggestions", {}, R, async (p) => { await p.keyboard.press("/"); await p.keyboard.type("joh"); await p.waitForTimeout(600); });
-await shot("10-selection-menu", {}, R, async (p) => { const a = await p.locator('[data-verse="20"][data-word="1"]').first().boundingBox(); const b = await p.locator('[data-verse="20"][data-word="6"]').first().boundingBox(); await p.mouse.move(a.x + 4, a.y + 6); await p.mouse.down(); await p.mouse.move(b.x + 8, b.y + 6, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(800); }, true);
+/** Drag-select words on the visible page (see header), then wait for the menu. */
+const drag = (verse, from, to) => async (p) => { const a = await p.locator(`[data-verse="${verse}"][data-word="${from}"]`).first().boundingBox(); const b = await p.locator(`[data-verse="${verse}"][data-word="${to}"]`).first().boundingBox(); await p.mouse.move(a.x + 4, a.y + a.height / 2); await p.mouse.down(); await p.mouse.move(b.x + b.width - 4, b.y + b.height / 2, { steps: 8 }); await p.mouse.up(); await p.getByRole("menu").waitFor({ timeout: 3000 }); };
+await shot("10-selection-menu", {}, R, drag(4, 1, 6), true);
 await shot("12-connections-panel", {}, R, click(PANEL), true);
 await shot("13-settings-open", {}, R, click(/Account & settings/i), true);
 await shot("14-keyboard-focus", {}, R, async (p) => { for (let i = 0; i < 6; i++) { await p.keyboard.press("Tab"); await p.waitForTimeout(120); } });
@@ -126,8 +156,23 @@ await shot("K3-delete-keyboard", {}, R, async (p) => { await askDelete(p); const
 await shot("K4-panel-keyboard", {}, R, async (p) => { const b = p.getByRole("button", { name: PANEL }).first(); if ((await b.getAttribute("aria-pressed")) === "true") { await b.click(); await p.waitForTimeout(500); } await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(800); must((await active(p)).inPanel, `focus not in panel: ${JSON.stringify(await active(p))}`); await p.keyboard.press("Escape"); await p.waitForTimeout(600); must((await p.locator("aside h2", { hasText: PANEL }).count()) === 0, "Esc did not close panel"); must(PANEL.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
 await shot("K5-more-keyboard", PH, R, async (p) => { const m = p.getByRole("button", { name: /^More$/ }); await m.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(800); must((await active(p)).inDialog, "focus not in More sheet"); await p.keyboard.press("Escape"); await p.waitForTimeout(800); must(/^More$/.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
 await shot("K6-segmented-arrows", {}, R, async (p) => { await openSettings(p); const url = p.url(); await p.getByRole("button", { name: /^Paper$/ }).focus(); await p.keyboard.press("ArrowRight"); await p.waitForTimeout(300); must(/^Clean$/.test((await active(p)).label ?? ""), `arrow did not move: ${JSON.stringify(await active(p))}`); must(p.url() === url, "arrow turned the page behind settings"); await p.keyboard.press("Escape"); });
+// Annotations off the text + highlight action menu (#63)
+const tapHighlight = async (p) => { await p.locator('[data-verse="3"][data-word="8"]').first().click(); await p.waitForTimeout(700); };
+await shot("54-highlight-menu", {}, R, async (p) => { await tapHighlight(p); if (!(await p.getByRole("menu").count())) throw new Error("no highlight menu"); }, true);
+await shot("55-highlight-menu-keyboard", {}, R, async (p) => { await tapHighlight(p); await p.keyboard.press("ArrowDown"); await p.keyboard.press("ArrowDown"); }, true);
+await shot("56-annotate-composer", {}, R, async (p) => { await drag(4, 1, 6)(p); await p.getByRole("menuitem", { name: /Annotate/ }).click(); await p.waitForTimeout(600); }, true);
+await shot("57-note-link-list", {}, R, async (p) => { await drag(4, 1, 6)(p); await p.getByRole("menuitem", { name: /note link/i }).click(); await p.waitForTimeout(600); }, true);
+await shot("58-phone-highlight-drawer", { w: 390, h: 844 }, R, async (p) => { await p.locator('[data-verse="3"][data-word="8"]').first().tap(); await p.waitForTimeout(900); }, true);
+await shot("59-phone-note-marker", { w: 390, h: 844 }, R + "?v=13", undefined, true);
+await shot("60-phone-annotation-lines", { w: 390, h: 844, textSize: 150 }, R, async (p) => { await phoneBoxes(p); await p.locator('[data-verse="5"][data-word="0"]').first().scrollIntoViewIfNeeded(); await p.waitForTimeout(400); });
+await shot("61-text-200-inline-annotation", { textSize: 200 }, R + "?v=5", undefined, true);
+await shot("62-text-150-note-rail", { textSize: 150 }, R + "?v=14");
+await shot("63-clean-dark-highlight-menu", { theme: "dark", style: "clean" }, R, tapHighlight, true);
+await shot("K7-note-chip-keyboard", {}, R + "?v=14", async (p) => { const chip = p.getByRole("button", { name: /^Open note: The bronze serpent/ }).first(); await chip.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(1200); must((await active(p)).tag === "INPUT" && (await active(p)).inPanel, `focus not in note: ${JSON.stringify(await active(p))}`); await p.keyboard.press("Escape"); await p.waitForTimeout(800); must(/^Open note: The bronze serpent/.test((await active(p)).label ?? ""), `focus did not return to chip: ${JSON.stringify(await active(p))}`); });
+await shot("K8-highlight-menu-keyboard", {}, R, async (p) => { await tapHighlight(p); must((await p.getByRole("menu").count()) === 1, "no menu"); await p.keyboard.press("ArrowDown"); must(await p.evaluate(() => document.activeElement?.getAttribute("role")?.startsWith("menuitem")), "arrows do not reach the items"); await p.keyboard.press("Escape"); await p.waitForTimeout(500); must((await p.getByRole("menu").count()) === 0, "Esc did not close"); must(await p.evaluate(() => document.activeElement?.id === "chapter-text"), "focus did not return to the text"); });
 // Leave the account at the default size
 { const ctx = await ctxFor({}); await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: "paper", textSize: 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } }); await ctx.close(); }
 fs.writeFileSync(`${OUT}/axe${ONLY ? "-partial" : ""}.json`, JSON.stringify(audits, null, 1));
+fs.writeFileSync(`${OUT}/collisions${ONLY ? "-partial" : ""}.json`, JSON.stringify(collisions, null, 1));
 await browser.close();
 

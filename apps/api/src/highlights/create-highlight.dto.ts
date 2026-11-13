@@ -34,3 +34,9 @@ export class CreateHighlightDto {
   @Min(0)
   endWord!: number;
 }
+
+/** Request body for changing a highlight's color (the span never moves). */
+export class UpdateHighlightDto {
+  @IsIn(HIGHLIGHT_COLORS)
+  color!: HighlightColor;
+}
