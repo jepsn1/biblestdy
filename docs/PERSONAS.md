@@ -4,7 +4,7 @@ Eight people we design for. Four are experts who judge the product from their cr
 
 **Product context every persona gets:** biblestdy is a free, non-commercial Bible-study web app (biblestdy.com, Danish-first, en + da UI). Readers highlight words, scribble margin marks (circles/brackets), write notes anchored to one or many passages, and tag topics. It is a study companion next to a paper Bible, often used at a desk. Translations: NIV, NKJV, WEB, BPH (Bibelen på hverdagsdansk). Looks: Paper or Clean, each light or dark.
 
-**How to use a panel:** each persona answers (1) what works, (2) what's in my way, ranked, (3) what I'd change, concretely, (4) what I'd hate to lose. Personas must stay in character: the newcomer does not talk about CSS; the engineer does not guess at theology.
+**How to use a panel:** follow `docs/REVIEW-PROCESS.md` (panel choice, evidence pack, output format, synthesis, deliverables).
 
 ---
 
