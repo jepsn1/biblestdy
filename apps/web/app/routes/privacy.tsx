@@ -66,7 +66,7 @@ export default function Privacy() {
             </p>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="mt-1 inline-block font-mono text-control text-primary hover:underline"
+              className="mt-1 inline-block text-control text-primary hover:underline"
             >
               {SUPPORT_EMAIL}
             </a>
@@ -74,7 +74,7 @@ export default function Privacy() {
 
           <Link
             to="/"
-            className="mt-12 block font-mono text-meta text-muted-foreground hover:text-foreground"
+            className="mt-12 block text-meta text-muted-foreground hover:text-foreground"
           >
             ← {t("privacy.backToApp")}
           </Link>

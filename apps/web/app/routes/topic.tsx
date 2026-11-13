@@ -55,11 +55,11 @@ export default function TopicPage({ params }: Route.ComponentProps) {
           <header>
             <Link
               to="/"
-              className="mb-4 flex items-center gap-1 font-mono text-meta text-muted-foreground hover:text-foreground"
+              className="mb-4 flex items-center gap-1 text-meta text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="size-3" /> {t("topic.back")}
             </Link>
-            <span className="font-mono text-meta tracking-widest text-primary uppercase">
+            <span className="eyebrow">
               {t("topic.label")}
             </span>
             <h1 className="font-serif text-display font-medium tracking-tight">
@@ -87,7 +87,7 @@ function TopicBody({ topic }: { topic: Topic }) {
   return (
     <>
       <section>
-        <h2 className="mb-2 font-sans text-meta font-semibold tracking-widest text-primary uppercase">
+        <h2 className="eyebrow mb-2">
           {t("topic.notes")}
         </h2>
         {topic.notes.length === 0 && (
@@ -117,7 +117,7 @@ function TopicBody({ topic }: { topic: Topic }) {
       </section>
 
       <section>
-        <h2 className="mb-2 font-sans text-meta font-semibold tracking-widest text-primary uppercase">
+        <h2 className="eyebrow mb-2">
           {t("topic.passages")}
         </h2>
         {topic.passages.length === 0 && (

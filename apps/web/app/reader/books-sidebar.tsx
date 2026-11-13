@@ -102,7 +102,7 @@ export function BooksSidebar({ book }: { book: string }) {
           <BookGroup label={t("sidebar.newTestament")} books={newTestament} current={book} />
         )}
         {oldTestament.length === 0 && newTestament.length === 0 && (
-          <p className="px-4 py-2 font-mono text-meta text-muted-foreground">No books match</p>
+          <p className="px-4 py-2 text-meta text-muted-foreground">{t("sidebar.noMatch")}</p>
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-border px-4 py-3">
@@ -174,7 +174,7 @@ function BookGroup({
   const nameOf = useBookName();
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="font-mono text-meta tracking-widest uppercase">
+      <SidebarGroupLabel className="eyebrow text-eyebrow font-semibold">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>

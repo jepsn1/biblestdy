@@ -100,7 +100,7 @@ export function ConnectionsPanel({
 
   function SectionTitle({ children }: { children: string }) {
     return (
-      <h3 className="px-2 pb-1 font-sans text-meta font-semibold tracking-widest text-primary uppercase">
+      <h3 className="eyebrow px-2 pb-1">
         {children}
       </h3>
     );
@@ -136,7 +136,7 @@ export function ConnectionsPanel({
                 />
                 {connections.topics.some((tp) => !tp.onPassage) && (
                   <div className="mt-1.5">
-                    <span className="font-mono text-meta text-muted-foreground">
+                    <span className="text-meta text-muted-foreground">
                       {t("connections.viaNotes")}{" "}
                     </span>
                     {connections.topics
@@ -146,7 +146,7 @@ export function ConnectionsPanel({
                           key={tp.id}
                           type="button"
                           onClick={() => navigate(`/topic/${encodeURIComponent(tp.name)}`)}
-                          className="font-mono text-meta text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                          className="text-meta text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                         >
                           {tp.name}
                           {i < arr.length - 1 ? ", " : ""}
@@ -186,7 +186,7 @@ export function ConnectionsPanel({
                   <span className="block font-serif text-control">
                     {formatReference({ book: p.book, chapter: p.chapter })}
                   </span>
-                  <span className="block truncate font-mono text-meta text-muted-foreground">
+                  <span className="block truncate text-meta text-muted-foreground">
                     {t("connections.via")} {p.notes.map((n) => n.title || t("note.untitled")).join(", ")}
                   </span>
                 </button>

@@ -198,11 +198,11 @@ export function ReaderNav({
               <p className="mb-2 font-serif text-control font-medium">{t("nav.installIosTitle")}</p>
               <ol className="flex flex-col gap-1.5 text-meta text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <Share className="size-3.5 shrink-0 text-primary" />
+                  <Share className="size-4 shrink-0 text-primary" />
                   {t("nav.installIosStep1")}
                 </li>
                 <li className="flex items-center gap-2">
-                  <SquarePlus className="size-3.5 shrink-0 text-primary" />
+                  <SquarePlus className="size-4 shrink-0 text-primary" />
                   {t("nav.installIosStep2")}
                 </li>
               </ol>

@@ -92,7 +92,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
           {groups.map((g) => (
             <section key={g.title} className={g.rows.length > 6 ? "sm:row-span-2" : undefined}>
-              <h3 className="mb-1.5 text-meta font-semibold tracking-wide text-muted-foreground uppercase">
+              <h3 className="eyebrow mb-1.5">
                 {g.title}
               </h3>
               <dl className="flex flex-col gap-1 text-control">

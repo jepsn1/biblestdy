@@ -36,6 +36,25 @@
   --text-display--line-height: 2.5rem;
 }
 
+/* Icons (#66): lucide at a 1.75 stroke everywhere (an explicit
+ * strokeWidth prop still wins); sizes are 16px via size-4 / the components. */
+@layer base {
+  svg.lucide[stroke-width="2"] {
+    stroke-width: 1.75;
+  }
+}
+
+/* The one section label (#66): small caps-style sans, muted — never gold. */
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
 @theme inline {
   /* Geist for UI chrome, Literata for Scripture & long-form reading */
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
@@ -286,10 +305,16 @@
   --baseBg: transparent;
   font-family: inherit;
 }
+/* Quieter toolbar (#66): no grey band, muted icons that come up on hover/on */
 .mdxeditor [role="toolbar"] {
-  background: var(--muted);
+  background: transparent;
   border-radius: 0;
   border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: var(--text-list);
+}
+.mdxeditor [role="toolbar"] :is(button, [role="combobox"]):is(:hover, [data-state="on"], [aria-checked="true"]) {
+  color: var(--foreground);
 }
 /* Popups (block-type select, link dialog) portal outside the panel's stacking
    context — without a z-index they end up behind the editor content */

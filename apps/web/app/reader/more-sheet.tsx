@@ -80,7 +80,7 @@ export function MoreSheet({
             {pwa.kind === "ios-instructions" && (
               <div className="flex flex-col gap-2 rounded-lg px-3 py-3">
                 <p className="flex items-center gap-3 text-control font-medium">
-                  <MonitorDown className="size-5 text-muted-foreground" />
+                  <MonitorDown className="size-4 text-muted-foreground" />
                   {t("nav.installIosTitle")}
                 </p>
                 <ol className="flex flex-col gap-1.5 pl-8 text-control text-muted-foreground">

@@ -65,7 +65,6 @@ export default function SignIn() {
           <span className="font-mono text-reading font-semibold tracking-tight text-primary">
             biblestdy
           </span>
-          <span className="font-mono text-meta text-muted-foreground">v0</span>
         </Link>
 
         {step === "email" ? (
@@ -81,7 +80,7 @@ export default function SignIn() {
               aria-label={t("signin.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="font-mono text-control"
+              className="text-control"
             />
             <Button type="submit" className="mt-3 w-full" disabled={busy}>
               {busy ? t("signin.sending") : t("signin.send")}
@@ -92,7 +91,7 @@ export default function SignIn() {
           <form onSubmit={verifyCode} className="rounded-lg border border-border bg-card p-6">
             <h1 className="font-serif text-title font-medium">{t("signin.codeTitle")}</h1>
             <p className="mt-1 mb-4 text-control text-muted-foreground">
-              {t("signin.sentTo")} <span className="font-mono text-foreground">{email}</span>.{" "}
+              {t("signin.sentTo")} <span className="text-foreground">{email}</span>.{" "}
               {t("signin.typeCode")}
             </p>
             <Input
@@ -118,31 +117,28 @@ export default function SignIn() {
                 setCode("");
                 setError(null);
               }}
-              className="mt-3 w-full text-center font-mono text-meta text-muted-foreground hover:text-foreground"
+              className="mt-3 w-full text-center text-meta text-muted-foreground hover:text-foreground"
             >
               {t("signin.differentEmail")}
             </button>
           </form>
         )}
 
-        <p className="mt-6 text-center font-mono text-meta text-muted-foreground">
-          {t("signin.footer")}
-        </p>
         <button
           type="button"
           aria-label={t("nav.language")}
           onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
-          className="mx-auto mt-2 block text-center font-mono text-meta text-muted-foreground hover:text-foreground"
+          className="mx-auto mt-6 block text-center text-meta text-muted-foreground hover:text-foreground"
         >
           {i18next.language.startsWith("da") ? "English" : "Dansk"}
         </button>
         <Link
           to="/privacy"
-          className="mx-auto mt-1 block text-center font-mono text-meta text-muted-foreground hover:text-foreground"
+          className="mx-auto mt-1 block text-center text-meta text-muted-foreground hover:text-foreground"
         >
           {t("settings.privacy")}
         </Link>
-        <p className="mt-4 text-center font-mono text-meta text-muted-foreground">
+        <p className="mt-4 text-center text-meta text-muted-foreground">
           {t("signin.operatedBy", operator)}
         </p>
       </div>

@@ -41,6 +41,7 @@ import { notifyError } from "~/lib/notify";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
+import { editorIcon } from "./editor-icons";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { useNoteTags } from "./use-tags";
 
@@ -107,7 +108,7 @@ function ReferencesTable({
 
   return (
     <section className="flex h-full min-h-0 flex-col px-3 py-2">
-      <h3 className="mb-1 shrink-0 font-mono text-meta tracking-widest text-muted-foreground uppercase">
+      <h3 className="eyebrow mb-1 shrink-0">
         {t("note.references")}
       </h3>
       <ScrollArea className="min-h-0 flex-1">
@@ -365,6 +366,7 @@ export function NotePanel({
         const editor = (
       <MDXEditor
         ref={editorRef}
+        iconComponentFor={editorIcon}
         key={note.id}
         markdown={note.body}
         onChange={setBody}
@@ -479,7 +481,7 @@ export function NotePanel({
               {t("note.retry")}
             </Button>
           )}
-          {!mobile && <span className="font-mono">· {t("note.escCloses")}</span>}
+          {!mobile && <span className="pointer-coarse:hidden">· {t("note.escCloses")}</span>}
         </span>
       </footer>
     </aside>

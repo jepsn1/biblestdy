@@ -812,7 +812,7 @@ export function ChapterText({
                     // Notes live on their home translation; this bridges versions
                     <sup
                       title={t("reader.otherVersions", { count: otherVersionCounts.get(v.verse) })}
-                      className="mr-1 select-none align-super font-mono text-[0.55em] text-muted-foreground"
+                      className="mr-1 select-none align-super font-sans text-[0.55em] text-muted-foreground"
                     >
                       ⁘{otherVersionCounts.get(v.verse)}
                     </sup>
@@ -1059,7 +1059,7 @@ export function ChapterText({
           )}
         />
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-meta text-muted-foreground">{t("menu.saveHint")}</span>
+          <span className="text-meta text-muted-foreground pointer-coarse:hidden">{t("menu.saveHint")}</span>
           <span className="flex gap-1">
             <button
               type="button"
