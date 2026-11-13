@@ -48,14 +48,14 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
             >
               <ArrowLeft className="size-3" /> {t("topic.back")}
             </Link>
-            <span className="font-mono text-[0.65rem] tracking-widest text-primary uppercase">
+            <span className="font-mono text-xs tracking-widest text-primary uppercase">
               {t("topic.label")}
             </span>
             <h1 className="font-serif text-3xl font-medium tracking-tight">{topic.tag.name}</h1>
           </header>
 
           <section>
-            <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary uppercase">
+            <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
               {t("topic.notes")}
             </h2>
             {topic.notes.length === 0 && (
@@ -75,7 +75,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
                     <span className="block truncate font-serif text-base">
                       {n.title || t("note.untitled")}
                     </span>
-                    <span className="block truncate font-mono text-[0.65rem] text-muted-foreground">
+                    <span className="block truncate font-mono text-xs text-muted-foreground">
                       {n.anchors.map((x) => formatReference(anchorReference(x))).join(" · ")}
                     </span>
                   </Link>
@@ -85,7 +85,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
           </section>
 
           <section>
-            <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary uppercase">
+            <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
               {t("topic.passages")}
             </h2>
             {topic.passages.length === 0 && (

@@ -6,6 +6,7 @@
     "build": "react-router build && cp dist/sw.js dist/workbox-*.js build/client/",
     "dev": "react-router dev",
     "typecheck": "react-router typegen && tsc",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -40,8 +41,12 @@
     "@types/prismjs": "^1.26.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.63.0",
     "vite": "^8.0.3",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^3.2.4"
