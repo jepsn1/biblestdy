@@ -294,3 +294,25 @@
     background: var(--selection);
   }
 }
+
+/* Jump-to-verse (#53): the target verse's words glow briefly, then fade.
+   Class added/removed by the reader; reduced motion gets a static tint. */
+.verse-flash {
+  border-radius: 2px;
+  animation: verse-flash 2.6s ease-out forwards;
+}
+@keyframes verse-flash {
+  0%,
+  45% {
+    background-color: var(--selection);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .verse-flash {
+    animation: none;
+    background-color: var(--selection);
+  }
+}

@@ -1,3 +1,4 @@
+import type { BookLocale } from './book-names.js'
 import { bookIndex, findBook, getBook } from './books.js'
 
 /**
@@ -18,14 +19,16 @@ export interface Reference {
 // book part = everything up to the last leading-digit-free boundary;
 // verse separator is ':' (en) or ',' (da).
 const REF_PATTERN =
-  /^\s*(\d?\s*[\p{L}][\p{L}\s.]*?)\s*(?:(\d+)\s*(?:[:,]\s*(\d+))?\s*(?:-\s*(?:(\d+)\s*[:,]\s*)?(\d+))?)?\s*$/u
+  /^\s*(\d?\.?\s*[\p{L}][\p{L}\s.]*?)\s*(?:(\d+)\s*(?:[:,]\s*(\d+))?\s*(?:[-–]\s*(?:(\d+)\s*[:,]\s*)?(\d+))?)?\s*$/u
 
-export function parseReference(input: string): Reference | null {
+/** `prefer` = UI locale: decides book abbreviations English and Danish
+ * share ("es" = Esther / Esajas). Both languages are always accepted. */
+export function parseReference(input: string, prefer: BookLocale = 'en'): Reference | null {
   const match = REF_PATTERN.exec(input)
   if (!match) return null
 
   const [, bookRaw, chapterRaw, verseRaw, endChapterRaw, endRaw] = match
-  const book = findBook(bookRaw.replace(/\./g, ''))
+  const book = findBook(bookRaw.replace(/\./g, ''), prefer)
   if (!book) return null
 
   if (chapterRaw === undefined) return { book: book.id }

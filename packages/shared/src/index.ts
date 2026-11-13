@@ -1,5 +1,16 @@
 export { healthStatus, type HealthStatus } from './health.js'
-export { BOOKS, findBook, getBook, bookIndex, type Book, type BookId } from './books.js'
+export {
+  BOOKS,
+  findBook,
+  getBook,
+  bookIndex,
+  bookName,
+  suggestBooks,
+  type Book,
+  type BookId,
+  type BookSuggestion,
+} from './books.js'
+export { DANISH_BOOKS, type BookLocale } from './book-names.js'
 export { parseReference, formatReference, compareReferences, type Reference } from './reference.js'
 export type { Translation, Verse, Section, Chapter } from './scripture.js'
 export {

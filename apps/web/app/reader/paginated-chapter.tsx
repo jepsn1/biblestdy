@@ -15,7 +15,10 @@ import {
   chapterHref,
   lastReadValue,
   parsePageParam,
+  parseVerseParam,
   resolvePage,
+  targetVerses,
+  type VerseRange,
   type WantedPage,
 } from "./chapter-nav";
 import { ChapterText } from "./chapter-text";
@@ -89,6 +92,12 @@ export function PaginatedChapter({
   const wantedPage = useRef<WantedPage | null>(null);
   /** Last `?p` value we wrote (router state lags a few renders behind). */
   const writtenP = useRef<string | null>(null);
+  // Verse target (#53): `?v=` wins over `?p`. Held (like wantedPage) until the
+  // reader turns a page, so re-measures keep the verse's page.
+  const wantedVerse = useRef<number | null>(null);
+  /** Bumped per verse jump: re-resolves the page even when nothing else moved. */
+  const [verseTick, setVerseTick] = useState(0);
+  const [flash, setFlash] = useState<VerseRange | null>(null);
   const [page, setPage] = useState(() => {
     const wanted = parsePageParam(searchParams.get("p"));
     return wanted === "last" ? 0 : wanted;
@@ -199,25 +208,39 @@ export function PaginatedChapter({
     const el = regionRef.current?.querySelector(
       `[data-annotation-anchor="${CSS.escape(markId)}"]`,
     );
-    const content = contentRef.current;
-    const vp = viewportOf();
-    if (scrollMode && el && vp) {
-      // Not scrollIntoView: it would also scroll the locked body
-      const top =
-        el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
-      vp.scrollTo({ top: Math.max(0, top - vp.clientHeight / 3), behavior: "smooth" });
-    } else if (el && content && stride > 0) {
-      const contentRect = content.getBoundingClientRect();
-      const s = contentRect.width / content.offsetWidth || 1;
-      const target = Math.floor(
-        (el.getBoundingClientRect().left - contentRect.left) / s / stride,
-      );
+    const target = el ? pageOf(el, stride) : null;
+    if (scrollMode && el) scrollToEl(el, "smooth");
+    else if (target !== null) {
       wantedPage.current = null;
+      wantedVerse.current = null;
       setAnimate(true);
       setPage(Math.max(0, Math.min(target, pageCount - 1)));
     }
     setSelectedMarkId(markId);
   }
+
+  /** Desktop page holding an element (transform cancels out of both rects,
+   * so this works from any current page); null before measurement. */
+  function pageOf(el: Element, pageStride: number): number | null {
+    const content = contentRef.current;
+    if (!content || pageStride <= 0) return null;
+    const contentRect = content.getBoundingClientRect();
+    const s = contentRect.width / content.offsetWidth || 1;
+    return Math.max(0, Math.floor((el.getBoundingClientRect().left - contentRect.left) / s / pageStride));
+  }
+
+  /** Phones: scroll an element to the upper third of the pane. Not
+   * scrollIntoView: it would also scroll the locked body. */
+  function scrollToEl(el: Element, behavior: ScrollBehavior) {
+    const vp = viewportOf();
+    if (!vp) return;
+    const top = el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
+    vp.scrollTo({ top: Math.max(0, top - vp.clientHeight / 3), behavior });
+  }
+
+  /** First word of a stored verse. */
+  const verseEl = (verse: number) =>
+    contentRef.current?.querySelector(`[data-verse="${verse}"][data-word]`) ?? null;
 
   /** References-table click: select the reference (click again to deselect).
    * Same chapter jumps in place, another chapter navigates with the note kept
@@ -282,6 +305,7 @@ export function PaginatedChapter({
   useLayoutEffect(() => {
     const wanted = parsePageParam(searchParams.get("p"));
     wantedPage.current = wanted;
+    wantedVerse.current = null;
     writtenP.current = searchParams.get("p");
     setAnimate(false);
     setPage(wanted === "last" ? 0 : wanted);
@@ -313,7 +337,12 @@ export function PaginatedChapter({
     measure();
     // Webfont swap rewraps the text -> page count changes
     let alive = true;
-    void document.fonts?.ready.then(() => alive && measure());
+    // (and can move a wanted verse to another page without changing the count)
+    void document.fonts?.ready.then(() => {
+      if (!alive) return;
+      measure();
+      if (wantedVerse.current !== null) setVerseTick((t) => t + 1);
+    });
     const observer = new ResizeObserver(measure);
     observer.observe(content);
     return () => {
@@ -322,12 +351,66 @@ export function PaginatedChapter({
     };
   }, [chapterKey, scrollMode, layout.columns]);
 
+  // Verse jump (#53): `?v=` (link, or the jump box — same chapter too).
+  // After the chapterKey effect above, which clears any previous target.
+  const verseParam = searchParams.get("v");
+  useLayoutEffect(() => {
+    const range = parseVerseParam(verseParam);
+    const target = range && targetVerses(chapter.verses.map((v) => v.verse), range);
+    if (!target) return;
+    wantedVerse.current = target.start;
+    setFlash(target); // a fresh object: a repeat jump flashes again
+    setVerseTick((t) => t + 1);
+    if (scrollMode) {
+      const el = verseEl(target.start);
+      if (el) scrollToEl(el, "auto");
+      // Phones have no ?p to normalize to: just drop ?v
+      setSearchParams(
+        (params) => {
+          params.delete("v");
+          return params;
+        },
+        { replace: true },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verseParam, chapterKey]);
+
   useLayoutEffect(() => {
     if (scrollMode || stride === 0) return;
+    // A wanted verse picks the page (beats ?p) once its words are laid out
+    const verse = wantedVerse.current;
+    const el = verse !== null ? verseEl(verse) : null;
+    const versePage = el ? pageOf(el, stride) : null;
+    if (versePage !== null) wantedPage.current = versePage;
     const wanted = wantedPage.current;
     setPage((p) => resolvePage(wanted ?? p, pageCount));
     setResolvedKey(chapterKey);
-  }, [pageCount, stride, chapterKey, scrollMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageCount, stride, chapterKey, scrollMode, verseTick]);
+
+  // The verse's words glow briefly (CSS .verse-flash). Applied to the DOM:
+  // a transient effect, no reason to re-render the chapter text for it.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!flash || !content) return;
+    const words = [...content.querySelectorAll<HTMLElement>("[data-verse][data-word]")].filter(
+      (el) => {
+        const v = Number(el.dataset.verse);
+        return v >= flash.start && v <= flash.end;
+      },
+    );
+    for (const el of words) el.classList.remove("verse-flash");
+    void content.offsetWidth; // restart the animation on a repeat jump
+    for (const el of words) el.classList.add("verse-flash");
+    const timer = window.setTimeout(() => {
+      for (const el of words) el.classList.remove("verse-flash");
+    }, 3000);
+    return () => {
+      window.clearTimeout(timer);
+      for (const el of words) el.classList.remove("verse-flash");
+    };
+  }, [flash, chapterKey]);
 
   // Mirror the page into the URL (replace, no history spam) and lastRead
   useEffect(() => {
@@ -337,12 +420,14 @@ export function PaginatedChapter({
     const wanted = wantedPage.current;
     if (typeof wanted === "number" && wanted !== page) return;
     const want = page > 0 ? String(page + 1) : null;
-    if (writtenP.current !== want) {
+    // From the live URL: the hook's params lag behind ?mark/?note edits
+    const params = new URLSearchParams(window.location.search);
+    // Landed on a ?v verse: normalize to its ?p (#53)
+    if (writtenP.current !== want || params.has("v")) {
       writtenP.current = want;
-      // From the live URL: the hook's params lag behind ?mark/?note edits
-      const params = new URLSearchParams(window.location.search);
       if (want) params.set("p", want);
       else params.delete("p");
+      params.delete("v");
       setSearchParams(params, { replace: true });
     }
     try {
@@ -351,13 +436,14 @@ export function PaginatedChapter({
       // storage blocked: only the launch page is lost
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, resolvedKey, chapterKey, scrollMode]);
+  }, [page, resolvedKey, chapterKey, scrollMode, verseTick]);
 
   /** ← from the first page opens the previous chapter on its LAST page
    * (#52); phones scroll, so they start the chapter at the top. */
   function goPrev() {
     if (!scrollMode && page > 0) {
       wantedPage.current = null;
+      wantedVerse.current = null;
       setAnimate(true);
       setPage(page - 1);
     } else if (prevChapter) navigate(chapterHref(prevChapter, scrollMode ? 0 : "last"));
@@ -366,6 +452,7 @@ export function PaginatedChapter({
   function goNext() {
     if (!scrollMode && page < pageCount - 1) {
       wantedPage.current = null;
+      wantedVerse.current = null;
       setAnimate(true);
       setPage(page + 1);
     } else if (nextChapter) navigate(chapterHref(nextChapter));
