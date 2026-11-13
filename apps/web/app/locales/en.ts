@@ -202,18 +202,18 @@ export default {
     metaDescription:
       "Read Scripture, mark what speaks to you, and keep your notes with the passages they belong to. Free, private, in Danish and English.",
     signIn: "Sign in",
-    eyebrow: "Bible study on the web",
+    eyebrow: "For anyone who reads the Bible",
     heroTitle: "Scripture first. Your notes beside it.",
     heroBody:
-      "biblestdy is a quiet place to read the Bible, mark what speaks to you, and keep your notes with the passages they belong to — so what God shows you in his Word stays with you.",
-    ctaStart: "Start reading — it’s free",
+      "biblestdy is a quiet place to read the Bible, mark what you notice, and keep your thoughts with the passages they belong to \u2014 so you can come back to them.",
+    ctaStart: "Start reading",
     ctaHow: "See how it works",
-    ctaNote: "No password, no ads, no tracking.",
+    ctaNote: "Free. Sign in with your email \u2014 we send you a code. No password, no ads, no tracking.",
     whyVerse:
-      "“You search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me.”",
-    whyVerseRef: "John 5:39 · WEB",
+      "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
+    whyVerseRef: "John 5:39\u201340 \u00b7 WEB",
     whyBody1:
-      "Bible study is not about collecting notes. It is about knowing Jesus Christ — the one all of Scripture points to.",
+      "Reading the Bible is not the goal in itself, and neither is collecting notes. The Scriptures point to Jesus Christ \u2014 and in him is life.",
     whyBody2:
       "So biblestdy tries to stay out of the way. No feed, no streaks, no commentary telling you what a verse means. Just the text, room to listen, and a place to keep what you learn.",
     howEyebrow: "How you study",
@@ -232,13 +232,13 @@ export default {
     growEyebrow: "Study that stays",
     growTitle: "Nothing you learn gets lost",
     growBody:
-      "Scripture explains Scripture. Your notes can follow the thread across books — and find you again when you return.",
+      "Passages shed light on one another. Your notes can follow the thread across books \u2014 and find you again when you return.",
     growLinkTitle: "One note, many passages",
     growLinkBody:
       "Attach a note to every passage it touches. Open any of them and the note is there.",
     growTopicTitle: "Topics",
     growTopicBody:
-      "Tag notes and passages — grace, prayer, covenant — and see everything on a topic in one place.",
+      "Tag notes and passages \u2014 grace, prayer, forgiveness \u2014 and see everything on a topic in one place.",
     growReturnTitle: "Find it again",
     growReturnBody:
       "Come back to a chapter and your notes are waiting, along with where else they point.",
@@ -248,10 +248,10 @@ export default {
       "The whole chapter laid out like a printed Bible, so you read passages in context instead of scrolling past single verses.",
     readPagesTitle: "Turn the page",
     readPagesBody:
-      "Chapters are set as pages you turn, with verse numbers and section headings where you expect them.",
+      "Chapters are set as pages you turn. Verse numbers and the translators\u2019 section headings sit where you expect them, set apart from the text itself.",
     readTranslationsTitle: "Several translations",
     readTranslationsBody:
-      "NIV, NKJV and the World English Bible in English; Bibelen på hverdagsdansk in Danish. Your notes stay with the translation you wrote them in.",
+      "In English: NIV, NKJV and the World English Bible. In Danish: Bibelen p\u00e5 hverdagsdansk. Your notes stay with the translation you wrote them in.",
     readLookTitle: "Paper or Clean, light or dark",
     readLookBody: "A warm printed page or a plain modern one — by day or by night.",
     readSizeTitle: "Text as large as you need",
@@ -264,32 +264,40 @@ export default {
       "Type a reference like “rom 8:28” to go straight there. Shortcuts for those who study a lot.",
     promiseEyebrow: "What we hold to",
     promiseTitle: "A few promises",
-    promiseInterpretTitle: "Never a commentary",
+    promiseInterpretTitle: "No one interprets for you",
     promiseInterpretBody:
-      "biblestdy never tells you what a verse means. No AI interpretation, no doctrinal slant. Bring your Bible, your church and your prayers.",
+      "biblestdy never tells you what a verse means \u2014 no AI interpretation, no church\u2019s line. That is left to you, and to the people you read with.",
     promisePrivateTitle: "Private, always",
     promisePrivateBody:
       "Your study is yours. No sharing, no social features, no tracking, no ads. Delete everything whenever you want.",
     promiseFreeTitle: "Free",
     promiseFreeBody:
-      "Reading, highlights, margin notes, notes and topics cost nothing. biblestdy is a non-commercial project.",
+      "Reading, highlights, margin notes, notes and topics are free, and will stay free. biblestdy is a non-commercial project.",
     faqTitle: "Questions",
     faq: {
+      new: {
+        q: "I\u2019m new to the Bible (or haven\u2019t read it in years). Is this for me?",
+        a: "Yes. You don\u2019t need to know anything first. Many people begin with the Gospel of Mark \u2014 it\u2019s short and tells about Jesus from the start. Read a chapter at a time and mark what you notice.",
+      },
       free: {
         q: "Does it cost anything?",
-        a: "No. Everything described here is free. biblestdy is run as a non-commercial project by a small Danish company.",
+        a: "No. Reading, marking, notes and topics are free, and will stay free. There are no ads and no subscription. biblestdy is run as a non-commercial project by a small Danish company.",
       },
       translations: {
         q: "Which Bible translations can I read?",
-        a: "NIV, NKJV and the World English Bible in English, and Bibelen på hverdagsdansk in Danish. The text comes from licensed sources and is shown unaltered, with its copyright notice.",
+        a: "In English: NIV, NKJV and the World English Bible. In Danish: Bibelen p\u00e5 hverdagsdansk, an easy-to-read translation in modern Danish. The authorised 1992 translation and Bibelen 2020 are not available yet \u2014 that needs an agreement with Bibelselskabet. The text comes from licensed sources and is shown unaltered, with its copyright notice.",
       },
       private: {
         q: "Who can see my notes?",
-        a: "Only you. Your notes are tied to your account so they follow you between devices. Nobody else can read them, and we never sell or share data.",
+        a: "Only you. We store your email and what you write yourself, tied to your account so it follows you between devices. Nobody else can read it, and we never sell or share data.",
       },
       phone: {
         q: "Does it work on my phone or iPad?",
-        a: "Yes, in the browser. On iPhone and iPad, choose “Add to Home Screen” in Safari and it opens full-screen like an app. For longer study, a bigger screen gives you more room.",
+        a: "Yes, in the browser. To get it on your home screen on iPhone or iPad: open biblestdy.com in Safari, tap the Share button (the square with an arrow pointing up), and choose \u201cAdd to Home Screen\u201d. It then sits among your other apps and opens full-screen.",
+      },
+      group: {
+        q: "Can we use it in a Bible study group?",
+        a: "Yes, each on your own. Everyone reads the same passage with their own notes, and you share what you found when you meet \u2014 not through the app. biblestdy has no shared notes, on purpose.",
       },
       password: {
         q: "How do I sign in?",
@@ -297,14 +305,14 @@ export default {
       },
       danish: {
         q: "Is it in Danish?",
-        a: "Yes. The whole app is in Danish and English — choose either, whichever Bible translation you read.",
+        a: "Yes. The whole app is in Danish and English \u2014 choose either, whichever Bible translation you read.",
       },
     },
     closeTitle: "Take up and read.",
-    closeBody: "Open a chapter, mark what speaks to you, and let your study grow over the years.",
+    closeBody: "Open a chapter, mark what you notice, and let your study grow at your own pace.",
     mock: {
-      margin: "begins now, not only someday — v. 36",
-      noteLabel: "Note",
+      margin: "begins now, not only someday \u2014 cf. v. 36",
+      noteLabel: "Your note",
       noteTitle: "God gives first",
       noteBody:
         "Love here is not a feeling but a gift: he gave his Son. Paul says the same — while we were still sinners.",

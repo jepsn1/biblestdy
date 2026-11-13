@@ -204,61 +204,61 @@ const da: typeof en = {
     metaDescription:
       "Læs Skriften, markér det der taler til dig, og gem dine noter ved de tekster de hører til. Gratis, privat, på dansk og engelsk.",
     signIn: "Log ind",
-    eyebrow: "Bibelstudie på nettet",
+    eyebrow: "Til dig der læser Bibelen",
     heroTitle: "Skriften først. Dine noter ved siden af.",
     heroBody:
-      "biblestdy er et stille sted at læse Bibelen, markere det der taler til dig, og gemme dine noter ved de tekster de hører til — så det Gud viser dig i sit ord, bliver hos dig.",
-    ctaStart: "Begynd at læse — det er gratis",
+      "biblestdy er et stille sted at læse Bibelen, markere det du lægger mærke til, og gemme dine tanker ved de tekster de hører til \u2014 så du kan finde dem igen.",
+    ctaStart: "Begynd at læse",
     ctaHow: "Se hvordan det virker",
-    ctaNote: "Ingen adgangskode, ingen reklamer, ingen sporing.",
+    ctaNote: "Gratis. Du logger ind med din e-mail \u2014 vi sender dig en kode. Ingen adgangskode, ingen reklamer, ingen sporing.",
     whyVerse:
-      "“You search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me.”",
-    whyVerseRef: "Johannes 5,39 · WEB",
+      "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
+    whyVerseRef: "Johannes 5,39\u201340 \u00b7 WEB",
     whyBody1:
-      "Bibelstudie handler ikke om at samle noter. Det handler om at kende Jesus Kristus — ham hele Skriften peger på.",
+      "Målet er ikke at læse Bibelen for læsningens skyld, og heller ikke at samle noter. Skrifterne peger på Jesus Kristus \u2014 og i ham er livet.",
     whyBody2:
-      "Derfor prøver biblestdy at holde sig i baggrunden. Intet feed, ingen streaks, ingen kommentarer der fortæller dig hvad et vers betyder. Kun teksten, ro til at lytte, og et sted at gemme det du lærer.",
-    howEyebrow: "Sådan studerer du",
+      "Derfor prøver biblestdy at holde sig i baggrunden. Ingen opslag at scrolle i, ingen point eller daglige mål, ingen forklaringer der fortæller dig hvad et vers betyder. Kun teksten, ro til at lytte, og et sted at gemme det du lærer.",
+    howEyebrow: "Sådan læser du",
     howTitle: "Markér som du ville gøre på papir",
     howBody:
       "Vælg nogle ord, og bestem så hvor meget du vil skrive om dem — fra ingenting til en hel side.",
-    howHighlightTitle: "Overstreg",
+    howHighlightTitle: "Markér med farve",
     howHighlightBody:
-      "Et strøg med overstregningstusch over de ord der fik dig til at stoppe op. Seks farver, ingen tekst nødvendig.",
+      "Træk en farve hen over de ord der fik dig til at stoppe op \u2014 som med en markeringspen. Seks farver, ingen tekst nødvendig.",
     howMarginTitle: "Skriv i margenen",
     howMarginBody:
-      "Sæt ring om et udtryk eller en klamme ved et afsnit, og skriv en kort tanke ved siden af — som en blyant i din Bibel.",
+      "Sæt ring om et ord eller en streg ved et par vers, og skriv en kort tanke ved siden af \u2014 som en blyant i din Bibel.",
     howNoteTitle: "Skriv en note",
     howNoteBody:
       "En hel note til det der kræver mere plads: en prædiken, et spørgsmål, et studie. Den ligger ved siden af teksten, ikke et andet sted.",
-    growEyebrow: "Studie der bliver",
+    growEyebrow: "Det du lærer, bliver",
     growTitle: "Intet du lærer går tabt",
     growBody:
-      "Skriften forklarer Skriften. Dine noter kan følge tråden på tværs af bøgerne — og finde dig igen, når du vender tilbage.",
+      "Tekster kaster lys over hinanden. Dine noter kan følge tråden på tværs af bøgerne \u2014 og finde dig igen, når du vender tilbage.",
     growLinkTitle: "Én note, mange tekster",
     growLinkBody:
       "Knyt en note til alle de tekster den handler om. Åbn en af dem, og noten er der.",
     growTopicTitle: "Emner",
     growTopicBody:
-      "Giv noter og tekster emner — nåde, bøn, pagten — og se alt om et emne samlet ét sted.",
+      "Giv noter og tekster emner \u2014 nåde, bøn, tilgivelse \u2014 og se alt om et emne samlet ét sted.",
     growReturnTitle: "Find det igen",
     growReturnBody:
       "Vend tilbage til et kapitel, og dine noter venter, sammen med hvor de ellers peger hen.",
     readEyebrow: "Lavet til at læse i",
-    readTitle: "En side, ikke et feed",
+    readTitle: "En side, som i din Bibel",
     readBody:
-      "Hele kapitlet sat op som en trykt Bibel, så du læser teksten i sammenhæng i stedet for at scrolle forbi enkelte vers.",
+      "Hele kapitlet sat op som en trykt Bibel, så du læser teksten i sammenhæng i stedet for at bladre forbi enkelte vers.",
     readPagesTitle: "Vend siden",
     readPagesBody:
-      "Kapitlerne er sat som sider du vender, med versnumre og overskrifter hvor du forventer dem.",
-    readTranslationsTitle: "Flere oversættelser",
+      "Kapitlerne er sat som sider du vender. Versnumre og oversætternes overskrifter står hvor du forventer dem, adskilt fra selve teksten.",
+    readTranslationsTitle: "Oversættelser",
     readTranslationsBody:
-      "Bibelen på hverdagsdansk på dansk; NIV, NKJV og World English Bible på engelsk. Dine noter bliver ved den oversættelse du skrev dem i.",
-    readLookTitle: "Papir eller Ren, lys eller mørk",
+      "På dansk: Bibelen på hverdagsdansk, en letlæst oversættelse i nutidigt sprog. På engelsk: NIV, NKJV og World English Bible. Dine noter bliver ved den oversættelse du skrev dem i.",
+    readLookTitle: "Papir eller Enkel, lys eller mørk",
     readLookBody: "En varm trykt side eller en enkel moderne — om dagen eller om aftenen.",
     readSizeTitle: "Så stor tekst du har brug for",
     readSizeBody: "Skru tekststørrelsen op til 200 %; alt andet vokser med.",
-    readDevicesTitle: "Skrivebord, tablet og telefon",
+    readDevicesTitle: "Computer, iPad og telefon",
     readDevicesBody:
       "Studér ved skrivebordet, læs i lænestolen. Læg den på hjemmeskærmen, så åbner den som en app.",
     readKeysTitle: "Tastatur, hvis du vil",
@@ -266,32 +266,40 @@ const da: typeof en = {
       "Skriv et skriftsted som “rom 8,28” og kom direkte derhen. Genveje til dem der studerer meget.",
     promiseEyebrow: "Det holder vi fast i",
     promiseTitle: "Et par løfter",
-    promiseInterpretTitle: "Aldrig en kommentar",
+    promiseInterpretTitle: "Ingen fortolker for dig",
     promiseInterpretBody:
-      "biblestdy fortæller dig aldrig hvad et vers betyder. Ingen AI-fortolkning, ingen teologisk slagside. Tag din Bibel, din kirke og dine bønner med.",
+      "biblestdy fortæller dig aldrig hvad et vers betyder \u2014 ingen AI-fortolkning, ingen bestemt kirkes holdning. Det overlader vi til dig og dem du læser sammen med.",
     promisePrivateTitle: "Altid privat",
     promisePrivateBody:
       "Dit studie er dit. Ingen deling, ingen sociale funktioner, ingen sporing, ingen reklamer. Slet det hele når du vil.",
     promiseFreeTitle: "Gratis",
     promiseFreeBody:
-      "Læsning, overstregninger, margennoter, noter og emner koster ingenting. biblestdy er et ikke-kommercielt projekt.",
+      "Læsning, markeringer, margennoter, noter og emner er gratis, og det bliver de ved med at være. biblestdy er et ikke-kommercielt projekt.",
     faqTitle: "Spørgsmål",
     faq: {
+      new: {
+        q: "Jeg er ny i Bibelen (eller har ikke læst i den siden konfirmationen). Er det her for mig?",
+        a: "Ja. Du behøver ikke vide noget på forhånd. Mange begynder med Markusevangeliet \u2014 det er kort, og det fortæller om Jesus fra begyndelsen. Læs et kapitel ad gangen, og markér det du lægger mærke til.",
+      },
       free: {
         q: "Koster det noget?",
-        a: "Nej. Alt der er beskrevet her, er gratis. biblestdy drives som et ikke-kommercielt projekt af et lille dansk selskab.",
+        a: "Nej. Læsning, markeringer, noter og emner er gratis, og det bliver de ved med at være. Ingen reklamer, intet abonnement. biblestdy drives som et ikke-kommercielt projekt af et lille dansk selskab.",
       },
       translations: {
         q: "Hvilke bibeloversættelser kan jeg læse?",
-        a: "Bibelen på hverdagsdansk på dansk, og NIV, NKJV og World English Bible på engelsk. Teksten kommer fra licenserede kilder og vises uændret, med ophavsretsoplysning.",
+        a: "På dansk: Bibelen på hverdagsdansk, en letlæst oversættelse i nutidigt sprog. På engelsk: NIV, NKJV og World English Bible. Den autoriserede oversættelse fra 1992 og Bibelen 2020 er ikke med endnu \u2014 det kræver en aftale med Bibelselskabet. Teksten kommer fra licenserede kilder og vises uændret, med ophavsretsoplysning.",
       },
       private: {
         q: "Hvem kan se mine noter?",
-        a: "Kun dig. Dine noter er knyttet til din konto, så de følger dig mellem enheder. Ingen andre kan læse dem, og vi sælger eller deler aldrig data.",
+        a: "Kun dig. Vi gemmer din e-mail og det du selv skriver, knyttet til din konto, så det følger dig mellem enheder. Ingen andre kan læse det, og vi sælger eller deler aldrig data.",
       },
       phone: {
         q: "Virker det på min telefon eller iPad?",
-        a: "Ja, i browseren. På iPhone og iPad vælger du “Føj til hjemmeskærm” i Safari, så åbner den i fuld skærm som en app. Til længere studier giver en større skærm mere plads.",
+        a: "Ja, i browseren. Sådan lægger du den på hjemmeskærmen på iPhone eller iPad: åbn biblestdy.com i Safari, tryk på Del-knappen (firkanten med en pil op), og vælg \u201cFøj til hjemmeskærm\u201d. Så ligger den sammen med dine andre apps og åbner i fuld skærm.",
+      },
+      group: {
+        q: "Kan vi bruge det i en bibelkreds?",
+        a: "Ja, hver for sig. Alle læser den samme tekst med deres egne noter, og I deler det I har fundet, når I mødes \u2014 ikke gennem appen. biblestdy har ingen fælles noter, med vilje.",
       },
       password: {
         q: "Hvordan logger jeg ind?",
@@ -299,14 +307,14 @@ const da: typeof en = {
       },
       danish: {
         q: "Er det på dansk?",
-        a: "Ja. Hele appen findes på dansk og engelsk — vælg frit, uanset hvilken bibeloversættelse du læser.",
+        a: "Ja. Hele appen findes på dansk og engelsk \u2014 vælg frit, uanset hvilken bibeloversættelse du læser.",
       },
     },
-    closeTitle: "Tag og læs.",
-    closeBody: "Åbn et kapitel, markér det der taler til dig, og lad dit studie vokse gennem årene.",
+    closeTitle: "Slå op og læs.",
+    closeBody: "Åbn et kapitel, markér det du lægger mærke til, og lad dit studie vokse i dit eget tempo.",
     mock: {
-      margin: "begynder nu, ikke kun en dag — v. 36",
-      noteLabel: "Note",
+      margin: "begynder nu, ikke kun en dag \u2014 jf. v. 36",
+      noteLabel: "Din note",
       noteTitle: "Gud giver først",
       noteBody:
         "Kærlighed er her ikke en følelse, men en gave: han gav sin Søn. Paulus siger det samme — mens vi endnu var syndere.",

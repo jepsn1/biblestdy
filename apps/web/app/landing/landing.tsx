@@ -83,7 +83,7 @@ export function Landing() {
                 {t("landing.ctaHow")}
               </button>
             </div>
-            <p className="mt-4 text-meta text-muted-foreground">{t("landing.ctaNote")}</p>
+            <p className="mx-auto mt-4 max-w-sm text-control text-muted-foreground">{t("landing.ctaNote")}</p>
           </div>
 
           <div className="mt-14">
@@ -145,7 +145,7 @@ export function Landing() {
               <Point icon={Sun} title={t("landing.readLookTitle")} body={t("landing.readLookBody")} />
               <Point icon={Type} title={t("landing.readSizeTitle")} body={t("landing.readSizeBody")} />
               <Point icon={Smartphone} title={t("landing.readDevicesTitle")} body={t("landing.readDevicesBody")} />
-              <Point icon={Keyboard} title={t("landing.readKeysTitle")} body={t("landing.readKeysBody")} />
+              <Point className="hidden sm:flex" icon={Keyboard} title={t("landing.readKeysTitle")} body={t("landing.readKeysBody")} />
             </ul>
           </div>
         </section>
@@ -164,7 +164,7 @@ export function Landing() {
         <section className="mx-auto max-w-2xl px-6 pb-20">
           <h2 className="text-center font-serif text-title font-medium">{t("landing.faqTitle")}</h2>
           <div className="mt-8 divide-y divide-border border-y border-border">
-            {(["free", "translations", "private", "phone", "password", "danish"] as const).map((k) => (
+            {(["new", "free", "translations", "private", "phone", "group", "password", "danish"] as const).map((k) => (
               <details key={k} className="group py-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-phone font-medium [&::-webkit-details-marker]:hidden">
                   {t(`landing.faq.${k}.q`)}
@@ -175,7 +175,7 @@ export function Landing() {
                     +
                   </span>
                 </summary>
-                <p className="mt-2 text-control leading-relaxed text-muted-foreground">
+                <p className="mt-2 text-phone leading-relaxed text-muted-foreground">
                   {t(`landing.faq.${k}.a`)}
                 </p>
               </details>
@@ -243,18 +243,28 @@ function Feature({ icon: Icon, title, body }: { icon: IconType; title: string; b
     <div className="rounded-lg border border-border bg-background p-6">
       <Icon aria-hidden className="size-5 text-primary" />
       <h3 className="mt-4 font-serif text-reading font-medium">{title}</h3>
-      <p className="mt-2 text-control leading-relaxed text-muted-foreground">{body}</p>
+      <p className="mt-2 text-phone leading-relaxed text-muted-foreground">{body}</p>
     </div>
   );
 }
 
-function Point({ icon: Icon, title, body }: { icon: IconType; title: string; body: string }) {
+function Point({
+  icon: Icon,
+  title,
+  body,
+  className,
+}: {
+  icon: IconType;
+  title: string;
+  body: string;
+  className?: string;
+}) {
   return (
-    <li className="flex gap-4">
+    <li className={cn("flex gap-4", className)}>
       <Icon aria-hidden className="mt-1 size-5 shrink-0 text-primary" />
       <div>
         <h3 className="text-phone font-medium">{title}</h3>
-        <p className="mt-1 text-control leading-relaxed text-muted-foreground">{body}</p>
+        <p className="mt-1 text-phone leading-relaxed text-muted-foreground">{body}</p>
       </div>
     </li>
   );
