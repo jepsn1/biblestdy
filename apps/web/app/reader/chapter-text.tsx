@@ -432,7 +432,9 @@ export function ChapterText({
                 {title}
               </span>
             ))}
-            <sup className="mr-1.5 select-none align-super font-sans text-[0.65rem] font-medium text-primary/70">
+            {/* Small, muted verse number; zero line-height so it never opens a
+                gap in the leading */}
+            <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
               {v.verse}
             </sup>
             {(otherVersionCounts.get(v.verse) ?? 0) > 0 && (

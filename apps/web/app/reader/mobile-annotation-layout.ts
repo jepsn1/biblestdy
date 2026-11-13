@@ -79,3 +79,16 @@ export function layoutMobileAnnotations(
   }
   return out;
 }
+
+/**
+ * Which column slot of the flow a line starting at `lineX` sits in. Slots
+ * repeat every `stride` (column width + gap) from `flowX`; a line can start
+ * anywhere inside its column (a span beginning mid-line), so this floors —
+ * rounding would push a right-half start into the next slot. stride 0 (single
+ * scroll column) is always slot 0.
+ */
+export function columnIndexAt(lineX: number, flowX: number, stride: number): number {
+  if (stride <= 0) return 0;
+  // Sub-pixel slack: a glyph rect may start a hair left of its column edge
+  return Math.max(0, Math.floor((lineX - flowX + 1) / stride));
+}
