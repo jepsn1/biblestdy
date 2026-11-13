@@ -111,6 +111,7 @@ const da: typeof en = {
     codeError: "Koden passede ikke. Tjek den, eller brug linket i din mail.",
     differentEmail: "← brug en anden mail",
     footer: "log ind for at gemme dit studie",
+    operatedBy: "Drives af {{name}} · CVR {{cvr}}",
   },
   theme: {
     toPaper: "Skift til papirtema",
@@ -147,6 +148,9 @@ const da: typeof en = {
     deleteTitle: "Sletning af dine data",
     deleteBody:
       "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt, du nogensinde har gemt.",
+    operatorTitle: "Hvem står bag biblestdy",
+    operatorBody:
+      "biblestdy drives af {{name}} (CVR {{cvr}}), Danmark, som er dataansvarlig for dine data. Det er et gratis, ikke-kommercielt projekt.",
     contactTitle: "Spørgsmål eller hjælp",
     contactBody: "Skriv til os — support- og privatlivsspørgsmål i samme indbakke:",
     backToApp: "tilbage til biblestdy",

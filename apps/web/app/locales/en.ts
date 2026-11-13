@@ -109,6 +109,7 @@ export default {
     codeError: "That code didn't match. Check it, or use the link in your email.",
     differentEmail: "← use a different email",
     footer: "sign in to keep your study",
+    operatedBy: "Operated by {{name}} · CVR {{cvr}}",
   },
   theme: {
     toPaper: "Switch to paper theme",
@@ -145,6 +146,9 @@ export default {
     deleteTitle: "Deleting your data",
     deleteBody:
       "You can delete your account at any time from the settings inside the app. Deletion is immediate and removes everything you ever stored.",
+    operatorTitle: "Who runs biblestdy",
+    operatorBody:
+      "biblestdy is run by {{name}} (CVR {{cvr}}), {{country}}, which is responsible for your data (the data controller). It is a free, non-commercial project.",
     contactTitle: "Questions or help",
     contactBody: "Write us — support and privacy questions alike:",
     backToApp: "back to biblestdy",

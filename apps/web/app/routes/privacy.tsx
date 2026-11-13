@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { operator } from "~/lib/app-info";
 import i18n from "~/lib/i18n";
 
 /** Public privacy policy (issue #17) — NO auth: the App Store listing and
@@ -27,7 +28,7 @@ export default function Privacy() {
 
           <h1 className="font-serif text-2xl font-medium">{t("privacy.title")}</h1>
           <p className="mt-1 font-mono text-[0.65rem] text-muted-foreground">
-            {t("privacy.updated")} 2026-09-09
+            {t("privacy.updated")} 2026-11-13
           </p>
 
           <section className="mt-8">
@@ -48,6 +49,13 @@ export default function Privacy() {
             <h2 className="font-serif text-lg font-medium">{t("privacy.deleteTitle")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {t("privacy.deleteBody")}
+            </p>
+          </section>
+
+          <section className="mt-8">
+            <h2 className="font-serif text-lg font-medium">{t("privacy.operatorTitle")}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {t("privacy.operatorBody", operator)}
             </p>
           </section>
 
