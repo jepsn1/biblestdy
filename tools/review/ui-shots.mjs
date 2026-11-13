@@ -126,6 +126,69 @@ await shot("K3-delete-keyboard", {}, R, async (p) => { await askDelete(p); const
 await shot("K4-panel-keyboard", {}, R, async (p) => { const b = p.getByRole("button", { name: PANEL }).first(); if ((await b.getAttribute("aria-pressed")) === "true") { await b.click(); await p.waitForTimeout(500); } await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(800); must((await active(p)).inPanel, `focus not in panel: ${JSON.stringify(await active(p))}`); await p.keyboard.press("Escape"); await p.waitForTimeout(600); must((await p.locator("aside h2", { hasText: PANEL }).count()) === 0, "Esc did not close panel"); must(PANEL.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
 await shot("K5-more-keyboard", PH, R, async (p) => { const m = p.getByRole("button", { name: /^More$/ }); await m.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(800); must((await active(p)).inDialog, "focus not in More sheet"); await p.keyboard.press("Escape"); await p.waitForTimeout(800); must(/^More$/.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
 await shot("K6-segmented-arrows", {}, R, async (p) => { await openSettings(p); const url = p.url(); await p.getByRole("button", { name: /^Paper$/ }).focus(); await p.keyboard.press("ArrowRight"); await p.waitForTimeout(300); must(/^Clean$/.test((await active(p)).label ?? ""), `arrow did not move: ${JSON.stringify(await active(p))}`); must(p.url() === url, "arrow turned the page behind settings"); await p.keyboard.press("Escape"); });
+// #64 feedback & safety: toasts with Undo (every Undo restores what the shot deleted — the shot FAILs
+// if it doesn't), honest note save state, labelled log-out + confirm, skeletons, failed writes surface.
+const HL = `/api/highlights?translation=${WEB}&book=JHN&chapter=3`, CH = `translation=${WEB}&book=JHN&chapter=3`;
+const centre = (p, sel) => p.locator(sel).first().evaluate((e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+const apiText = (p, path) => p.evaluate(async (path) => (await fetch(path, { credentials: "include" })).text(), path);
+const toast = (p) => p.locator("[data-sonner-toast]").first();
+const undo = async (p) => { await toast(p).getByRole("button", { name: /^(Undo|Fortryd)$/ }).click(); await p.waitForTimeout(1200); };
+const snap = (p, name) => p.screenshot({ path: `${OUT}/${name}.png` });
+const removeHighlight = (touch) => async (p) => {
+  const before = (await apiText(p, HL)).split('"id"').length;
+  const at = await centre(p, '[data-verse="16"][data-word="3"]');
+  if (touch) await p.touchscreen.tap(at.x, at.y); else await p.mouse.click(at.x, at.y);
+  await p.waitForTimeout(600); await p.getByRole("button", { name: /^(Remove|Fjern)$/ }).click(); await p.waitForTimeout(900);
+  must(/Highlight removed|Fremhævning fjernet/.test(await toast(p).innerText()), "no 'Highlight removed' toast");
+  must((await apiText(p, HL)).split('"id"').length === before - 1, "highlight not deleted");
+  await snap(p, touch ? "50b-phone-toast-highlight" : "50-toast-highlight-removed");
+  await undo(p);
+  must((await apiText(p, HL)).split('"id"').length === before, "Undo did not restore the highlight");
+};
+await shot("50-highlight-undo", {}, R + "?v=16", removeHighlight(false), true);
+await shot("50b-phone-highlight-undo", PH, R + "?v=16", removeHighlight(true), true);
+await shot("51-note-delete-undo", {}, R + "?v=14", async (p) => {
+  await note(p); await p.getByRole("button", { name: /^(Delete note|Slet note)$/ }).click(); await p.waitForTimeout(900);
+  must(/Note deleted/.test(await toast(p).innerText()), "no 'Note deleted' toast");
+  must(!(await apiText(p, `/api/notes?${CH}`)).includes("The bronze serpent"), "note not deleted");
+  await snap(p, "51-toast-note-deleted"); await undo(p);
+  must((await apiText(p, `/api/notes?${CH}`)).includes("The bronze serpent"), "Undo did not restore the note");
+}, true);
+await shot("52-note-save-retry", {}, R + "?v=14", async (p) => {
+  await note(p);
+  const fail = (r) => (r.request().method() === "PATCH" ? r.fulfill({ status: 500, body: "{}" }) : r.continue());
+  await p.route("**/api/notes/*", fail);
+  const title = p.getByRole("textbox", { name: /^(Note title|Notens titel)$/ }); await title.click(); await p.keyboard.press("End"); await p.keyboard.type(" x"); await p.waitForTimeout(1800);
+  const footer = p.locator("aside footer").first();
+  must(/Not saved/.test(await footer.innerText()), `footer not 'Not saved': ${await footer.innerText()}`);
+  must(/Couldn.t save/.test(await toast(p).innerText()), "no save-failed toast");
+  await snap(p, "52-note-not-saved");
+  await p.unroute("**/api/notes/*", fail);
+  await footer.getByRole("button", { name: /^Retry$/ }).click(); await p.waitForTimeout(1500);
+  must(/Saved/.test(await footer.innerText()), "Retry did not save");
+  await title.click(); await p.keyboard.press("End"); await p.keyboard.press("Backspace"); await p.keyboard.press("Backspace"); await p.waitForTimeout(1800);
+  must((await apiText(p, `/api/notes?${CH}`)).includes('"title":"The bronze serpent"'), "title not restored");
+});
+await shot("53-tag-remove-undo", {}, R, async (p) => {
+  await click(PANEL)(p); await p.getByRole("button", { name: /^(Remove tag|Fjern tagget) new-birth$/ }).click(); await p.waitForTimeout(900);
+  must(/new-birth/.test(await toast(p).innerText()), "no 'Tag removed' toast");
+  await snap(p, "53-toast-tag-removed"); await undo(p);
+  must((await apiText(p, `/api/connections?${CH}`)).includes('"new-birth"'), "Undo did not re-tag the passage");
+}, true);
+await shot("54-annotation-remove-undo", {}, R, async (p) => {
+  const b = p.getByRole("button", { name: "water + Spirit?" }).first(); await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(500);
+  await p.locator("[data-annotation-editing]").getByRole("button", { name: /^(delete|slet)$/ }).click(); await p.waitForTimeout(900);
+  must(/Margin note removed/.test(await toast(p).innerText()), "no 'Margin note removed' toast");
+  await snap(p, "54-toast-annotation-removed"); await undo(p);
+  must((await apiText(p, `/api/annotations?${CH}`)).includes("water + Spirit?"), "Undo did not restore the annotation");
+});
+const logOut = async (p) => { await p.getByRole("button", { name: /^(Log out|Log ud)$/ }).first().click(); await p.waitForTimeout(700); };
+await shot("55-logout-confirm", {}, R, logOut, true);
+await shot("55b-phone-logout-confirm-da", { ...PH, lang: "da" }, R, async (p) => { await click(/books sidebar|Toggle Sidebar|bogliste/i)(p); await logOut(p); }, true);
+await shot("56-skeleton-connections", {}, R, async (p) => { await p.route("**/api/connections*", async (r) => { await new Promise((ok) => setTimeout(ok, 6000)); await r.continue().catch(() => {}); }); await p.getByRole("button", { name: PANEL }).first().click(); await p.waitForTimeout(300); must((await p.getByTestId("list-skeleton").count()) === 1, "no skeleton"); });
+await shot("56b-skeleton-topic", {}, R, async (p) => { await p.route("**/api/tags/topic/*", async (r) => { await new Promise((ok) => setTimeout(ok, 6000)); await r.continue().catch(() => {}); }); await p.goto(BASE + "/topic/new-birth"); await p.waitForTimeout(800); must((await p.getByTestId("list-skeleton").count()) === 1, "no skeleton"); });
+await shot("57-prefs-save-failed", {}, R, async (p) => { await p.route("**/api/preferences", (r) => (r.request().method() === "PATCH" ? r.fulfill({ status: 500, body: "{}" }) : r.continue())); await openSettings(p); await p.getByRole("button", { name: /^Clean$/ }).click(); await p.waitForTimeout(900); must(/Couldn.t save/.test(await toast(p).innerText()), "no save-failed toast"); });
+await shot("K7-logout-keyboard", {}, R, async (p) => { const b = p.getByRole("button", { name: /^Log out$/ }); await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(700); must((await active(p)).inDialog, "focus not in log-out dialog"); await p.keyboard.press("Escape"); await p.waitForTimeout(600); must((await p.getByRole("alertdialog").count()) === 0, "Esc did not close"); must(/^Log out$/.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
 // Leave the account at the default size
 { const ctx = await ctxFor({}); await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: "paper", textSize: 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } }); await ctx.close(); }
 fs.writeFileSync(`${OUT}/axe${ONLY ? "-partial" : ""}.json`, JSON.stringify(audits, null, 1));
