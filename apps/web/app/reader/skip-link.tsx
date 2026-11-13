@@ -15,7 +15,7 @@ export function SkipToText() {
         e.preventDefault();
         document.getElementById(CHAPTER_TEXT_ID)?.focus({ preventScroll: true });
       }}
-      className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-md focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="sr-only rounded-md bg-primary px-3 py-2 text-control font-medium text-primary-foreground shadow-md focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       {t("reader.skipToText")}
     </a>

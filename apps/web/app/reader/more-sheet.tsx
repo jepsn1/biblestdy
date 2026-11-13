@@ -79,11 +79,11 @@ export function MoreSheet({
             )}
             {pwa.kind === "ios-instructions" && (
               <div className="flex flex-col gap-2 rounded-lg px-3 py-3">
-                <p className="flex items-center gap-3 text-sm font-medium">
+                <p className="flex items-center gap-3 text-control font-medium">
                   <MonitorDown className="size-5 text-muted-foreground" />
                   {t("nav.installIosTitle")}
                 </p>
-                <ol className="flex flex-col gap-1.5 pl-8 text-sm text-muted-foreground">
+                <ol className="flex flex-col gap-1.5 pl-8 text-control text-muted-foreground">
                   <li className="flex items-center gap-2">
                     <Share className="size-4 shrink-0 text-primary" />
                     {t("nav.installIosStep1")}
@@ -131,10 +131,10 @@ function SheetRow({
     >
       {icon}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-sm font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">{hint}</span>
+        <span className="text-control font-medium">{label}</span>
+        <span className="text-meta text-muted-foreground">{hint}</span>
       </span>
-      {state && <span className="shrink-0 text-xs text-muted-foreground">{state}</span>}
+      {state && <span className="shrink-0 text-meta text-muted-foreground">{state}</span>}
     </button>
   );
 }

@@ -62,7 +62,7 @@ export function ReaderNav({
 
         <div className="h-4 w-px bg-border" />
 
-        <span className="min-w-0 truncate font-serif text-sm font-medium">
+        <span className="min-w-0 truncate font-serif text-control font-medium">
           {nameOf(book)}
         </span>
 
@@ -106,7 +106,7 @@ export function ReaderNav({
                 return tr ? (
                   <>
                     <span className="font-mono">{tr.abbreviation}</span>
-                    <span className="hidden max-w-44 truncate text-xs text-muted-foreground lg:inline">
+                    <span className="hidden max-w-44 truncate text-meta text-muted-foreground lg:inline">
                       {tr.name}
                     </span>
                   </>
@@ -126,7 +126,7 @@ export function ReaderNav({
                 <SelectItem key={tr.id} value={tr.id} title={tr.name} className="min-h-9">
                   <span className="grid w-full min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-baseline gap-2">
                     <span className="font-mono">{tr.abbreviation}</span>
-                    <span className="truncate text-xs text-muted-foreground">{tr.name}</span>
+                    <span className="truncate text-meta text-muted-foreground">{tr.name}</span>
                   </span>
                 </SelectItem>
               ))}
@@ -195,8 +195,8 @@ export function ReaderNav({
               </PopoverTrigger>
             </Hint>
             <PopoverContent className="w-72" align="end">
-              <p className="mb-2 font-serif text-sm font-medium">{t("nav.installIosTitle")}</p>
-              <ol className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              <p className="mb-2 font-serif text-control font-medium">{t("nav.installIosTitle")}</p>
+              <ol className="flex flex-col gap-1.5 text-meta text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <Share className="size-3.5 shrink-0 text-primary" />
                   {t("nav.installIosStep1")}
@@ -206,7 +206,7 @@ export function ReaderNav({
                   {t("nav.installIosStep2")}
                 </li>
               </ol>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-meta text-muted-foreground">
                 {t("nav.installIosWhy")}
               </p>
             </PopoverContent>

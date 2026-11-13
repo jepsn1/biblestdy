@@ -33,7 +33,7 @@ import { PanelHeader, panelTitleClass } from "./panel-header";
 import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
 
 const chipClass =
-  "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-semibold text-primary transition-colors hover:bg-primary/25";
+  "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-meta font-semibold text-primary transition-colors hover:bg-primary/25";
 
 /** Account chip at the end of the reader nav (issue #17): opens the settings
  * surface. Popover on desktop, content-sized bottom drawer on phones; both
@@ -104,7 +104,7 @@ export function AccountChip() {
             >
               <span className={chipClass}>{initial}</span>
               {/* Visible word next to the chip on wide screens (#62) */}
-              <span className="hidden text-sm min-[1180px]:inline">{t("settings.short")}</span>
+              <span className="hidden text-control min-[1180px]:inline">{t("settings.short")}</span>
             </PopoverTrigger>
           </Hint>
           <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0">
@@ -133,7 +133,7 @@ function SettingRow({
 }) {
   return (
     <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-1 max-sm:min-h-12">
-      <span id={labelId} className="text-sm">
+      <span id={labelId} className="text-control">
         {label}
       </span>
       {children}
@@ -171,7 +171,7 @@ function Segmented<T extends string>({
           key={o.value}
           value={o.value}
           size="sm"
-          className="h-7 gap-1.5 rounded-md px-2.5 text-xs font-normal text-muted-foreground hover:bg-background/60 hover:text-foreground aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:shadow-sm max-sm:h-9"
+          className="h-7 gap-1.5 rounded-md px-2.5 text-meta font-normal text-muted-foreground hover:bg-background/60 hover:text-foreground aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:shadow-sm max-sm:h-9"
         >
           {o.icon}
           {o.label}
@@ -209,9 +209,9 @@ function SettingsContent({
   const themeIcon = { light: <Sun />, dark: <Moon />, system: <Monitor /> };
 
   return (
-    <div className="flex flex-col text-sm">
+    <div className="flex flex-col text-control">
       <div className="min-w-0 py-1">
-        <p className="text-xs text-muted-foreground">{t("settings.signedInAs")}</p>
+        <p className="text-meta text-muted-foreground">{t("settings.signedInAs")}</p>
         <p className="truncate">{email}</p>
       </div>
 
@@ -265,7 +265,7 @@ function SettingsContent({
       {onShortcuts && (
         <Button variant="ghost" className="h-10 justify-between px-0 hover:bg-transparent hover:underline" onClick={onShortcuts}>
           {t("nav.shortcuts")}
-          <kbd data-slot="kbd" className="rounded border border-border bg-muted px-1.5 font-mono text-xs leading-5">
+          <kbd data-slot="kbd" className="rounded border border-border bg-muted px-1.5 font-mono text-meta leading-5">
             ?
           </kbd>
         </Button>
@@ -282,7 +282,7 @@ function SettingsContent({
       </Button>
 
       {/* Muted footer line (#62); real bundle version + channel arrive with OTA (#19) */}
-      <p className="pt-1 text-xs text-muted-foreground">
+      <p className="pt-1 text-meta text-muted-foreground">
         {t("settings.version")} {appVersion} · {appChannel} ·{" "}
         <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
           {t("settings.privacy")}
@@ -351,7 +351,7 @@ function DeleteAccountDialog({
             if (armed && !busy) void deleteAccount();
           }}
         >
-          <label htmlFor={inputId} className="text-xs text-muted-foreground">
+          <label htmlFor={inputId} className="text-meta text-muted-foreground">
             {t("settings.deleteTypeToConfirm", { word: confirmWord })}
           </label>
           <Input
@@ -362,7 +362,7 @@ function DeleteAccountDialog({
             onChange={(e) => setWord(e.target.value)}
           />
           {error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-meta text-destructive">
               {t("settings.deleteError")}
             </p>
           )}

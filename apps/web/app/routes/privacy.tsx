@@ -21,52 +21,52 @@ export default function Privacy() {
       <ScrollArea className="h-full">
         <div className="mx-auto max-w-xl px-6 py-12">
           <Link to="/" className="mb-10 flex select-none items-baseline gap-1.5">
-            <span className="font-mono text-lg font-semibold tracking-tight text-primary">
+            <span className="font-mono text-reading font-semibold tracking-tight text-primary">
               biblestdy
             </span>
           </Link>
 
-          <h1 className="font-serif text-2xl font-medium">{t("privacy.title")}</h1>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
+          <h1 className="font-serif text-title font-medium">{t("privacy.title")}</h1>
+          <p className="mt-1 font-mono text-meta text-muted-foreground">
             {t("privacy.updated")} 2026-11-13
           </p>
 
           <section className="mt-8">
-            <h2 className="font-serif text-lg font-medium">{t("privacy.storeTitle")}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <h2 className="font-serif text-reading font-medium">{t("privacy.storeTitle")}</h2>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">
               {t("privacy.storeBody")}
             </p>
           </section>
 
           <section className="mt-8">
-            <h2 className="font-serif text-lg font-medium">{t("privacy.trackTitle")}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <h2 className="font-serif text-reading font-medium">{t("privacy.trackTitle")}</h2>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">
               {t("privacy.trackBody")}
             </p>
           </section>
 
           <section className="mt-8">
-            <h2 className="font-serif text-lg font-medium">{t("privacy.deleteTitle")}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <h2 className="font-serif text-reading font-medium">{t("privacy.deleteTitle")}</h2>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">
               {t("privacy.deleteBody")}
             </p>
           </section>
 
           <section className="mt-8">
-            <h2 className="font-serif text-lg font-medium">{t("privacy.operatorTitle")}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <h2 className="font-serif text-reading font-medium">{t("privacy.operatorTitle")}</h2>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">
               {t("privacy.operatorBody", operator)}
             </p>
           </section>
 
           <section className="mt-8">
-            <h2 className="font-serif text-lg font-medium">{t("privacy.contactTitle")}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <h2 className="font-serif text-reading font-medium">{t("privacy.contactTitle")}</h2>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">
               {t("privacy.contactBody")}
             </p>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="mt-1 inline-block font-mono text-sm text-primary hover:underline"
+              className="mt-1 inline-block font-mono text-control text-primary hover:underline"
             >
               {SUPPORT_EMAIL}
             </a>
@@ -74,7 +74,7 @@ export default function Privacy() {
 
           <Link
             to="/"
-            className="mt-12 block font-mono text-xs text-muted-foreground hover:text-foreground"
+            className="mt-12 block font-mono text-meta text-muted-foreground hover:text-foreground"
           >
             ← {t("privacy.backToApp")}
           </Link>

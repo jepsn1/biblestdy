@@ -35,7 +35,7 @@ export function Hint({
         {shortcut && (
           <kbd
             data-slot="kbd"
-            className="rounded-sm bg-background/20 px-1 font-mono text-xs leading-4"
+            className="rounded-sm bg-background/20 px-1 font-mono text-meta leading-4"
           >
             {shortcut.replace("mod+", modKey())}
           </kbd>

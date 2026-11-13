@@ -509,7 +509,7 @@ export function AnnotationMarks({
             >
               <span
                 className={cn(
-                  "flex h-5 max-w-full items-center gap-1 overflow-hidden rounded-full border bg-popover font-sans text-xs leading-none whitespace-nowrap transition-colors hover:bg-accent",
+                  "flex h-5 max-w-full items-center gap-1 overflow-hidden rounded-full border bg-popover font-sans text-meta leading-none whitespace-nowrap transition-colors hover:bg-accent",
                   labelled ? "px-1.5" : "w-5 justify-center",
                 )}
                 style={{ color: NOTE_INK_TEXT, borderColor: NOTE_INK }}
@@ -650,7 +650,7 @@ export function AnnotationMarks({
                       setEditingId(p.annotation.id);
                     }}
                     className={cn(
-                      "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50",
+                      "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-list leading-snug italic transition-colors hover:bg-accent/50",
                       dragging ? "cursor-grabbing" : "cursor-grab",
                       focusRing,
                     )}

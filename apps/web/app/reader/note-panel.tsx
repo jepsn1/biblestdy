@@ -107,7 +107,7 @@ function ReferencesTable({
 
   return (
     <section className="flex h-full min-h-0 flex-col px-3 py-2">
-      <h3 className="mb-1 shrink-0 font-mono text-xs tracking-widest text-muted-foreground uppercase">
+      <h3 className="mb-1 shrink-0 font-mono text-meta tracking-widest text-muted-foreground uppercase">
         {t("note.references")}
       </h3>
       <ScrollArea className="min-h-0 flex-1">
@@ -134,10 +134,10 @@ function ReferencesTable({
                 focusRing,
               )}
             >
-              <span className="font-mono text-xs whitespace-nowrap text-primary">
+              <span className="font-mono text-meta whitespace-nowrap text-primary">
                 {formatReference(anchorReference(a))}
               </span>
-              <span className="truncate font-serif text-xs text-muted-foreground italic">
+              <span className="truncate font-serif text-meta text-muted-foreground italic">
                 {snippetOf(chapterOf.get(`${a.translationId}/${a.book}/${a.chapter}`), a)}
               </span>
             </button>
@@ -350,7 +350,7 @@ export function NotePanel({
           data-form-type="other"
           aria-label={t("note.titleLabel")}
           className={cn(
-            "min-w-0 flex-1 rounded-sm bg-transparent font-serif text-xl font-medium placeholder:text-muted-foreground",
+            "min-w-0 flex-1 rounded-sm bg-transparent font-serif text-title font-medium placeholder:text-muted-foreground",
             focusRing,
           )}
         />
@@ -370,7 +370,7 @@ export function NotePanel({
         onChange={setBody}
         placeholder={t("note.bodyPlaceholder")}
         className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
-        contentEditableClassName="font-serif text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-xl [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-lg [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
+        contentEditableClassName="font-serif text-control leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-title [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-reading [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
         plugins={[
           headingsPlugin(),
           listsPlugin(),
@@ -439,7 +439,7 @@ export function NotePanel({
         );
       })()}
 
-      <footer className="flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-xs text-muted-foreground">
+      <footer className="flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-meta text-muted-foreground">
         {/* No confirm: the delete toast offers Undo (#64) */}
         <Button
           variant="ghost"
@@ -473,7 +473,7 @@ export function NotePanel({
             <Button
               variant="link"
               size="sm"
-              className="h-auto p-0 text-xs"
+              className="h-auto p-0 text-meta"
               onClick={() => void save(note.id, { title, body })}
             >
               {t("note.retry")}

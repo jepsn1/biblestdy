@@ -37,7 +37,7 @@ export function TagChips({
       {tags.map((tg) => (
         <span
           key={tg.id}
-          className="flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pr-1.5 pl-2 font-mono text-xs text-muted-foreground"
+          className="flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pr-1.5 pl-2 font-mono text-meta text-muted-foreground"
         >
           <Link
             to={`/topic/${encodeURIComponent(tg.name)}`}
@@ -79,7 +79,7 @@ export function TagChips({
           placeholder={t("tags.placeholder")}
           aria-label={t("tags.inputLabel")}
           className={cn(
-            "w-20 rounded-full border border-border bg-background px-2 py-0.5 font-mono text-xs focus:border-primary/50",
+            "w-20 rounded-full border border-border bg-background px-2 py-0.5 font-mono text-meta focus:border-primary/50",
             focusRing,
           )}
         />
@@ -87,7 +87,7 @@ export function TagChips({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
+          className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-meta text-muted-foreground hover:border-primary/50 hover:text-foreground"
         >
           {addLabel ?? t("tags.add")}
         </button>

@@ -82,10 +82,10 @@ export function BooksSidebar({ book }: { book: string }) {
       <nav aria-label={t("sidebar.label")} className="flex h-full min-h-0 w-full flex-col">
       <SidebarHeader className="gap-2 px-4 pt-3">
         <Link to="/" className="flex select-none items-baseline gap-1.5" aria-label={t("sidebar.home")}>
-          <span className="font-mono text-sm font-semibold tracking-tight text-primary">
+          <span className="font-mono text-control font-semibold tracking-tight text-primary">
             biblestdy
           </span>
-          <span className="font-mono text-xs text-muted-foreground">v0</span>
+          <span className="font-mono text-meta text-muted-foreground">v0</span>
         </Link>
         <SidebarInput
           placeholder={t("sidebar.filterBooks")}
@@ -102,7 +102,7 @@ export function BooksSidebar({ book }: { book: string }) {
           <BookGroup label={t("sidebar.newTestament")} books={newTestament} current={book} />
         )}
         {oldTestament.length === 0 && newTestament.length === 0 && (
-          <p className="px-4 py-2 font-mono text-xs text-muted-foreground">No books match</p>
+          <p className="px-4 py-2 font-mono text-meta text-muted-foreground">No books match</p>
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-border px-4 py-3">
@@ -124,7 +124,7 @@ function SessionFooter() {
   if (isPending || !session) return null;
   return (
     <div className="flex flex-col gap-1">
-      <span className="truncate text-xs text-muted-foreground">{session.user.email}</span>
+      <span className="truncate text-meta text-muted-foreground">{session.user.email}</span>
       <AlertDialog>
         <AlertDialogTrigger
           render={
@@ -174,7 +174,7 @@ function BookGroup({
   const nameOf = useBookName();
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="font-mono text-xs tracking-widest uppercase">
+      <SidebarGroupLabel className="font-mono text-meta tracking-widest uppercase">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>

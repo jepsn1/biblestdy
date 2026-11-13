@@ -14,7 +14,7 @@
 export const FLIP_STRIP = 2; // edge gutter each side (once the page-flip strips; #52 dropped them)
 export const PAD = 1.5; // content box inline padding (px-6), each side
 export const COL_GAP = 3.5; // gap-x-14
-export const COL_MAX = 27; // ≈55 chars/line at text-lg Literata
+export const COL_MAX = 27; // ≈55 chars/line at text-reading Literata
 export const SPREAD_MIN_COL = 22;
 export const SINGLE_MAX = 34;
 /** Narrowest single column we squeeze lanes for; below, lanes shrink. */
