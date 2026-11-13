@@ -2,14 +2,16 @@ import { READER_STYLES, type ReaderStyle, type Verse } from "@biblestdy/shared";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
-import { STYLE_CLASS, saveReaderStyle } from "~/lib/reader-style";
+import { STYLE_CLASS, saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { cn } from "~/lib/utils";
 
 /** One-time onboarding (#45): the same verse in each reader style, one tap
- * picks. Clean pre-selected; Continue accepts. Show, don't tell. */
+ * picks. Pre-selects the style the page behind already shows (#52), so the
+ * preview never contradicts the page; Continue accepts. Show, don't tell. */
 export function StyleChooser({ verse, onDone }: { verse?: Verse; onDone: () => void }) {
   const { t } = useTranslation();
-  const [picked, setPicked] = useState<ReaderStyle>("clean");
+  const active = useReaderStyle();
+  const [picked, setPicked] = useState<ReaderStyle>(active);
   const [busy, setBusy] = useState(false);
 
   async function accept() {
@@ -41,9 +43,17 @@ export function StyleChooser({ verse, onDone }: { verse?: Verse; onDone: () => v
             />
           ))}
         </div>
-        <Button className="self-center px-6" disabled={busy} onClick={() => void accept()}>
-          {t("readerStyle.continue")}
-        </Button>
+        <div className="flex flex-col items-center gap-2">
+          <Button
+            variant="outline"
+            className="px-6"
+            disabled={busy}
+            onClick={() => void accept()}
+          >
+            {t("readerStyle.continue")}
+          </Button>
+          <p className="text-xs text-muted-foreground">{t("readerStyle.changeLater")}</p>
+        </div>
       </div>
     </div>
   );
@@ -70,7 +80,7 @@ function PreviewCard({
       className={cn(
         STYLE_CLASS[style],
         "flex flex-col gap-2 rounded-xl border bg-background p-4 text-left text-foreground shadow-sm transition-shadow",
-        selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "opacity-80 hover:opacity-100",
+        selected ? "ring-1 ring-primary" : "opacity-80 hover:opacity-100",
       )}
     >
       <span className="font-sans text-xs font-medium text-muted-foreground">
