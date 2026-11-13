@@ -1,5 +1,6 @@
 import { redirect } from "react-router";
 import { requireAuth } from "~/lib/require-auth";
+import { lastReadHref } from "../reader/chapter-nav";
 
 // The app IS the reader; land in Scripture (auth required) — wherever the
 // reader last was. This is also what makes the installed PWA (start_url "/")
@@ -7,7 +8,8 @@ import { requireAuth } from "~/lib/require-auth";
 export async function clientLoader() {
   await requireAuth();
   const last = typeof localStorage !== "undefined" ? localStorage.getItem("lastRead") : null;
-  return redirect(/^[A-Z0-9]{3}\/\d+$/.test(last ?? "") ? `/read/${last}` : "/read/JHN/3");
+  // lastRead keeps the page too (#52): "JHN/3?p=2" reopens on page 2
+  return redirect(lastReadHref(last) ?? "/read/JHN/3");
 }
 
 export default function Home() {

@@ -10,7 +10,7 @@
  *   one column up to SINGLE_MAX (paged the same way).
  */
 
-export const FLIP_STRIP = 2; // edge page-flip buttons (w-8), each side
+export const FLIP_STRIP = 2; // edge gutter each side (once the page-flip strips; #52 dropped them)
 export const PAD = 1.5; // content box inline padding (px-6), each side
 export const COL_GAP = 3.5; // gap-x-14
 export const COL_MAX = 27; // ≈55 chars/line at text-lg Literata

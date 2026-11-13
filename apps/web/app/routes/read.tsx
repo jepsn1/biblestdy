@@ -1,13 +1,14 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
-import { formatReference, getBook } from "@biblestdy/shared";
+import { formatReference } from "@biblestdy/shared";
 import { useState } from "react";
-import { data, useRevalidator } from "react-router";
+import { data, type ShouldRevalidateFunctionArgs, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { requireAuth } from "~/lib/require-auth";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
+import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { readingLimitError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
@@ -41,6 +42,21 @@ export function meta({ params }: Route.MetaArgs) {
   return [{ title: `${title} — biblestdy` }];
 }
 
+/** Page turns rewrite `?p=` (and ?note/?mark come and go) — none of that
+ * needs the chapter refetched. A real chapter change or an explicit
+ * revalidate (translation switch) still does. */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  if (!formMethod && currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search) {
+    return false;
+  }
+  return defaultShouldRevalidate;
+}
+
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const session = await requireAuth();
   // Account reader style (#45) applies before render; null = never chosen
@@ -58,8 +74,11 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   if (limit) throw limit;
   if (!res.ok) throw data(i18n.t("error.chapterLoad"), { status: 502 });
   const chapter = (await res.json()) as Chapter;
-  // Only a chapter that actually loaded may become the launch page
-  localStorage.setItem("lastRead", `${chapter.book}/${chapter.chapter}`);
+  // Only a chapter that actually loaded may become the launch page; the
+  // reader adds the page (?p) once it knows it (#52)
+  const here = `${chapter.book}/${chapter.chapter}`;
+  const stored = localStorage.getItem("lastRead");
+  if (stored !== here && !stored?.startsWith(`${here}?`)) localStorage.setItem("lastRead", here);
   return { chapter, translation, translations, needsStyleChoice: readerStyle === null };
 }
 
@@ -72,11 +91,9 @@ export default function Read({ loaderData }: Route.ComponentProps) {
     void revalidator.revalidate(); // reloads the chapter in the new version
   }
   const heading = formatReference({ book: chapter.book, chapter: chapter.chapter });
-  const book = getBook(chapter.book);
-  const chapterCount = book?.chapters ?? 1;
-  const prevHref = chapter.chapter > 1 ? `/read/${chapter.book}/${chapter.chapter - 1}` : null;
-  const nextHref =
-    chapter.chapter < chapterCount ? `/read/${chapter.book}/${chapter.chapter + 1}` : null;
+  // Prev/next continue across books (#52): John 21 → Acts 1
+  const prevChapter = adjacentChapter(chapter, -1);
+  const nextChapter = adjacentChapter(chapter, 1);
   // ONE side slot, content switches: 'connections' | a note id | null.
   // Connections open/closed is the sticky ambient preference; a note borrows
   // the slot and closing it falls back to that preference.
@@ -116,8 +133,8 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           chapter={chapter}
           translation={translation}
           heading={heading}
-          prevHref={prevHref}
-          nextHref={nextHref}
+          prevChapter={prevChapter}
+          nextChapter={nextChapter}
           sideView={sideView}
           onSideViewChange={setSideView}
           annotationBoxesOpen={annotationBoxesOpen}

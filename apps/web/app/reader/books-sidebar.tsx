@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { BOOKS, findBook } from "@biblestdy/shared";
 import { LogOut } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
@@ -34,6 +34,22 @@ export function BooksSidebar({ book }: { book: string }) {
     b.aliases.some((a) => a.startsWith(query)) ||
     findBook(query)?.id === b.id;
 
+  // Current book scrolled into view (#52) whenever the list mounts (phone
+  // sheet opens) or the book changes. Not scrollIntoView: that could also
+  // move the locked body.
+  const contentRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el || !book) return;
+      const item = el.querySelector<HTMLElement>("[data-active]");
+      if (!item) return;
+      const top = item.getBoundingClientRect().top - el.getBoundingClientRect().top;
+      if (top < 0 || top + item.offsetHeight > el.clientHeight) {
+        el.scrollTop += top - el.clientHeight / 3;
+      }
+    },
+    [book],
+  );
+
   const oldTestament = OLD_TESTAMENT.filter(matches);
   const newTestament = NEW_TESTAMENT.filter(matches);
 
@@ -53,7 +69,7 @@ export function BooksSidebar({ book }: { book: string }) {
           onChange={(e) => setFilter(e.target.value)}
         />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent ref={contentRef}>
         {oldTestament.length > 0 && (
           <BookGroup label={t("sidebar.oldTestament")} books={oldTestament} current={book} />
         )}
@@ -117,7 +133,15 @@ function BookGroup({
               <SidebarMenuButton
                 isActive={b.id === current}
                 size="sm"
-                render={<Link to={`/read/${b.id}/1`}>{b.name}</Link>}
+                className="data-active:font-semibold data-active:text-primary"
+                render={
+                  <Link
+                    to={`/read/${b.id}/1`}
+                    aria-current={b.id === current ? "page" : undefined}
+                  >
+                    {b.name}
+                  </Link>
+                }
               />
             </SidebarMenuItem>
           ))}
