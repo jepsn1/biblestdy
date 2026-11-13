@@ -16,6 +16,7 @@ import { formatCopy } from "./copy-attribution";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
+import { layoutChapter, type WordPiece } from "./chapter-layout";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -29,31 +30,27 @@ type Menu =
   | ({ kind: "remove-hl"; id: string } & Pos)
   | null;
 
-function sectionsBefore(chapter: Chapter, verse: number): string[] {
-  return (chapter.sections ?? []).filter((s) => s.beforeVerse === verse).map((s) => s.title);
-}
-
 // Marked spans carry no inline decoration — AnnotationMarks draws a hand-drawn
 // ink loop around [data-annotation-anchor] spans plus the placed box + arrow.
 
 /** Annotations and notes (markdown docs) share the anchor pipeline; note ids
  * are namespaced "note:<id>" so clicks/marks can tell them apart. */
 type AnchorRef = { id: string };
-type WordSeg = { annotation: AnchorRef | null; words: { word: string; i: number }[] };
+type WordSeg = { annotation: AnchorRef | null; words: WordPiece[] };
 
-/** Split a verse's words into runs of the same anchored mark (null = unmarked). */
+/** Split a verse piece's words into runs of the same anchored mark (null = unmarked). */
 function groupByAnnotation(
   verse: number,
-  tokens: string[],
+  pieces: WordPiece[],
   annotationCoverage: Map<string, AnchorRef>,
 ): WordSeg[] {
   const segs: WordSeg[] = [];
-  tokens.forEach((word, i) => {
-    const annotation = annotationCoverage.get(`${verse}:${i}`) ?? null;
+  for (const w of pieces) {
+    const annotation = annotationCoverage.get(`${verse}:${w.i}`) ?? null;
     const last = segs[segs.length - 1];
-    if (last && (last.annotation?.id ?? null) === (annotation?.id ?? null)) last.words.push({ word, i });
-    else segs.push({ annotation, words: [{ word, i }] });
-  });
+    if (last && (last.annotation?.id ?? null) === (annotation?.id ?? null)) last.words.push(w);
+    else segs.push({ annotation, words: [w] });
+  }
   return segs;
 }
 
@@ -419,76 +416,101 @@ export function ChapterText({
       className="select-none [-webkit-touch-callout:none]"
     >
       <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
-      {chapter.verses.map((v) => {
-        const tokens = words(v.text);
-        return (
-          <span key={v.verse} data-verse={v.verse}>
-            {sectionsBefore(chapter, v.verse).map((title) => (
-              <span
-                key={title}
-                data-section
-                className="mt-6 mb-2 block font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase first:mt-0"
-              >
-                {title}
-              </span>
-            ))}
-            {/* Small, muted verse number; zero line-height so it never opens a
-                gap in the leading */}
-            <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
-              {v.verse}
-            </sup>
-            {(otherVersionCounts.get(v.verse) ?? 0) > 0 && (
-              // Notes live on their home translation; this bridges versions
-              <sup
-                title={t("reader.otherVersions", { count: otherVersionCounts.get(v.verse) })}
-                className="mr-1 select-none align-super font-mono text-[0.55rem] text-muted-foreground"
-              >
-                ⁘{otherVersionCounts.get(v.verse)}
-              </sup>
-            )}
-            {groupByAnnotation(v.verse, tokens, annotationCoverage).map((seg, si) => {
-              const active = seg.annotation && seg.annotation.id === activeAnnotationId;
-              const wordSpans = seg.words.map(({ word, i }) => {
-                const hit = hlCoverage.get(`${v.verse}:${i}`);
-                // Highlight wash is painted by HighlightMarks (full line-height,
-                // behind the text), measured from this span's data-verse/word.
-                return (
-                  <span
-                    key={i}
-                    data-verse={v.verse}
-                    data-word={i}
-                    onClick={(e) => onWordClick(e, hit?.id, seg.annotation?.id)}
-                    className={hit || seg.annotation || mobile ? "cursor-pointer" : undefined}
-                    style={
-                      inTouchSel(v.verse, i)
-                        ? { backgroundColor: "var(--selection)" }
-                        : undefined
-                    }
-                  >
-                    {word}{" "}
-                  </span>
-                );
-              });
-              return seg.annotation ? (
-                <span
-                  key={si}
-                  data-annotation-anchor={seg.annotation.id}
-                  data-spotlit={seg.annotation.id === selectedMarkId || undefined}
-                  style={
-                    active
-                      ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }
-                      : undefined
-                  }
-                >
-                  {wordSpans}
+      {layoutChapter(chapter).map((block, bi) => (
+        <Fragment key={bi}>
+          {block.headings.map((title) => (
+            // Editorial heading: a quiet book-style subhead, never anchorable
+            <h2
+              key={title}
+              data-section
+              className={`mb-[0.4em] font-serif text-[0.95em] leading-snug font-semibold text-foreground/75 [break-after:avoid] ${
+                bi === 0 ? "mt-0" : "mt-[1.6em]"
+              }`}
+            >
+              {title}
+            </h2>
+          ))}
+          <p
+            data-block={block.kind}
+            className={block.stanza ? "mt-[0.85em]" : undefined}
+            style={
+              block.kind === "poetry"
+                ? // Hanging indent: q1 at 1em, q2 at 2em…; a wrapped line sits
+                  // 2em deeper so it never reads as the next poetry line
+                  { paddingLeft: `${block.level + 2}em`, textIndent: "-2em" }
+                : block.kind === "paragraph" && !block.opening
+                  ? { textIndent: "1em" }
+                  : undefined
+            }
+          >
+            {block.pieces.map((piece) => {
+              const v = piece.verse;
+              return (
+                <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
+                  {piece.showNumber && (
+                    // Small, muted verse number; zero line-height so it never
+                    // opens a gap in the leading. Bridges print "14–15".
+                    <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
+                      {v.label ?? v.verse}
+                    </sup>
+                  )}
+                  {piece.showNumber && (otherVersionCounts.get(v.verse) ?? 0) > 0 && (
+                    // Notes live on their home translation; this bridges versions
+                    <sup
+                      title={t("reader.otherVersions", { count: otherVersionCounts.get(v.verse) })}
+                      className="mr-1 select-none align-super font-mono text-[0.55rem] text-muted-foreground"
+                    >
+                      ⁘{otherVersionCounts.get(v.verse)}
+                    </sup>
+                  )}
+                  {groupByAnnotation(v.verse, piece.words, annotationCoverage).map((seg, si) => {
+                    const active = seg.annotation && seg.annotation.id === activeAnnotationId;
+                    const wordSpans = seg.words.map(({ i, text, cut }) => {
+                      const hit = hlCoverage.get(`${v.verse}:${i}`);
+                      // Highlight wash is painted by HighlightMarks (full line-height,
+                      // behind the text), measured from this span's data-verse/word.
+                      // A word cut by a line break renders as two spans, same index.
+                      return (
+                        <span
+                          key={`${i}${cut ? "a" : ""}`}
+                          data-verse={v.verse}
+                          data-word={i}
+                          onClick={(e) => onWordClick(e, hit?.id, seg.annotation?.id)}
+                          className={hit || seg.annotation || mobile ? "cursor-pointer" : undefined}
+                          style={
+                            inTouchSel(v.verse, i)
+                              ? { backgroundColor: "var(--selection)" }
+                              : undefined
+                          }
+                        >
+                          {text}
+                          {cut ? "" : " "}
+                        </span>
+                      );
+                    });
+                    return seg.annotation ? (
+                      <span
+                        key={si}
+                        data-annotation-anchor={seg.annotation.id}
+                        data-spotlit={seg.annotation.id === selectedMarkId || undefined}
+                        style={
+                          active
+                            ? { backgroundColor: NOTE_INK_WASH, borderRadius: "3px" }
+                            : undefined
+                        }
+                      >
+                        {wordSpans}
+                      </span>
+                    ) : (
+                      <Fragment key={si}>{wordSpans}</Fragment>
+                    );
+                  })}
                 </span>
-              ) : (
-                <Fragment key={si}>{wordSpans}</Fragment>
               );
             })}
-          </span>
-        );
-      })}
+          </p>
+        </Fragment>
+      ))}
 
       {/* Native-style selection handles: lollipops under the boundary words;
           drag stretches the span, the menu follows the end word */}

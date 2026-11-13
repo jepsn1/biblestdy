@@ -32,7 +32,6 @@ const LANE = 190; // default box width, and the margin lane it starts in
 const GAP = 20; // px between content box and the default lane
 const MIN_W = 90;
 const MAX_W = 600;
-const EDGE = 36; // px kept clear at the pane edges (page-flip strips, w-8)
 const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
@@ -47,8 +46,6 @@ type Placement = {
   lastLine: Box;
   colSide: "left" | "right"; // which column of the spread the span sits in
   laneCenter: { x: number; y: number };
-  /** Default box width: LANE, narrower when the pane's lanes shrink (#51). */
-  laneWidth: number;
 };
 /** A note anchor's mark: same circle/bracket by geometry, plus a static chip
  * beside it that opens the document panel. One tab per anchor — a multi-anchor
@@ -77,7 +74,7 @@ function geom(
   } else {
     ({ x: cx, y: cy } = p.laneCenter);
   }
-  let w = p.annotation.width ?? p.laneWidth;
+  let w = p.annotation.width ?? LANE;
   if (resize && resize.id === p.annotation.id) {
     cx = resize.cx;
     w = resize.w;
@@ -364,29 +361,16 @@ export function AnnotationMarks({
         if (!m) continue;
         // One scroll column (phones): brackets always on the left gutter
         const side = compact || m.mid < centerX ? "left" : "right";
-        // Narrow pane (#51): lanes shrink — the default box narrows to the
-        // room left (wrapping its text), stays on screen and clear of the
-        // edge page-flip strips
-        const room =
-          side === "left" ? leftLaneRight - EDGE : region.offsetWidth - EDGE - rightLaneLeft;
-        const laneWidth = compact ? LANE : Math.min(LANE, Math.max(MIN_W, room));
         items.push({
           annotation,
           box: m.box,
           lines: m.lines,
           lastLine: m.lastLine,
           colSide: side,
-          laneWidth,
           laneCenter: compact
             ? { x: m.box.x + m.box.w / 2, y: m.box.y + m.box.h + 34 }
             : {
-                x:
-                  side === "left"
-                    ? Math.max(EDGE + laneWidth / 2, leftLaneRight - laneWidth / 2)
-                    : Math.min(
-                        region.offsetWidth - EDGE - laneWidth / 2,
-                        rightLaneLeft + laneWidth / 2,
-                      ),
+                x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
                 y: m.box.y + m.box.h / 2,
               },
         });
