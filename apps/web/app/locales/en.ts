@@ -216,7 +216,7 @@ export default {
     whyBody1:
       "Reading the Bible is not the goal in itself, and neither is collecting notes. The Scriptures point to Jesus Christ \u2014 and in him is life.",
     whyBody2:
-      "So biblestdy tries to stay out of the way. No feed, no streaks, no commentary telling you what a verse means. Just the text, room to listen, and a place to keep what you learn.",
+      "So biblestdy tries to stay out of the way. The text comes first \u2014 with room to listen, and a place to keep what you learn.",
     howEyebrow: "How you study",
     howTitle: "Mark it the way you would on paper",
     howBody:
@@ -252,7 +252,7 @@ export default {
       "Chapters are set as pages you turn. Verse numbers and the translators\u2019 section headings sit where you expect them, set apart from the text itself.",
     readTranslationsTitle: "Several translations",
     readTranslationsBody:
-      "In English: NIV, NKJV and the World English Bible. In Danish: Bibelen p\u00e5 hverdagsdansk. Your notes stay with the translation you wrote them in.",
+      "In English: NIV, NKJV and the World English Bible. In Danish: Bibelen p\u00e5 hverdagsdansk. Your notes stay where you wrote them \u2014 switch translation and the verses you\u2019ve written about are still marked.",
     readLookTitle: "Paper or Clean, light or dark",
     readLookBody: "A warm printed page or a plain modern one — by day or by night.",
     readSizeTitle: "Text as large as you need",
@@ -265,12 +265,12 @@ export default {
       "Type a reference like “rom 8:28” to go straight there. Shortcuts for those who study a lot.",
     promiseEyebrow: "What we hold to",
     promiseTitle: "A few promises",
-    promiseInterpretTitle: "No one interprets for you",
+    promiseInterpretTitle: "Scripture stays Scripture",
     promiseInterpretBody:
-      "biblestdy never tells you what a verse means \u2014 no AI interpretation, no church\u2019s line. That is left to you, and to the people you read with.",
-    promisePrivateTitle: "Private, always",
+      "The Bible text is shown unaltered, with its copyright. Your notes \u2014 and anything we add later \u2014 sit beside the text, never mixed into it.",
+    promisePrivateTitle: "Yours, and private",
     promisePrivateBody:
-      "Your study is yours. No sharing, no social features, no tracking, no ads. Delete everything whenever you want.",
+      "Your notes are yours. No tracking, no ads, and we never sell your data. Delete everything whenever you want.",
     promiseFreeTitle: "Free",
     promiseFreeBody:
       "Reading, highlights, margin notes, notes and topics are free, and will stay free. biblestdy is a non-commercial project.",
@@ -303,7 +303,7 @@ export default {
       },
       group: {
         q: "Can we use it in a Bible study group?",
-        a: "Yes, each on your own. Everyone reads the same passage with their own notes, and you share what you found when you meet \u2014 not through the app. biblestdy has no shared notes, on purpose.",
+        a: "Yes \u2014 for now each on your own. Everyone reads the same passage with their own notes, and you share what you found when you meet \u2014 not through the app.",
       },
       password: {
         q: "How do I sign in?",

@@ -218,7 +218,7 @@ const da: typeof en = {
     whyBody1:
       "Målet er ikke at læse Bibelen for læsningens skyld, og heller ikke at samle noter. Skrifterne peger på Jesus Kristus \u2014 og i ham er livet.",
     whyBody2:
-      "Derfor prøver biblestdy at holde sig i baggrunden. Ingen opslag at scrolle i, ingen point eller daglige mål, ingen forklaringer der fortæller dig hvad et vers betyder. Kun teksten, ro til at lytte, og et sted at gemme det du lærer.",
+      "Derfor prøver biblestdy at holde sig i baggrunden. Teksten kommer først \u2014 med ro til at lytte, og et sted at gemme det du lærer.",
     howEyebrow: "Sådan læser du",
     howTitle: "Markér som du ville gøre på papir",
     howBody:
@@ -254,7 +254,7 @@ const da: typeof en = {
       "Kapitlerne er sat som sider du vender. Versnumre og oversætternes overskrifter står hvor du forventer dem, adskilt fra selve teksten.",
     readTranslationsTitle: "Oversættelser",
     readTranslationsBody:
-      "På dansk: Bibelen på hverdagsdansk, en letlæst oversættelse i nutidigt sprog. På engelsk: NIV, NKJV og World English Bible. Dine noter bliver ved den oversættelse du skrev dem i.",
+      "På dansk: Bibelen på hverdagsdansk, en letlæst oversættelse i nutidigt sprog. På engelsk: NIV, NKJV og World English Bible. Dine noter bliver hvor du skrev dem \u2014 skifter du oversættelse, er de vers du har skrevet om, stadig markeret.",
     readLookTitle: "Papir eller Enkel, lys eller mørk",
     readLookBody: "En varm trykt side eller en enkel moderne — om dagen eller om aftenen.",
     readSizeTitle: "Så stor tekst du har brug for",
@@ -267,12 +267,12 @@ const da: typeof en = {
       "Skriv et skriftsted som “rom 8,28” og kom direkte derhen. Genveje til dem der studerer meget.",
     promiseEyebrow: "Det holder vi fast i",
     promiseTitle: "Et par løfter",
-    promiseInterpretTitle: "Ingen fortolker for dig",
+    promiseInterpretTitle: "Skriften forbliver Skriften",
     promiseInterpretBody:
-      "biblestdy fortæller dig aldrig hvad et vers betyder \u2014 ingen AI-fortolkning, ingen bestemt kirkes holdning. Det overlader vi til dig og dem du læser sammen med.",
-    promisePrivateTitle: "Altid privat",
+      "Bibelteksten vises uændret, med ophavsretsoplysning. Dine noter \u2014 og det vi tilføjer senere \u2014 står ved siden af teksten, aldrig blandet ind i den.",
+    promisePrivateTitle: "Dit, og privat",
     promisePrivateBody:
-      "Dit studie er dit. Ingen deling, ingen sociale funktioner, ingen sporing, ingen reklamer. Slet det hele når du vil.",
+      "Dine noter er dine. Ingen sporing, ingen reklamer, og vi sælger aldrig dine data. Slet det hele når du vil.",
     promiseFreeTitle: "Gratis",
     promiseFreeBody:
       "Læsning, markeringer, margennoter, noter og emner er gratis, og det bliver de ved med at være. biblestdy er et ikke-kommercielt projekt.",
@@ -305,7 +305,7 @@ const da: typeof en = {
       },
       group: {
         q: "Kan vi bruge det i en bibelkreds?",
-        a: "Ja, hver for sig. Alle læser den samme tekst med deres egne noter, og I deler det I har fundet, når I mødes \u2014 ikke gennem appen. biblestdy har ingen fælles noter, med vilje.",
+        a: "Ja \u2014 indtil videre hver for sig. Alle læser den samme tekst med deres egne noter, og I deler det I har fundet, når I mødes \u2014 ikke gennem appen.",
       },
       password: {
         q: "Hvordan logger jeg ind?",
