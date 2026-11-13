@@ -10,7 +10,7 @@ Everything license-related parked here. NEXT-STEPS points at this file.
 | **WEB, NKJV** | ✓ live, same key (WEB is public domain) |
 | **NLT / CSB / NASB** | not on the key — request per-publisher in the API.Bible dashboard |
 | **ESV** | not on API.Bible. Crossway's own ESV API (api.esv.org): free key for non-commercial, individuals OK. Needs a second provider + ESV-only cache ≤500 verses/half a book, "ESV" label, copyright page, esv.org link on every page showing ESV. 5k/day, 1k/h, 60/min. |
-| **BPH (Bibelen på hverdagsdansk)** | closed (Biblica, © all rights reserved; NOT in their open.bible CC set; not on API.Bible public catalog; YouVersion app = distribution deal). **Free route likely exists:** Biblica "express licensing" = royalty-free for truly non-commercial apps with no AI, via API.Bible (or YouVersion — ruled out by Marcus 2026-10-29). BPH not in API.Bible public catalog → ask support@api.bible to add it under express licensing, in parallel with the direct request → `biblica-bph-permission-request.md` |
+| **BPH (Bibelen på hverdagsdansk)** | ✅ **licensed 2026-11-13** via API.Bible (Biblica Global Bible Bundle, added to our Starter key on support's advice; id `20c3695eb7339cca-01`, © 2015 Biblica). Express licensing terms: free only while non-commercial + no AI/ML. Starter = max 3 licensed translations (NIV, NKJV, BPH; WEB is PD). Auto-surfaced by the `dan` language filter in the API.Bible provider. Direct-license fallback: `biblica-bph-permission-request.md` |
 | **Bibelen 2020 / 1992 (Bibelselskabet)** | not publicly licensable; needs direct license → DBL → API.Bible. Email to rettigheder@bibelselskabet.dk pending (Danish draft: session 2026-07-08, or ask Claude to re-draft) |
 | **Danish 1931/33** | public domain (the "old" one on YouVersion) — could self-host if we ever want a keyless Danish fallback |
 
@@ -25,10 +25,7 @@ Facts that matter:
 ## Licensing todos
 
 - [ ] **ESV**: get key at api.esv.org → `ESV_API_KEY` in dev + prod `.env`; then build ESV provider (issue #39).
-- [ ] **Submit BPH request** (after throttling #25 is deployed; apply as the holding company — direct licenses need a legal entity): paste `docs/biblica-bph-permission-request.md` into
-      https://www.biblica.com/permission-request-form/ (fill in your email). ~10 business days.
-- [ ] Ask Biblica if BPH is on "express licensing" (non-commercial, no-AI apps can start immediately via ministry partners) — we have no AI today.
-- [ ] (parallel) Email support@api.bible: "can BPH (Biblica) be added to our key under express licensing?"
+- [x] BPH: added via API.Bible Global Bible Bundle 2026-11-13 (support@api.bible guided). Biblica form only needed if we go commercial / add AI.
 - [ ] **Send Bibelselskabet email** (rettigheder@bibelselskabet.dk) — free non-commercial
       pilot license for Bibelen 2020, delivered via DBL → API.Bible.
 - [ ] (when wanted) Request NLT/CSB/NASB access in the API.Bible dashboard.
