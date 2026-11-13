@@ -87,6 +87,7 @@ export function PaginatedChapter({
   sideView,
   onSideViewChange,
   annotationBoxesOpen,
+  placeRef,
 }: {
   chapter: Chapter;
   translation: Translation;
@@ -99,6 +100,8 @@ export function PaginatedChapter({
   onSideViewChange: (view: string | null) => void;
   /** Mobile annotation layer (#15): boxes shown only while toggled on. */
   annotationBoxesOpen: boolean;
+  /** Out: the verse the reader is at (the translation switch lands on it). */
+  placeRef?: React.MutableRefObject<number | null>;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -686,7 +689,8 @@ export function PaginatedChapter({
       readingVerse.current = first;
     placePage.current = page;
     restoring.current = false;
-  }, [scrollMode, stride, resolvedKey, chapterKey, pageCount, layout.columns, textSize, inlineAnnotations, annotationsApi.annotations.length, page]);
+    if (placeRef) placeRef.current = readingVerse.current;
+  }, [scrollMode, stride, resolvedKey, chapterKey, pageCount, layout.columns, textSize, inlineAnnotations, annotationsApi.annotations.length, page, placeRef]);
 
   // Off-page controls are inert (no Tab stop on a hidden page); the verse
   // cursor stays on this page, and follows a page turn if it had focus.

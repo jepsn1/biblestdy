@@ -206,6 +206,13 @@ export default {
     close: "Close",
     settings: "Follow biblestdy",
   },
+  translations: {
+    title: "Translation",
+    close: "Close translations",
+    selected: "Selected",
+    switched: "Now reading {{name}}. Your marks in {{prev}} are kept.",
+    back: "Back to {{abbr}}",
+  },
   privacy: {
     metaTitle: "Privacy — biblestdy",
     title: "Privacy",
@@ -247,6 +254,7 @@ export default {
     pageTurn: "Previous / next page",
     firstLast: "First / last page",
     chapter: "Previous / next chapter",
+    translation: "Choose translation",
     jump: "Go to reference",
     verse: "Previous / next verse",
     selectWords: "Select word by word",

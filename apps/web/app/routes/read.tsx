@@ -1,7 +1,7 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
 import { formatReference } from "@biblestdy/shared";
 import { useEffect, useRef, useState } from "react";
-import { data, type ShouldRevalidateFunctionArgs, useRevalidator } from "react-router";
+import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
@@ -105,10 +105,30 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   const { chapter, translation, translations, needsStyleChoice, userId, supportDismissed } = loaderData;
   const [styleChosen, setStyleChosen] = useState(false);
   const revalidator = useRevalidator();
+  // The verse the reader is at: a switch lands on it in the new version
+  // (page numbers differ between translations)
+  const placeRef = useRef<number | null>(null);
+  const [, setSearchParams] = useSearchParams();
+  const switchVerse = useRef<number | null>(null);
   function switchTranslation(id: string) {
     localStorage.setItem("translationId", id);
+    switchVerse.current = placeRef.current;
     void revalidator.revalidate(); // reloads the chapter in the new version
   }
+  // …then lands on the same verse there (?v= picks its page)
+  useEffect(() => {
+    const verse = switchVerse.current;
+    if (verse === null) return;
+    switchVerse.current = null;
+    setSearchParams(
+      (params) => {
+        params.delete("p");
+        params.set("v", String(verse));
+        return params;
+      },
+      { replace: true },
+    );
+  }, [translation.id, setSearchParams]);
   const nameOf = useBookName();
   const heading = `${nameOf(chapter.book)} ${chapter.chapter}`; // UI-language name (#53)
   // Prev/next continue across books (#52): John 21 → Acts 1
@@ -218,6 +238,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           sideView={sideView}
           onSideViewChange={setSideView}
           annotationBoxesOpen={annotationBoxesOpen}
+          placeRef={placeRef}
         />
       </SidebarInset>
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
