@@ -4,7 +4,7 @@ import {
   type ReaderStyle,
   type TextSize,
 } from '@biblestdy/shared';
-import { IsIn, IsOptional } from 'class-validator';
+import { Equals, IsIn, IsOptional } from 'class-validator';
 
 /** Any subset of the preferences; the controller requires at least one. */
 export class UpdatePreferencesDto {
@@ -15,4 +15,8 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsIn(TEXT_SIZES)
   textSize?: TextSize;
+
+  @IsOptional()
+  @Equals(true)
+  supportNoticeDismissed?: true;
 }
