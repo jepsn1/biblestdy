@@ -67,7 +67,7 @@ export function ConnectionsPanel({
 
   function SectionTitle({ children }: { children: string }) {
     return (
-      <h3 className="px-2 pb-1 font-sans text-[0.65rem] font-semibold tracking-widest text-primary/80 uppercase">
+      <h3 className="px-2 pb-1 font-sans text-[0.65rem] font-semibold tracking-widest text-primary uppercase">
         {children}
       </h3>
     );
@@ -76,7 +76,7 @@ export function ConnectionsPanel({
   return (
     <aside className="flex h-full w-full flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="font-serif text-lg font-medium">{t("connections.title")}</span>
+        <h2 className="font-serif text-lg font-medium">{t("connections.title")}</h2>
         {!mobile && (
           <button
             type="button"

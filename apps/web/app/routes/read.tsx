@@ -6,6 +6,7 @@ import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
+import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
@@ -13,6 +14,7 @@ import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { readingLimitError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
+import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
 import type { Route } from "./+types/read";
 
@@ -61,9 +63,11 @@ export function shouldRevalidate({
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const session = await requireAuth();
   // Account reader style (#45) applies before render; null = never chosen
+  // Text size (#61) too — same single preferences fetch
   const [translations, readerStyle] = await Promise.all([
     loadTranslations(),
     loadReaderStyle(session.user.id),
+    loadTextSize(session.user.id),
   ]);
   const translation = pickTranslation(translations);
   const res = await fetchScripture(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
@@ -118,6 +122,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
 
   return (
     <SidebarProvider className="h-dvh overflow-hidden">
+      <SkipToText />
       <BooksSidebar book={chapter.book} />
       <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">
         <ReaderNav

@@ -6,6 +6,7 @@ import { data, Link } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
+import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
 import type { Route } from "./+types/topic";
 
@@ -21,7 +22,7 @@ export function meta({ params }: Route.MetaArgs) {
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const session = await requireAuth();
-  await loadReaderStyle(session.user.id);
+  await Promise.all([loadReaderStyle(session.user.id), loadTextSize(session.user.id)]);
   const res = await fetch(`/api/tags/topic/${encodeURIComponent(params.name)}`, {
     credentials: "include",
   });
@@ -47,14 +48,14 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
             >
               <ArrowLeft className="size-3" /> {t("topic.back")}
             </Link>
-            <span className="font-mono text-[0.65rem] tracking-widest text-primary/80 uppercase">
+            <span className="font-mono text-[0.65rem] tracking-widest text-primary uppercase">
               {t("topic.label")}
             </span>
             <h1 className="font-serif text-3xl font-medium tracking-tight">{topic.tag.name}</h1>
           </header>
 
           <section>
-            <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase">
+            <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary uppercase">
               {t("topic.notes")}
             </h2>
             {topic.notes.length === 0 && (
@@ -84,7 +85,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
           </section>
 
           <section>
-            <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary/80 uppercase">
+            <h2 className="mb-2 font-sans text-[0.7rem] font-semibold tracking-widest text-primary uppercase">
               {t("topic.passages")}
             </h2>
             {topic.passages.length === 0 && (

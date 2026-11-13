@@ -3,6 +3,7 @@ import type { Chapter, Note, NoteAnchor } from "@biblestdy/shared";
 import { anchorReference, formatReference, words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
 import { api } from "~/lib/query";
+import { cn, focusRing } from "~/lib/utils";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
   ResizableHandle,
@@ -104,36 +105,43 @@ function ReferencesTable({
         {note.anchors.map((a) => {
           const isSelected = a.id === selectedAnchorId;
           return (
+          // Row = a real button (select / read there) + a sibling × — never
+          // a button nested in a button
           <div
             key={a.id}
-            role="button"
-            tabIndex={0}
-            title={isSelected ? t("note.deselect") : t("note.readPassage")}
-            aria-pressed={isSelected}
-            onClick={() => onShowAnchor(a)}
-            onKeyDown={(e) => e.key === "Enter" && onShowAnchor(a)}
-            className={`group grid cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-3 rounded px-1.5 ${
-              mobile ? "py-2.5" : "py-1"
-            } ${isSelected ? "bg-accent" : "hover:bg-accent/50"}`}
+            className={`group grid grid-cols-[1fr_auto] items-center gap-x-1 rounded ${
+              isSelected ? "bg-accent" : "hover:bg-accent/50"
+            }`}
           >
-            <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
-              {formatReference(anchorReference(a))}
-            </span>
-            <span className="truncate font-serif text-xs text-muted-foreground italic">
-              {snippetOf(chapterOf.get(`${a.translationId}/${a.book}/${a.chapter}`), a)}
-            </span>
+            <button
+              type="button"
+              title={isSelected ? t("note.deselect") : t("note.readPassage")}
+              aria-pressed={isSelected}
+              onClick={() => onShowAnchor(a)}
+              className={cn(
+                "grid min-w-0 grid-cols-[auto_1fr] items-baseline gap-x-3 rounded px-1.5 text-left",
+                mobile ? "py-2.5" : "py-1",
+                focusRing,
+              )}
+            >
+              <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
+                {formatReference(anchorReference(a))}
+              </span>
+              <span className="truncate font-serif text-xs text-muted-foreground italic">
+                {snippetOf(chapterOf.get(`${a.translationId}/${a.book}/${a.chapter}`), a)}
+              </span>
+            </button>
             {note.anchors.length > 1 ? (
               <button
                 type="button"
                 aria-label={t("note.removeReference")}
                 title={t("note.removeReference")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDetach(note.id, a.id);
-                }}
-                className={`self-center text-muted-foreground hover:text-destructive ${
-                  mobile ? "" : "invisible group-hover:visible"
-                }`}
+                onClick={() => onDetach(note.id, a.id)}
+                className={cn(
+                  "inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-destructive",
+                  !mobile && "invisible group-focus-within:visible group-hover:visible",
+                  focusRing,
+                )}
               >
                 <X className="size-3" />
               </button>
@@ -212,6 +220,8 @@ export function NotePanel({
 
   return (
     <aside className="flex h-full w-full flex-col bg-background">
+      {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
+      <h2 className="sr-only">{title || t("note.untitled")}</h2>
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
         <input
           value={title}
@@ -223,7 +233,11 @@ export function NotePanel({
           data-lpignore="true"
           data-bwignore
           data-form-type="other"
-          className="min-w-0 flex-1 bg-transparent font-serif text-xl font-medium outline-none placeholder:text-muted-foreground/60"
+          aria-label={t("note.titleLabel")}
+          className={cn(
+            "min-w-0 flex-1 rounded-sm bg-transparent font-serif text-xl font-medium placeholder:text-muted-foreground",
+            focusRing,
+          )}
         />
         <button
           type="button"

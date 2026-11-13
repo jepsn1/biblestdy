@@ -47,9 +47,12 @@ export function ReaderNav({
   const chapterCount = current?.chapters ?? 1;
 
   return (
-    <nav className="relative shrink-0 border-b border-border bg-background/85">
+    <nav
+      aria-label={t("nav.label")}
+      className="relative shrink-0 border-b border-border bg-background/85"
+    >
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      <div className="flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
+      <div className="flex flex-wrap items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
         <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
 
         <div className="h-4 w-px bg-border" />
@@ -175,7 +178,7 @@ export function ReaderNav({
                   {t("nav.installIosStep2")}
                 </li>
               </ol>
-              <p className="mt-2 font-mono text-[0.6rem] text-muted-foreground/70">
+              <p className="mt-2 font-mono text-[0.6rem] text-muted-foreground">
                 {t("nav.installIosWhy")}
               </p>
             </PopoverContent>

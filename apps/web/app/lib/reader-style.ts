@@ -1,6 +1,6 @@
-import { isReaderStyle, type Preferences, type ReaderStyle } from "@biblestdy/shared";
+import { isReaderStyle, type ReaderStyle } from "@biblestdy/shared";
 import { useSyncExternalStore } from "react";
-import { api } from "./query";
+import { loadPreferences, savePreferences } from "./preferences";
 
 /**
  * Reader style (#45): Paper (default, no class) or Clean (`.style-clean` on
@@ -47,24 +47,15 @@ export function applyReaderStyle(style: ReaderStyle) {
   listeners.forEach((l) => l());
 }
 
-/** Saved account choice, fetched once per user per page load. */
-let cache: { userId: string; style: ReaderStyle | null } | undefined;
-
 /**
  * Loads the account's style and applies it (call in protected route loaders).
  * Returns null when the user never chose → show the onboarding chooser. On a
  * network error returns the locally active style, so nobody gets nagged.
  */
 export async function loadReaderStyle(userId: string): Promise<ReaderStyle | null> {
-  if (cache?.userId === userId) return cache.style;
-  let style: ReaderStyle | null;
-  try {
-    const prefs = await api<Preferences>("/api/preferences");
-    style = isReaderStyle(prefs.readerStyle) ? prefs.readerStyle : null;
-  } catch {
-    return current();
-  }
-  cache = { userId, style };
+  const prefs = await loadPreferences(userId);
+  if (!prefs) return current();
+  const style = isReaderStyle(prefs.readerStyle) ? prefs.readerStyle : null;
   if (style) applyReaderStyle(style);
   return style;
 }
@@ -72,9 +63,5 @@ export async function loadReaderStyle(userId: string): Promise<ReaderStyle | nul
 /** User picked a style (chooser or settings): apply instantly, then persist. */
 export async function saveReaderStyle(style: ReaderStyle) {
   applyReaderStyle(style);
-  if (cache) cache = { ...cache, style };
-  await api<Preferences>("/api/preferences", {
-    method: "PATCH",
-    body: JSON.stringify({ readerStyle: style }),
-  });
+  await savePreferences({ readerStyle: style });
 }

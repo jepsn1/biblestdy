@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Annotation } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { cn, focusRing } from "~/lib/utils";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
 import {
@@ -703,7 +704,11 @@ export function AnnotationMarks({
                       }
                       if (e.key === "Escape") setEditing(null);
                     }}
-                    className="h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-xs outline-none"
+                    aria-label={t("menu.annotationPlaceholder")}
+                    className={cn(
+                      "h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-xs",
+                      focusRing,
+                    )}
                   />
                   <div className="flex items-center justify-between font-mono text-[0.6rem]">
                     <button
@@ -731,9 +736,9 @@ export function AnnotationMarks({
                   </div>
                 </div>
               ) : (
-                <p
-                  role="button"
-                  tabIndex={0}
+                // A real button (#61): Enter/Space open the editor too
+                <button
+                  type="button"
                   title={p.annotation.text}
                   onClick={() => {
                     if (didDrag.current) {
@@ -742,13 +747,18 @@ export function AnnotationMarks({
                     }
                     setEditing({ id: p.annotation.id, text: p.annotation.text });
                   }}
-                  className={`-mx-1 rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50 ${
-                    fixed ? "" : dragging ? "cursor-grabbing" : "cursor-grab"
-                  }`}
-                  style={{ color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT }}
+                  className={cn(
+                    "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-[0.8rem] leading-snug italic transition-colors hover:bg-accent/50",
+                    fixed ? "" : dragging ? "cursor-grabbing" : "cursor-grab",
+                    focusRing,
+                  )}
+                  style={{
+                    color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT,
+                    textAlign: "inherit",
+                  }}
                 >
                   {p.annotation.text}
-                </p>
+                </button>
               )}
             </div>
           );

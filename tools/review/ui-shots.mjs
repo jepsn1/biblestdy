@@ -1,6 +1,7 @@
 // UI review evidence pack: screenshots of every screen/overlay + axe-core audit.
 // Usage (from a dir with `npm i playwright axe-core`): see docs/REVIEW-PROCESS.md.
-// Env: BASE (dev web url), COOKIES (curl cookie jar with better-auth.session_token), OUT (output dir).
+// Env: BASE (dev web url), COOKIES (curl cookie jar with better-auth.session_token), OUT (output dir),
+// ONLY (optional comma list of shot-name prefixes, e.g. ONLY=34,35 — re-shoot a few after a fix).
 // Known gap: the custom pointer selection in chapter-text.tsx is not triggered by page.mouse drags
 // (shot 10 comes out without the menu) — capture the selection menu by hand until fixed.
 // Seeds are not created here — run seed.sh first. Shots that fail print FAIL and are skipped.
@@ -12,17 +13,19 @@ const axeSrc = fs.readFileSync(new URL(import.meta.resolve("axe-core/axe.min.js"
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch();
 const audits = {};
-async function ctxFor({ w = 1440, h = 900, theme = "light", lang = "en", auth = true, style = "paper" }) {
+async function ctxFor({ w = 1440, h = 900, theme = "light", lang = "en", auth = true, style = "paper", textSize = 100 }) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: w < 640 ? 2 : 1, hasTouch: w < 640, locale: lang === "da" ? "da-DK" : "en-US" });
   if (auth) await ctx.addCookies([{ name: "better-auth.session_token", value: token, domain: "localhost", path: "/" }]);
-  await ctx.addInitScript(([theme, lang, style, WEB]) => { localStorage.setItem("translationId", WEB); localStorage.setItem("theme", theme); localStorage.setItem("i18nextLng", lang); localStorage.setItem("lang", lang); localStorage.setItem("readerStyle", style); }, [theme, lang, style, WEB]);
+  await ctx.addInitScript(([theme, lang, style, WEB, textSize]) => { localStorage.setItem("translationId", WEB); localStorage.setItem("theme", theme); localStorage.setItem("i18nextLng", lang); localStorage.setItem("lang", lang); localStorage.setItem("readerStyle", style); localStorage.setItem("textSize", String(textSize)); }, [theme, lang, style, WEB, textSize]);
   return ctx;
 }
+const ONLY = process.env.ONLY?.split(",");
 async function shot(name, opts, path, steps = async () => {}, audit = false) {
+  if (ONLY && !ONLY.some((o) => name.startsWith(o))) return;
   const ctx = await ctxFor(opts); const page = await ctx.newPage();
   try {
-    // The account's saved style wins over localStorage, so set it server-side per shot.
-    if (opts.auth !== false) await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: opts.style ?? "paper" }, headers: { Origin: process.env.ORIGIN ?? BASE } });
+    // The account's saved style + text size win over localStorage, so set them server-side per shot.
+    if (opts.auth !== false) await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: opts.style ?? "paper", textSize: opts.textSize ?? 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } });
     await page.goto(BASE + path); await page.waitForTimeout(2500);
     await steps(page); await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/${name}.png` });
@@ -54,17 +57,35 @@ await shot("17-zoom-200-equiv", { w: 720, h: 450 }, R);
 await shot("20-phone-reader", { w: 390, h: 844 }, R, undefined, true);
 await shot("21-phone-menu-sidebar", { w: 390, h: 844 }, R, click(/books sidebar|Toggle Sidebar/i));
 await shot("22-phone-jump", { w: 390, h: 844 }, R, click(/Go to reference/i));
-await shot("23-phone-settings", { w: 390, h: 844 }, R, click(/Account & settings/i));
-await shot("25-phone-connections", { w: 390, h: 844, theme: "dark", style: "clean" }, R, click(/connections panel/i));
+await shot("23-phone-settings", { w: 390, h: 844 }, R, click(/Account & settings/i), true);
+await shot("25-phone-connections", { w: 390, h: 844, theme: "dark", style: "clean" }, R, click(/connections panel/i), true);
 await shot("26-phone-annotations-toggle", { w: 390, h: 844 }, R, click(/annotation boxes/i));
 await shot("27-phone-selection", { w: 390, h: 844 }, R, async (p) => { await p.locator('[data-verse="16"][data-word="3"]').first().tap(); await p.waitForTimeout(800); });
 await shot("28-tablet-landscape", { w: 1180, h: 820 }, R);
+// Accessibility (#61): skip link, real-button annotations, text size 200% (zoom lock stays), more themes audited
+await shot("29-skip-link-focus", {}, R, async (p) => { await p.keyboard.press("Tab"); }, true);
+await shot("30-skip-link-activated", {}, R, async (p) => { await p.keyboard.press("Tab"); await p.keyboard.press("Enter"); await p.waitForTimeout(300); if ((await p.evaluate(() => document.activeElement?.id)) !== "chapter-text") throw new Error("skip link did not focus the text"); });
+await shot("31-annotation-enter", {}, R, async (p) => { const b = p.getByRole("button", { name: "water + Spirit?" }).first(); await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(400); if (!(await p.locator("[data-annotation-editing]").count())) throw new Error("Enter did not open the annotation"); });
+await shot("32-reader-paper-dark", { theme: "dark" }, R, undefined, true);
+await shot("33-reader-clean-light", { style: "clean" }, R, undefined, true);
+await shot("34-text-200-desktop", { textSize: 200 }, R, undefined, true);
+await shot("35-text-200-phone", { textSize: 200, w: 390, h: 844 }, R, undefined, true);
+await shot("36-text-200-settings", { textSize: 200 }, R, click(/Account & settings/i), true);
+await shot("37-text-200-phone-settings", { textSize: 200, w: 390, h: 844 }, R, click(/Account & settings/i), true);
+await shot("38-text-200-connections", { textSize: 200 }, R, click(/connections panel/i), true);
+await shot("39-text-200-phone-sidebar", { textSize: 200, w: 390, h: 844 }, R, click(/books sidebar|Toggle Sidebar/i));
+await shot("40-text-150-tablet", { textSize: 150, w: 1180, h: 820 }, R);
+await shot("41-signin-da", { auth: false, lang: "da" }, "/signin", undefined, true);
 const combo = (label) => async (p) => { await p.getByRole("combobox", { name: label }).first().click(); await p.waitForTimeout(800); };
 const note = async (p) => { await p.getByTitle("The bronze serpent").first().click(); await p.waitForTimeout(1200); };
 await shot("07-chapter-select-open", {}, R, combo(/^Chapter/i), true);
 await shot("08-translation-select-open", {}, R, combo(/^Translation/i));
 await shot("11-note-open", {}, R + "?v=14", note, true);
-await shot("24-phone-note", { w: 390, h: 844 }, R + "?v=14", async (p) => { await p.getByRole("button", { name: /annotation boxes/i }).first().click(); await p.waitForTimeout(600); await note(p); });
-fs.writeFileSync(`${OUT}/axe.json`, JSON.stringify(audits, null, 1));
+await shot("24-phone-note", { w: 390, h: 844 }, R + "?v=14", async (p) => { await p.getByRole("button", { name: /annotation boxes/i }).first().click(); await p.waitForTimeout(600); await note(p); }, true);
+await shot("42-text-200-note-open", { textSize: 200 }, R + "?v=14", note, true);
+await shot("43-text-200-phone-note", { textSize: 200, w: 390, h: 844 }, R + "?v=14", async (p) => { await p.getByRole("button", { name: /annotation boxes/i }).first().click(); await p.waitForTimeout(600); await note(p); });
+// Leave the account at the default size
+{ const ctx = await ctxFor({}); await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: "paper", textSize: 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } }); await ctx.close(); }
+fs.writeFileSync(`${OUT}/axe${ONLY ? "-partial" : ""}.json`, JSON.stringify(audits, null, 1));
 await browser.close();
 

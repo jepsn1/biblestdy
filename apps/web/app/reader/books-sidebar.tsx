@@ -66,6 +66,8 @@ export function BooksSidebar({ book }: { book: string }) {
 
   return (
     <Sidebar>
+      {/* One named landmark for the whole sidebar (axe region/landmark-unique) */}
+      <nav aria-label={t("sidebar.label")} className="flex h-full min-h-0 w-full flex-col">
       <SidebarHeader className="gap-2 px-4 pt-3">
         <Link to="/" className="flex select-none items-baseline gap-1.5" aria-label={t("sidebar.home")}>
           <span className="font-mono text-sm font-semibold tracking-tight text-primary">
@@ -94,6 +96,7 @@ export function BooksSidebar({ book }: { book: string }) {
       <SidebarFooter className="border-t border-border px-4 py-3">
         <SessionFooter />
       </SidebarFooter>
+      </nav>
     </Sidebar>
   );
 }

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { READER_STYLES } from "@biblestdy/shared";
+import { READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
 import { UserRound } from "lucide-react";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Button } from "~/components/ui/button";
@@ -15,10 +15,11 @@ import { appChannel, appVersion } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import { setUiLanguage } from "~/lib/i18n";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
+import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { api } from "~/lib/query";
 
 const chipClass =
-  "flex size-6 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-[0.65rem] font-semibold text-primary transition-colors hover:bg-primary/25";
+  "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-[0.65rem] font-semibold text-primary transition-colors hover:bg-primary/25";
 
 /** Account chip at the end of the reader nav (issue #17): opens the settings
  * surface — email, theme + language (moved out of the nav), version/channel,
@@ -49,7 +50,7 @@ export function AccountChip() {
           {initial}
         </button>
         <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
-          <DrawerContent style={{ "--drawer-height": "80dvh" } as React.CSSProperties}>
+          <DrawerContent aria-label={t("settings.open")} style={{ "--drawer-height": "80dvh" } as React.CSSProperties}>
             <ScrollArea className="h-full">
               <div className="px-4 pt-1 pb-8">
                 <SettingsContent email={email} />
@@ -75,7 +76,7 @@ export function AccountChip() {
       >
         {initial}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72">
+      <PopoverContent align="end" className="w-72" aria-label={t("settings.open")}>
         <SettingsContent email={email} />
       </PopoverContent>
     </Popover>
@@ -102,6 +103,8 @@ function SettingsContent({ email }: { email: string }) {
       </div>
 
       <ReaderStyleSwitch />
+
+      <TextSizeSwitch />
 
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">{t("settings.language")}</span>
@@ -161,6 +164,44 @@ function ReaderStyleSwitch() {
             }
           >
             {t(`readerStyle.${style}`)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Text size (#61): 100–200% of text + chrome. Applies instantly (the page
+ * re-lays out live), saved to the account. Own row: five steps need the width. */
+function TextSizeSwitch() {
+  const { t } = useTranslation();
+  const active = useTextSize();
+  const labelId = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span id={labelId} className="text-xs text-muted-foreground">
+        {t("settings.textSize")}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        // Wraps to two rows when five steps don't fit (phone at 200%)
+        className="grid grid-cols-[repeat(auto-fit,minmax(3.5rem,1fr))] rounded-md bg-muted p-0.5"
+      >
+        {TEXT_SIZES.map((size) => (
+          <button
+            key={size}
+            type="button"
+            role="radio"
+            aria-checked={active === size}
+            onClick={() => void saveTextSize(size).catch(() => undefined)}
+            className={
+              active === size
+                ? "min-h-6 rounded px-1 py-0.5 text-xs font-medium tabular-nums text-foreground shadow-sm bg-background"
+                : "min-h-6 rounded px-1 py-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
+            }
+          >
+            {size}%
           </button>
         ))}
       </div>

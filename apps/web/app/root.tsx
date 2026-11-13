@@ -14,6 +14,7 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { Route } from "./+types/root";
 import { queryClient } from "~/lib/query";
+import { TEXT_SIZE_PREPAINT } from "~/lib/text-size-prepaint";
 import "./app.css";
 
 // Fonts are self-hosted via @fontsource imports in app.css
@@ -26,7 +27,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         {/* Zoom disabled: the reader is a fixed folio that manages its own scale;
-            pinch-zoom fights page-flip + annotation drag gestures */}
+            pinch-zoom fights page-flip + annotation drag gestures. Product
+            decision (2026-11-13 UI review): the lock stays — enlarging text
+            is the in-app Text size setting instead (#61, WCAG 1.4.4) */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
@@ -55,6 +58,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `try{if(localStorage.getItem("readerStyle")==="clean")document.documentElement.classList.add("style-clean")}catch(e){}`,
           }}
         />
+        {/* And the text size (#61): root font-size, so text + chrome scale */}
+        <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_PREPAINT }} />
         <Meta />
         <Links />
       </head>

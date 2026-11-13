@@ -3,6 +3,7 @@ import type en from './en';
 /** Danish UI strings (issue #12) — same shape as en.ts, enforced by the type. */
 const da: typeof en = {
   nav: {
+    label: "Kapitelnavigation",
     toggleSidebar: "Vis/skjul bogliste",
     chapter: "Kapitel",
     translation: "Oversættelse",
@@ -23,6 +24,7 @@ const da: typeof en = {
     jumpSuggestions: "Bøger",
   },
   sidebar: {
+    label: "Bøger",
     home: "Hjem",
     filterBooks: "Filtrér bøger…",
     oldTestament: "Det Gamle Testamente",
@@ -30,6 +32,7 @@ const da: typeof en = {
     signOut: "Log ud",
   },
   reader: {
+    skipToText: "Spring til teksten",
     prevPage: "Forrige side",
     nextPage: "Næste side",
     prevChapter: "Forrige kapitel",
@@ -63,6 +66,7 @@ const da: typeof en = {
   note: {
     untitled: "Unavngivet note",
     titlePlaceholder: "Unavngivet note",
+    titleLabel: "Notens titel",
     bodyPlaceholder: "Skriv din note…",
     close: "Luk note",
     references: "Referencer",
@@ -94,6 +98,7 @@ const da: typeof en = {
   tags: {
     add: "+ tag",
     placeholder: "tag…",
+    inputLabel: "Nyt tag",
     openTopic: "Åbn emne",
     remove: "Fjern tagget {{name}}",
   },
@@ -142,6 +147,7 @@ const da: typeof en = {
     signedInAs: "Logget ind som",
     theme: "Tema",
     style: "Stil",
+    textSize: "Tekststørrelse",
     language: "Sprog",
     version: "Version",
     privacy: "Privatlivspolitik",
