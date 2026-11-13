@@ -12,7 +12,10 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
-import { PanelHeader, panelTitleClass } from "./panel-header";
+import { PanelHeader } from "./panel-header";
+
+/** A quick picker, not a page (Mads): smaller than the chapter heading. */
+const titleClass = "truncate text-phone font-semibold";
 
 /** Event name: anything (the command palette) can open the chooser. */
 export const OPEN_TRANSLATIONS = "biblestdy:translations";
@@ -31,6 +34,9 @@ export function groupTranslations(translations: Translation[], ui: Lang) {
     const lang = tr.language.split("-")[0];
     groups.set(lang, [...(groups.get(lang) ?? []), tr]);
   }
+  // Within a group: catalog rank (most-read first), unknown ones last
+  const rank = (tr: Translation) => translationInfo(tr.abbreviation)?.rank ?? 99;
+  for (const items of groups.values()) items.sort((a, b) => rank(a) - rank(b));
   return [...groups.entries()].sort(([a], [b]) => Number(b === ui) - Number(a === ui));
 }
 
@@ -88,6 +94,12 @@ export function TranslationChooser({
   const trigger = (
     <>
       <span className="text-control font-medium tracking-[0.02em]">{current.abbreviation}</span>
+      {/* Wide screens: which Bible, in words (Sofie: "WEB" reads as "website") */}
+      {translationInfo(current.abbreviation) && (
+        <span className="hidden text-control text-muted-foreground lg:inline">
+          · {translationInfo(current.abbreviation)?.shortName}
+        </span>
+      )}
       <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
     </>
   );
@@ -101,7 +113,7 @@ export function TranslationChooser({
         <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
           <DrawerContent className="[--drawer-content-max-height:92dvh]">
             <PanelHeader onClose={() => setOpen(false)} closeLabel={t("translations.close")}>
-              <DrawerTitle className={panelTitleClass}>{t("translations.title")}</DrawerTitle>
+              <DrawerTitle className={titleClass}>{t("translations.title")}</DrawerTitle>
             </PanelHeader>
             <ScrollArea className="min-h-0 flex-1">
               <div className="px-2 pt-1 pb-8">{list}</div>
@@ -119,7 +131,7 @@ export function TranslationChooser({
       </Hint>
       <PopoverContent align="start" className="w-90 max-w-[calc(100vw-2rem)] gap-0 p-0">
         <PanelHeader onClose={() => setOpen(false)} closeLabel={t("translations.close")}>
-          <PopoverTitle className={panelTitleClass}>{t("translations.title")}</PopoverTitle>
+          <PopoverTitle className={titleClass}>{t("translations.title")}</PopoverTitle>
         </PanelHeader>
         <ScrollArea viewportClassName="max-h-[70dvh]">
           <div className="p-1.5">{list}</div>
@@ -159,7 +171,14 @@ function TranslationList({
     function onKey(e: KeyboardEvent) {
       const all = rows();
       const i = all.indexOf(document.activeElement as HTMLButtonElement);
-      const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: all.length - 1 }[e.key];
+      let to: number | undefined = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: all.length - 1 }[e.key];
+      // Typeahead: a letter jumps to the next translation whose abbreviation starts with it
+      if (to === undefined && /^\p{L}$/u.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const key = e.key.toUpperCase();
+        const order = [...all.slice(i + 1), ...all.slice(0, i + 1)];
+        const hit = order.find((r) => r.dataset.abbr?.startsWith(key));
+        if (hit) to = all.indexOf(hit);
+      }
       if (to === undefined) return;
       e.preventDefault();
       all[Math.max(0, Math.min(all.length - 1, to))]?.focus();
@@ -169,11 +188,11 @@ function TranslationList({
   }, []);
 
   return (
-    <div ref={ref} className="flex flex-col gap-1.5">
-      {groupTranslations(translations, ui).map(([lang, items]) => (
-        <section key={lang} aria-label={languageName(lang)}>
+    <div ref={ref} className="flex flex-col">
+      {groupTranslations(translations, ui).map(([lang, items], gi) => (
+        <section key={lang} aria-label={languageName(lang)} className={cn(gi > 0 && "mt-2 border-t border-border pt-1")}>
           <h3 className="eyebrow px-3 pt-2 pb-1">{languageName(lang)}</h3>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-0.5">
             {items.map((tr) => {
               const info = translationInfo(tr.abbreviation);
               const selected = tr.id === currentId;
@@ -183,30 +202,27 @@ function TranslationList({
                   <button
                     type="button"
                     data-translation-option
+                    data-abbr={tr.abbreviation.toUpperCase()}
                     aria-current={selected ? "true" : undefined}
                     onClick={() => onPick(tr)}
                     className={cn(
-                      "flex w-full min-h-12 items-start gap-3 rounded-md px-3 py-2.5 text-left outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring max-sm:min-h-14",
+                      "flex w-full min-h-12 items-start gap-2 rounded-md px-3 py-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring max-sm:min-h-14",
+                      selected && "bg-accent",
                     )}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className={cn("block text-control max-sm:text-phone", selected && "font-medium")}>
+                      <span className={cn("block text-control text-pretty max-sm:text-phone", selected && "font-medium")}>
                         {translationTitle(tr)}
-                        {info?.gloss && ui !== lang && (
-                          <span className="text-muted-foreground"> ({info.gloss})</span>
-                        )}
                       </span>
-                      <span className="mt-0.5 block text-meta text-muted-foreground">{meta}</span>
+                      <span className="mt-0.5 block text-meta text-pretty text-muted-foreground">{meta}</span>
                       {info && <span className="block text-meta text-muted-foreground">{info.rights[ui]}</span>}
                     </span>
-                    <span className="flex w-6 shrink-0 justify-end pt-0.5">
-                      {selected && (
-                        <>
-                          <Check className="size-4 text-primary" aria-hidden />
-                          <span className="sr-only">{t("translations.selected")}</span>
-                        </>
-                      )}
-                    </span>
+                    {selected && (
+                      <span className="flex shrink-0 items-center gap-1 pt-0.5 text-meta font-medium text-foreground">
+                        <Check className="size-4" strokeWidth={2.5} aria-hidden />
+                        {t("translations.selected")}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

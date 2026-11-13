@@ -7,6 +7,10 @@
 export interface TranslationInfo {
   /** Title in the text's own language, e.g. "Bibelen på hverdagsdansk". */
   name: string
+  /** Short name for the nav trigger on wide screens ("WEB · World English"). */
+  shortName: string
+  /** Order inside its language group (most-read first). */
+  rank: number
   /** English gloss of a non-English title, shown in the English UI only. */
   gloss?: string
   description: { en: string; da: string }
@@ -16,23 +20,31 @@ export interface TranslationInfo {
 export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
   BPH: {
     name: 'Bibelen på hverdagsdansk',
+    shortName: 'Hverdagsdansk',
+    rank: 1,
     gloss: 'The Bible in Everyday Danish',
-    description: { en: 'Modern, easy-to-read Danish', da: 'Moderne dansk, let at læse' },
+    description: { en: 'Modern, easy Danish', da: 'Moderne, letlæst dansk' },
     rights: { en: '© Bibelselskabet 2015', da: '© Bibelselskabet 2015' },
   },
   NIV: {
     name: 'New International Version',
-    description: { en: 'Modern English, readable and accurate', da: 'Moderne engelsk, letlæst og præcis' },
+    shortName: 'New International',
+    rank: 1,
+    description: { en: 'Modern, readable English', da: 'Moderne, letlæst engelsk' },
     rights: { en: '© Biblica 2011', da: '© Biblica 2011' },
   },
   NKJV: {
     name: 'New King James Version',
-    description: { en: 'Classic English, close to the original wording', da: 'Klassisk engelsk, tæt på grundteksten' },
+    shortName: 'New King James',
+    rank: 2,
+    description: { en: 'Classic English, literal', da: 'Klassisk engelsk, ordret' },
     rights: { en: '© Thomas Nelson 1982', da: '© Thomas Nelson 1982' },
   },
   WEB: {
     name: 'World English Bible',
-    description: { en: 'Modern English, free to share', da: 'Moderne engelsk, fri at dele' },
+    shortName: 'World English',
+    rank: 3,
+    description: { en: 'Modern English', da: 'Moderne engelsk' },
     rights: { en: 'Public domain', da: 'Fri af ophavsret' },
   },
 }
