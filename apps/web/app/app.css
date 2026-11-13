@@ -33,6 +33,9 @@
   --text-title--line-height: 2rem;
   --text-display: 2rem;
   --text-display--line-height: 2.5rem;
+  /* landing hero only — the one size above display */
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 3.25rem;
 }
 
 /* Icons (#66): lucide at a 1.75 stroke everywhere (an explicit
