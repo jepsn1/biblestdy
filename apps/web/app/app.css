@@ -11,15 +11,14 @@
  * Type scale (#66) — the only font sizes in the app (Tailwind's own size
  * names are reset; lint bans them and arbitrary rem/px sizes). rem-based,
  * so the in-app text size (#61) scales all of it.
- *   eyebrow 11 · meta 12 (refs, chips, footers) · list 13 (lists, menus)
+ *   meta 12 (refs, chips, footers, section labels — the floor: no text
+ *   under 12px) · list 13 (lists, menus)
  *   control 14 (controls, panel body) · phone 16 (phone controls, inputs)
  *   reading 18 · title 24 (panel + dialog titles) · display 32 (chapter h1)
  * Inside the Scripture flow, sizes relative to the reading size stay em.
  */
 @theme {
   --text-*: initial;
-  --text-eyebrow: 0.6875rem;
-  --text-eyebrow--line-height: 1rem;
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
   --text-list: 0.8125rem;
@@ -47,8 +46,8 @@
 /* The one section label (#66): small caps-style sans, muted — never gold. */
 @utility eyebrow {
   font-family: var(--font-sans);
-  font-size: var(--text-eyebrow);
-  line-height: var(--text-eyebrow--line-height);
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -231,7 +230,7 @@
   --secondary: oklch(0.967 0.001 286);
   --secondary-foreground: oklch(0.21 0.006 286);
   --muted: oklch(0.967 0.001 286);
-  --muted-foreground: oklch(0.55 0.014 286);
+  --muted-foreground: oklch(0.53 0.014 286);
   --accent: oklch(0.967 0.001 286);
   --accent-foreground: oklch(0.21 0.006 286);
   --destructive: oklch(0.577 0.245 27);

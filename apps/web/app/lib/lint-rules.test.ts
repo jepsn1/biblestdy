@@ -33,8 +33,12 @@ describe("design-system lint rules", () => {
       "biblestdy/type-scale",
     ]);
     expect(
-      await hits("text-eyebrow text-meta text-list text-control text-phone text-reading text-title text-display text-[0.58em] text-left text-muted-foreground"),
+      await hits("text-meta text-list text-control text-phone text-reading text-title text-display text-[0.58em] text-left text-muted-foreground"),
     ).toEqual([]);
+  });
+
+  it("has no step under 12px (accessibility floor)", async () => {
+    expect(await hits("text-eyebrow")).toEqual(["biblestdy/type-scale"]);
   });
 
   it("checks template literals too", async () => {

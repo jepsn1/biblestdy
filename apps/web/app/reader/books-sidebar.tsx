@@ -174,7 +174,7 @@ function BookGroup({
   const nameOf = useBookName();
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="eyebrow text-eyebrow font-semibold">
+      <SidebarGroupLabel className="eyebrow">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>
