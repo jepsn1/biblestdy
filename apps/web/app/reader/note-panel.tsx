@@ -34,7 +34,8 @@ import {
 import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useIsDark } from "~/components/theme-toggle";
+import { useIsDark } from "~/lib/theme";
+import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
 import { useNoteTags } from "./use-tags";
 
@@ -222,7 +223,7 @@ export function NotePanel({
     <aside className="flex h-full w-full flex-col bg-background">
       {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <PanelHeader onClose={onClose} closeLabel={t("note.close")} className="pl-3">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -239,15 +240,7 @@ export function NotePanel({
             focusRing,
           )}
         />
-        <button
-          type="button"
-          aria-label={t("note.close")}
-          onClick={onClose}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
-      </header>
+      </PanelHeader>
 
       {/* Tags group study across the graph (issue #10) — chips open topic pages */}
       <div className="border-b border-border px-3 py-1.5">
