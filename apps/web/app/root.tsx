@@ -1,6 +1,7 @@
 import "~/lib/prism-global";
 import "~/lib/i18n";
 
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   isRouteErrorResponse,
@@ -15,6 +16,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { Route } from "./+types/root";
 import { queryClient } from "~/lib/query";
 import { TEXT_SIZE_PREPAINT } from "~/lib/text-size-prepaint";
+import { THEME_PREPAINT } from "~/lib/theme-prepaint";
+import { watchSystemTheme } from "~/lib/theme";
+import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
 
 // Fonts are self-hosted via @fontsource imports in app.css
@@ -45,12 +49,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             }}
           />
         )}
-        {/* Apply stored theme before first paint (paper is the default) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if(localStorage.getItem("theme")==="dark")document.documentElement.classList.add("dark")`,
-          }}
-        />
+        {/* Apply stored theme before first paint (light Paper is the
+            default; "system" follows the OS — #62) */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_PREPAINT }} />
         {/* Same for the reader style (#45, Clean = .style-clean; Paper = none).
             Key/class mirror lib/reader-style.ts (not imported: root is SSR'd) */}
         <script
@@ -73,9 +74,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => watchSystemTheme(), []);
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      {/* Tooltips (#62): ~300ms, then instant while moving between buttons */}
+      <TooltipProvider delay={300}>
+        <Outlet />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

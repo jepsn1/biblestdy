@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Hint } from "~/components/hint";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
@@ -416,7 +417,6 @@ export function PaginatedChapter({
     const wanted = wantedPage.current;
     setPage((p) => resolvePage(wanted ?? p, pageCount));
     setResolvedKey(chapterKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageCount, stride, chapterKey, scrollMode, verseTick]);
 
   // The verse's words glow briefly (CSS .verse-flash). Applied to the DOM:
@@ -599,9 +599,11 @@ export function PaginatedChapter({
         defaultSize={openNote ? `${100 - noteSize}%` : "100%"}
         className="flex min-h-0 flex-col"
       >
-      {/* Any click in the reader cancels the reference spotlight */}
+      {/* Any click in the reader cancels the reference spotlight (a mouse
+          nicety; keyboard users clear it from the note's references) */}
       <div
         ref={paneRef}
+        role="presentation"
         className="relative min-h-0 flex-1"
         onClick={() => selectedMarkId && setSelectedMarkId(null)}
       >
@@ -647,7 +649,7 @@ export function PaginatedChapter({
                       Screen readers get the live region instead. */}
                   <p
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-6 top-2 truncate text-center font-sans text-[0.7rem] tabular-nums text-muted-foreground"
+                    className="pointer-events-none absolute inset-x-6 top-2 truncate text-center font-sans text-xs tabular-nums text-muted-foreground"
                   >
                     {t("reader.runningHead", { ref: hereLabel, page: page + 1, count: pageCount })}
                   </p>
@@ -748,9 +750,10 @@ export function PaginatedChapter({
             onOpenChange={(open) => !open && closeConnections()}
             showSwipeHandle
           >
+            {/* Content-sized (#62): short lists get a short sheet, capped at 92dvh */}
             <DrawerContent
               aria-label={t("connections.title")}
-              style={{ "--drawer-height": "70dvh" } as React.CSSProperties}
+              className="[--drawer-content-max-height:92dvh]"
             >
               <ConnectionsPanel
                 translationId={chapter.translationId}
@@ -807,20 +810,22 @@ function NavButton({
   const label = target
     ? t(dir === "prev" ? "reader.prevChapterTo" : "reader.nextChapterTo", { ref: target })
     : t(dir === "prev" ? "reader.prevPage" : "reader.nextPage");
-  const hint = target ? label : t(dir === "prev" ? "reader.prevPageHint" : "reader.nextPageHint");
+  // A page turn names its arrow key; a chapter step has no key of its own
+  const shortcut = target ? undefined : dir === "prev" ? "←" : "→";
   return (
-    <Button
-      variant="ghost"
-      size={target ? "sm" : "icon-sm"}
-      aria-label={label}
-      title={hint}
-      disabled={disabled}
-      onClick={onClick}
-      className="shrink-0 text-muted-foreground hover:text-foreground"
-    >
-      {dir === "prev" && <Icon data-icon={target ? "inline-start" : undefined} />}
-      {target}
-      {dir === "next" && <Icon data-icon={target ? "inline-end" : undefined} />}
-    </Button>
+    <Hint label={label} shortcut={shortcut} side="top">
+      <Button
+        variant="ghost"
+        size={target ? "sm" : "icon-sm"}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className="shrink-0 text-muted-foreground hover:text-foreground"
+      >
+        {dir === "prev" && <Icon data-icon={target ? "inline-start" : undefined} />}
+        {target}
+        {dir === "next" && <Icon data-icon={target ? "inline-end" : undefined} />}
+      </Button>
+    </Hint>
   );
 }

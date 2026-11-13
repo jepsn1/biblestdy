@@ -44,6 +44,8 @@ const ARROW_WIDGETS = [
   "[role='radiogroup']",
   "[role='dialog']",
   "[role='alertdialog']",
+  // Segmented controls (settings, #62): arrows move between options
+  "[data-slot='toggle-group']",
 ].join(",");
 
 /** Any open modal (style chooser, drawers, dialogs) blocks page shortcuts. */

@@ -1,8 +1,9 @@
 import type { Translation } from "@biblestdy/shared";
 import { getBook } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
-import { Layers, MonitorDown, Share, SquarePlus, Waypoints } from "lucide-react";
+import { MonitorDown, NotebookText, Share, SquarePlus } from "lucide-react";
 import { useNavigate } from "react-router";
+import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
@@ -16,7 +17,9 @@ import {
 } from "~/components/ui/select";
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
+import { PANEL_TOGGLE } from "./connections-panel";
 import { JumpBox } from "./jump-box";
+import { MoreSheet } from "./more-sheet";
 
 export function ReaderNav({
   book,
@@ -53,7 +56,9 @@ export function ReaderNav({
     >
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
       <div className="flex flex-wrap items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
-        <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
+        <Hint label={t("nav.toggleSidebar")} shortcut="mod+B">
+          <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
+        </Hint>
 
         <div className="h-4 w-px bg-border" />
 
@@ -68,9 +73,21 @@ export function ReaderNav({
           <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="font-mono">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          {/* Number grid (#62): Psalms' 150 chapters in a few rows, not a
+              150-row list; anchored below the trigger like every menu */}
+          <SelectContent
+            alignItemWithTrigger={false}
+            align="start"
+            className="w-auto"
+            listClassName="grid grid-cols-[repeat(6,2.5rem)] gap-0.5 p-1"
+          >
             {Array.from({ length: chapterCount }, (_, i) => i + 1).map((c) => (
-              <SelectItem key={c} value={String(c)} className="font-mono">
+              <SelectItem
+                key={c}
+                value={String(c)}
+                indicator={false}
+                className="h-9 justify-center px-0 font-mono tabular-nums data-selected:font-semibold data-selected:ring-2 data-selected:ring-primary data-selected:ring-inset"
+              >
                 {c}
               </SelectItem>
             ))}
@@ -98,13 +115,19 @@ export function ReaderNav({
                 );
               })()}
             </SelectTrigger>
-            {/* Dropdown defaults to trigger width (now abbr-narrow) — size to content */}
-            <SelectContent className="w-auto min-w-(--anchor-width) max-w-80">
+            {/* Anchored below the trigger (#62); rows are a two-column grid
+                (abbr | name) so names align and long ones end in an ellipsis */}
+            <SelectContent
+              alignItemWithTrigger={false}
+              align="start"
+              className="w-80 max-w-[calc(100vw-1rem)]"
+            >
               {translations.map((tr) => (
-                <SelectItem key={tr.id} value={tr.id} title={tr.name}>
-                  {/* Fixed abbr column: names align despite NIV/NKJV width gap */}
-                  <span className="w-12 shrink-0 font-mono">{tr.abbreviation}</span>
-                  <span className="truncate text-xs text-muted-foreground">{tr.name}</span>
+                <SelectItem key={tr.id} value={tr.id} title={tr.name} className="min-h-9">
+                  <span className="grid w-full min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-baseline gap-2">
+                    <span className="font-mono">{tr.abbreviation}</span>
+                    <span className="truncate text-xs text-muted-foreground">{tr.name}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -114,58 +137,63 @@ export function ReaderNav({
         {/* Go to reference (#53): inline from sm, a search icon on phones */}
         <JumpBox />
 
-        <Button
-          variant={connectionsOpen ? "secondary" : "ghost"}
-          size="icon-sm"
-          aria-label={t("nav.connectionsToggle")}
-          aria-pressed={connectionsOpen}
-          title={t("nav.connectionsHint")}
-          onClick={onToggleConnections}
-        >
-          <Waypoints />
-        </Button>
+        {/* "Notes & topics" (#62, was the unexplained "Connections"): icon +
+            tooltip from sm, the word itself from 1180px. Phones reach it, the
+            margin-notes toggle and install through the labelled More sheet. */}
+        <Hint label={t("nav.connectionsToggle")}>
+          <Button
+            variant={connectionsOpen ? "secondary" : "ghost"}
+            size="icon-sm"
+            className="hidden gap-1.5 sm:inline-flex min-[1180px]:w-auto min-[1180px]:px-2.5"
+            aria-label={t("nav.connectionsToggle")}
+            aria-pressed={connectionsOpen}
+            {...{ [PANEL_TOGGLE]: "connections" }}
+            onClick={onToggleConnections}
+          >
+            <NotebookText />
+            <span className="hidden min-[1180px]:inline">{t("nav.connectionsToggle")}</span>
+          </Button>
+        </Hint>
 
-        {/* Mobile-only (#15): annotation-box layer toggle — off = clean page
-            (washes + circles stay), on = computed boxes. Desktop always shows. */}
-        <Button
-          variant={annotationBoxesOpen ? "secondary" : "ghost"}
-          size="icon-sm"
-          className="sm:hidden"
-          aria-label={t("nav.annotationsToggle")}
-          aria-pressed={annotationBoxesOpen}
-          title={t("nav.annotationsHint")}
-          onClick={onToggleAnnotationBoxes}
-        >
-          <Layers />
-        </Button>
+        <MoreSheet
+          connectionsOpen={connectionsOpen}
+          onToggleConnections={onToggleConnections}
+          annotationBoxesOpen={annotationBoxesOpen}
+          onToggleAnnotationBoxes={onToggleAnnotationBoxes}
+          pwa={pwa}
+        />
 
         {/* Install as app: real prompt on Chromium; iOS Safari has no install
             API — the button explains the Share → Add to Home Screen path */}
         {pwa.kind === "prompt" && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("nav.install")}
-            title={t("nav.install")}
-            onClick={() => void pwa.install()}
-          >
-            <MonitorDown />
-          </Button>
+          <Hint label={t("nav.install")}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden sm:inline-flex"
+              aria-label={t("nav.install")}
+              onClick={() => void pwa.install()}
+            >
+              <MonitorDown />
+            </Button>
+          </Hint>
         )}
         {pwa.kind === "ios-instructions" && (
           <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("nav.install")}
-                  title={t("nav.install")}
-                />
-              }
-            >
-              <MonitorDown />
-            </PopoverTrigger>
+            <Hint label={t("nav.install")}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="hidden sm:inline-flex"
+                    aria-label={t("nav.install")}
+                  />
+                }
+              >
+                <MonitorDown />
+              </PopoverTrigger>
+            </Hint>
             <PopoverContent className="w-72" align="end">
               <p className="mb-2 font-serif text-sm font-medium">{t("nav.installIosTitle")}</p>
               <ol className="flex flex-col gap-1.5 text-xs text-muted-foreground">
@@ -178,7 +206,7 @@ export function ReaderNav({
                   {t("nav.installIosStep2")}
                 </li>
               </ol>
-              <p className="mt-2 font-mono text-[0.6rem] text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 {t("nav.installIosWhy")}
               </p>
             </PopoverContent>
