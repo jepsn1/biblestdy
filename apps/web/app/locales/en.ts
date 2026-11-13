@@ -1,3 +1,4 @@
+import { BOOKS, bookName } from "@biblestdy/shared";
 /** English UI strings (issue #12). Adding a locale = adding a sibling file. */
 export default {
   nav: {
@@ -15,6 +16,10 @@ export default {
     installIosStep1: "Tap the Share button in Safari\u2019s toolbar",
     installIosStep2: "Choose \u201cAdd to Home Screen\u201d",
     installIosWhy: "biblestdy opens full-screen like a native app \u2014 no browser chrome.",
+    jumpOpen: "Go to reference",
+    jumpClose: "Close",
+    jumpInvalid: "Unknown reference — try “John 3:16” or “Rom 8”",
+    jumpSuggestions: "Books",
   },
   sidebar: {
     home: "Home",
@@ -182,6 +187,8 @@ export default {
     hours_one: "{{count}} hour",
     hours_other: "{{count}} hours",
   },
+  /** Book display names (#53), from the shared canon table. */
+  books: Object.fromEntries(BOOKS.map((b) => [b.id, bookName(b.id, "en")])) as Record<string, string>,
   error: {
     oops: "Oops!",
     unexpected: "An unexpected error occurred.",
