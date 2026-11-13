@@ -65,7 +65,7 @@ export default function SignIn() {
           <span className="font-mono text-lg font-semibold tracking-tight text-primary">
             biblestdy
           </span>
-          <span className="font-mono text-[0.65rem] text-muted-foreground">v0</span>
+          <span className="font-mono text-xs text-muted-foreground">v0</span>
         </Link>
 
         {step === "email" ? (
@@ -75,6 +75,7 @@ export default function SignIn() {
             <Input
               type="email"
               required
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- sign-in page's only field
               autoFocus
               placeholder="you@example.com"
               aria-label={t("signin.email")}
@@ -98,6 +99,7 @@ export default function SignIn() {
               inputMode="numeric"
               autoComplete="one-time-code"
               required
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- code step replaces the email form; move focus to its only field
               autoFocus
               placeholder="123456"
               aria-label={t("signin.code")}
@@ -116,31 +118,31 @@ export default function SignIn() {
                 setCode("");
                 setError(null);
               }}
-              className="mt-3 w-full text-center font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
+              className="mt-3 w-full text-center font-mono text-xs text-muted-foreground hover:text-foreground"
             >
               {t("signin.differentEmail")}
             </button>
           </form>
         )}
 
-        <p className="mt-6 text-center font-mono text-[0.65rem] text-muted-foreground">
+        <p className="mt-6 text-center font-mono text-xs text-muted-foreground">
           {t("signin.footer")}
         </p>
         <button
           type="button"
           aria-label={t("nav.language")}
           onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
-          className="mx-auto mt-2 block text-center font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
+          className="mx-auto mt-2 block text-center font-mono text-xs text-muted-foreground hover:text-foreground"
         >
           {i18next.language.startsWith("da") ? "English" : "Dansk"}
         </button>
         <Link
           to="/privacy"
-          className="mx-auto mt-1 block text-center font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
+          className="mx-auto mt-1 block text-center font-mono text-xs text-muted-foreground hover:text-foreground"
         >
           {t("settings.privacy")}
         </Link>
-        <p className="mt-4 text-center font-mono text-[0.6rem] text-muted-foreground">
+        <p className="mt-4 text-center font-mono text-xs text-muted-foreground">
           {t("signin.operatedBy", operator)}
         </p>
       </div>

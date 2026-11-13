@@ -73,7 +73,7 @@ export function BooksSidebar({ book }: { book: string }) {
           <span className="font-mono text-sm font-semibold tracking-tight text-primary">
             biblestdy
           </span>
-          <span className="font-mono text-[0.6rem] text-muted-foreground">v0</span>
+          <span className="font-mono text-xs text-muted-foreground">v0</span>
         </Link>
         <SidebarInput
           placeholder={t("sidebar.filterBooks")}
@@ -109,7 +109,7 @@ function SessionFooter() {
   if (isPending || !session) return null;
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
+      <span className="truncate font-mono text-xs text-muted-foreground">
         {session.user.email}
       </span>
       <Button
@@ -138,7 +138,7 @@ function BookGroup({
   const nameOf = useBookName();
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="font-mono text-[0.6rem] tracking-widest uppercase">
+      <SidebarGroupLabel className="font-mono text-xs tracking-widest uppercase">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>
