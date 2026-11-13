@@ -280,7 +280,7 @@ const da: typeof en = {
     faq: {
       who: {
         q: "Hvem står bag biblestdy?",
-        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark, som et ikke-kommercielt projekt \u2014 drevet gennem mit lille selskab MJK Holding ApS, så der er en ansvarlig bag. Følg med på Instagram, eller skriv til support@biblestdy.com.",
+        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark, som et ikke-kommercielt projekt \u2014 drevet gennem mit lille selskab MJK Holding ApS, så der er en ansvarlig bag. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
       },
       new: {
         q: "Jeg er ny i Bibelen (eller har ikke læst i den siden konfirmationen). Er det her for mig?",

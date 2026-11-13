@@ -26,7 +26,7 @@ import { StudyMock } from "./study-mock";
  * second — say plainly what it is and get out of the way. No hype, no
  * urgency, no conversion tricks. All copy in locales (`landing.*`). */
 
-const SUPPORT_EMAIL = "support@biblestdy.com";
+const SUPPORT_EMAIL = "marcus@jepsn.com";
 const INSTAGRAM_URL = "https://www.instagram.com/marcusjepsn/";
 
 export function Landing() {
