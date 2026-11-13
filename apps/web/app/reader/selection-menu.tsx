@@ -132,7 +132,7 @@ export function ActionMenu({
 }
 
 const mobileItem =
-  "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-base hover:bg-accent";
+  "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-phone hover:bg-accent";
 
 export function ActionMenuItem({
   onSelect,

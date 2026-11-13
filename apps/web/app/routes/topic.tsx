@@ -55,21 +55,21 @@ export default function TopicPage({ params }: Route.ComponentProps) {
           <header>
             <Link
               to="/"
-              className="mb-4 flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground"
+              className="mb-4 flex items-center gap-1 text-meta text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="size-3" /> {t("topic.back")}
             </Link>
-            <span className="font-mono text-xs tracking-widest text-primary uppercase">
+            <span className="eyebrow">
               {t("topic.label")}
             </span>
-            <h1 className="font-serif text-3xl font-medium tracking-tight">
+            <h1 className="font-serif text-display font-medium tracking-tight">
               {query.data?.tag.name ?? params.name}
             </h1>
           </header>
           {query.isPending ? (
             <ListSkeleton sections={[3, 2]} className="-mx-2 gap-8" />
           ) : query.isError || !query.data ? (
-            <p role="alert" className="font-serif text-sm text-muted-foreground italic">
+            <p role="alert" className="font-serif text-control text-muted-foreground italic">
               {query.isError ? t("topic.loadError") : t("topic.notFound")}
             </p>
           ) : (
@@ -87,11 +87,11 @@ function TopicBody({ topic }: { topic: Topic }) {
   return (
     <>
       <section>
-        <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
+        <h2 className="eyebrow mb-2">
           {t("topic.notes")}
         </h2>
         {topic.notes.length === 0 && (
-          <p className="font-serif text-sm text-muted-foreground italic">
+          <p className="font-serif text-control text-muted-foreground italic">
             {t("topic.emptyNotes")}
           </p>
         )}
@@ -104,10 +104,10 @@ function TopicBody({ topic }: { topic: Topic }) {
                 to={a ? `/read/${a.book}/${a.chapter}?note=${n.id}` : "/"}
                 className="rounded px-2 py-1.5 hover:bg-accent"
               >
-                <span className="block truncate font-serif text-base">
+                <span className="block truncate font-serif text-phone">
                   {n.title || t("note.untitled")}
                 </span>
-                <span className="block truncate font-mono text-xs text-muted-foreground">
+                <span className="block truncate font-mono text-meta text-muted-foreground">
                   {n.anchors.map((x) => formatReference(anchorReference(x))).join(" · ")}
                 </span>
               </Link>
@@ -117,11 +117,11 @@ function TopicBody({ topic }: { topic: Topic }) {
       </section>
 
       <section>
-        <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
+        <h2 className="eyebrow mb-2">
           {t("topic.passages")}
         </h2>
         {topic.passages.length === 0 && (
-          <p className="font-serif text-sm text-muted-foreground italic">
+          <p className="font-serif text-control text-muted-foreground italic">
             {t("topic.emptyPassages")}
           </p>
         )}
@@ -130,7 +130,7 @@ function TopicBody({ topic }: { topic: Topic }) {
             <Link
               key={`${p.translationId}/${p.book}.${p.chapter}`}
               to={`/read/${p.book}/${p.chapter}`}
-              className="rounded px-2 py-1.5 font-serif text-base hover:bg-accent"
+              className="rounded px-2 py-1.5 font-serif text-phone hover:bg-accent"
             >
               {formatReference({ book: p.book, chapter: p.chapter })}
             </Link>

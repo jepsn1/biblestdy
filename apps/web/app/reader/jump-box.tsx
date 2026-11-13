@@ -153,9 +153,9 @@ export function JumpBox() {
               setActive(-1);
             }}
             onKeyDown={onKeyDown}
-            className="h-8 w-full pr-8 font-mono text-sm placeholder:font-sans sm:h-7 sm:w-44 sm:text-xs"
+            className="h-8 w-full pr-8 font-mono text-control placeholder:font-sans sm:h-7 sm:w-52 sm:text-list lg:w-72"
           />
-          <kbd className="pointer-events-none absolute top-1/2 right-1.5 hidden -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-xs text-muted-foreground sm:block">
+          <kbd className="pointer-events-none absolute top-1/2 right-1.5 hidden -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-meta text-muted-foreground sm:block pointer-coarse:hidden">
             /
           </kbd>
 
@@ -178,12 +178,12 @@ export function JumpBox() {
                     pick(s.name);
                   }}
                   className={cn(
-                    "flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1.5 text-sm",
+                    "flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1.5 text-control",
                     i === active && "bg-accent text-accent-foreground",
                   )}
                 >
                   <span className="font-serif">{s.name}</span>
-                  {s.alt && <span className="truncate text-xs text-muted-foreground">{s.alt}</span>}
+                  {s.alt && <span className="truncate text-meta text-muted-foreground">{s.alt}</span>}
                 </li>
               ))}
             </ul>
@@ -193,7 +193,7 @@ export function JumpBox() {
             <p
               id={`${listId}-error`}
               role="alert"
-              className="absolute top-full right-0 left-0 z-40 mt-1 min-w-56 rounded-md border border-destructive/40 bg-popover px-3 py-1.5 text-xs text-destructive shadow-md sm:left-auto"
+              className="absolute top-full right-0 left-0 z-40 mt-1 min-w-56 rounded-md border border-destructive/40 bg-popover px-3 py-1.5 text-meta text-destructive shadow-md sm:left-auto"
             >
               {t("nav.jumpInvalid")}
             </p>

@@ -88,10 +88,10 @@ export function ConnectionsPanel({
         onClick={() => openNote(note)}
         className={`w-full rounded px-2 text-left hover:bg-accent ${mobile ? "py-2.5" : "py-1.5"}`}
       >
-        <span className="block truncate font-serif text-sm">
+        <span className="block truncate font-serif text-control">
           {note.title || t("note.untitled")}
         </span>
-        <span className="block truncate font-mono text-xs text-muted-foreground">
+        <span className="block truncate font-mono text-meta text-muted-foreground">
           {note.anchors.map((a) => formatReference(anchorReference(a))).join(" · ")}
         </span>
       </button>
@@ -100,7 +100,7 @@ export function ConnectionsPanel({
 
   function SectionTitle({ children }: { children: string }) {
     return (
-      <h3 className="px-2 pb-1 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
+      <h3 className="eyebrow px-2 pb-1">
         {children}
       </h3>
     );
@@ -136,7 +136,7 @@ export function ConnectionsPanel({
                 />
                 {connections.topics.some((tp) => !tp.onPassage) && (
                   <div className="mt-1.5">
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="text-meta text-muted-foreground">
                       {t("connections.viaNotes")}{" "}
                     </span>
                     {connections.topics
@@ -146,7 +146,7 @@ export function ConnectionsPanel({
                           key={tp.id}
                           type="button"
                           onClick={() => navigate(`/topic/${encodeURIComponent(tp.name)}`)}
-                          className="font-mono text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                          className="text-meta text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                         >
                           {tp.name}
                           {i < arr.length - 1 ? ", " : ""}
@@ -160,7 +160,7 @@ export function ConnectionsPanel({
             <section>
               <SectionTitle>{t("connections.anchoredHere")}</SectionTitle>
               {connections.notesHere.length === 0 && (
-                <p className="px-2 font-serif text-xs text-muted-foreground italic">
+                <p className="px-2 font-serif text-meta text-muted-foreground italic">
                   {t("connections.emptyAnchored")}
                 </p>
               )}
@@ -172,7 +172,7 @@ export function ConnectionsPanel({
             <section>
               <SectionTitle>{t("connections.alsoAppearsIn")}</SectionTitle>
               {connections.alsoAppearsIn.length === 0 && (
-                <p className="px-2 font-serif text-xs text-muted-foreground italic">
+                <p className="px-2 font-serif text-meta text-muted-foreground italic">
                   {t("connections.emptyShared")}
                 </p>
               )}
@@ -183,10 +183,10 @@ export function ConnectionsPanel({
                   onClick={() => navigate(`/read/${p.book}/${p.chapter}`)}
                   className={`w-full rounded px-2 text-left hover:bg-accent ${mobile ? "py-2.5" : "py-1.5"}`}
                 >
-                  <span className="block font-serif text-sm">
+                  <span className="block font-serif text-control">
                     {formatReference({ book: p.book, chapter: p.chapter })}
                   </span>
-                  <span className="block truncate font-mono text-xs text-muted-foreground">
+                  <span className="block truncate text-meta text-muted-foreground">
                     {t("connections.via")} {p.notes.map((n) => n.title || t("note.untitled")).join(", ")}
                   </span>
                 </button>
@@ -196,7 +196,7 @@ export function ConnectionsPanel({
             <section>
               <SectionTitle>{t("connections.recent")}</SectionTitle>
               {connections.recent.length === 0 && (
-                <p className="px-2 font-serif text-xs text-muted-foreground italic">
+                <p className="px-2 font-serif text-meta text-muted-foreground italic">
                   {t("connections.emptyRecent")}
                 </p>
               )}

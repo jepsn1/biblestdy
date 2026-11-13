@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Design-system lint rules (#68, from #61): text colour tokens pass AA on
- * their background, so no opacity modifier on them; no arbitrary font size
- * below 12px. Rules live in eslint.config.js — this pins what they catch.
+ * their background, so no opacity modifier on them; font sizes only from
+ * the type scale tokens (#66). Rules live in eslint.config.js — this pins what they catch.
  */
 const eslint = new ESLint({ cwd: fileURLToPath(new URL("../..", import.meta.url)) });
 
@@ -22,15 +22,19 @@ describe("design-system lint rules", () => {
       "biblestdy/no-faded-text",
       "biblestdy/no-faded-text",
     ]);
-    expect(await hits("bg-primary/15 border-primary/50 ring-foreground/40 text-xs")).toEqual([]);
+    expect(await hits("bg-primary/15 border-primary/50 ring-foreground/40 text-meta")).toEqual([]);
   });
 
-  it("flags arbitrary sizes below 12px, not 12px+ or em", async () => {
-    expect(await hits("text-[0.65rem] md:text-[11px]")).toEqual([
-      "biblestdy/no-small-text",
-      "biblestdy/no-small-text",
+  it("flags arbitrary rem/px sizes and Tailwind size names, not scale tokens or em", async () => {
+    expect(await hits("text-[0.65rem] md:text-[13px] text-sm sm:text-2xl")).toEqual([
+      "biblestdy/type-scale",
+      "biblestdy/type-scale",
+      "biblestdy/type-scale",
+      "biblestdy/type-scale",
     ]);
-    expect(await hits("text-[0.75rem] text-[12px] text-[0.8rem] text-[0.58em] text-xs")).toEqual([]);
+    expect(
+      await hits("text-eyebrow text-meta text-list text-control text-phone text-reading text-title text-display text-[0.58em] text-left text-muted-foreground"),
+    ).toEqual([]);
   });
 
   it("checks template literals too", async () => {

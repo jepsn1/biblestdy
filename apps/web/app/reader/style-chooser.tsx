@@ -43,7 +43,7 @@ export function StyleChooser({ verse, onDone }: { verse?: Verse; onDone: () => v
     <Dialog open disablePointerDismissal onOpenChange={(open) => !open && void accept()}>
       <DialogContent showCloseButton={false} className="gap-5 p-5 sm:max-w-xl">
         <div className="flex flex-col gap-1 text-center">
-          <DialogTitle className="font-serif text-xl">{t("readerStyle.choose")}</DialogTitle>
+          <DialogTitle className="font-serif text-title">{t("readerStyle.choose")}</DialogTitle>
           <DialogDescription>{t("readerStyle.changeLater")}</DialogDescription>
         </div>
         <RadioGroup
@@ -90,7 +90,7 @@ function PreviewCard({
         focusRing,
       )}
     >
-      <span className="flex items-center justify-between font-sans text-sm font-medium">
+      <span className="flex items-center justify-between font-sans text-control font-medium">
         <span id={nameId}>{t(`readerStyle.${style}`)}</span>
         <Radio.Indicator
           keepMounted
@@ -100,8 +100,8 @@ function PreviewCard({
         </Radio.Indicator>
       </span>
       {verse && (
-        <span className="line-clamp-4 block font-serif text-base leading-relaxed">
-          <sup className="mr-1 font-sans text-xs text-muted-foreground">{verse.verse}</sup>
+        <span className="line-clamp-4 block font-serif text-phone leading-relaxed">
+          <sup className="mr-1 font-sans text-meta text-muted-foreground">{verse.verse}</sup>
           {verse.text}
         </span>
       )}

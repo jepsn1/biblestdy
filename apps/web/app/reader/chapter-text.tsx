@@ -704,11 +704,11 @@ export function ChapterText({
       // construction (drag wash on desktop, tap + handles on phones)
       className="select-none [-webkit-touch-callout:none]"
     >
-      <h1 className="mb-8 font-serif text-3xl font-medium tracking-tight">{heading}</h1>
+      <h1 className="mb-8 font-serif text-display font-medium tracking-tight">{heading}</h1>
       {firstUseHint && (
         <p
           data-first-use-hint
-          className="mb-6 flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 font-sans text-sm text-muted-foreground [break-inside:avoid]"
+          className="mb-6 flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 font-sans text-control text-muted-foreground [break-inside:avoid]"
         >
           {t(mobile ? "reader.firstUseHintPhone" : "reader.firstUseHint")}
           <button
@@ -812,7 +812,7 @@ export function ChapterText({
                     // Notes live on their home translation; this bridges versions
                     <sup
                       title={t("reader.otherVersions", { count: otherVersionCounts.get(v.verse) })}
-                      className="mr-1 select-none align-super font-mono text-[0.55em] text-muted-foreground"
+                      className="mr-1 select-none align-super font-sans text-[0.55em] text-muted-foreground"
                     >
                       ⁘{otherVersionCounts.get(v.verse)}
                     </sup>
@@ -964,7 +964,7 @@ export function ChapterText({
           allNotes.map((n) => (
             <ActionMenuItem key={n.id} onSelect={() => onAttachNote(n.id, menu.anchor)}>
               <span className="min-w-0 flex-1 truncate font-serif">{n.title || t("note.untitled")}</span>
-              <span className="shrink-0 font-mono text-xs text-muted-foreground">
+              <span className="shrink-0 font-mono text-meta text-muted-foreground">
                 {n.anchors.length > 0 && formatReference(anchorReference(n.anchors[0]))}
                 {n.anchors.length > 1 && ` +${n.anchors.length - 1}`}
               </span>
@@ -1054,17 +1054,17 @@ export function ChapterText({
           placeholder={t("menu.annotationPlaceholder")}
           aria-label={t("menu.annotationPlaceholder")}
           className={cn(
-            "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-base focus:border-primary/50 sm:text-sm",
+            "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-phone focus:border-primary/50 sm:text-control",
             focusRing,
           )}
         />
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-xs text-muted-foreground">{t("menu.saveHint")}</span>
+          <span className="text-meta text-muted-foreground pointer-coarse:hidden">{t("menu.saveHint")}</span>
           <span className="flex gap-1">
             <button
               type="button"
               onClick={(e) => closeMenu(e.detail === 0)}
-              className={cn("min-h-8 rounded px-2.5 text-sm hover:bg-accent", focusRing)}
+              className={cn("min-h-8 rounded px-2.5 text-control hover:bg-accent", focusRing)}
             >
               {t("menu.cancel")}
             </button>
@@ -1072,7 +1072,7 @@ export function ChapterText({
               type="button"
               onClick={(e) => saveDraft(e.detail === 0)}
               className={cn(
-                "min-h-8 rounded bg-primary px-2.5 text-sm text-primary-foreground hover:opacity-90",
+                "min-h-8 rounded bg-primary px-2.5 text-control text-primary-foreground hover:opacity-90",
                 focusRing,
               )}
             >

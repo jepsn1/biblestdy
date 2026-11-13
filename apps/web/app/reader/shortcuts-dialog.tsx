@@ -20,15 +20,15 @@ function Keys({ keys }: { keys: string[][] }) {
   const { t } = useTranslation();
   const mod = modKey().replace("+", "");
   return (
-    <span className="flex flex-wrap items-center justify-end gap-1">
+    <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">
       {keys.map((combo, i) => (
         <Fragment key={i}>
-          {i > 0 && <span className="text-xs text-muted-foreground">{t("shortcuts.or")}</span>}
+          {i > 0 && <span className="text-meta text-muted-foreground">{t("shortcuts.or")}</span>}
           {combo.map((k) => (
             <kbd
               key={k}
               data-slot="kbd"
-              className="min-w-6 rounded border border-border bg-muted px-1.5 text-center font-mono text-xs leading-5"
+              className="min-w-6 rounded border border-border bg-muted px-1.5 text-center font-mono text-meta leading-5"
             >
               {k === "mod" ? mod : k}
             </kbd>
@@ -92,10 +92,10 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
           {groups.map((g) => (
             <section key={g.title} className={g.rows.length > 6 ? "sm:row-span-2" : undefined}>
-              <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              <h3 className="eyebrow mb-1.5">
                 {g.title}
               </h3>
-              <dl className="flex flex-col gap-1 text-sm">
+              <dl className="flex flex-col gap-1 text-control">
                 {g.rows.map((r) => (
                   <div key={r.label} className="flex items-center justify-between gap-3">
                     <dt>{r.label}</dt>

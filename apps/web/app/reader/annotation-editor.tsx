@@ -48,11 +48,11 @@ export function AnnotationEditor({
         }}
         aria-label={t("menu.annotationPlaceholder")}
         className={cn(
-          "h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-sm",
+          "h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-control",
           focusRing,
         )}
       />
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-meta">
         <button
           type="button"
           className={cn("min-h-6 rounded px-1 text-muted-foreground hover:text-destructive", focusRing)}
@@ -60,7 +60,7 @@ export function AnnotationEditor({
         >
           {t("note.delete")}
         </button>
-        <span className="text-muted-foreground">{t("note.escCancel")}</span>
+        <span className="text-muted-foreground pointer-coarse:hidden">{t("note.escCancel")}</span>
         <button
           type="button"
           className={cn("min-h-6 rounded px-1 text-primary hover:opacity-80", focusRing)}

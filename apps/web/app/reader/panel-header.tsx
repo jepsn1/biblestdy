@@ -45,4 +45,4 @@ export function PanelHeader({
 }
 
 /** The panel title style shared by every PanelHeader. */
-export const panelTitleClass = "truncate font-serif text-lg font-medium";
+export const panelTitleClass = "truncate font-serif text-title font-medium";

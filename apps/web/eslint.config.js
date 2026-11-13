@@ -11,9 +11,14 @@ const TEXT_TOKENS =
 /** `text-primary/80`, `hover:text-muted-foreground/60` — opacity drops the token below AA. */
 const FADED_TEXT = new RegExp(`(?<![\\w-])(?:[\\w-]+:)*text-(?:${TEXT_TOKENS})/\\d+`, "g");
 
-/** Arbitrary font sizes `text-[0.65rem]`, `text-[11px]` (rem/px only; em is relative). */
-const ARBITRARY_SIZE = /(?<![\w-])(?:[\w-]+:)*text-\[(\d*\.?\d+)(rem|px)\]/g;
-const MIN_PX = 12;
+/**
+ * Type scale (#66): sizes come from the app.css tokens only. Arbitrary rem/px
+ * sizes (`text-[0.65rem]`, `text-[13px]`) and Tailwind's own size names
+ * (`text-sm` — reset in app.css, so they'd silently do nothing) are errors.
+ * em stays allowed: sizes relative to the reading size inside Scripture.
+ */
+const ARBITRARY_SIZE = /(?<![\w-])(?:[\w-]+:)*text-\[\d*\.?\d+(?:rem|px)\]/g;
+const TAILWIND_SIZE = /(?<![\w-])(?:[\w-]+:)*text-(?:xs|sm|base|lg|xl|[2-9]xl)(?![\w-])/g;
 
 /** Report every regex match inside string literals and template chunks. */
 function classNameRule(description, scan) {
@@ -39,10 +44,11 @@ const biblestdy = {
           `\`${m}\` fades a text colour token below AA contrast — use the token itself, or add a token that passes.`,
       ),
     ),
-    "no-small-text": classNameRule("Ban arbitrary font sizes below 12px", (text) =>
-      [...text.matchAll(ARBITRARY_SIZE)]
-        .filter(([, n, unit]) => Number(n) * (unit === "rem" ? 16 : 1) < MIN_PX)
-        .map(([m]) => `\`${m}\` is below ${MIN_PX}px — use \`text-xs\` or larger.`),
+    "type-scale": classNameRule("Font sizes come from the type scale tokens", (text) =>
+      [...text.matchAll(ARBITRARY_SIZE), ...text.matchAll(TAILWIND_SIZE)].map(
+        ([m]) =>
+          `\`${m}\` is off the type scale — use text-eyebrow/meta/list/control/phone/reading/title/display (app.css).`,
+      ),
     ),
   },
 };
@@ -69,12 +75,12 @@ export default tseslint.config(
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       "biblestdy/no-faded-text": "error",
-      "biblestdy/no-small-text": "error",
+      "biblestdy/type-scale": "error",
     },
   },
   {
     // The contrast test asserts on example class strings.
     files: ["app/**/*.test.ts"],
-    rules: { "biblestdy/no-faded-text": "off", "biblestdy/no-small-text": "off" },
+    rules: { "biblestdy/no-faded-text": "off", "biblestdy/type-scale": "off" },
   },
 );
