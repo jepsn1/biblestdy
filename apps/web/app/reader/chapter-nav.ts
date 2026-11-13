@@ -1,4 +1,4 @@
-import { BOOKS, bookIndex } from "@biblestdy/shared";
+import { BOOKS, bookIndex, type Reference } from "@biblestdy/shared";
 
 /**
  * Reader navigation (#52): where prev/next go and how a place is kept.
@@ -57,4 +57,49 @@ export function lastReadHref(stored: string | null): string | null {
 /** The lastRead value for a place (0-based page). */
 export function lastReadValue(ref: ChapterRef, page: number): string {
   return chapterHref(ref, page).replace(/^\/read\//, "");
+}
+
+/**
+ * Verse target (#53): `?v=28`, `?v=16-18`, or `?v=28-` (to the chapter's
+ * end — a cross-chapter range opens on its first chapter). It wins over
+ * `?p`; once the reader has landed on it, the URL is normalized to `?p`.
+ */
+export type VerseRange = { start: number; end: number };
+
+export function parseVerseParam(value: string | null): VerseRange | null {
+  const m = /^(\d+)(?:-(\d*))?$/.exec(value ?? "");
+  if (!m) return null;
+  const start = Number(m[1]);
+  if (start < 1) return null;
+  if (m[2] === undefined) return { start, end: start };
+  if (m[2] === "") return { start, end: Infinity };
+  const end = Number(m[2]);
+  return end >= start ? { start, end } : null;
+}
+
+/** Where a parsed reference opens: chapter (1 for a bare book), plus `?v`. */
+export function referenceHref(ref: Reference): string {
+  const chapter = { book: ref.book, chapter: ref.chapter ?? 1 };
+  if (ref.verse === undefined) return chapterHref(chapter);
+  let v = String(ref.verse);
+  if (ref.endVerse !== undefined) {
+    const crosses = ref.endChapter !== undefined && ref.endChapter !== chapter.chapter;
+    v += crosses ? "-" : `-${ref.endVerse}`;
+  }
+  return `${chapterHref(chapter)}?v=${v}`;
+}
+
+/**
+ * The stored verses a range lands on. A verse inside a bridge (BPH 3:15,
+ * stored under 14 as "14–15") resolves to the bridge; past the last verse
+ * clamps to it. `verses` = the chapter's verse numbers in order.
+ */
+export function targetVerses(verses: number[], range: VerseRange): VerseRange | null {
+  if (verses.length === 0) return null;
+  const at = (n: number) => {
+    let hit = verses[0];
+    for (const v of verses) if (v <= n) hit = v;
+    return hit;
+  };
+  return { start: at(range.start), end: at(range.end) };
 }

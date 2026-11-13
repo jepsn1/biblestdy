@@ -1,14 +1,12 @@
 import type { Translation } from "@biblestdy/shared";
-import { getBook, parseReference } from "@biblestdy/shared";
+import { getBook } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
 import { Layers, MonitorDown, Share, SquarePlus, Waypoints } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
-import { ignoreShortcut } from "~/lib/shortcuts";
+import { useBookName } from "~/lib/book-name";
 import {
   Select,
   SelectContent,
@@ -18,6 +16,7 @@ import {
 } from "~/components/ui/select";
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
+import { JumpBox } from "./jump-box";
 
 export function ReaderNav({
   book,
@@ -43,49 +42,21 @@ export function ReaderNav({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const pwa = usePwaInstall();
-  const jumpRef = useRef<HTMLInputElement>(null);
-  const [jump, setJump] = useState("");
-  const [jumpError, setJumpError] = useState(false);
-
+  const nameOf = useBookName();
   const current = getBook(book);
   const chapterCount = current?.chapters ?? 1;
 
-  // "/" focuses the jump box from anywhere
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape" && event.target === jumpRef.current) {
-        jumpRef.current?.blur();
-      } else if (event.key === "/" && !ignoreShortcut(event)) {
-        event.preventDefault();
-        jumpRef.current?.focus();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  function onJump(event: React.FormEvent) {
-    event.preventDefault();
-    const ref = parseReference(jump);
-    if (!ref) {
-      setJumpError(true);
-      return;
-    }
-    setJumpError(false);
-    setJump("");
-    jumpRef.current?.blur();
-    navigate(`/read/${ref.book}/${ref.chapter ?? 1}`);
-  }
-
   return (
-    <nav className="shrink-0 border-b border-border bg-background/85">
+    <nav className="relative shrink-0 border-b border-border bg-background/85">
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
         <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
 
         <div className="h-4 w-px bg-border" />
 
-        <span className="font-serif text-sm font-medium">{current?.name ?? book}</span>
+        <span className="min-w-0 truncate font-serif text-sm font-medium">
+          {nameOf(book)}
+        </span>
 
         <Select
           value={String(chapter)}
@@ -137,28 +108,12 @@ export function ReaderNav({
           </Select>
         )}
 
-        <form onSubmit={onJump} className="relative ml-auto hidden sm:block">
-          <Input
-            ref={jumpRef}
-            aria-label={t("nav.goToReference")}
-            placeholder={t("nav.goToReference")}
-            value={jump}
-            onChange={(e) => {
-              setJump(e.target.value);
-              setJumpError(false);
-            }}
-            aria-invalid={jumpError || undefined}
-            className="h-7 w-44 pr-8 font-mono text-xs placeholder:font-sans"
-          />
-          <kbd className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-[0.6rem] text-muted-foreground">
-            /
-          </kbd>
-        </form>
+        {/* Go to reference (#53): inline from sm, a search icon on phones */}
+        <JumpBox />
 
         <Button
           variant={connectionsOpen ? "secondary" : "ghost"}
           size="icon-sm"
-          className="ml-auto sm:ml-0"
           aria-label={t("nav.connectionsToggle")}
           aria-pressed={connectionsOpen}
           title={t("nav.connectionsHint")}

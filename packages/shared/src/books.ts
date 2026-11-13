@@ -5,6 +5,8 @@
  * adding a locale (e.g. Danish) is data, not code.
  */
 
+import { asciiVariants, DANISH_BOOKS, type BookLocale } from './book-names.js'
+
 export type BookId = (typeof BOOKS)[number]['id']
 
 export interface Book {
@@ -92,13 +94,40 @@ for (const book of BOOKS) {
   for (const alias of book.aliases) byAlias.set(alias, book)
 }
 
-export function findBook(nameOrAlias: string): Book | undefined {
-  const normalized = nameOrAlias
+/** Danish names + aliases (#53); a separate map so locale decides clashes
+ * like "es" (en Esther, da Esajas) or "ez" (en Ezra, da Ezekiel). */
+const byAliasDa = new Map<string, Book>()
+for (const book of BOOKS) {
+  for (const name of danish(book)) {
+    const lower = name.toLowerCase()
+    for (const key of [lower, ...asciiVariants(lower)]) byAliasDa.set(key, book)
+  }
+}
+
+/** Danish names of a book (the table covers every canon id). */
+function danish(book: Book): readonly [string, ...string[]] {
+  return DANISH_BOOKS[book.id as BookId]
+}
+
+function normalizeName(nameOrAlias: string): string {
+  return nameOrAlias
     .trim()
     .toLowerCase()
     .replace(/^(\d)\s*/, '$1 ') // "1john"/"1  john" → "1 john"
     .replace(/\s+/g, ' ')
-  return byAlias.get(normalized) ?? byAlias.get(normalized.replace(/^(\d) /, '$1'))
+}
+
+/** Book by name/alias in English or Danish; `prefer` wins where they clash. */
+export function findBook(nameOrAlias: string, prefer: BookLocale = 'en'): Book | undefined {
+  const normalized = normalizeName(nameOrAlias)
+  const maps = prefer === 'da' ? [byAliasDa, byAlias] : [byAlias, byAliasDa]
+  for (const key of [normalized, normalized.replace(/^(\d) /, '$1')]) {
+    for (const map of maps) {
+      const hit = map.get(key)
+      if (hit) return hit
+    }
+  }
+  return undefined
 }
 
 export function getBook(id: string): Book | undefined {
@@ -107,4 +136,61 @@ export function getBook(id: string): Book | undefined {
 
 export function bookIndex(id: string): number {
   return BOOKS.findIndex((b) => b.id === id)
+}
+
+/** Display name in a UI locale ("John" / "Johannes"). */
+export function bookName(id: string, locale: BookLocale = 'en'): string {
+  const book = getBook(id)
+  if (!book) return id
+  return locale === 'da' ? danish(book)[0] : book.name
+}
+
+export interface BookSuggestion {
+  id: string
+  /** Name in the requested locale. */
+  name: string
+  /** The other locale's name, when it differs ("John" for "Johannes"). */
+  alt?: string
+}
+
+/**
+ * Autocomplete for the reference box (#53): books whose English or Danish
+ * name/alias starts with what was typed, or one of whose name words does
+ * ("kor" → 1 Korintherbrev). Exact alias matches first, then display
+ * names (UI locale first), then other aliases; ties in canonical order.
+ */
+export function suggestBooks(query: string, locale: BookLocale = 'en', limit = 6): BookSuggestion[] {
+  const q = normalizeName(query.replace(/\./g, ''))
+  if (!q) return []
+  const qTight = q.replace(/^(\d) /, '$1')
+  const scored: { book: Book; score: number; index: number }[] = []
+  BOOKS.forEach((book, index) => {
+    const da = danish(book).map((n) => n.toLowerCase())
+    const en = [book.name.toLowerCase(), book.id.toLowerCase(), ...book.aliases]
+    const daAll = da.flatMap((n) => [n, ...asciiVariants(n)])
+    const [mine, other] = locale === 'da' ? [daAll, en] : [en, daAll]
+    const prefix = (s: string) => s.startsWith(q) || s.startsWith(qTight)
+    const withAscii = (n: string) => [n.toLowerCase(), ...asciiVariants(n.toLowerCase())]
+    const enName = withAscii(book.name)
+    const daName = withAscii(danish(book)[0])
+    const [myName, otherName] = locale === 'da' ? [daName, enName] : [enName, daName]
+    // "1 Johannesbrev" → "johannesbrev": typing the name without its number
+    const nameWords = [...enName, ...daName].flatMap((n) => n.split(' ').slice(1))
+    const exact = (list: string[]) => list.includes(q) || list.includes(qTight)
+    let score: number
+    if (exact(mine)) score = 0
+    else if (exact(other)) score = 0.5
+    else if (myName.some(prefix)) score = 1
+    else if (otherName.some(prefix)) score = 2
+    else if (nameWords.some(prefix)) score = 3
+    else if ([...mine, ...other].some(prefix)) score = 4 // abbreviation/official title
+    else return
+    scored.push({ book, score, index })
+  })
+  scored.sort((a, b) => a.score - b.score || a.index - b.index)
+  return scored.slice(0, limit).map(({ book }) => {
+    const name = bookName(book.id, locale)
+    const alt = bookName(book.id, locale === 'da' ? 'en' : 'da')
+    return alt === name ? { id: book.id, name } : { id: book.id, name, alt }
+  })
 }

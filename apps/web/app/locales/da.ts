@@ -17,6 +17,10 @@ const da: typeof en = {
     installIosStep1: "Tryk p\u00e5 Del-knappen i Safaris v\u00e6rkt\u00f8jslinje",
     installIosStep2: "V\u00e6lg \u201cF\u00f8j til hjemmesk\u00e6rm\u201d",
     installIosWhy: "biblestdy \u00e5bner i fuld sk\u00e6rm som en rigtig app \u2014 uden browserkrom.",
+    jumpOpen: "Gå til skriftsted",
+    jumpClose: "Luk",
+    jumpInvalid: "Ukendt skriftsted — prøv “Joh 3,16” eller “Rom 8”",
+    jumpSuggestions: "Bøger",
   },
   sidebar: {
     home: "Hjem",

@@ -3,6 +3,7 @@ import { formatReference } from "@biblestdy/shared";
 import { useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
+import { useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { requireAuth } from "~/lib/require-auth";
@@ -90,7 +91,8 @@ export default function Read({ loaderData }: Route.ComponentProps) {
     localStorage.setItem("translationId", id);
     void revalidator.revalidate(); // reloads the chapter in the new version
   }
-  const heading = formatReference({ book: chapter.book, chapter: chapter.chapter });
+  const nameOf = useBookName();
+  const heading = `${nameOf(chapter.book)} ${chapter.chapter}`; // UI-language name (#53)
   // Prev/next continue across books (#52): John 21 → Acts 1
   const prevChapter = adjacentChapter(chapter, -1);
   const nextChapter = adjacentChapter(chapter, 1);
