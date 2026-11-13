@@ -4,6 +4,7 @@ import {
   DEFAULT_BOX_HEIGHT,
   LINE_GAP,
   STACK_GAP,
+  columnIndexAt,
   layoutMobileAnnotations,
   type ColumnGeometry,
   type LineRect,
@@ -138,5 +139,25 @@ describe("layoutMobileAnnotations", () => {
       column,
     );
     expect(placements.map((p) => p.id)).toEqual(["here"]);
+  });
+});
+
+describe("columnIndexAt", () => {
+  it("keeps a line that starts in the right half of its column in that column", () => {
+    // 2-col spread: 428px columns, 56px gap -> stride 484
+    expect(columnIndexAt(100 + 300, 100, 484)).toBe(0);
+    expect(columnIndexAt(100 + 484, 100, 484)).toBe(1);
+    expect(columnIndexAt(100 + 484 + 400, 100, 484)).toBe(1);
+    // Later spreads keep counting slots
+    expect(columnIndexAt(100 + 3 * 484 + 10, 100, 484)).toBe(3);
+  });
+
+  it("tolerates a glyph rect a hair left of the column edge", () => {
+    expect(columnIndexAt(99.5, 100, 484)).toBe(0);
+    expect(columnIndexAt(100 + 484 - 0.5, 100, 484)).toBe(1);
+  });
+
+  it("is always slot 0 in single-column scroll mode", () => {
+    expect(columnIndexAt(250, 16, 0)).toBe(0);
   });
 });

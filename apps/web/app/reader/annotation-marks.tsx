@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import type { NoteMark } from "./use-notes";
 import {
+  columnIndexAt,
   layoutMobileAnnotations,
   type BoxPlacement,
   type ColumnGeometry,
@@ -151,8 +152,7 @@ function mobileBoxPlacements(
   heights: Map<string, number>,
 ): Map<string, BoxPlacement> {
   const stride = flow.colWidth + flow.colGap;
-  const colIndex = (p: Placement) =>
-    stride > 0 ? Math.max(0, Math.round((p.lastLine.x - flow.x) / stride)) : 0;
+  const colIndex = (p: Placement) => columnIndexAt(p.lastLine.x, flow.x, stride);
   const byCol = new Map<number, Placement[]>();
   for (const p of placements) {
     const i = colIndex(p);
@@ -212,8 +212,8 @@ export function AnnotationMarks({
   /** Mark of the reference selected in the note panel — while set, every
    * other mark's ink is hidden so this one owns the page. */
   selectedMarkId: string | null;
-  /** Phone view (#13): margin lanes are clipped — undragged boxes go under
-   * their anchor instead. */
+  /** Phone view (#13, #44): single scroll column, no margin lanes — boxes get
+   * computed slots under their anchor, brackets sit on the left. */
   compact?: boolean;
   /** Mobile layer toggle (#15): false hides annotation boxes (and their
    * arrows) — circles/brackets and note chips stay. Desktop ignores it. */
@@ -359,7 +359,8 @@ export function AnnotationMarks({
       for (const annotation of annotations) {
         const m = measureAnchor(annotation);
         if (!m) continue;
-        const side = m.mid < centerX ? "left" : "right";
+        // One scroll column (phones): brackets always on the left gutter
+        const side = compact || m.mid < centerX ? "left" : "right";
         items.push({
           annotation,
           box: m.box,
@@ -376,13 +377,16 @@ export function AnnotationMarks({
       }
       setPlacements(items);
 
-      // Mobile (#15): measure the spread's column slots for the computed
+      // Mobile (#15): measure the flow's column slots for the computed
       // layout. The flow is the content box's first child; offsets are layout
-      // px (transform/scale-free), matching the local space used above.
+      // px (transform/scale-free), matching the local space used above. Phones
+      // scroll one column (#44); a multi-column flow divides by its count.
       const flow = compact ? (content.firstElementChild as HTMLElement | null) : null;
       if (flow) {
-        const colGap = parseFloat(getComputedStyle(flow).columnGap || "0") || 0;
-        const colW = (flow.clientWidth - colGap) / 2;
+        const style = getComputedStyle(flow);
+        const count = Number(style.columnCount) || 1; // "auto" -> 1
+        const colGap = count > 1 ? parseFloat(style.columnGap || "0") || 0 : 0;
+        const colW = (flow.clientWidth - colGap * (count - 1)) / count;
         const contentTop = (contentRect.top - regionRect.top) / s;
         setColumns({
           x: contentLeft + flow.offsetLeft,
@@ -390,7 +394,7 @@ export function AnnotationMarks({
           colGap,
           top: contentTop + flow.offsetTop,
           height: flow.clientHeight,
-          lineHeight: parseFloat(getComputedStyle(flow).lineHeight || "0") || 36,
+          lineHeight: parseFloat(style.lineHeight || "0") || 36,
         });
       } else {
         setColumns(null);
@@ -404,18 +408,23 @@ export function AnnotationMarks({
             mark,
             box: m.box,
             lines: m.lines,
-            colSide: m.mid < centerX ? "left" : "right",
+            colSide: compact || m.mid < centerX ? "left" : "right",
           });
       }
       setNoteTabs(tabs);
     };
 
     measure();
-    // Re-measure after the page-flip transform settles.
+    // Re-measure after the page-flip transform settles, and once webfonts
+    // land (Literata swaps in -> lines rewrap under fixed-size boxes).
     const t = setTimeout(measure, 340);
+    let alive = true;
+    void document.fonts?.ready.then(() => alive && measure());
     const ro = new ResizeObserver(measure);
     ro.observe(region);
+    ro.observe(content);
     return () => {
+      alive = false;
       clearTimeout(t);
       ro.disconnect();
     };

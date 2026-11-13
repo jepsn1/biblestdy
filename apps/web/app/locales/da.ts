@@ -28,6 +28,8 @@ const da: typeof en = {
   reader: {
     prevPage: "Forrige side",
     nextPage: "Næste side",
+    prevChapter: "Forrige kapitel",
+    nextChapter: "Næste kapitel",
     verses: "{{count}} vers",
     otherVersions_one: "{{count}} note i andre versioner",
     otherVersions_other: "{{count}} noter i andre versioner",

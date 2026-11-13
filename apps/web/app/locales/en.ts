@@ -26,6 +26,8 @@ export default {
   reader: {
     prevPage: "Previous page",
     nextPage: "Next page",
+    prevChapter: "Previous chapter",
+    nextChapter: "Next chapter",
     verses: "{{count}} verses",
     otherVersions_one: "{{count}} note on other versions",
     otherVersions_other: "{{count}} notes on other versions",

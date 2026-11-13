@@ -16,11 +16,32 @@ import { noteMarksInChapter, useAllNotes, useNotes, useOtherVersionCounts } from
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
 
+/** Phones (< sm) read in one scrolling column; wider screens page a spread. */
+const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
+
+function useScrollMode() {
+  const [scroll, setScroll] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(SCROLL_MODE_QUERY).matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(SCROLL_MODE_QUERY);
+    const onChange = () => setScroll(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return scroll;
+}
+
 /**
- * Book-style pagination. The chapter flows through fixed-height CSS columns
- * ([column-fill:auto]), overflowing horizontally; each "page" is one viewport
- * width (a 2-col spread on lg). We translate the flow sideways — no body
- * scroll, ever.
+ * Two layouts (#44), same text + ink layers:
+ * - Desktop: book-style 2-col spread. The chapter flows through capped-height
+ *   CSS columns ([column-fill:auto]), overflowing horizontally; each "page"
+ *   is one spread width. We translate the flow sideways — no body scroll.
+ * - Phone: one ragged-right column scrolling vertically inside a ScrollArea
+ *   (still no body scroll). No paging.
+ * Ink (highlights, scribbles, note chips) is measured from the word spans in
+ * the region's local space, so it lands on the right words in both.
  */
 export function PaginatedChapter({
   chapter,
@@ -96,29 +117,7 @@ export function PaginatedChapter({
     allNotes.find((f) => f.id === openNoteId) ??
     null;
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Mobile (#13): the SHEET is print-fixed (same 2-col folio as desktop) —
-  // phones read it one COLUMN per page, scaled to the viewport, never
-  // reflowed. mobile.offset pins the viewport to the left column slot.
-  const [mobile, setMobile] = useState<{ scale: number; offset: number } | null>(null);
-  useEffect(() => {
-    const rescale = () => {
-      const box = contentBoxRef.current;
-      const flow = contentRef.current;
-      const vw = window.innerWidth;
-      if (vw >= 640 || !box || !flow) {
-        setMobile(null);
-        return;
-      }
-      const gap = parseFloat(getComputedStyle(flow).columnGap || "0") || 0;
-      const colW = (flow.clientWidth - gap) / 2;
-      // Visible slice: one column + the sheet's own side padding as gutters
-      const scale = vw / (colW + 48);
-      setMobile({ scale, offset: box.offsetLeft * scale });
-    };
-    rescale();
-    window.addEventListener("resize", rescale);
-    return () => window.removeEventListener("resize", rescale);
-  }, []);
+  const scrollMode = useScrollMode();
   // Split width is a per-device ergonomic preference -> localStorage, not DB
   const [noteSize, setNoteSize] = useState(() => {
     if (typeof localStorage === "undefined") return 50;
@@ -136,32 +135,38 @@ export function PaginatedChapter({
     localStorage.setItem("notePanelSize", String(pct));
   }
 
-  // Center the sheet in the pane whenever it stops fitting (doc open/close,
-  // mobile scale applied)
+  const viewportOf = () =>
+    scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null;
+
+  // Desktop: center the sheet in the pane whenever it stops fitting (doc
+  // open/close). Phones scroll vertically — nothing to center.
   useEffect(() => {
-    const vp = scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
-    if (!vp) return;
-    // Mobile pins the viewport to the column slot — undo any pre-mobile
-    // centering that would otherwise survive under overflow:hidden
-    if (mobile) vp.scrollTo({ left: 0 });
-    else vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openNoteId, mobile]);
+    const vp = viewportOf();
+    if (!vp || scrollMode) return;
+    vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
+  }, [openNoteId, scrollMode]);
 
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
     if (created) setOpenNoteId(created.id);
   }
 
-  /** Flip to the page holding a note mark and select it — every other mark
-   * hides until deselected. Transform cancels out of both rects, so the page
-   * math works from any current page. */
+  /** Bring a note mark into view and select it — every other mark hides
+   * until deselected. Desktop flips to its page (transform cancels out of
+   * both rects, so the page math works from any current page); phones scroll
+   * it to the upper third of the pane. */
   function jumpToMark(markId: string) {
     const el = regionRef.current?.querySelector(
       `[data-annotation-anchor="${CSS.escape(markId)}"]`,
     );
     const content = contentRef.current;
-    if (el && content && stride > 0) {
+    const vp = viewportOf();
+    if (scrollMode && el && vp) {
+      // Not scrollIntoView: it would also scroll the locked body
+      const top =
+        el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
+      vp.scrollTo({ top: Math.max(0, top - vp.clientHeight / 3), behavior: "smooth" });
+    } else if (el && content && stride > 0) {
       const contentRect = content.getBoundingClientRect();
       const s = contentRect.width / content.offsetWidth || 1;
       const target = Math.floor(
@@ -193,7 +198,7 @@ export function PaginatedChapter({
   // Consume ?mark once the chapter's marks are rendered and measured.
   const wantedMark = searchParams.get("mark");
   useEffect(() => {
-    if (!wantedMark || stride === 0) return;
+    if (!wantedMark || (!scrollMode && stride === 0)) return;
     const el = regionRef.current?.querySelector(
       `[data-annotation-anchor="${CSS.escape(wantedMark)}"]`,
     );
@@ -207,7 +212,7 @@ export function PaginatedChapter({
       { replace: true },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wantedMark, stride, noteMarks.length]);
+  }, [wantedMark, stride, scrollMode, noteMarks.length]);
 
 
   function closeConnections() {
@@ -233,124 +238,44 @@ export function PaginatedChapter({
 
   useEffect(() => {
     setPage(0);
+    // Phones: a new chapter starts at the top
+    if (scrollMode) viewportOf()?.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterKey]);
 
   useEffect(() => {
     const content = contentRef.current;
     if (!content) return;
+    if (scrollMode) {
+      // One long column: a single "page"; prev/next go straight to chapters
+      setPage(0);
+      setStride(0);
+      setPageCount(1);
+      return;
+    }
     const measure = () => {
       const gap = parseFloat(getComputedStyle(content).columnGap || "0") || 0;
       const width = content.clientWidth;
       if (width === 0) return;
-      // Phones page column-by-column through the same fixed spread
-      const nextStride = window.innerWidth < 640 ? (width - gap) / 2 + gap : width + gap;
+      const nextStride = width + gap;
       setStride(nextStride);
       setPageCount(Math.max(1, Math.ceil((content.scrollWidth + gap) / nextStride)));
     };
     measure();
+    // Webfont swap rewraps the text -> page count changes
+    let alive = true;
+    void document.fonts?.ready.then(() => alive && measure());
     const observer = new ResizeObserver(measure);
     observer.observe(content);
-    return () => observer.disconnect();
-  }, [chapterKey]);
+    return () => {
+      alive = false;
+      observer.disconnect();
+    };
+  }, [chapterKey, scrollMode]);
 
   useEffect(() => {
     setPage((p) => Math.min(p, pageCount - 1));
   }, [pageCount]);
-
-  // Swipe page-flip (phones): the page tracks the finger — text and ink
-  // layers translate live, release snaps back or completes the flip with the
-  // same 300ms ease the buttons use. Word taps stay clicks (a locked swipe
-  // moved too far to click); handle/box/chip drags are skipped at start.
-  const marksDragRef = useRef<HTMLDivElement>(null);
-  const swipeFrom = useRef<{ x: number; y: number; t: number; locked: boolean; dx: number } | null>(
-    null,
-  );
-
-  /** Move text + marks by dx (local px, page translate included), optionally
-   * with the settle transition. Inline styles win until the next page render. */
-  function setDragTransforms(dx: number, animate: boolean) {
-    const c = contentRef.current;
-    const m = marksDragRef.current;
-    if (!c || !m) return;
-    c.style.transition = animate ? "" : "none"; // '' = the class's 300ms ease
-    m.style.transition = animate ? "transform 300ms" : "none";
-    c.style.transform = `translateX(${-(page * stride) + dx}px)`;
-    m.style.transform = `translateX(${dx}px)`;
-  }
-
-  function onSwipeStart(e: React.PointerEvent) {
-    if (!mobile) return;
-    // Not from annotation boxes/chips/buttons — those own their drags
-    if ((e.target as HTMLElement).closest(".pointer-events-auto, button")) return;
-    swipeFrom.current = { x: e.clientX, y: e.clientY, t: performance.now(), locked: false, dx: 0 };
-  }
-
-  function onSwipeMove(e: React.PointerEvent) {
-    const from = swipeFrom.current;
-    if (!from || !mobile) return;
-    const dxVisual = e.clientX - from.x;
-    const dy = e.clientY - from.y;
-    if (!from.locked) {
-      if (Math.abs(dy) > 16 && Math.abs(dy) > Math.abs(dxVisual)) {
-        swipeFrom.current = null; // vertical gesture, not ours
-        return;
-      }
-      if (Math.abs(dxVisual) < 10 || Math.abs(dxVisual) < Math.abs(dy) * 1.2) return;
-      from.locked = true;
-    }
-    let dx = dxVisual / mobile.scale; // finger moves visual px, page lives in local px
-    const atStart = page === 0 && dx > 0;
-    const atEnd = page >= pageCount - 1 && dx < 0;
-    if (atStart || atEnd) dx /= 3; // chapter boundary: rubber resistance
-    from.dx = dx;
-    setDragTransforms(dx, false);
-  }
-
-  function onSwipeEnd() {
-    const from = swipeFrom.current;
-    swipeFrom.current = null;
-    if (!from || !mobile || !from.locked) return;
-    const flick = performance.now() - from.t < 300 && Math.abs(from.dx) > 36;
-    const commit = Math.abs(from.dx) > stride * 0.22 || flick;
-    const forward = from.dx < 0;
-    const canFlip = forward ? page < pageCount - 1 : page > 0;
-    if (commit && canFlip) {
-      // Finish the slide, then let React own the new page (same visual spot)
-      setDragTransforms(forward ? -stride : stride, true);
-      window.setTimeout(() => {
-        const c = contentRef.current;
-        const m = marksDragRef.current;
-        if (m) {
-          m.style.transition = "none";
-          m.style.transform = "";
-        }
-        if (c) c.style.transition = "none";
-        setPage((p) => (forward ? p + 1 : p - 1));
-        requestAnimationFrame(() => {
-          if (c) c.style.transition = "";
-          if (m) m.style.transition = "";
-        });
-      }, 310);
-      return;
-    }
-    setDragTransforms(0, true); // snap back (also the boundary rubber-band)
-    if (commit && !canFlip) {
-      if (forward && nextHref) navigate(nextHref);
-      else if (!forward && prevHref) navigate(prevHref);
-    }
-    window.setTimeout(() => {
-      const c = contentRef.current;
-      const m = marksDragRef.current;
-      if (c) {
-        c.style.transition = "";
-        c.style.transform = `translateX(${-(page * stride)}px)`;
-      }
-      if (m) {
-        m.style.transition = "";
-        m.style.transform = "";
-      }
-    }, 320);
-  }
 
   function goPrev() {
     if (page > 0) setPage(page - 1);
@@ -366,12 +291,70 @@ export function PaginatedChapter({
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (scrollMode) return; // no pages to turn; arrows stay native
       if (event.key === "ArrowLeft") goPrev();
       if (event.key === "ArrowRight") goNext();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  const chapterText = (
+    <ChapterText
+      chapter={chapter}
+      translationAbbreviation={translation.abbreviation}
+      heading={heading}
+      highlights={highlights}
+      annotations={annotationsApi.annotations}
+      noteMarks={noteMarks}
+      allNotes={allNotes}
+      otherVersionCounts={otherVersionCounts}
+      activeAnnotationId={activeAnnotationId}
+      selectedMarkId={selectedMarkId}
+      mobile={scrollMode}
+      onAddHighlight={add}
+      onRemoveHighlight={remove}
+      onAddAnnotation={annotationsApi.add}
+      onAddNote={(anchor) => void addNote(anchor)}
+      onAttachNote={(noteId, anchor) => void notesApi.attach(noteId, anchor)}
+      onOpenNote={setOpenNoteId}
+      onFocusAnnotation={setActiveAnnotationId}
+    />
+  );
+
+  /** Ink layers share the region's box (inset-0); measured from word spans. */
+  const inkLayers = (
+    <div className="pointer-events-none absolute inset-0">
+      <HighlightMarks
+        highlights={highlights}
+        regionRef={regionRef}
+        contentRef={contentBoxRef}
+        page={page}
+        hidden={
+          selectedMarkId != null &&
+          noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
+        }
+      />
+
+      {/* After HighlightMarks: same underlay stratum, so pen arrows paint over marker */}
+      <AnnotationMarks
+        annotations={annotationsApi.annotations}
+        noteMarks={noteMarks}
+        compact={scrollMode}
+        showBoxes={annotationBoxesOpen}
+        regionRef={regionRef}
+        contentRef={contentBoxRef}
+        page={page}
+        activeAnnotationId={activeAnnotationId}
+        selectedMarkId={selectedMarkId}
+        onFocus={setActiveAnnotationId}
+        onEdit={annotationsApi.edit}
+        onRemove={annotationsApi.remove}
+        onPlace={annotationsApi.place}
+        onOpenNote={setOpenNoteId}
+      />
+    </div>
+  );
 
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col">
@@ -380,9 +363,6 @@ export function PaginatedChapter({
         className="min-h-0 w-full flex-1"
         onLayoutChanged={onSplitChange}
       >
-      {/* The SHEET is a fixed-size artifact (text + margins) — print-fixed, it
-          never reflows. The reading pane is a viewport onto it: when the doc
-          panel takes part of the width, the pane scrolls instead of squeezing. */}
       <ResizablePanel
         id="reader"
         minSize="35%"
@@ -393,152 +373,104 @@ export function PaginatedChapter({
       <div
         className="relative min-h-0 flex-1"
         onClick={() => selectedMarkId && setSelectedMarkId(null)}
-        onPointerDown={onSwipeStart}
-        onPointerMove={onSwipeMove}
-        onPointerUp={onSwipeEnd}
-        onPointerCancel={onSwipeEnd}
-        style={mobile ? { touchAction: "none" } : undefined}
       >
-        {/* Mobile: the viewport is pinned to the left column slot (offset),
-            pages translate the flow through it — no free horizontal scroll */}
-        <ScrollArea
-          ref={scrollRef}
-          orientation={mobile ? "vertical" : "horizontal"}
-          className="h-full"
-          viewportClassName={mobile ? "overflow-hidden!" : undefined}
-        >
-          {/* isolate: local stacking context so the -z-10 leader arrows paint
-              behind the text but still above the page background */}
-          <div className="mx-auto h-full">
-          <div
-            ref={regionRef}
-            className="relative isolate mx-auto h-full w-[75rem] origin-top-left"
-            style={
-              mobile
-                ? {
-                    transform: `scale(${mobile.scale})`,
-                    height: `${100 / mobile.scale}%`,
-                    marginLeft: -mobile.offset,
-                  }
-                : undefined
-            }
-          >
-        <div
-          ref={contentBoxRef}
-          className="relative mx-auto h-full max-w-3xl overflow-hidden px-6 pt-10 pb-6"
-        >
-          <div
-            ref={contentRef}
-            className="h-full text-justify font-serif text-lg leading-9 text-foreground/95 hyphens-auto transition-transform duration-300 [column-fill:auto] columns-2 gap-x-24"
-            style={{ transform: `translateX(-${page * stride}px)` }}
-          >
-            <ChapterText
-              chapter={chapter}
-              translationAbbreviation={translation.abbreviation}
-              heading={heading}
-              highlights={highlights}
-              annotations={annotationsApi.annotations}
-              noteMarks={noteMarks}
-              allNotes={allNotes}
-              otherVersionCounts={otherVersionCounts}
-              activeAnnotationId={activeAnnotationId}
-              selectedMarkId={selectedMarkId}
-              mobile={!!mobile}
-              onAddHighlight={add}
-              onRemoveHighlight={remove}
-              onAddAnnotation={annotationsApi.add}
-              onAddNote={(anchor) => void addNote(anchor)}
-              onAttachNote={(noteId, anchor) => void notesApi.attach(noteId, anchor)}
-              onOpenNote={setOpenNoteId}
-              onFocusAnnotation={setActiveAnnotationId}
-            />
-          </div>
-        </div>
+        {scrollMode ? (
+          /* Phone: one ragged-right column, scrolled vertically. The ink
+             layers share the region's box, so they scroll with the text. */
+          <ScrollArea ref={scrollRef} className="h-full">
+            <div ref={regionRef} className="relative isolate">
+              <div ref={contentBoxRef} className="relative px-4 pt-8 pb-16">
+                <div
+                  ref={contentRef}
+                  className="mx-auto max-w-[65ch] text-left font-serif text-lg leading-[1.7] text-foreground/95"
+                >
+                  {chapterText}
+                </div>
+              </div>
+              {inkLayers}
+            </div>
+          </ScrollArea>
+        ) : (
+          <>
+            {/* The SHEET = spread + a 13.5rem margin lane each side (where
+                annotation boxes start). The spread takes what the lanes leave,
+                up to 60rem; below a 40rem spread the pane scrolls sideways
+                instead of squeezing further.
+                isolate: local stacking context so the -z-10 ink paints behind
+                the text but still above the page background */}
+            <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
+              <div ref={regionRef} className="relative isolate mx-auto h-full w-full min-w-[67rem]">
+                {/* Spread: capped height (34em at body size) centered in the
+                    pane, so columns never run tall on big screens */}
+                <div
+                  ref={contentBoxRef}
+                  className="relative mx-auto flex h-full w-[calc(100%-27rem)] max-w-[60rem] flex-col justify-center overflow-hidden px-6 pt-8 pb-6"
+                >
+                  <div
+                    ref={contentRef}
+                    className="h-full max-h-[34em] text-left font-serif text-lg leading-[1.7] text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-2 gap-x-14"
+                    style={{ transform: `translateX(-${page * stride}px)` }}
+                  >
+                    {chapterText}
+                  </div>
+                </div>
+                {inkLayers}
+              </div>
+            </ScrollArea>
 
-        {/* Marks ride the finger-drag with the text (transform applied to this
-            wrapper during a swipe); positioned so the layers' inset-0 anchors
-            here, which shares the region's box */}
-        <div ref={marksDragRef} className="pointer-events-none absolute inset-0">
-        {/* Before AnnotationMarks: same underlay stratum, so pen arrows paint over marker */}
-        <HighlightMarks
-          highlights={highlights}
-          regionRef={regionRef}
-          contentRef={contentBoxRef}
-          page={page}
-          hidden={
-            selectedMarkId != null &&
-            noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
-          }
-        />
-
-        <AnnotationMarks
-          annotations={annotationsApi.annotations}
-          noteMarks={noteMarks}
-          compact={mobile != null}
-          showBoxes={annotationBoxesOpen}
-          regionRef={regionRef}
-          contentRef={contentBoxRef}
-          page={page}
-          activeAnnotationId={activeAnnotationId}
-          selectedMarkId={selectedMarkId}
-          onFocus={setActiveAnnotationId}
-          onEdit={annotationsApi.edit}
-          onRemove={annotationsApi.remove}
-          onPlace={annotationsApi.place}
-          onOpenNote={setOpenNoteId}
-        />
-        </div>
-
-          </div>
-          </div>
-        </ScrollArea>
-
-        {/* Page-flip zones, pinned to the pane edges */}
-        <button
-          type="button"
-          aria-label={t("reader.prevPage")}
-          onClick={goPrev}
-          className="absolute inset-y-0 left-0 z-20 hidden w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground sm:flex"
-        >
-          <ChevronLeft className="size-5" />
-        </button>
-        <button
-          type="button"
-          aria-label={t("reader.nextPage")}
-          onClick={goNext}
-          className="absolute inset-y-0 right-0 z-20 hidden w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground sm:flex"
-        >
-          <ChevronRight className="size-5" />
-        </button>
+            {/* Page-flip zones, pinned to the pane edges */}
+            <button
+              type="button"
+              aria-label={t("reader.prevPage")}
+              onClick={goPrev}
+              className="absolute inset-y-0 left-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+            <button
+              type="button"
+              aria-label={t("reader.nextPage")}
+              onClick={goNext}
+              className="absolute inset-y-0 right-0 z-20 flex w-8 items-center justify-center text-muted-foreground/50 transition-colors hover:bg-accent/40 hover:text-foreground"
+            >
+              <ChevronRight className="size-5" />
+            </button>
+          </>
+        )}
       </div>
 
-      <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-6 py-3 font-mono text-[0.65rem] text-muted-foreground">
+      <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-4 py-3 font-mono text-[0.65rem] text-muted-foreground sm:px-6">
         <span className="truncate">
           {chapter.book}.{chapter.chapter} · {t("reader.verses", { count: chapter.verses.length })} ·{" "}
           {translation.abbreviation}
           {chapter.copyright ? ` · ${chapter.copyright}` : ""}
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          <span className="hidden items-center gap-1 sm:flex">
-            <kbd className="rounded border border-border bg-muted px-1">←</kbd>
-            <kbd className="rounded border border-border bg-muted px-1">→</kbd>
-          </span>
+          {!scrollMode && (
+            <span className="flex items-center gap-1">
+              <kbd className="rounded border border-border bg-muted px-1">←</kbd>
+              <kbd className="rounded border border-border bg-muted px-1">→</kbd>
+            </span>
+          )}
+          {/* Phones have no pages: the buttons step chapters */}
           <Button
             variant="outline"
             size="icon-sm"
-            aria-label={t("reader.prevPage")}
+            aria-label={t(scrollMode ? "reader.prevChapter" : "reader.prevPage")}
             onClick={goPrev}
             disabled={page === 0 && !prevHref}
           >
             <ChevronLeft />
           </Button>
-          <span className="tabular-nums">
-            p. {page + 1}/{pageCount}
-          </span>
+          {!scrollMode && (
+            <span className="tabular-nums">
+              p. {page + 1}/{pageCount}
+            </span>
+          )}
           <Button
             variant="outline"
             size="icon-sm"
-            aria-label={t("reader.nextPage")}
+            aria-label={t(scrollMode ? "reader.nextChapter" : "reader.nextPage")}
             onClick={goNext}
             disabled={page >= pageCount - 1 && !nextHref}
           >
@@ -551,7 +483,7 @@ export function PaginatedChapter({
       {/* An open note takes the side slot; closing it brings connections back.
           Desktop: resizable side panels. Phone (#13): bottom drawers — the
           same content in its mobile build, app-sheet feel. */}
-      {!mobile && sideView === "connections" && !openNote && (
+      {!scrollMode && sideView === "connections" && !openNote && (
         <>
           <ResizableHandle withHandle />
           <ResizablePanel id="connections" defaultSize="24%" minSize="16rem" maxSize="40%">
@@ -566,7 +498,7 @@ export function PaginatedChapter({
         </>
       )}
 
-      {!mobile && openNote && (
+      {!scrollMode && openNote && (
         <>
           <ResizableHandle withHandle />
           {/* min = what the editor toolbar needs in one row */}
@@ -585,7 +517,7 @@ export function PaginatedChapter({
       )}
       </ResizablePanelGroup>
 
-      {mobile && (
+      {scrollMode && (
         <>
           <Drawer
             open={sideView === "connections" && !openNote}

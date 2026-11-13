@@ -110,11 +110,16 @@ export function HighlightMarks({
     };
 
     measure();
-    // Re-measure after the page-flip transform settles.
+    // Re-measure after the page-flip transform settles, and once webfonts
+    // land (Literata swaps in -> lines rewrap under fixed-size boxes).
     const t = setTimeout(measure, 340);
+    let alive = true;
+    void document.fonts?.ready.then(() => alive && measure());
     const ro = new ResizeObserver(measure);
     ro.observe(region);
+    ro.observe(content);
     return () => {
+      alive = false;
       clearTimeout(t);
       ro.disconnect();
     };
