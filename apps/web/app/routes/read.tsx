@@ -4,12 +4,14 @@ import { useState } from "react";
 import { data, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import i18n from "~/lib/i18n";
+import { loadReaderStyle } from "~/lib/reader-style";
 import { requireAuth } from "~/lib/require-auth";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { readingLimitError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
+import { StyleChooser } from "../reader/style-chooser";
 import type { Route } from "./+types/read";
 
 let translationsCache: Translation[] | undefined;
@@ -40,8 +42,12 @@ export function meta({ params }: Route.MetaArgs) {
 }
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  await requireAuth();
-  const translations = await loadTranslations();
+  const session = await requireAuth();
+  // Account reader style (#45) applies before render; null = never chosen
+  const [translations, readerStyle] = await Promise.all([
+    loadTranslations(),
+    loadReaderStyle(session.user.id),
+  ]);
   const translation = pickTranslation(translations);
   const res = await fetchScripture(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
   if (res.status === 404 || res.status === 400) {
@@ -54,11 +60,12 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const chapter = (await res.json()) as Chapter;
   // Only a chapter that actually loaded may become the launch page
   localStorage.setItem("lastRead", `${chapter.book}/${chapter.chapter}`);
-  return { chapter, translation, translations };
+  return { chapter, translation, translations, needsStyleChoice: readerStyle === null };
 }
 
 export default function Read({ loaderData }: Route.ComponentProps) {
-  const { chapter, translation, translations } = loaderData;
+  const { chapter, translation, translations, needsStyleChoice } = loaderData;
+  const [styleChosen, setStyleChosen] = useState(false);
   const revalidator = useRevalidator();
   function switchTranslation(id: string) {
     localStorage.setItem("translationId", id);
@@ -116,6 +123,9 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           annotationBoxesOpen={annotationBoxesOpen}
         />
       </SidebarInset>
+      {needsStyleChoice && !styleChosen && (
+        <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
+      )}
     </SidebarProvider>
   );
 }

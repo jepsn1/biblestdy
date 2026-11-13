@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { data, Link } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import i18n from "~/lib/i18n";
+import { loadReaderStyle } from "~/lib/reader-style";
 import { requireAuth } from "~/lib/require-auth";
 import type { Route } from "./+types/topic";
 
@@ -19,7 +20,8 @@ export function meta({ params }: Route.MetaArgs) {
 }
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  await requireAuth();
+  const session = await requireAuth();
+  await loadReaderStyle(session.user.id);
   const res = await fetch(`/api/tags/topic/${encodeURIComponent(params.name)}`, {
     credentials: "include",
   });

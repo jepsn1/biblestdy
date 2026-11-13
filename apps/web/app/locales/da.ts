@@ -117,10 +117,17 @@ const da: typeof en = {
     toPaper: "Skift til papirtema",
     toCharcoal: "Skift til kultema",
   },
+  readerStyle: {
+    choose: "Vælg din læsestil",
+    paper: "Papir",
+    clean: "Enkel",
+    continue: "Fortsæt",
+  },
   settings: {
     open: "Konto og indstillinger",
     signedInAs: "Logget ind som",
     theme: "Tema",
+    style: "Stil",
     language: "Sprog",
     version: "Version",
     privacy: "Privatlivspolitik",

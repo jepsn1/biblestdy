@@ -10,7 +10,8 @@
 @theme inline {
   /* Geist for UI chrome, Literata for Scripture & long-form reading */
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Literata Variable", ui-serif, Georgia, serif;
+  /* Reading face follows the reader style (#45): Literata on Paper, Geist on Clean */
+  --font-serif: var(--font-reading);
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -61,8 +62,11 @@
  * illuminated gold; annotation inks lightened to stay legible.
  * Annotation tokens (--note-ink*, --hl-*) are themed here and consumed by
  * reader/highlight-colors.ts.
+ * `.style-paper` re-asserts these on a subtree (onboarding preview cards).
  */
-:root {
+:root,
+.style-paper {
+  --font-reading: "Literata Variable", ui-serif, Georgia, serif;
   --background: oklch(0.965 0.012 90);
   --foreground: oklch(0.26 0.02 80);
   --card: oklch(0.945 0.012 90);
@@ -111,7 +115,8 @@
   --selection: oklch(0.56 0.11 80 / 25%);
 }
 
-.dark {
+.dark,
+.dark .style-paper {
   --background: oklch(0.17 0.01 80);
   --foreground: oklch(0.92 0.015 90);
   --card: oklch(0.21 0.012 80);
@@ -156,6 +161,84 @@
   --hl-rose: oklch(0.68 0.16 15 / 30%);
   --hl-purple: oklch(0.66 0.16 300 / 32%);
   --selection: oklch(0.83 0.1 85 / 30%);
+}
+
+/*
+ * CLEAN reader style (#45, `.style-clean` on <html>, or on a subtree for the
+ * onboarding preview): neutral white/zinc, shadcn/Vercel-style, sans reading
+ * text. Independent of light/dark. Highlight + pen inks reuse the paper
+ * (light) / charcoal (dark) values — both read on a neutral white/black page.
+ */
+.style-clean {
+  --font-reading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.21 0.006 286);
+  --card: oklch(0.985 0 0);
+  --card-foreground: oklch(0.21 0.006 286);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.006 286);
+  --primary: oklch(0.21 0.006 286);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286);
+  --secondary-foreground: oklch(0.21 0.006 286);
+  --muted: oklch(0.967 0.001 286);
+  --muted-foreground: oklch(0.55 0.014 286);
+  --accent: oklch(0.967 0.001 286);
+  --accent-foreground: oklch(0.21 0.006 286);
+  --destructive: oklch(0.577 0.245 27);
+  --border: oklch(0.92 0.004 286);
+  --input: oklch(0.92 0.004 286);
+  --ring: oklch(0.705 0.015 286);
+  --chart-1: oklch(0.21 0.006 286);
+  --chart-2: oklch(0.55 0.014 286);
+  --chart-3: oklch(0.65 0.012 286);
+  --chart-4: oklch(0.75 0.01 286);
+  --chart-5: oklch(0.85 0.006 286);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.21 0.006 286);
+  --sidebar-primary: oklch(0.21 0.006 286);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.001 286);
+  --sidebar-accent-foreground: oklch(0.21 0.006 286);
+  --sidebar-border: oklch(0.92 0.004 286);
+  --sidebar-ring: oklch(0.705 0.015 286);
+  --selection: oklch(0.62 0.12 255 / 22%);
+}
+
+.dark.style-clean,
+.dark .style-clean {
+  --background: oklch(0.141 0.005 286);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 286);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 286);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.004 286);
+  --primary-foreground: oklch(0.21 0.006 286);
+  --secondary: oklch(0.27 0.006 286);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.21 0.006 286);
+  --muted-foreground: oklch(0.705 0.015 286);
+  --accent: oklch(0.27 0.006 286);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22);
+  --border: oklch(0.27 0.006 286);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.55 0.014 286);
+  --chart-1: oklch(0.92 0.004 286);
+  --chart-2: oklch(0.705 0.015 286);
+  --chart-3: oklch(0.55 0.014 286);
+  --chart-4: oklch(0.4 0.01 286);
+  --chart-5: oklch(0.3 0.006 286);
+  --sidebar: oklch(0.21 0.006 286);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.92 0.004 286);
+  --sidebar-primary-foreground: oklch(0.21 0.006 286);
+  --sidebar-accent: oklch(0.27 0.006 286);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.27 0.006 286);
+  --sidebar-ring: oklch(0.55 0.014 286);
+  --selection: oklch(0.7 0.11 250 / 30%);
 }
 
 /* Reference spotlight: other ink is hidden (in-component); the words dim just

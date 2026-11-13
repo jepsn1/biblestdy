@@ -115,10 +115,17 @@ export default {
     toPaper: "Switch to paper theme",
     toCharcoal: "Switch to charcoal theme",
   },
+  readerStyle: {
+    choose: "Choose your reading style",
+    paper: "Paper",
+    clean: "Clean",
+    continue: "Continue",
+  },
   settings: {
     open: "Account & settings",
     signedInAs: "Signed in as",
     theme: "Theme",
+    style: "Style",
     language: "Language",
     version: "Version",
     privacy: "Privacy policy",
