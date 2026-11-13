@@ -208,6 +208,13 @@ const da: typeof en = {
     close: "Luk",
     settings: "Følg biblestdy",
   },
+  translations: {
+    title: "Oversættelse",
+    close: "Luk oversættelser",
+    selected: "Valgt",
+    switched: "Du læser nu {{name}}. Dine markeringer i {{prev}} er gemt.",
+    back: "Tilbage til {{abbr}}",
+  },
   privacy: {
     metaTitle: "Privatliv — biblestdy",
     title: "Privatliv",
@@ -249,6 +256,7 @@ const da: typeof en = {
     pageTurn: "Forrige / næste side",
     firstLast: "Første / sidste side",
     chapter: "Forrige / næste kapitel",
+    translation: "Vælg oversættelse",
     jump: "Gå til skriftsted",
     verse: "Forrige / næste vers",
     selectWords: "Markér ord for ord",
