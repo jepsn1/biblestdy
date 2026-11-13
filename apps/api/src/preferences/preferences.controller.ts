@@ -48,6 +48,12 @@ export class PreferencesController {
       }
       patch.textSize = dto.textSize;
     }
+    if (dto.supportNoticeDismissed !== undefined) {
+      if (dto.supportNoticeDismissed !== true) {
+        throw new BadRequestException('supportNoticeDismissed must be true');
+      }
+      patch.supportNoticeDismissed = true;
+    }
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException('nothing to update');
     }

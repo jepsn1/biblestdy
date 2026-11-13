@@ -6,7 +6,7 @@ export class InMemoryPreferencesStore implements PreferencesStore {
 
   get(userId: string) {
     return Promise.resolve(
-      this.rows.get(userId) ?? { readerStyle: null, textSize: null },
+      this.rows.get(userId) ?? { readerStyle: null, textSize: null, supportNoticeDismissed: false },
     );
   }
 

@@ -22,6 +22,7 @@ export class DrizzlePreferencesStore implements PreferencesStore {
       .select({
         readerStyle: userPreference.readerStyle,
         textSize: userPreference.textSize,
+        supportNoticeDismissedAt: userPreference.supportNoticeDismissedAt,
       })
       .from(userPreference)
       .where(eq(userPreference.userId, userId))
@@ -29,16 +30,22 @@ export class DrizzlePreferencesStore implements PreferencesStore {
     return {
       readerStyle: isReaderStyle(row?.readerStyle) ? row.readerStyle : null,
       textSize: isTextSize(row?.textSize) ? row.textSize : null,
+      supportNoticeDismissed: !!row?.supportNoticeDismissedAt,
     };
   }
 
   async update(userId: string, patch: PreferencesPatch): Promise<void> {
+    const { supportNoticeDismissed, ...rest } = patch;
+    const cols = {
+      ...rest,
+      ...(supportNoticeDismissed && { supportNoticeDismissedAt: new Date() }),
+    };
     await db
       .insert(userPreference)
-      .values({ userId, ...patch })
+      .values({ userId, ...cols })
       .onConflictDoUpdate({
         target: userPreference.userId,
-        set: { ...patch, updatedAt: new Date() },
+        set: { ...cols, updatedAt: new Date() },
       });
   }
 }

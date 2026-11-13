@@ -197,6 +197,15 @@ export default {
     deleteError: "Deletion failed — try again.",
     deleteCancel: "Keep my account",
   },
+  support: {
+    title: "biblestdy is free",
+    body: "Hi, I'm Marcus. I build biblestdy on my own, with no ads. I don't take donations yet, but if you like it, follow along on Instagram.",
+    follow: "Follow @{{handle}}",
+    chat: "Message me to join the group chat",
+    chatHint: "Opens Instagram. Your page stays here. In the group chat, others can see your Instagram name.",
+    close: "Close",
+    settings: "Follow biblestdy",
+  },
   privacy: {
     metaTitle: "Privacy — biblestdy",
     title: "Privacy",

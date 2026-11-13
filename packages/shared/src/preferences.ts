@@ -19,14 +19,18 @@ export function isTextSize(v: unknown): v is TextSize {
 }
 
 /** Per-account preferences. null readerStyle = never chosen → onboarding
- * chooser; null textSize = never changed → 100%. */
+ * chooser; null textSize = never changed → 100%. supportNoticeDismissed: the
+ * one-time "follow on Instagram" notice was closed (once per account). */
 export interface Preferences {
   readerStyle: ReaderStyle | null
   textSize: TextSize | null
+  supportNoticeDismissed: boolean
 }
 
 /** PATCH /api/preferences body: any subset, at least one field. */
 export type PreferencesPatch = Partial<{
   readerStyle: ReaderStyle
   textSize: TextSize
+  /** One-way: only `true` is accepted. */
+  supportNoticeDismissed: true
 }>

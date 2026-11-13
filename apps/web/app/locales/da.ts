@@ -199,6 +199,15 @@ const da: typeof en = {
     deleteError: "Sletningen mislykkedes — prøv igen.",
     deleteCancel: "Behold min konto",
   },
+  support: {
+    title: "biblestdy er gratis",
+    body: "Hej, jeg hedder Marcus og bygger biblestdy selv, uden reklamer. Jeg tager ikke imod donationer endnu, men kan du lide appen, så følg med på Instagram.",
+    follow: "Følg @{{handle}}",
+    chat: "Skriv til mig for at komme med i gruppechatten",
+    chatHint: "Åbner Instagram. Din side bliver her. I gruppechatten kan andre se dit Instagram-navn.",
+    close: "Luk",
+    settings: "Følg biblestdy",
+  },
   privacy: {
     metaTitle: "Privatliv — biblestdy",
     title: "Privatliv",
