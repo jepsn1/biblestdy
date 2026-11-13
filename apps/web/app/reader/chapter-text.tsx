@@ -429,6 +429,8 @@ export function ChapterText({
   }
   const onTextKeyRef = useRef(onTextKey);
   onTextKeyRef.current = onTextKey;
+  const onRovingRef = useRef(onRovingVerseChange);
+  onRovingRef.current = onRovingVerseChange;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -444,6 +446,8 @@ export function ChapterText({
     const onFocusIn = (e: FocusEvent) => {
       const el = (e.target as HTMLElement).closest?.<HTMLElement>(`[${VERSE_FOCUS}]`);
       setFocusedVerse(el && el.matches(":focus-visible") ? Number(el.getAttribute(VERSE_FOCUS)) : null);
+      // Focus arriving any way (focus return, F6) makes that verse the Tab stop
+      if (el) onRovingRef.current(Number(el.getAttribute(VERSE_FOCUS)));
     };
     // Focus leaving the text (not into its menu) drops a keyboard selection
     const onFocusOut = (e: FocusEvent) => {

@@ -516,7 +516,12 @@ export function PaginatedChapter({
 
   /** ← from the first page opens the previous chapter on its LAST page
    * (#52); phones scroll, so they start the chapter at the top. */
+  /** The reader turned the page (keys, arrows) — a focused verse follows to
+   * the new page. Any other page change (reflow) turns to the focus instead. */
+  const userTurn = useRef(false);
+
   function goPrev() {
+    userTurn.current = true;
     if (!scrollMode && page > 0) {
       wantedPage.current = null;
       wantedVerse.current = null;
@@ -526,6 +531,7 @@ export function PaginatedChapter({
   }
 
   function goNext() {
+    userTurn.current = true;
     if (!scrollMode && page < pageCount - 1) {
       wantedPage.current = null;
       wantedVerse.current = null;
@@ -584,8 +590,10 @@ export function PaginatedChapter({
       if (scrollMode) return; // no pages to turn; arrows stay native
       if (event.key === "ArrowLeft") goPrev();
       if (event.key === "ArrowRight") goNext();
-      if (event.key === "Home") goToPage(0);
-      if (event.key === "End") goToPage(pageCount - 1);
+      if (event.key === "Home" || event.key === "End") {
+        userTurn.current = true;
+        goToPage(event.key === "Home" ? 0 : pageCount - 1);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -633,12 +641,25 @@ export function PaginatedChapter({
     if (!content || scrollMode || stride === 0) return;
     const verses = [...content.querySelectorAll<HTMLElement>(`[${VERSE_FOCUS}]`)];
     const onPage = (el: HTMLElement) => pageOf(el, stride) === page;
+    const byUser = userTurn.current;
+    userTurn.current = false;
+    const focused = verses.find((el) => el === document.activeElement);
+    if (focused && !onPage(focused) && !byUser) {
+      // Reflow (panel opened/closed, text size) moved the focused verse
+      const p = pageOf(focused, stride);
+      if (p !== null) {
+        wantedPage.current = null;
+        wantedVerse.current = null;
+        setPage(Math.min(p, pageCount - 1));
+      }
+      return;
+    }
     const current = verses.find((el) => el.tabIndex === 0);
     if (current && onPage(current)) return;
     const first = verses.find(onPage);
     if (!first) return;
     setRovingVerse(Number(first.getAttribute(VERSE_FOCUS)));
-    if (current && document.activeElement === current) first.focus({ preventScroll: true });
+    if (focused) first.focus({ preventScroll: true });
   }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize]);
 
   /** End of chapter (#52): flows right after the last verse — the last page
