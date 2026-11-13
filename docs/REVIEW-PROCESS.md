@@ -66,3 +66,8 @@ Then: **Keep** (what I'd hate to lose, bullets) and **Verdict** (one line).
 - Builder agents: screenshots only for visible UI changes; logic changes need tests only.
 - Group related changes in the same files into one issue/agent rather than a queue of small ones.
 - Never commit licensed scripture text (NIV/NKJV/BPH) — public repo. WEB only, or redacted fixtures.
+
+## 7. Lessons (update after each review)
+
+- **2026-11-13 UI review:** the account's saved reader style overrides localStorage — the script now PATCHes `/api/preferences` per shot. The scripted mouse drag doesn't trigger the custom selection menu — capture it by hand. Capture sign-in in both locales (set `lang: "da"`), or reviewers flag English as a bug.
+- Product decisions that override panel advice are recorded in the review file (e.g. zoom lock stays; in-app text size instead).
