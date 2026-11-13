@@ -1,4 +1,4 @@
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, buttonVariants } from "~/components/ui/button";
@@ -6,17 +6,17 @@ import { GROUP_CHAT_URL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from "~/lib/support";
 import { cn } from "~/lib/utils";
 
 /** The two Instagram links (notice + settings). New tab: the reading page stays. */
-export function SupportLinks({ onFollow, stacked }: { onFollow?: () => void; stacked?: boolean }) {
+export function SupportLinks({ onFollow, quiet }: { onFollow?: () => void; quiet?: boolean }) {
   const { t } = useTranslation();
-  const link = "h-auto min-h-10 whitespace-normal py-2 max-sm:min-h-12";
+  const link = "h-auto min-h-9 whitespace-normal py-1.5 max-sm:min-h-11";
   return (
-    <div className={cn("flex gap-2", stacked ? "flex-col" : "flex-wrap")}>
+    <div className="flex flex-wrap gap-2">
       <a
         href={INSTAGRAM_URL}
         target="_blank"
         rel="noopener noreferrer"
         onClick={onFollow}
-        className={cn(buttonVariants(), link)}
+        className={cn(buttonVariants(quiet ? { variant: "outline" } : undefined), link)}
       >
         {t("support.follow", { handle: INSTAGRAM_HANDLE })}
         <ExternalLink aria-hidden />
@@ -55,33 +55,27 @@ export function SupportNotice({ onClose }: { onClose: () => void }) {
     <section
       ref={ref}
       aria-labelledby={titleId}
-      className="fixed inset-x-4 bottom-16 z-40 mx-auto max-w-md animate-in fade-in rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-lg duration-150 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      className="fixed inset-x-4 bottom-16 z-40 mx-auto max-w-sm animate-in fade-in rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg duration-150 sm:inset-x-auto sm:right-4 sm:bottom-20 sm:w-72"
     >
       <div role="status" className="sr-only">
         {t("support.title")}
       </div>
       <div className="flex items-start gap-3">
-        <img src="/marcus.webp" alt="" width={48} height={48} className="size-12 shrink-0 rounded-full" />
+        <img src="/marcus.webp" alt="" width={40} height={40} className="size-10 shrink-0 rounded-full" />
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="text-control font-semibold">
             {t("support.title")}
           </h2>
-          <p className="mt-1 text-control">{t("support.body")}</p>
+          <p className="mt-0.5 text-list">{t("support.body")}</p>
         </div>
-        <Button variant="ghost" size="icon" className="-mt-1 -mr-1 max-sm:size-11" aria-label={t("support.close")} onClick={onClose}>
-          <X />
-        </Button>
-      </div>
-      <div className="mt-3">
-        <SupportLinks stacked onFollow={onClose} />
-        <p className="mt-2 text-meta text-muted-foreground">{t("support.chatHint")}</p>
-      </div>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <p className="text-meta text-muted-foreground">{t("support.footnote")}</p>
-        <Button variant="ghost" className="shrink-0 max-sm:h-11" onClick={onClose}>
+        <Button variant="ghost" size="sm" className="-mt-1 -mr-1 shrink-0 max-sm:h-11 max-sm:px-3" onClick={onClose}>
           {t("support.close")}
         </Button>
       </div>
+      <div className="mt-3">
+        <SupportLinks onFollow={onClose} />
+      </div>
+      <p className="mt-2 text-meta text-muted-foreground">{t("support.chatHint")}</p>
     </section>
   );
 }
