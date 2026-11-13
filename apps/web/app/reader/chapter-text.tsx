@@ -12,6 +12,7 @@ import {
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
+import { cn, focusRing } from "~/lib/utils";
 import { formatCopy } from "./copy-attribution";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { HIGHLIGHT_SWATCH, NOTE_INK_WASH } from "./highlight-colors";
@@ -423,7 +424,7 @@ export function ChapterText({
             <h2
               key={title}
               data-section
-              className={`mb-[0.4em] font-serif text-[0.95em] leading-snug font-semibold text-foreground/75 [break-after:avoid] ${
+              className={`mb-[0.4em] font-serif text-[0.95em] leading-snug font-semibold text-muted-foreground [break-after:avoid] ${
                 bi === 0 ? "mt-0" : "mt-[1.6em]"
               }`}
             >
@@ -577,7 +578,9 @@ export function ChapterText({
                         aria-label={t("menu.highlight", { color })}
                         title={t("menu.highlight", { color })}
                         onClick={() => addHighlight(color)}
-                        className={`size-4 rounded-full transition-transform hover:scale-115 ${
+                        // Phones: 24px targets (WCAG 2.5.8); desktop dots are
+                        // spaced ≥24px apart
+                        className={`size-6 rounded-full transition-transform hover:scale-115 sm:size-4 ${
                           color === defaultColor
                             ? "ring-2 ring-foreground/40"
                             : "ring-1 ring-foreground/15"
@@ -667,7 +670,11 @@ export function ChapterText({
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveDraft();
                     }}
                     placeholder={t("menu.annotationPlaceholder")}
-                    className="h-20 resize-none rounded border border-border bg-background p-2 font-serif text-sm outline-none focus:border-primary/50"
+                    aria-label={t("menu.annotationPlaceholder")}
+                    className={cn(
+                      "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-sm focus:border-primary/50",
+                      focusRing,
+                    )}
                   />
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[0.6rem] text-muted-foreground">{t("menu.saveHint")}</span>

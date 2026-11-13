@@ -8,6 +8,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/componen
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { useBookName } from "~/lib/book-name";
+import { useTextSize } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import {
@@ -30,6 +31,13 @@ import { AnnotationMarks } from "./annotation-marks";
 import { noteMarksInChapter, useAllNotes, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
+
+/** The chapter text container: target of the "Skip to text" link (#61). */
+export const CHAPTER_TEXT_ID = "chapter-text";
+
+/** Reader area (rem) below which side panels open as drawers: note panel
+ * minimum (35rem) + a ~20rem reading column. ~880px at 100%. */
+const SIDE_BY_SIDE_MIN = 55;
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
@@ -178,6 +186,8 @@ export function PaginatedChapter({
   // column and whether annotation lanes get margin — never a sideways scroll.
   const paneRef = useRef<HTMLDivElement>(null);
   const [pane, setPane] = useState({ width: 0, rem: 16 });
+  // Text size (#61) changes the rem without resizing the pane: re-measure
+  const textSize = useTextSize();
   useLayoutEffect(() => {
     const el = paneRef.current;
     if (!el || scrollMode) return;
@@ -190,7 +200,26 @@ export function PaginatedChapter({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [scrollMode]);
+  }, [scrollMode, textSize]);
+  // Side panels (#61): beside the reader only when both fit — at a large text
+  // size the note's 35rem minimum would crush the reader, so they become the
+  // phone's bottom drawers instead. Measured on the whole reader area (the
+  // pane above shrinks when a panel opens).
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [areaRem, setAreaRem] = useState(0);
+  useLayoutEffect(() => {
+    const el = areaRef.current;
+    if (!el || scrollMode) return;
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setAreaRem(el.clientWidth / rem);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [scrollMode, textSize]);
+  const sideInDrawer = scrollMode || (areaRem > 0 && areaRem < SIDE_BY_SIDE_MIN);
   const hasLanes = annotationsApi.annotations.length > 0;
   // Unmeasured (first paint): assume a roomy pane; the layout effect corrects
   // it before the browser paints.
@@ -350,7 +379,7 @@ export function PaginatedChapter({
       alive = false;
       observer.disconnect();
     };
-  }, [chapterKey, scrollMode, layout.columns]);
+  }, [chapterKey, scrollMode, layout.columns, textSize]);
 
   // Verse jump (#53): `?v=` (link, or the jump box — same chapter too).
   // After the chapterKey effect above, which clears any previous target.
@@ -557,7 +586,8 @@ export function PaginatedChapter({
   );
 
   return (
-    <main className="flex min-h-0 w-full flex-1 flex-col">
+    // Not <main>: SidebarInset already is the page's one main landmark
+    <div ref={areaRef} className="flex min-h-0 w-full flex-1 flex-col">
       <ResizablePanelGroup
         orientation="horizontal"
         className="min-h-0 w-full flex-1"
@@ -583,7 +613,9 @@ export function PaginatedChapter({
               <div ref={contentBoxRef} className="relative px-4 pt-8 pb-16">
                 <div
                   ref={contentRef}
-                  className="mx-auto max-w-[65ch] text-left font-serif text-lg leading-[1.6] text-foreground/95"
+                  id={CHAPTER_TEXT_ID}
+                  tabIndex={-1}
+                  className="mx-auto max-w-[65ch] touch-manipulation text-left font-serif text-lg leading-[1.6] text-foreground outline-none"
                 >
                   {chapterText}
                   {chapterEnd}
@@ -621,8 +653,10 @@ export function PaginatedChapter({
                   </p>
                   <div
                     ref={contentRef}
+                    id={CHAPTER_TEXT_ID}
+                    tabIndex={-1}
                     className={cn(
-                      "h-full max-h-[34em] text-left font-serif text-lg leading-[1.55] text-foreground/95 [column-fill:auto] gap-x-14 [.style-clean_&]:leading-[1.6]",
+                      "h-full max-h-[34em] touch-manipulation text-left font-serif text-lg leading-[1.55] text-foreground outline-none [column-fill:auto] gap-x-14 [.style-clean_&]:leading-[1.6]",
                       layout.columns === 2 ? "columns-2" : "columns-1",
                       animate && "transition-transform duration-300 motion-reduce:transition-none",
                     )}
@@ -673,7 +707,7 @@ export function PaginatedChapter({
       {/* An open note takes the side slot; closing it brings connections back.
           Desktop: resizable side panels. Phone (#13): bottom drawers — the
           same content in its mobile build, app-sheet feel. */}
-      {!scrollMode && sideView === "connections" && !openNote && (
+      {!sideInDrawer && sideView === "connections" && !openNote && (
         <>
           <ResizableHandle withHandle />
           <ResizablePanel id="connections" defaultSize="24%" minSize="16rem" maxSize="40%">
@@ -688,7 +722,7 @@ export function PaginatedChapter({
         </>
       )}
 
-      {!scrollMode && openNote && (
+      {!sideInDrawer && openNote && (
         <>
           <ResizableHandle withHandle />
           {/* min = what the editor toolbar needs in one row */}
@@ -707,14 +741,17 @@ export function PaginatedChapter({
       )}
       </ResizablePanelGroup>
 
-      {scrollMode && (
+      {sideInDrawer && (
         <>
           <Drawer
             open={sideView === "connections" && !openNote}
             onOpenChange={(open) => !open && closeConnections()}
             showSwipeHandle
           >
-            <DrawerContent style={{ "--drawer-height": "70dvh" } as React.CSSProperties}>
+            <DrawerContent
+              aria-label={t("connections.title")}
+              style={{ "--drawer-height": "70dvh" } as React.CSSProperties}
+            >
               <ConnectionsPanel
                 translationId={chapter.translationId}
                 book={chapter.book}
@@ -727,7 +764,10 @@ export function PaginatedChapter({
           </Drawer>
 
           <Drawer open={!!openNote} onOpenChange={(open) => !open && closeNote()} showSwipeHandle>
-            <DrawerContent style={{ "--drawer-height": "92dvh" } as React.CSSProperties}>
+            <DrawerContent
+              aria-label={openNote?.title || t("note.untitled")}
+              style={{ "--drawer-height": "92dvh" } as React.CSSProperties}
+            >
               {openNote && (
                 <NotePanel
                   note={openNote}
@@ -744,7 +784,7 @@ export function PaginatedChapter({
           </Drawer>
         </>
       )}
-    </main>
+    </div>
   );
 }
 

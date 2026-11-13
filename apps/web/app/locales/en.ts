@@ -1,6 +1,7 @@
 /** English UI strings (issue #12). Adding a locale = adding a sibling file. */
 export default {
   nav: {
+    label: "Chapter navigation",
     toggleSidebar: "Toggle books sidebar",
     chapter: "Chapter",
     translation: "Translation",
@@ -21,6 +22,7 @@ export default {
     jumpSuggestions: "Books",
   },
   sidebar: {
+    label: "Books",
     home: "Home",
     filterBooks: "Filter books…",
     oldTestament: "Old Testament",
@@ -28,6 +30,7 @@ export default {
     signOut: "Sign out",
   },
   reader: {
+    skipToText: "Skip to text",
     prevPage: "Previous page",
     nextPage: "Next page",
     prevChapter: "Previous chapter",
@@ -61,6 +64,7 @@ export default {
   note: {
     untitled: "Untitled note",
     titlePlaceholder: "Untitled note",
+    titleLabel: "Note title",
     bodyPlaceholder: "Write your note…",
     close: "Close note",
     references: "References",
@@ -92,6 +96,7 @@ export default {
   tags: {
     add: "+ tag",
     placeholder: "tag…",
+    inputLabel: "New tag",
     openTopic: "Open topic",
     remove: "Remove tag {{name}}",
   },
@@ -140,6 +145,7 @@ export default {
     signedInAs: "Signed in as",
     theme: "Theme",
     style: "Style",
+    textSize: "Text size",
     language: "Language",
     version: "Version",
     privacy: "Privacy policy",

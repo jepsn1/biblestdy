@@ -39,5 +39,10 @@ export {
   READER_STYLES,
   isReaderStyle,
   type ReaderStyle,
+  TEXT_SIZES,
+  DEFAULT_TEXT_SIZE,
+  isTextSize,
+  type TextSize,
   type Preferences,
+  type PreferencesPatch,
 } from './preferences.js'

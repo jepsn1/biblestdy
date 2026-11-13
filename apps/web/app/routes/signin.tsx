@@ -140,7 +140,7 @@ export default function SignIn() {
         >
           {t("settings.privacy")}
         </Link>
-        <p className="mt-4 text-center font-mono text-[0.6rem] text-muted-foreground/70">
+        <p className="mt-4 text-center font-mono text-[0.6rem] text-muted-foreground">
           {t("signin.operatedBy", operator)}
         </p>
       </div>

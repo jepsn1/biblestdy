@@ -73,7 +73,8 @@
   --card-foreground: oklch(0.26 0.02 80);
   --popover: oklch(0.97 0.01 90);
   --popover-foreground: oklch(0.26 0.02 80);
-  --primary: oklch(0.56 0.11 80);
+  /* ≥ 4.5:1 on --background (gold text, primary buttons) — #61 */
+  --primary: oklch(0.5 0.11 80);
   --primary-foreground: oklch(0.98 0.008 90);
   --secondary: oklch(0.92 0.014 88);
   --secondary-foreground: oklch(0.26 0.02 80);
@@ -84,8 +85,8 @@
   --destructive: oklch(0.55 0.19 25);
   --border: oklch(0.3 0.02 80 / 15%);
   --input: oklch(0.3 0.02 80 / 18%);
-  --ring: oklch(0.56 0.11 80 / 50%);
-  --chart-1: oklch(0.56 0.11 80);
+  --ring: oklch(0.5 0.11 80 / 50%);
+  --chart-1: oklch(0.5 0.11 80);
   --chart-2: oklch(0.5 0.02 82);
   --chart-3: oklch(0.62 0.02 82);
   --chart-4: oklch(0.72 0.015 85);
@@ -93,12 +94,12 @@
   --radius: 0.5rem;
   --sidebar: oklch(0.945 0.012 90);
   --sidebar-foreground: oklch(0.26 0.02 80);
-  --sidebar-primary: oklch(0.56 0.11 80);
+  --sidebar-primary: oklch(0.5 0.11 80);
   --sidebar-primary-foreground: oklch(0.98 0.008 90);
   --sidebar-accent: oklch(0.9 0.02 88);
   --sidebar-accent-foreground: oklch(0.26 0.02 80);
   --sidebar-border: oklch(0.3 0.02 80 / 15%);
-  --sidebar-ring: oklch(0.56 0.11 80 / 50%);
+  --sidebar-ring: oklch(0.5 0.11 80 / 50%);
 
   /* Pen: dark ballpoint blue, pressed into the page */
   --note-ink: oklch(0.42 0.17 262 / 0.9);
@@ -112,7 +113,7 @@
   --hl-blue: oklch(0.82 0.11 240 / 45%);
   --hl-rose: oklch(0.8 0.13 15 / 45%);
   --hl-purple: oklch(0.78 0.13 300 / 45%);
-  --selection: oklch(0.56 0.11 80 / 25%);
+  --selection: oklch(0.5 0.11 80 / 25%);
 }
 
 .dark,

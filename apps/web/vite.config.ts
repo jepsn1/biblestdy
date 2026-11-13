@@ -50,7 +50,8 @@ export default defineConfig({
     allowedHosts: ["dev.biblestdy.com"],
     // Dev-only: forward API calls to the NestJS server
     proxy: {
-      "/api": "http://localhost:3001",
+      // API_PROXY: point a second dev server (e.g. a worktree on other ports) at its own API
+      "/api": process.env.API_PROXY ?? "http://localhost:3001",
     },
   },
 });

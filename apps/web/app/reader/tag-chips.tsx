@@ -3,6 +3,7 @@ import type { Tag } from "@biblestdy/shared";
 import { X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
+import { cn, focusRing } from "~/lib/utils";
 
 /**
  * Tag chips + inline add box (issue #10). A chip links to its topic page;
@@ -50,7 +51,11 @@ export function TagChips({
               type="button"
               aria-label={t("tags.remove", { name: tg.name })}
               onClick={() => onRemove(tg)}
-              className="rounded-full p-0.5 hover:text-destructive"
+              // 24px hit area (WCAG 2.5.8) without growing the chip
+              className={cn(
+                "-my-1 -mr-1 inline-flex size-6 items-center justify-center rounded-full hover:text-destructive",
+                focusRing,
+              )}
             >
               <X className="size-2.5" />
             </button>
@@ -71,7 +76,11 @@ export function TagChips({
             }
           }}
           placeholder={t("tags.placeholder")}
-          className="w-20 rounded-full border border-border bg-background px-2 py-0.5 font-mono text-[0.65rem] outline-none focus:border-primary/50"
+          aria-label={t("tags.inputLabel")}
+          className={cn(
+            "w-20 rounded-full border border-border bg-background px-2 py-0.5 font-mono text-[0.65rem] focus:border-primary/50",
+            focusRing,
+          )}
         />
       ) : (
         <button
