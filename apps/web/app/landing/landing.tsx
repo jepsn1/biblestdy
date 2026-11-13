@@ -21,6 +21,15 @@ import { operator } from "~/lib/app-info";
 import { setUiLanguage } from "~/lib/i18n";
 import { cn } from "~/lib/utils";
 import { StudyMock } from "./study-mock";
+import {
+  ConnectionsDiagram,
+  HighlightDemo,
+  InkUnderline,
+  LooksRow,
+  MarginDemo,
+  NoteDemo,
+  PhoneMock,
+} from "./visuals";
 
 /** Public front door (signed-out web visitors). Tone: Scripture first, the app
  * second — say plainly what it is and get out of the way. No hype, no
@@ -60,11 +69,17 @@ export function Landing() {
         </header>
 
         {/* Hero */}
-        <section className="mx-auto max-w-5xl px-6 pt-10 pb-16 sm:pt-16">
+        <section className="relative isolate mx-auto max-w-5xl px-6 pt-10 pb-16 sm:pt-16">
+          {/* Warm lamplight behind the hero */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem] bg-[radial-gradient(ellipse_at_50%_35%,var(--hl-gold),transparent_65%)] opacity-40"
+          />
           <div className="mx-auto max-w-2xl text-center">
             <p className="eyebrow">{t("landing.eyebrow")}</p>
             <h1 className="mt-4 font-serif text-display font-medium text-balance sm:text-hero">
-              {t("landing.heroTitle")}
+              {t("landing.heroTitleA")}{" "}
+              <InkUnderline>{t("landing.heroTitleB")}</InkUnderline>
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-reading text-pretty text-muted-foreground">
               {t("landing.heroBody")}
@@ -116,20 +131,23 @@ export function Landing() {
         <section ref={howRef} className="mx-auto max-w-5xl scroll-mt-6 px-6 py-20">
           <SectionHead eyebrow={t("landing.howEyebrow")} title={t("landing.howTitle")} body={t("landing.howBody")} />
           <div className="mt-12 grid gap-4 sm:grid-cols-3">
-            <Feature icon={Highlighter} title={t("landing.howHighlightTitle")} body={t("landing.howHighlightBody")} />
-            <Feature icon={PenLine} title={t("landing.howMarginTitle")} body={t("landing.howMarginBody")} />
-            <Feature icon={NotebookPen} title={t("landing.howNoteTitle")} body={t("landing.howNoteBody")} />
+            <Feature art={<HighlightDemo />} icon={Highlighter} title={t("landing.howHighlightTitle")} body={t("landing.howHighlightBody")} />
+            <Feature art={<MarginDemo />} icon={PenLine} title={t("landing.howMarginTitle")} body={t("landing.howMarginBody")} />
+            <Feature art={<NoteDemo />} icon={NotebookPen} title={t("landing.howNoteTitle")} body={t("landing.howNoteBody")} />
           </div>
         </section>
 
         {/* Study that stays */}
         <section className="mx-auto max-w-5xl px-6 pb-20">
           <SectionHead eyebrow={t("landing.growEyebrow")} title={t("landing.growTitle")} body={t("landing.growBody")} />
-          <div className="mt-12 grid gap-4 sm:grid-cols-3">
-            <Feature icon={Waypoints} title={t("landing.growLinkTitle")} body={t("landing.growLinkBody")} />
-            <Feature icon={Tags} title={t("landing.growTopicTitle")} body={t("landing.growTopicBody")} />
-            <Feature icon={BookOpen} title={t("landing.growReturnTitle")} body={t("landing.growReturnBody")} />
+          <div className="mt-12">
+            <ConnectionsDiagram />
           </div>
+          <ul className="mx-auto mt-14 grid max-w-4xl gap-x-10 gap-y-6 sm:grid-cols-3">
+            <Point icon={Waypoints} title={t("landing.growLinkTitle")} body={t("landing.growLinkBody")} />
+            <Point icon={Tags} title={t("landing.growTopicTitle")} body={t("landing.growTopicBody")} />
+            <Point icon={BookOpen} title={t("landing.growReturnTitle")} body={t("landing.growReturnBody")} />
+          </ul>
         </section>
 
         {/* Made for reading */}
@@ -140,7 +158,16 @@ export function Landing() {
               title={t("landing.readTitle")}
               body={t("landing.readBody")}
             />
-            <ul className="mx-auto mt-12 grid max-w-3xl gap-x-10 gap-y-6 sm:grid-cols-2">
+            <div className="mx-auto mt-12 grid max-w-4xl items-center gap-10 sm:grid-cols-[1fr_auto]">
+              <div>
+                <LooksRow />
+                <p className="mt-4 text-center text-control text-muted-foreground">
+                  {t("landing.vis.looksCaption")}
+                </p>
+              </div>
+              <PhoneMock />
+            </div>
+            <ul className="mx-auto mt-14 grid max-w-3xl gap-x-10 gap-y-6 sm:grid-cols-2">
               <Point icon={BookOpen} title={t("landing.readPagesTitle")} body={t("landing.readPagesBody")} />
               <Point icon={Languages} title={t("landing.readTranslationsTitle")} body={t("landing.readTranslationsBody")} />
               <Point icon={Sun} title={t("landing.readLookTitle")} body={t("landing.readLookBody")} />
@@ -260,10 +287,25 @@ function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string;
 
 type IconType = React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
-function Feature({ icon: Icon, title, body }: { icon: IconType; title: string; body: string }) {
+function Feature({
+  icon: Icon,
+  title,
+  body,
+  art,
+}: {
+  icon: IconType;
+  title: string;
+  body: string;
+  /** A small live illustration above the title (replaces the icon). */
+  art?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-background p-6">
-      <Icon aria-hidden className="size-5 text-primary" />
+    <div className="flex flex-col rounded-lg border border-border bg-background p-6">
+      {art ? (
+        <div className="-mx-2 mb-2 min-h-36 rounded-md bg-card p-4">{art}</div>
+      ) : (
+        <Icon aria-hidden className="size-5 text-primary" />
+      )}
       <h3 className="mt-4 font-serif text-reading font-medium">{title}</h3>
       <p className="mt-2 text-phone leading-relaxed text-muted-foreground">{body}</p>
     </div>

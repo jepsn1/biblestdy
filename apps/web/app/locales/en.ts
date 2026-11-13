@@ -203,7 +203,8 @@ export default {
       "Read Scripture, mark what speaks to you, and keep your notes with the passages they belong to. Free, private, in Danish and English.",
     signIn: "Sign in",
     eyebrow: "For anyone who reads the Bible",
-    heroTitle: "Scripture first. Your notes beside it.",
+    heroTitleA: "Scripture first.",
+    heroTitleB: "Your notes beside it.",
     heroBody:
       "biblestdy is a quiet place to read the Bible, mark what you notice, and keep your thoughts with the passages they belong to \u2014 so you can come back to them.",
     ctaStart: "Start reading",
@@ -315,12 +316,21 @@ export default {
     },
     closeTitle: "Take up and read.",
     closeBody: "Open a chapter, mark what you notice, and let your study grow at your own pace.",
+    vis: {
+      tryColours: "Try a colour",
+      marginNote: "every morning, before the news",
+      noteTitle: "Still before God",
+      noteBody: "Read beside 1 Kings 19:12 \u2014 God was not in the storm, but in the quiet.",
+      diagramCaption: "One note, three passages. Open any of them and it\u2019s there.",
+      looksCaption: "Paper or Clean, light or dark \u2014 whatever is restful for your eyes.",
+      phoneCaption: "On your phone: one column at a time, big enough to read.",
+    },
     mock: {
       margin: "begins now, not only someday \u2014 cf. v. 36",
       noteLabel: "Your note",
       noteTitle: "God gives first",
       noteBody:
-        "Love here is not a feeling but a gift: he gave his Son. Paul says the same — while we were still sinners.",
+        "Love here is not a feeling but a gift: he gave his Son. Paul says the same — while we were yet sinners.",
       topicsLabel: "Topics",
       topic1: "love",
       topic2: "grace",

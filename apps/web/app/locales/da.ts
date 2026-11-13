@@ -205,7 +205,8 @@ const da: typeof en = {
       "Læs Skriften, markér det der taler til dig, og gem dine noter ved de tekster de hører til. Gratis, privat, på dansk og engelsk.",
     signIn: "Log ind",
     eyebrow: "Til dig der læser Bibelen",
-    heroTitle: "Skriften først. Dine noter ved siden af.",
+    heroTitleA: "Skriften først.",
+    heroTitleB: "Dine noter ved siden af.",
     heroBody:
       "biblestdy er et stille sted at læse Bibelen, markere det du lægger mærke til, og gemme dine tanker ved de tekster de hører til \u2014 så du kan finde dem igen.",
     ctaStart: "Begynd at læse",
@@ -317,6 +318,15 @@ const da: typeof en = {
     },
     closeTitle: "Slå op og læs.",
     closeBody: "Åbn et kapitel, markér det du lægger mærke til, og lad dit studie vokse i dit eget tempo.",
+    vis: {
+      tryColours: "Prøv en farve",
+      marginNote: "hver morgen, før nyhederne",
+      noteTitle: "Stille for Gud",
+      noteBody: "Læs ved siden af 1 Kong 19,12 \u2014 Gud var ikke i stormen, men i stilheden.",
+      diagramCaption: "Én note, tre tekster. Åbn en af dem, og noten er der.",
+      looksCaption: "Papir eller Enkel, lys eller mørk \u2014 det der er roligt for dine øjne.",
+      phoneCaption: "På telefonen: én spalte ad gangen, stor nok at læse.",
+    },
     mock: {
       margin: "begynder nu, ikke kun en dag \u2014 jf. v. 36",
       noteLabel: "Din note",

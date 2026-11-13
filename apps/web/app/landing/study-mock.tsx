@@ -7,7 +7,8 @@ import { scribblePath } from "~/reader/scribble";
  * note that belongs to it. Real reader tokens + the real scribble geometry,
  * no data. Scripture is the World English Bible (public domain) in every UI
  * language; only the reader's own notes are localized. Decorative — the
- * page copy says the same in words, so it's hidden from screen readers. */
+ * page copy says the same in words, so it's hidden from screen readers.
+ * Inks itself once on load (app.css landing-*; static under reduced motion). */
 
 const LOOP = scribblePath(0, 0, 100, 20, "landing-eternal-life");
 
@@ -41,8 +42,10 @@ export function StudyMock() {
               that whoever believes in him should not perish, but have eternal life.{" "}
               <Sup n={16} />
               <span
-                className="rounded-[3px] px-0.5 box-decoration-clone"
-                style={{ background: HIGHLIGHT_BG.gold }}
+                className="landing-hl rounded-[3px] px-0.5 box-decoration-clone"
+                style={{
+                  backgroundImage: `linear-gradient(${HIGHLIGHT_BG.gold}, ${HIGHLIGHT_BG.gold})`,
+                }}
               >
                 For God so loved the world, that he gave his only born Son,
               </span>{" "}
@@ -56,6 +59,8 @@ export function StudyMock() {
                 >
                   <path
                     d={LOOP}
+                    pathLength={1}
+                    className="landing-ink"
                     fill="none"
                     stroke={NOTE_INK}
                     strokeWidth={1.6}
@@ -73,7 +78,7 @@ export function StudyMock() {
           {/* Margin scribble */}
           <div className="hidden sm:block">
             <p
-              className="mt-52 -rotate-2 font-serif text-list leading-snug italic"
+              className="landing-late mt-52 -rotate-2 font-serif text-list leading-snug italic"
               style={{ color: NOTE_INK_TEXT }}
             >
               {t("landing.mock.margin")}
@@ -82,7 +87,7 @@ export function StudyMock() {
         </div>
 
         {/* The note beside it */}
-        <div className="border-t border-border bg-card px-5 py-6 sm:border-t-0 sm:border-l">
+        <div className="landing-later border-t border-border bg-card px-5 py-6 sm:border-t-0 sm:border-l">
           <p className="eyebrow">{t("landing.mock.noteLabel")}</p>
           <h4 className="mt-2 font-serif text-reading font-medium">{t("landing.mock.noteTitle")}</h4>
           <p className="mt-2 text-list leading-relaxed text-muted-foreground">
