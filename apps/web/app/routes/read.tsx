@@ -1,6 +1,6 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
 import { formatReference } from "@biblestdy/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { useBookName } from "~/lib/book-name";
@@ -8,12 +8,14 @@ import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
+import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { readingLimitError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
+import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
 import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
 import type { Route } from "./+types/read";
@@ -120,6 +122,30 @@ export default function Read({ loaderData }: Route.ComponentProps) {
     });
   }
 
+  // Reader-wide keys (#65): `?` lists every shortcut; ⌘. / Ctrl+. toggles
+  // Notes & topics (from anywhere, the note editor included).
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === ".") {
+        e.preventDefault();
+        toggleConnections();
+        return;
+      }
+      if (e.key === "?" && !ignoreShortcut(e)) {
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
+    }
+    const open = () => setShortcutsOpen(true);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SHORTCUTS, open);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SHORTCUTS, open);
+    };
+  }, []);
+
   return (
     <SidebarProvider className="h-dvh overflow-hidden">
       <SkipToText />
@@ -147,6 +173,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           annotationBoxesOpen={annotationBoxesOpen}
         />
       </SidebarInset>
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       {needsStyleChoice && !styleChosen && (
         <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
       )}

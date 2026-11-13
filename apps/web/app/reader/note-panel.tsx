@@ -30,6 +30,7 @@ import {
   thematicBreakPlugin,
   toolbarPlugin,
   UndoRedo,
+  type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import { Check, Trash2, X } from "lucide-react";
@@ -40,6 +41,7 @@ import { notifyError } from "~/lib/notify";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
+import { VERSE_FOCUS } from "./keyboard-selection";
 import { useNoteTags } from "./use-tags";
 
 /** Marks a control that opens a note (margin chip, phone marker): the side
@@ -207,21 +209,29 @@ export function NotePanel({
   const dark = useIsDark();
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // Opened from a note chip (desktop side panel): focus moves to the title;
-  // closing the panel returns it to that chip. Drawers manage their own focus.
-  // The chip's id is kept in a ref: a re-run (StrictMode, note switch) finds
-  // focus already in the title, not on the chip.
-  const openerId = useRef<string | null>(null);
+  const editorRef = useRef<MDXEditorMethods>(null);
+
+  // Desktop side panel: focus moves to the note body on open (#65), ready to
+  // write; closing returns it to what opened it — a note chip, or the verse
+  // the note was made from (n / Create note). Drawers manage their own focus.
+  // The opener is kept as a selector in a ref: a re-run (StrictMode, note
+  // switch) finds focus already in the note, and the reader may re-create
+  // the element meanwhile.
+  const openerSel = useRef<string | null>(null);
   useEffect(() => {
     if (mobile) return;
-    const opener = document.activeElement?.closest<HTMLElement>(`[${NOTE_OPENER}]`);
-    if (opener) {
-      openerId.current = opener.getAttribute(NOTE_OPENER);
-      titleRef.current?.focus({ preventScroll: true });
-    }
-    if (!openerId.current) return;
-    const id = openerId.current;
+    const active = document.activeElement;
+    const chip = active?.closest<HTMLElement>(`[${NOTE_OPENER}]`);
+    const verse = active?.closest<HTMLElement>(`[${VERSE_FOCUS}]`);
+    if (chip) openerSel.current = `[${NOTE_OPENER}="${CSS.escape(chip.getAttribute(NOTE_OPENER) ?? "")}"]`;
+    else if (verse) openerSel.current = `[${VERSE_FOCUS}="${verse.getAttribute(VERSE_FOCUS)}"]`;
     const aside = titleRef.current?.closest("aside");
+    if (!aside?.contains(document.activeElement))
+      requestAnimationFrame(() =>
+        editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true }),
+      );
+    if (!openerSel.current) return;
+    const sel = openerSel.current;
     return () => {
       const active = document.activeElement;
       if (active !== document.body && !aside?.contains(active)) return;
@@ -229,9 +239,7 @@ export function NotePanel({
       // ink re-measures (~340ms) — the chip may be re-created meanwhile
       const refocus = () => {
         if (!document.activeElement || document.activeElement === document.body)
-          document
-            .querySelector<HTMLElement>(`[${NOTE_OPENER}="${CSS.escape(id)}"]`)
-            ?.focus({ preventScroll: true });
+          document.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
       };
       requestAnimationFrame(refocus);
       window.setTimeout(refocus, 450);
@@ -298,16 +306,34 @@ export function NotePanel({
     [note.id],
   );
 
+  // Keys inside the panel (#65): Esc closes it — not when something in it
+  // already used the Esc (an editor popup, the tag input); ⌘/Ctrl+Enter
+  // closes from anywhere in it, the editor included. Drawers own their Esc.
+  const asideRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    onCloseRef.current = onClose;
+  });
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (mobile || !aside) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing) return;
+      const closeKey =
+        (e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("[role=dialog], [role=listbox], [role=menu]")) ||
+        (e.key === "Enter" && (e.metaKey || e.ctrlKey));
+      if (!closeKey) return;
+      e.preventDefault();
+      onCloseRef.current();
+    };
+    aside.addEventListener("keydown", onKey);
+    return () => aside.removeEventListener("keydown", onKey);
+  }, [mobile]);
 
   const status = failed ? "failed" : dirty || inFlight > 0 ? "saving" : "saved";
 
   return (
-    <aside className="flex h-full w-full flex-col bg-background">
+    <aside ref={asideRef} className="flex h-full w-full flex-col bg-background">
       {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
       <PanelHeader onClose={onClose} closeLabel={t("note.close")} className="pl-3">
@@ -338,6 +364,7 @@ export function NotePanel({
       {(() => {
         const editor = (
       <MDXEditor
+        ref={editorRef}
         key={note.id}
         markdown={note.body}
         onChange={setBody}

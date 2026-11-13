@@ -168,7 +168,7 @@ await shot("60-phone-annotation-lines", { w: 390, h: 844, textSize: 150 }, R, as
 await shot("61-text-200-inline-annotation", { textSize: 200 }, R + "?v=5", undefined, true);
 await shot("62-text-150-note-rail", { textSize: 150 }, R + "?v=14");
 await shot("63-clean-dark-highlight-menu", { theme: "dark", style: "clean" }, R, tapHighlight, true);
-await shot("K7-note-chip-keyboard", {}, R + "?v=14", async (p) => { const chip = p.getByRole("button", { name: /^Open note: The bronze serpent/ }).first(); await chip.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(1200); must((await active(p)).tag === "INPUT" && (await active(p)).inPanel, `focus not in note: ${JSON.stringify(await active(p))}`); await p.keyboard.press("Escape"); await p.waitForTimeout(800); must(/^Open note: The bronze serpent/.test((await active(p)).label ?? ""), `focus did not return to chip: ${JSON.stringify(await active(p))}`); });
+await shot("K7-note-chip-keyboard", {}, R + "?v=14", async (p) => { const chip = p.getByRole("button", { name: /^Open note: The bronze serpent/ }).first(); await chip.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(1200); must((await p.evaluate(() => document.activeElement?.isContentEditable)) && (await active(p)).inPanel, `focus not in note body: ${JSON.stringify(await active(p))}`); await p.keyboard.press("Escape"); await p.waitForTimeout(800); must(/^Open note: The bronze serpent/.test((await active(p)).label ?? ""), `focus did not return to chip: ${JSON.stringify(await active(p))}`); });
 await shot("K8-highlight-menu-keyboard", {}, R, async (p) => { await tapHighlight(p); must((await p.getByRole("menu").count()) === 1, "no menu"); await p.keyboard.press("ArrowDown"); must(await p.evaluate(() => document.activeElement?.getAttribute("role")?.startsWith("menuitem")), "arrows do not reach the items"); await p.keyboard.press("Escape"); await p.waitForTimeout(500); must((await p.getByRole("menu").count()) === 0, "Esc did not close"); must(await p.evaluate(() => document.activeElement?.id === "chapter-text"), "focus did not return to the text"); });
 // #64 feedback & safety: toasts with Undo (every Undo restores what the shot deleted — the shot FAILs
 // if it doesn't), honest note save state, labelled log-out + confirm, skeletons, failed writes surface.
@@ -234,6 +234,55 @@ await shot("70b-skeleton-topic", {}, R, async (p) => { await p.route("**/api/tag
 await shot("71-prefs-save-failed", {}, R, async (p) => { await p.route("**/api/preferences", (r) => (r.request().method() === "PATCH" ? r.fulfill({ status: 500, body: "{}" }) : r.continue())); await openSettings(p); await p.getByRole("button", { name: /^Clean$/ }).click(); await p.waitForTimeout(900); must(/Couldn.t save/.test(await toast(p).innerText()), "no save-failed toast"); });
 await shot("K9-logout-keyboard", {}, R, async (p) => { const b = p.getByRole("button", { name: /^Log out$/ }); await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(700); must((await active(p)).inDialog, "focus not in log-out dialog"); await p.keyboard.press("Escape"); await p.waitForTimeout(600); must((await p.getByRole("alertdialog").count()) === 0, "Esc did not close"); must(/^Log out$/.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
 await shot("72-copy-toast", {}, R, async (p) => { await p.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE }); await tapHighlight(p); await p.getByRole("menuitem", { name: /^Copy/ }).click(); await p.waitForTimeout(800); must(/^Copied John 3:3/.test(await toast(p).innerText()), `no copy toast: ${await toast(p).innerText().catch(() => "")}`); must(/John 3:3/.test(await p.evaluate(() => navigator.clipboard.readText())), "clipboard missing reference"); });
+// #65 keyboard study: verse focus (roving Tab stop), keyboard selection, h/n/m/c, panel keys, ? list.
+// Every check FAILs loudly; data the shots create is deleted again by API.
+const verseNow = (p) => p.evaluate(() => document.activeElement?.getAttribute("data-verse-focus"));
+const toVerse = async (p, n) => { await p.evaluate(() => document.getElementById("chapter-text").focus()); await p.keyboard.press("Tab"); for (let i = 1; i < n; i++) await p.keyboard.press("ArrowDown"); await p.waitForTimeout(400); must((await verseNow(p)) === String(n), `cursor not on verse ${n}: ${await verseNow(p)}`); };
+const apiJson = async (p, path) => JSON.parse(await apiText(p, path));
+const apiDelete = (p, path) => p.evaluate(async (path) => { await fetch(path, { method: "DELETE", credentials: "include" }); }, path);
+await shot("K10-verse-focus", {}, R, async (p) => { await toVerse(p, 3); must(/^Verse 3: /.test((await active(p)).label ?? ""), `verse label: ${(await active(p)).label}`); await p.keyboard.press("ArrowUp"); must((await verseNow(p)) === "2", "↑ did not move"); await p.keyboard.press("ArrowDown"); });
+await shot("K11-shift-select-menu", {}, R, async (p) => {
+  await toVerse(p, 4); for (let i = 0; i < 4; i++) await p.keyboard.press("Shift+ArrowRight"); await p.waitForTimeout(300);
+  must(!p.url().includes("p=2"), "Shift+→ turned the page"); await p.keyboard.press("Enter"); await p.waitForTimeout(600);
+  must((await p.getByRole("menu").count()) === 1, "Enter did not open the menu"); await snap(p, "K11-keyboard-selection-menu");
+  await p.keyboard.press("Escape"); await p.waitForTimeout(500); must((await p.getByRole("menu").count()) === 0, "Esc did not close"); must((await verseNow(p)) === "4", `focus did not return to verse 4: ${JSON.stringify(await active(p))}`);
+});
+await shot("K12-h-highlight", {}, R, async (p) => {
+  const before = (await apiJson(p, HL)).length; await toVerse(p, 2); await p.keyboard.press("h"); await p.waitForTimeout(900);
+  const after = await apiJson(p, HL); must(after.length === before + 1, "h did not highlight"); const h = after.find((x) => x.startVerse === 2 && x.endVerse === 2);
+  must(h && h.startWord === 0, "highlight is not the whole verse"); await p.keyboard.press("Enter"); await p.waitForTimeout(600);
+  must(/Highlight/.test((await p.getByRole("menu").getAttribute("aria-label")) ?? ""), "Enter on a highlighted verse did not open its menu"); await snap(p, "K12-highlight-menu-keyboard");
+  await p.keyboard.press("Escape"); await apiDelete(p, `/api/highlights/${h.id}`);
+});
+await shot("K13-n-note-roundtrip", {}, R, async (p) => {
+  await toVerse(p, 6); await p.keyboard.press("n"); await p.waitForTimeout(1500);
+  must((await p.evaluate(() => document.activeElement?.isContentEditable)) && (await active(p)).inPanel, `focus not in new note body: ${JSON.stringify(await active(p))}`);
+  await p.keyboard.type("Keyboard note"); await p.waitForTimeout(1200); await snap(p, "K13-new-note-body-focus");
+  await p.keyboard.press("Escape"); await p.waitForTimeout(900); must((await p.locator("aside").count()) === 0, "Esc did not close the note"); must((await verseNow(p)) === "6", `focus did not return to verse 6: ${JSON.stringify(await active(p))}`);
+  for (const n of await apiJson(p, `/api/notes?${CH}`)) if (n.body.includes("Keyboard note")) await apiDelete(p, `/api/notes/${n.id}`);
+});
+await shot("K14-m-annotate", {}, R, async (p) => { await toVerse(p, 7); await p.keyboard.press("m"); await p.waitForTimeout(700); must((await active(p)).tag === "TEXTAREA", "m did not open the composer"); await snap(p, "K14-annotate-composer-keyboard"); await p.keyboard.press("Escape"); await p.waitForTimeout(500); must((await verseNow(p)) === "7", "focus did not return to verse 7"); });
+await shot("K15-c-copy", {}, R, async (p) => { await p.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE }); await toVerse(p, 5); await p.keyboard.press("c"); await p.waitForTimeout(800); must(/^Copied John 3:5\b/.test(await toast(p).innerText()), `no copy toast: ${await toast(p).innerText().catch(() => "")}`); must(/John 3:5/.test(await p.evaluate(() => navigator.clipboard.readText())), "clipboard missing reference"); });
+await shot("K16-cursor-follows-pages", {}, R, async (p) => {
+  await toVerse(p, 1); let n = 1; while (!p.url().includes("p=2") && n < 40) { await p.keyboard.press("ArrowDown"); n++; await p.waitForTimeout(150); }
+  must(p.url().includes("p=2"), "↓ never reached page 2"); await p.waitForTimeout(500);
+  const ok = await p.evaluate(() => { const a = document.activeElement.getBoundingClientRect(); const c = document.getElementById("chapter-text").parentElement.getBoundingClientRect(); return a.left >= c.left - 1 && a.right <= c.right + 1; });
+  must(ok, "focused verse is not on the visible page"); must(await p.evaluate(() => [...document.querySelectorAll(".overflow-hidden")].every((e) => e.scrollLeft === 0)), "the sheet scrolled sideways");
+  await p.keyboard.press("Home"); await p.waitForTimeout(700); must(!p.url().includes("p="), "Home did not go to page 1"); must((await verseNow(p)) === "1", `cursor did not follow Home: ${await verseNow(p)}`);
+  await p.keyboard.press("End"); await p.waitForTimeout(700); must(p.url().includes("p="), "End did not turn");
+  const offPage = await p.evaluate(() => { const c = document.getElementById("chapter-text").parentElement.getBoundingClientRect(); return [...document.querySelectorAll("#chapter-text button, #chapter-text a[href]")].filter((e) => !e.inert).filter((e) => { const r = e.getBoundingClientRect(); return r.right < c.left || r.left > c.right; }).length; });
+  must(offPage === 0, `${offPage} off-page controls still tabbable`);
+});
+await shot("K17-shortcuts-dialog", {}, R, async (p) => { await p.locator("body").press("?"); await p.waitForTimeout(600); must((await p.getByRole("dialog", { name: /Keyboard shortcuts/ }).count()) === 1, "? did not open the list"); }, true);
+await shot("K17b-shortcuts-dialog-da", { lang: "da", theme: "dark" }, R, async (p) => { await p.locator("body").press("?"); await p.waitForTimeout(600); must((await p.getByRole("dialog", { name: /Tastaturgenveje/ }).count()) === 1, "? did not open the list"); });
+await shot("K18-panel-keys", {}, R, async (p) => {
+  if ((await p.locator("aside").count()) > 0) { await p.keyboard.press("Control+."); await p.waitForTimeout(600); }
+  await toVerse(p, 2); await p.keyboard.press("Control+."); await p.waitForTimeout(900); must((await p.locator("aside h2", { hasText: PANEL }).count()) === 1, "Ctrl+. did not open Notes & topics");
+  await p.keyboard.press("F6"); await p.waitForTimeout(300); must((await active(p)).inPanel, "F6 did not move into the panel");
+  await p.keyboard.press("F6"); await p.waitForTimeout(300); must((await verseNow(p)) === "2", `F6 did not come back to the verse: ${JSON.stringify(await active(p))}`);
+  await p.keyboard.press("Control+."); await p.waitForTimeout(600); must((await p.locator("aside h2", { hasText: PANEL }).count()) === 0, "Ctrl+. did not close");
+});
+await shot("K19-brackets", {}, R, async (p) => { await p.locator("body").press("]"); await p.waitForTimeout(1500); must(/\/read\/JHN\/4/.test(p.url()), `] went to ${p.url()}`); await p.locator("body").press("["); await p.waitForTimeout(1500); must(/\/read\/JHN\/3(\?|$)/.test(p.url()), `[ went to ${p.url()}`); });
 // Leave the account at the default size
 { const ctx = await ctxFor({}); await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: "paper", textSize: 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } }); await ctx.close(); }
 fs.writeFileSync(`${OUT}/axe${ONLY ? "-partial" : ""}.json`, JSON.stringify(audits, null, 1));

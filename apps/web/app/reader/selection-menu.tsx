@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
 } from "~/components/ui/dropdown-menu";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
 import { Popover, PopoverContent } from "~/components/ui/popover";
@@ -138,9 +139,12 @@ export function ActionMenuItem({
   destructive = false,
   hint,
   icon,
+  shortcut,
   children,
 }: {
   onSelect: () => void;
+  /** Its key on a focused verse or in this menu (#65), e.g. "n". Desktop only. */
+  shortcut?: string;
   /** Destructive actions go last and read red (Remove). */
   destructive?: boolean;
   /** Tooltip with the longer explanation. */
@@ -174,6 +178,7 @@ export function ActionMenuItem({
     >
       {icon}
       {children}
+      {shortcut && <DropdownMenuShortcut className="font-mono">{shortcut}</DropdownMenuShortcut>}
     </DropdownMenuItem>
   );
 }

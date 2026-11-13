@@ -31,6 +31,15 @@ import {
 import type { NoteMark } from "./use-notes";
 import { NOTE_OPENER } from "./note-panel";
 import { layoutChapter, type WordPiece } from "./chapter-layout";
+import {
+  extendByVerse,
+  extendByWord,
+  type KeySel,
+  stepVerse,
+  type VerseIndex,
+  VERSE_FOCUS,
+  verseSel,
+} from "./keyboard-selection";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -117,6 +126,8 @@ export function ChapterText({
   onOpenNote,
   onFocusAnnotation,
   onSelectionChange,
+  rovingVerse,
+  onRovingVerseChange,
   inlineAnnotations = false,
   firstUseHint = false,
   onDismissHint,
@@ -149,6 +160,10 @@ export function ChapterText({
   onFocusAnnotation: (id: string | null) => void;
   /** The live selection (wash painted by HighlightMarks, behind the text). */
   onSelectionChange: (anchor: Anchor | null) => void;
+  /** The verse Tab lands on (#65): kept on the current page by the reader;
+   * null = the chapter's first verse. */
+  rovingVerse: number | null;
+  onRovingVerseChange: (verse: number) => void;
   /** No margin lanes (phones with boxes on, narrow desktop panes): each
    * annotation prints as a line under its verse — in the flow, never over
    * the text (#63). */
@@ -204,6 +219,20 @@ export function ChapterText({
     [touchSel, chapter.translationId, chapter.book, chapter.chapter],
   );
   useEffect(() => onSelectionChange(selAnchor), [selAnchor, onSelectionChange]);
+
+  // Keyboard study (#65): verse cursor + word-snapped selection (touchSel)
+  const verseIdx = useMemo<VerseIndex>(
+    () => ({
+      order: chapter.verses.map((v) => v.verse),
+      words: new Map(chapter.verses.map((v) => [v.verse, words(v.text).length])),
+    }),
+    [chapter],
+  );
+  const tabVerse =
+    rovingVerse !== null && verseIdx.words.has(rovingVerse) ? rovingVerse : verseIdx.order[0];
+  /** Verse whose number has keyboard focus (focus-visible): its words get a
+   * quiet underline, so it is clear what h/n/m/c act on. */
+  const [focusedVerse, setFocusedVerse] = useState<number | null>(null);
 
   // Handle positions, measured from the boundary words (fixed/viewport coords
   // — getBoundingClientRect sees through the sheet's scale transform)
@@ -275,6 +304,171 @@ export function ChapterText({
     return rootRef.current?.querySelector<HTMLElement>(`[data-verse="${verse}"][data-word="${word}"]`);
   }
 
+  /** What the keys act on: the selection, else the whole cursor verse. */
+  function keyTarget(cursor: number): Anchor {
+    const sel = touchSel ?? verseSel(verseIdx, cursor);
+    return buildAnchor(passage, sel.a, sel.b);
+  }
+
+  /** Move the verse cursor (the reader turns to its page on focus). */
+  function focusVerse(verse: number) {
+    onRovingVerseChange(verse);
+    rootRef.current
+      ?.querySelector<HTMLElement>(`[${VERSE_FOCUS}="${verse}"]`)
+      ?.focus({ preventScroll: true });
+  }
+
+  /** Enter / menu key on a verse: the selection's menu; without one, the
+   * verse's highlight (if it has one), else the whole verse selected. */
+  function openMenuFor(cursor: number) {
+    if (touchSel) {
+      setMenu({ kind: "selection", anchor: buildAnchor(passage, touchSel.a, touchSel.b) });
+      return;
+    }
+    const count = verseIdx.words.get(cursor) ?? 0;
+    for (let w = 0; w < count; w++) {
+      const hit = hlCoverage.get(`${cursor}:${w}`);
+      if (hit) {
+        setMenu({ kind: "highlight", highlight: hit, at: { verse: cursor, word: w } });
+        return;
+      }
+    }
+    const sel = verseSel(verseIdx, cursor);
+    setTouchSel(sel);
+    setMenu({ kind: "selection", anchor: buildAnchor(passage, sel.a, sel.b) });
+  }
+
+  /** h / n / m / c on an anchor — from a focused verse or its open menu. */
+  function keyAction(key: string, anchor: Anchor, highlight: Highlight | null): boolean {
+    if (key === "h" && !highlight) {
+      const exists = highlights.some(
+        (h) =>
+          h.startVerse === anchor.startVerse &&
+          h.startWord === anchor.startWord &&
+          h.endVerse === anchor.endVerse &&
+          h.endWord === anchor.endWord,
+      );
+      if (!exists) addHighlight(anchor, defaultColor);
+    } else if (key === "n") onAddNote(anchor);
+    else if (key === "m" && !highlight) {
+      setDraft("");
+      const compose = { kind: "compose" as const, anchor };
+      nextMenu.current = compose;
+      setMenu(compose);
+      // The wash stays on the words being annotated
+      setTouchSel((sel) => sel ?? { a: { verse: anchor.startVerse, word: anchor.startWord }, b: { verse: anchor.endVerse, word: anchor.endWord } });
+      return true;
+    } else if (key === "c") void copyAnchorText(anchor);
+    else return false;
+    return true;
+  }
+
+  /** Keys on a focused verse number (and h/n/m/c inside its action menu). */
+  function onTextKey(e: KeyboardEvent) {
+    if (e.defaultPrevented || e.isComposing || e.altKey || e.ctrlKey || e.metaKey) return;
+    const target = e.target as HTMLElement | null;
+    const m = menuRef.current;
+    // Shortcut letters inside the open action menu act like its items
+    if (m && (m.kind === "selection" || m.kind === "highlight") && target?.closest(`[${SELECTION_UI_ATTR}]`)) {
+      if (e.shiftKey) return;
+      const anchor = m.kind === "highlight" ? m.highlight : m.anchor;
+      const willCompose = e.key === "m" && m.kind === "selection";
+      if (keyAction(e.key, anchor, m.kind === "highlight" ? m.highlight : null)) {
+        e.preventDefault();
+        e.stopPropagation(); // no typeahead in the menu
+        if (!willCompose) closeMenu(true);
+      }
+      return;
+    }
+    const verseEl = target?.closest<HTMLElement>(`[${VERSE_FOCUS}]`);
+    if (!verseEl || !rootRef.current?.contains(verseEl) || m) return;
+    const cursor = Number(verseEl.getAttribute(VERSE_FOCUS));
+    const handled = (): void => e.preventDefault(); // global keys see defaultPrevented
+    const step = (dir: -1 | 1, by: "word" | "verse") => {
+      const next: KeySel =
+        by === "word" ? extendByWord(verseIdx, touchSel, cursor, dir) : extendByVerse(verseIdx, touchSel, cursor, dir);
+      setTouchSel(next);
+      if (next.b.verse !== cursor) focusVerse(next.b.verse);
+    };
+    switch (e.key) {
+      case "ArrowUp":
+      case "ArrowDown": {
+        const dir = e.key === "ArrowUp" ? -1 : 1;
+        if (e.shiftKey) step(dir, "verse");
+        else {
+          setTouchSel(null);
+          focusVerse(stepVerse(verseIdx, cursor, dir));
+        }
+        return handled();
+      }
+      case "ArrowLeft":
+      case "ArrowRight":
+        if (!e.shiftKey) return; // plain ←/→ still turn the page
+        step(e.key === "ArrowLeft" ? -1 : 1, "word");
+        return handled();
+      case "Enter":
+      case " ":
+      case "ContextMenu":
+        openMenuFor(cursor);
+        return handled();
+      case "F10":
+        if (!e.shiftKey) return;
+        openMenuFor(cursor);
+        return handled();
+      case "Escape":
+        if (!touchSel) return;
+        setTouchSel(null);
+        return handled();
+      default:
+        if (e.shiftKey) return;
+        if (keyAction(e.key, keyTarget(cursor), null)) {
+          if (e.key !== "m") setTouchSel(null);
+          handled();
+        }
+    }
+  }
+  const onTextKeyRef = useRef(onTextKey);
+  onTextKeyRef.current = onTextKey;
+  const onRovingRef = useRef(onRovingVerseChange);
+  onRovingRef.current = onRovingVerseChange;
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onKey = (e: KeyboardEvent) => onTextKeyRef.current(e);
+    // Capture: the menu's own typeahead must not see its shortcut letters
+    document.addEventListener("keydown", onKey, true);
+    // The context-menu key also fires contextmenu: no native menu on a verse
+    const onContext = (e: MouseEvent) => {
+      if ((e.target as HTMLElement | null)?.closest?.(`[${VERSE_FOCUS}]`)) e.preventDefault();
+    };
+    root.addEventListener("contextmenu", onContext);
+    const onFocusIn = (e: FocusEvent) => {
+      const el = (e.target as HTMLElement).closest?.<HTMLElement>(`[${VERSE_FOCUS}]`);
+      setFocusedVerse(el && el.matches(":focus-visible") ? Number(el.getAttribute(VERSE_FOCUS)) : null);
+      // Focus arriving any way (focus return, F6) makes that verse the Tab stop
+      if (el) onRovingRef.current(Number(el.getAttribute(VERSE_FOCUS)));
+    };
+    // Focus leaving the text (not into its menu) drops a keyboard selection
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as HTMLElement | null;
+      if (next && root.contains(next)) return;
+      setFocusedVerse(null);
+      if (menuRef.current || dragSel.current) return;
+      if (next?.closest(`[${SELECTION_UI_ATTR}]`) || (next && root.closest("#chapter-text")?.contains(next)))
+        return;
+      setTouchSel(null);
+    };
+    root.addEventListener("focusin", onFocusIn);
+    root.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      root.removeEventListener("contextmenu", onContext);
+      root.removeEventListener("focusin", onFocusIn);
+      root.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+
   /** Word rects of an anchor (layout + transform aware, viewport px). */
   function anchorRects(a: Anchor): Rect[] {
     const out: Rect[] = [];
@@ -333,7 +527,9 @@ export function ChapterText({
       ? menu.anchor
       : menu?.kind === "highlight"
         ? menu.highlight
-        : null;
+        : !menu && focusedVerse !== null
+          ? keyTarget(focusedVerse)
+          : null;
   useEffect(() => {
     if (!copyAnchor) return;
     const onCopy = (e: ClipboardEvent) => {
@@ -494,6 +690,8 @@ export function ChapterText({
   // Last piece of each verse (a verse can run over several poetry lines)
   const lastPiece = new Map<number, string>();
   blocks.forEach((b, bi) => b.pieces.forEach((p, pi) => lastPiece.set(p.verse.verse, `${bi}:${pi}`)));
+  // The verse's own number is its keyboard stop (#65) — the first one only
+  const numbered = new Set<number>();
 
   return (
     <div
@@ -559,13 +757,34 @@ export function ChapterText({
               const lines = lastPiece.get(v.verse) === `${bi}:${pi}` ? linesByVerse.get(v.verse) : undefined;
               return (
                 <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
-                  {piece.showNumber && (
-                    // Small, muted verse number; zero line-height so it never
-                    // opens a gap in the leading. Bridges print "14–15".
-                    <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
-                      {v.label ?? v.verse}
-                    </sup>
-                  )}
+                  {piece.showNumber &&
+                    (numbered.has(v.verse) ? (
+                      <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
+                        {v.label ?? v.verse}
+                      </sup>
+                    ) : (
+                      (numbered.add(v.verse),
+                      (
+                        // Small, muted verse number; zero line-height so it never
+                        // opens a gap in the leading. Bridges print "14–15".
+                        // Also the verse's keyboard stop (#65): roving tabindex,
+                        // Enter opens its menu, ↑/↓ move between verses. A span
+                        // styled as the <sup> (a sup can't take a button role).
+                        <span
+                          {...{ [VERSE_FOCUS]: v.verse }}
+                          role="button"
+                          aria-haspopup="menu"
+                          aria-label={t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text })}
+                          tabIndex={v.verse === tabVerse ? 0 : -1}
+                          className={cn(
+                            "mr-1 rounded-sm align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none",
+                            focusRing,
+                          )}
+                        >
+                          {v.label ?? v.verse}
+                        </span>
+                      ))
+                    ))}
                   {piece.showNumber &&
                     markersByVerse.get(v.verse)?.map((m) => (
                       // Phone note marker: never over the text — it IS text-flow
@@ -611,7 +830,12 @@ export function ChapterText({
                           key={`${i}${cut ? "a" : ""}`}
                           data-verse={v.verse}
                           data-word={i}
-                          className={marked || mobile ? "cursor-pointer" : undefined}
+                          className={cn(
+                            (marked || mobile) && "cursor-pointer",
+                            // The keyboard cursor's verse (#65)
+                            focusedVerse === v.verse &&
+                              "underline decoration-primary decoration-dotted decoration-1 underline-offset-[0.3em]",
+                          )}
                         >
                           {text}
                           {cut ? "" : " "}
@@ -757,6 +981,7 @@ export function ChapterText({
             <ActionMenuSeparator />
             <ActionMenuItem
               hint={t("menu.annotateHint")}
+              shortcut="m"
               onSelect={() => {
                 setDraft("");
                 const compose = { kind: "compose" as const, anchor: menu.anchor };
@@ -766,7 +991,7 @@ export function ChapterText({
             >
               {t("menu.annotate")}
             </ActionMenuItem>
-            <ActionMenuItem hint={t("menu.createNoteHint")} onSelect={() => onAddNote(menu.anchor)}>
+            <ActionMenuItem hint={t("menu.createNoteHint")} shortcut="n" onSelect={() => onAddNote(menu.anchor)}>
               {t("menu.createNote")}
             </ActionMenuItem>
             {allNotes.length > 0 && (
@@ -782,7 +1007,7 @@ export function ChapterText({
               </ActionMenuItem>
             )}
             <ActionMenuSeparator />
-            <ActionMenuItem hint={t("menu.copyHint")} onSelect={() => void copyAnchorText(menu.anchor)}>
+            <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.anchor)}>
               {t("menu.copy")}
             </ActionMenuItem>
           </>
@@ -797,10 +1022,10 @@ export function ChapterText({
               }}
             />
             <ActionMenuSeparator />
-            <ActionMenuItem hint={t("menu.createNoteHint")} onSelect={() => onAddNote(menu.highlight)}>
+            <ActionMenuItem hint={t("menu.createNoteHint")} shortcut="n" onSelect={() => onAddNote(menu.highlight)}>
               {t("menu.addNote")}
             </ActionMenuItem>
-            <ActionMenuItem hint={t("menu.copyHint")} onSelect={() => void copyAnchorText(menu.highlight)}>
+            <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.highlight)}>
               {t("menu.copy")}
             </ActionMenuItem>
             <ActionMenuSeparator />

@@ -30,6 +30,7 @@ import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { notifyError } from "~/lib/notify";
 import { api } from "~/lib/query";
 import { PanelHeader, panelTitleClass } from "./panel-header";
+import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
 
 const chipClass =
   "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-semibold text-primary transition-colors hover:bg-primary/25";
@@ -53,7 +54,15 @@ export function AccountChip() {
     setDeleteOpen(true);
   }
 
-  const content = <SettingsContent email={email} onDelete={askDelete} />;
+  /** The `?` list (#65) — the popover closes first, the dialog takes over. */
+  function showShortcuts() {
+    setOpen(false);
+    window.dispatchEvent(new Event(OPEN_SHORTCUTS));
+  }
+
+  const content = (
+    <SettingsContent email={email} onDelete={askDelete} onShortcuts={isMobile ? undefined : showShortcuts} />
+  );
 
   return (
     <>
@@ -181,7 +190,16 @@ function saveSize(size: Parameters<typeof saveTextSize>[0]) {
   saveTextSize(size).catch((e: unknown) => notifyError(e, { retry: () => saveSize(size) }));
 }
 
-function SettingsContent({ email, onDelete }: { email: string; onDelete: () => void }) {
+function SettingsContent({
+  email,
+  onDelete,
+  onShortcuts,
+}: {
+  email: string;
+  onDelete: () => void;
+  /** Keyboard users only (desktop): opens the shortcuts list. */
+  onShortcuts?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const ids = useId();
   const theme = useThemePref();
@@ -243,6 +261,15 @@ function SettingsContent({ email, onDelete }: { email: string; onDelete: () => v
           ]}
         />
       </SettingRow>
+
+      {onShortcuts && (
+        <Button variant="ghost" className="h-10 justify-between px-0 hover:bg-transparent hover:underline" onClick={onShortcuts}>
+          {t("nav.shortcuts")}
+          <kbd data-slot="kbd" className="rounded border border-border bg-muted px-1.5 font-mono text-xs leading-5">
+            ?
+          </kbd>
+        </Button>
+      )}
 
       <Separator className="my-2" />
 
