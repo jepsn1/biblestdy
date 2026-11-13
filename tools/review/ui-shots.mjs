@@ -1,6 +1,8 @@
 // UI review evidence pack: screenshots of every screen/overlay + axe-core audit.
 // Usage (from a dir with `npm i playwright axe-core`): see docs/REVIEW-PROCESS.md.
 // Env: BASE (dev web url), COOKIES (curl cookie jar with better-auth.session_token), OUT (output dir).
+// Known gap: the custom pointer selection in chapter-text.tsx is not triggered by page.mouse drags
+// (shot 10 comes out without the menu) — capture the selection menu by hand until fixed.
 // Seeds are not created here — run seed.sh first. Shots that fail print FAIL and are skipped.
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -19,6 +21,8 @@ async function ctxFor({ w = 1440, h = 900, theme = "light", lang = "en", auth = 
 async function shot(name, opts, path, steps = async () => {}, audit = false) {
   const ctx = await ctxFor(opts); const page = await ctx.newPage();
   try {
+    // The account's saved style wins over localStorage, so set it server-side per shot.
+    if (opts.auth !== false) await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: opts.style ?? "paper" }, headers: { Origin: process.env.ORIGIN ?? BASE } });
     await page.goto(BASE + path); await page.waitForTimeout(2500);
     await steps(page); await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/${name}.png` });
