@@ -18,8 +18,8 @@ import {
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
 import { PANEL_TOGGLE } from "./connections-panel";
-import { JumpBox } from "./jump-box";
 import { MoreSheet } from "./more-sheet";
+import { PaletteTrigger } from "../palette/palette-trigger";
 import { TranslationChooser } from "./translation-chooser";
 
 export function ReaderNav({
@@ -106,7 +106,7 @@ export function ReaderNav({
         )}
 
         {/* Go to reference (#53): inline from sm, a search icon on phones */}
-        <JumpBox />
+        <PaletteTrigger />
 
         {/* "Notes & topics" (#62, was the unexplained "Connections"): icon +
             tooltip from sm, the word itself from 1180px. Phones reach it, the

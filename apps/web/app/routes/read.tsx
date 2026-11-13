@@ -21,6 +21,9 @@ import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
 import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
 import { SupportNotice } from "../reader/support-notice";
+import { CommandPalette, OPEN_PALETTE } from "../palette/command-palette";
+import { pushRecent } from "~/lib/recent-passages";
+import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
 
 let translationsCache: Translation[] | undefined;
@@ -90,6 +93,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const here = `${chapter.book}/${chapter.chapter}`;
   const stored = localStorage.getItem("lastRead");
   if (stored !== here && !stored?.startsWith(`${here}?`)) localStorage.setItem("lastRead", here);
+  pushRecent({ book: chapter.book, chapter: chapter.chapter });
   return {
     chapter,
     translation,
@@ -157,6 +161,12 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   // Reader-wide keys (#65): `?` lists every shortcut; ⌘. / Ctrl+. toggles
   // Notes & topics (from anywhere, the note editor included).
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setPaletteOpen(true);
+    window.addEventListener(OPEN_PALETTE, open);
+    return () => window.removeEventListener(OPEN_PALETTE, open);
+  }, []);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === ".") {
@@ -242,6 +252,23 @@ export default function Read({ loaderData }: Route.ComponentProps) {
         />
       </SidebarInset>
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        reader={{
+          book: chapter.book,
+          chapter: chapter.chapter,
+          translations,
+          translationId: translation.id,
+          switchTranslation,
+          toggleConnections,
+          connectionsOpen: sideView === "connections",
+          toggleMarginNotes: () => setAnnotationBoxesOpen((v) => !v),
+          marginNotesOpen: annotationBoxesOpen,
+          prevHref: prevChapter ? chapterHref(prevChapter) : null,
+          nextHref: nextChapter ? chapterHref(nextChapter) : null,
+        }}
+      />
       {supportOpen && <SupportNotice onClose={closeSupport} />}
       {needsStyleChoice && !styleChosen && (
         <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
