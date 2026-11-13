@@ -57,8 +57,17 @@ export class NotesService {
     return note;
   }
 
+  /** Soft delete (#64) — restore() undoes it until the purge runs. */
   async remove(userId: string, id: string): Promise<boolean> {
     return this.store.deleteNote(userId, id);
+  }
+
+  /** Undo a delete: the note returns with all its anchors (and tags). */
+  async restore(userId: string, id: string): Promise<Note | null> {
+    const row = await this.store.restoreNote(userId, id);
+    if (!row) return null;
+    const [note] = await this.withAnchors([row]);
+    return note;
   }
 
   /** Anchors an existing note to another passage. Anchoring the exact same

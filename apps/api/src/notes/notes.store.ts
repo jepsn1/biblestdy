@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import type { Anchor } from '@biblestdy/shared';
 import { db } from '../db';
 import { note, noteAnchor } from '../db/schema';
@@ -17,6 +17,9 @@ export interface AnchorRow extends Anchor {
   noteId: string;
 }
 
+/** Live notes only — soft-deleted ones (#64) are invisible to every read. */
+const live = isNull(note.deletedAt);
+
 /**
  * Persistence primitives for the note↔anchor graph. The M:N rules (first
  * anchor on create, dedupe, last-anchor guard) live in NotesService — tests
@@ -33,7 +36,15 @@ export interface NoteStore {
     id: string,
     patch: { title?: string; body?: string },
   ): Promise<NoteRow | null>;
+  /** Soft delete (#64): the note leaves every read below; anchors and tags
+   * stay attached so restoreNote brings it back exactly. */
   deleteNote(userId: string, id: string): Promise<boolean>;
+  /** Undo a deleteNote; null if no deleted note of the user's has the id. */
+  restoreNote(userId: string, id: string): Promise<NoteRow | null>;
+  /** Account deletion: ids of ALL the user's notes, soft-deleted included. */
+  allNoteIds(userId: string): Promise<string[]>;
+  /** Hard delete (account deletion) — the note and its anchors are gone. */
+  purgeNote(userId: string, id: string): Promise<boolean>;
   /** All notes of the user, most recently updated first. */
   listNotes(userId: string): Promise<NoteRow[]>;
   /** Notes of the user having at least one anchor in the chapter. */
@@ -71,7 +82,7 @@ export class DrizzleNoteStore implements NoteStore {
     const [row] = await db
       .select()
       .from(note)
-      .where(and(eq(note.id, id), eq(note.userId, userId)));
+      .where(and(eq(note.id, id), eq(note.userId, userId), live));
     return row ?? null;
   }
 
@@ -83,12 +94,44 @@ export class DrizzleNoteStore implements NoteStore {
     const [row] = await db
       .update(note)
       .set({ ...patch, updatedAt: new Date() })
-      .where(and(eq(note.id, id), eq(note.userId, userId)))
+      .where(and(eq(note.id, id), eq(note.userId, userId), live))
       .returning();
     return row ?? null;
   }
 
   async deleteNote(userId: string, id: string): Promise<boolean> {
+    const deleted = await db
+      .update(note)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(note.id, id), eq(note.userId, userId), live))
+      .returning({ id: note.id });
+    return deleted.length > 0;
+  }
+
+  async restoreNote(userId: string, id: string): Promise<NoteRow | null> {
+    const [row] = await db
+      .update(note)
+      .set({ deletedAt: null })
+      .where(
+        and(
+          eq(note.id, id),
+          eq(note.userId, userId),
+          isNotNull(note.deletedAt),
+        ),
+      )
+      .returning();
+    return row ?? null;
+  }
+
+  async allNoteIds(userId: string): Promise<string[]> {
+    const rows = await db
+      .select({ id: note.id })
+      .from(note)
+      .where(eq(note.userId, userId));
+    return rows.map((r) => r.id);
+  }
+
+  async purgeNote(userId: string, id: string): Promise<boolean> {
     const deleted = await db
       .delete(note)
       .where(and(eq(note.id, id), eq(note.userId, userId)))
@@ -100,7 +143,7 @@ export class DrizzleNoteStore implements NoteStore {
     return db
       .select()
       .from(note)
-      .where(eq(note.userId, userId))
+      .where(and(eq(note.userId, userId), live))
       .orderBy(desc(note.updatedAt));
   }
 
@@ -122,6 +165,7 @@ export class DrizzleNoteStore implements NoteStore {
       .where(
         and(
           eq(note.userId, userId),
+          live,
           eq(noteAnchor.translationId, translationId),
           eq(noteAnchor.book, book),
           eq(noteAnchor.chapter, chapter),
@@ -177,6 +221,7 @@ export class DrizzleNoteStore implements NoteStore {
       .where(
         and(
           eq(note.userId, userId),
+          live,
           eq(noteAnchor.book, book),
           eq(noteAnchor.chapter, chapter),
         ),

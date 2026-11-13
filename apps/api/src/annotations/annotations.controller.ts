@@ -70,6 +70,17 @@ export class AnnotationsController {
     return updated;
   }
 
+  /** Undo a delete (#64): the row comes back as it was. */
+  @Post(':id/restore')
+  async restore(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+  ): Promise<Annotation> {
+    const restored = await this.annotations.restore(req.user.id, id);
+    if (!restored) throw new NotFoundException();
+    return restored;
+  }
+
   @Delete(':id')
   async remove(
     @Req() req: AuthedRequest,

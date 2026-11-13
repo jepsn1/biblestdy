@@ -4,7 +4,7 @@ import type { AnchorRow, NoteRow, NoteStore } from './notes.store';
 /** In-memory NoteStore: graph rules and panel assembly (NotesService,
  * ConnectionsService) get behavior-tested without a DB. */
 export class InMemoryNoteStore implements NoteStore {
-  private notes: (NoteRow & { updatedAt: number })[] = [];
+  private notes: (NoteRow & { updatedAt: number; deleted?: boolean })[] = [];
   private anchors: AnchorRow[] = [];
   private seq = 0;
   private tick = 0;
@@ -21,8 +21,15 @@ export class InMemoryNoteStore implements NoteStore {
 
   getNote(userId: string, id: string) {
     return Promise.resolve(
-      this.notes.find((n) => n.id === id && n.userId === userId) ?? null,
+      this.notes.find(
+        (n) => n.id === id && n.userId === userId && !n.deleted,
+      ) ?? null,
     );
+  }
+
+  /** Live notes only (soft delete, #64). */
+  private live() {
+    return this.notes.filter((n) => !n.deleted);
   }
 
   async updateNote(
@@ -39,14 +46,35 @@ export class InMemoryNoteStore implements NoteStore {
   async deleteNote(userId: string, id: string) {
     const row = await this.getNote(userId, id);
     if (!row) return false;
+    row.deleted = true;
+    return true;
+  }
+
+  restoreNote(userId: string, id: string) {
+    const row = this.notes.find(
+      (n) => n.id === id && n.userId === userId && n.deleted,
+    );
+    if (row) row.deleted = false;
+    return Promise.resolve(row ?? null);
+  }
+
+  allNoteIds(userId: string) {
+    return Promise.resolve(
+      this.notes.filter((n) => n.userId === userId).map((n) => n.id),
+    );
+  }
+
+  purgeNote(userId: string, id: string) {
+    const row = this.notes.find((n) => n.id === id && n.userId === userId);
+    if (!row) return Promise.resolve(false);
     this.notes = this.notes.filter((n) => n !== row);
     this.anchors = this.anchors.filter((a) => a.noteId !== id);
-    return true;
+    return Promise.resolve(true);
   }
 
   listNotes(userId: string) {
     return Promise.resolve(
-      this.notes
+      this.live()
         .filter((n) => n.userId === userId)
         .sort((a, b) => b.updatedAt - a.updatedAt),
     );
@@ -59,7 +87,7 @@ export class InMemoryNoteStore implements NoteStore {
     chapter: number,
   ) {
     return Promise.resolve(
-      this.notes.filter(
+      this.live().filter(
         (n) =>
           n.userId === userId &&
           this.anchors.some(
@@ -95,7 +123,9 @@ export class InMemoryNoteStore implements NoteStore {
 
   anchorsInChapter(userId: string, book: string, chapter: number) {
     const mine = new Set(
-      this.notes.filter((n) => n.userId === userId).map((n) => n.id),
+      this.live()
+        .filter((n) => n.userId === userId)
+        .map((n) => n.id),
     );
     return Promise.resolve(
       this.anchors.filter(

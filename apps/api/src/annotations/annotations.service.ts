@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { Annotation, NewAnnotation } from '@biblestdy/shared';
 import { db } from '../db';
 import { annotation } from '../db/schema';
@@ -22,6 +22,7 @@ export class AnnotationsService {
           eq(annotation.translationId, translationId),
           eq(annotation.book, book),
           eq(annotation.chapter, chapter),
+          isNull(annotation.deletedAt),
         ),
       );
     return rows.map(toAnnotation);
@@ -49,17 +50,47 @@ export class AnnotationsService {
     const [row] = await db
       .update(annotation)
       .set({ ...patch, updatedAt: new Date() })
-      .where(and(eq(annotation.id, id), eq(annotation.userId, userId)))
+      .where(
+        and(
+          eq(annotation.id, id),
+          eq(annotation.userId, userId),
+          isNull(annotation.deletedAt),
+        ),
+      )
       .returning();
     return row ? toAnnotation(row) : null;
   }
 
+  /** Soft-deletes (#64); true if a live row of the user's was deleted. */
   async remove(userId: string, id: string): Promise<boolean> {
     const deleted = await db
-      .delete(annotation)
-      .where(and(eq(annotation.id, id), eq(annotation.userId, userId)))
+      .update(annotation)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(annotation.id, id),
+          eq(annotation.userId, userId),
+          isNull(annotation.deletedAt),
+        ),
+      )
       .returning({ id: annotation.id });
     return deleted.length > 0;
+  }
+
+  /** Undo a delete (#64) — until the purge took it; null if not found. */
+  async restore(userId: string, id: string): Promise<Annotation | null> {
+    const [row] = await db
+      .update(annotation)
+      .set({ deletedAt: null })
+      .where(
+        and(
+          eq(annotation.id, id),
+          eq(annotation.userId, userId),
+          isNotNull(annotation.deletedAt),
+        ),
+      )
+      .returning();
+    return row ? toAnnotation(row) : null;
   }
 }
 

@@ -16,6 +16,7 @@ function make(overrides: Partial<NotesService> = {}) {
     create: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
+    restore: vi.fn(),
     addAnchor: vi.fn(),
     removeAnchor: vi.fn(),
     ...overrides,

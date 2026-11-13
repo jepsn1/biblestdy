@@ -8,6 +8,7 @@ import { NotesModule } from './notes/notes.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { ScriptureModule } from './scripture/scripture.module';
 import { TagsModule } from './tags/tags.module';
+import { TrashModule } from './trash/trash.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TagsModule } from './tags/tags.module';
     ConnectionsModule,
     TagsModule,
     PreferencesModule,
+    TrashModule,
   ],
   controllers: [AppController],
 })

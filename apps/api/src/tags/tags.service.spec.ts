@@ -117,6 +117,21 @@ describe('TagsService (tags + topics graph)', () => {
     expect(topic!.passages).toHaveLength(1);
   });
 
+  it('restoring a deleted note brings its tags back (#64)', async () => {
+    const { notes, tags } = make();
+    const note = await notes.create('u1', jhn3);
+    await tags.tagNote('u1', note.id, 'grace');
+    await notes.remove('u1', note.id);
+    expect(await tags.tagsForNote('u1', note.id)).toBeNull();
+    expect((await tags.topic('u1', 'grace'))!.notes).toEqual([]);
+
+    await notes.restore('u1', note.id);
+    expect(await tags.tagsForNote('u1', note.id)).toEqual([
+      expect.objectContaining({ name: 'grace' }),
+    ]);
+    expect((await tags.topic('u1', 'grace'))!.notes).toHaveLength(1);
+  });
+
   it('tagging the same passage twice with the same name is a no-op', async () => {
     const { tags } = make();
     await tags.tagPassage('u1', gen1Passage, 'grace');

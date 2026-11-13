@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type {
   HighlightColor,
   Highlight,
@@ -26,6 +26,7 @@ export class HighlightsService {
           eq(highlight.translationId, translationId),
           eq(highlight.book, book),
           eq(highlight.chapter, chapter),
+          isNull(highlight.deletedAt),
         ),
       );
     return rows.map(toHighlight);
@@ -39,13 +40,36 @@ export class HighlightsService {
     return toHighlight(row);
   }
 
-  /** Returns true if a row was deleted (i.e. it existed and belonged to the user). */
+  /** Soft-deletes (#64); true if a live row of the user's was deleted. */
   async remove(userId: string, id: string): Promise<boolean> {
     const deleted = await db
-      .delete(highlight)
-      .where(and(eq(highlight.id, id), eq(highlight.userId, userId)))
+      .update(highlight)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(highlight.id, id),
+          eq(highlight.userId, userId),
+          isNull(highlight.deletedAt),
+        ),
+      )
       .returning({ id: highlight.id });
     return deleted.length > 0;
+  }
+
+  /** Undo a delete (#64) — until the purge took it; null if not found. */
+  async restore(userId: string, id: string): Promise<Highlight | null> {
+    const [row] = await db
+      .update(highlight)
+      .set({ deletedAt: null })
+      .where(
+        and(
+          eq(highlight.id, id),
+          eq(highlight.userId, userId),
+          isNotNull(highlight.deletedAt),
+        ),
+      )
+      .returning();
+    return row ? toHighlight(row) : null;
   }
 }
 
