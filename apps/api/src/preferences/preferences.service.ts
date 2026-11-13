@@ -1,21 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import type { Preferences, ReaderStyle } from '@biblestdy/shared';
+import type { Preferences, PreferencesPatch } from '@biblestdy/shared';
 import type { PreferencesStore } from './preferences.store';
 
-/** Per-account preferences (#45): follow the user across devices. */
+/** Per-account preferences (#45 reader style, #61 text size): follow the
+ * user across devices. */
 @Injectable()
 export class PreferencesService {
   constructor(private readonly store: PreferencesStore) {}
 
-  async get(userId: string): Promise<Preferences> {
-    return { readerStyle: await this.store.readerStyle(userId) };
+  get(userId: string): Promise<Preferences> {
+    return this.store.get(userId);
   }
 
-  async setReaderStyle(
-    userId: string,
-    readerStyle: ReaderStyle,
-  ): Promise<Preferences> {
-    await this.store.setReaderStyle(userId, readerStyle);
+  async update(userId: string, patch: PreferencesPatch): Promise<Preferences> {
+    await this.store.update(userId, patch);
     return this.get(userId);
   }
 }

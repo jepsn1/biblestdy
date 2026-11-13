@@ -6,6 +6,7 @@ import {
   pgTable,
   primaryKey,
   real,
+  smallint,
   text,
   timestamp,
   unique,
@@ -172,11 +173,13 @@ export const readingQuotaDay = pgTable(
   ],
 );
 
-/** Per-account preferences (#45). null readerStyle = not chosen yet. */
+/** Per-account preferences (#45). null readerStyle = not chosen yet;
+ * null textSize (#61) = never changed (100%). */
 export const userPreference = pgTable('user_preference', {
   userId: text('user_id')
     .primaryKey()
     .references(() => user.id, { onDelete: 'cascade' }),
   readerStyle: text('reader_style'),
+  textSize: smallint('text_size'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

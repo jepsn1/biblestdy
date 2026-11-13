@@ -1,32 +1,44 @@
-import { isReaderStyle, type ReaderStyle } from '@biblestdy/shared';
+import {
+  isReaderStyle,
+  isTextSize,
+  type Preferences,
+  type PreferencesPatch,
+} from '@biblestdy/shared';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { userPreference } from '../db/schema';
 
-/** Persistence for per-account preferences (#45). */
+/** Persistence for per-account preferences (#45, #61). */
 export interface PreferencesStore {
-  /** null = no row / never chosen. */
-  readerStyle(userId: string): Promise<ReaderStyle | null>;
-  setReaderStyle(userId: string, style: ReaderStyle): Promise<void>;
+  /** Fields are null when there is no row / never chosen. */
+  get(userId: string): Promise<Preferences>;
+  /** Upserts only the given fields; others keep their stored value. */
+  update(userId: string, patch: PreferencesPatch): Promise<void>;
 }
 
 export class DrizzlePreferencesStore implements PreferencesStore {
-  async readerStyle(userId: string): Promise<ReaderStyle | null> {
+  async get(userId: string): Promise<Preferences> {
     const [row] = await db
-      .select({ readerStyle: userPreference.readerStyle })
+      .select({
+        readerStyle: userPreference.readerStyle,
+        textSize: userPreference.textSize,
+      })
       .from(userPreference)
       .where(eq(userPreference.userId, userId))
       .limit(1);
-    return isReaderStyle(row?.readerStyle) ? row.readerStyle : null;
+    return {
+      readerStyle: isReaderStyle(row?.readerStyle) ? row.readerStyle : null,
+      textSize: isTextSize(row?.textSize) ? row.textSize : null,
+    };
   }
 
-  async setReaderStyle(userId: string, style: ReaderStyle): Promise<void> {
+  async update(userId: string, patch: PreferencesPatch): Promise<void> {
     await db
       .insert(userPreference)
-      .values({ userId, readerStyle: style })
+      .values({ userId, ...patch })
       .onConflictDoUpdate({
         target: userPreference.userId,
-        set: { readerStyle: style, updatedAt: new Date() },
+        set: { ...patch, updatedAt: new Date() },
       });
   }
 }

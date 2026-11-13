@@ -1,15 +1,16 @@
-import type { ReaderStyle } from '@biblestdy/shared';
+import type { Preferences, PreferencesPatch } from '@biblestdy/shared';
 import type { PreferencesStore } from './preferences.store';
 
 export class InMemoryPreferencesStore implements PreferencesStore {
-  private styles = new Map<string, ReaderStyle>();
+  private rows = new Map<string, Preferences>();
 
-  readerStyle(userId: string) {
-    return Promise.resolve(this.styles.get(userId) ?? null);
+  get(userId: string) {
+    return Promise.resolve(
+      this.rows.get(userId) ?? { readerStyle: null, textSize: null },
+    );
   }
 
-  setReaderStyle(userId: string, style: ReaderStyle) {
-    this.styles.set(userId, style);
-    return Promise.resolve();
+  async update(userId: string, patch: PreferencesPatch) {
+    this.rows.set(userId, { ...(await this.get(userId)), ...patch });
   }
 }

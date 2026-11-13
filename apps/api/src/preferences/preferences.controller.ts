@@ -7,7 +7,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { isReaderStyle, type Preferences } from '@biblestdy/shared';
+import {
+  isReaderStyle,
+  isTextSize,
+  type Preferences,
+  type PreferencesPatch,
+} from '@biblestdy/shared';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import { UpdatePreferencesDto } from './preferences.dto';
 import { PreferencesService } from './preferences.service';
@@ -28,9 +33,24 @@ export class PreferencesController {
     @Body() dto: UpdatePreferencesDto,
   ): Promise<Preferences> {
     // ValidationPipe checks this too; guard again so the service never sees junk
-    if (!isReaderStyle(dto.readerStyle)) {
-      throw new BadRequestException('readerStyle must be paper or clean');
+    const patch: PreferencesPatch = {};
+    if (dto.readerStyle !== undefined) {
+      if (!isReaderStyle(dto.readerStyle)) {
+        throw new BadRequestException('readerStyle must be paper or clean');
+      }
+      patch.readerStyle = dto.readerStyle;
     }
-    return this.preferences.setReaderStyle(req.user.id, dto.readerStyle);
+    if (dto.textSize !== undefined) {
+      if (!isTextSize(dto.textSize)) {
+        throw new BadRequestException(
+          'textSize must be 100, 125, 150, 175 or 200',
+        );
+      }
+      patch.textSize = dto.textSize;
+    }
+    if (Object.keys(patch).length === 0) {
+      throw new BadRequestException('nothing to update');
+    }
+    return this.preferences.update(req.user.id, patch);
   }
 }
