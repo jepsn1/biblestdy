@@ -87,6 +87,8 @@ export function PaginatedChapter({
   // backwards). The wanted page holds until the reader turns a page, so a
   // webfont re-measure still lands on it; null = the reader took over.
   const wantedPage = useRef<WantedPage | null>(null);
+  /** Last `?p` value we wrote (router state lags a few renders behind). */
+  const writtenP = useRef<string | null>(null);
   const [page, setPage] = useState(() => {
     const wanted = parsePageParam(searchParams.get("p"));
     return wanted === "last" ? 0 : wanted;
@@ -280,6 +282,7 @@ export function PaginatedChapter({
   useLayoutEffect(() => {
     const wanted = parsePageParam(searchParams.get("p"));
     wantedPage.current = wanted;
+    writtenP.current = searchParams.get("p");
     setAnimate(false);
     setPage(wanted === "last" ? 0 : wanted);
     // Phones: a new chapter starts at the top
@@ -329,16 +332,18 @@ export function PaginatedChapter({
   // Mirror the page into the URL (replace, no history spam) and lastRead
   useEffect(() => {
     if (scrollMode || resolvedKey !== chapterKey) return;
+    // Still growing into a wanted page (annotations/webfonts re-measure):
+    // don't record the transient clamp
+    const wanted = wantedPage.current;
+    if (typeof wanted === "number" && wanted !== page) return;
     const want = page > 0 ? String(page + 1) : null;
-    if (searchParams.get("p") !== want) {
-      setSearchParams(
-        (params) => {
-          if (want) params.set("p", want);
-          else params.delete("p");
-          return params;
-        },
-        { replace: true },
-      );
+    if (writtenP.current !== want) {
+      writtenP.current = want;
+      // From the live URL: the hook's params lag behind ?mark/?note edits
+      const params = new URLSearchParams(window.location.search);
+      if (want) params.set("p", want);
+      else params.delete("p");
+      setSearchParams(params, { replace: true });
     }
     try {
       localStorage.setItem("lastRead", lastReadValue(chapter, page));

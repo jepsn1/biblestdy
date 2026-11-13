@@ -40,12 +40,17 @@ export function BooksSidebar({ book }: { book: string }) {
   const contentRef = useCallback(
     (el: HTMLDivElement | null) => {
       if (!el || !book) return;
-      const item = el.querySelector<HTMLElement>("[data-active]");
-      if (!item) return;
-      const top = item.getBoundingClientRect().top - el.getBoundingClientRect().top;
-      if (top < 0 || top + item.offsetHeight > el.clientHeight) {
-        el.scrollTop += top - el.clientHeight / 3;
-      }
+      const reveal = () => {
+        const item = el.querySelector<HTMLElement>("[data-active]");
+        if (!item) return;
+        const top = item.getBoundingClientRect().top - el.getBoundingClientRect().top;
+        if (top < 0 || top + item.offsetHeight > el.clientHeight) {
+          el.scrollTop += top - el.clientHeight / 3;
+        }
+      };
+      reveal();
+      // Webfont swap changes row heights on first load: check again
+      void document.fonts?.ready.then(reveal);
     },
     [book],
   );
