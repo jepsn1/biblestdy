@@ -27,7 +27,7 @@ export default function Privacy() {
           </Link>
 
           <h1 className="font-serif text-2xl font-medium">{t("privacy.title")}</h1>
-          <p className="mt-1 font-mono text-[0.65rem] text-muted-foreground">
+          <p className="mt-1 font-mono text-xs text-muted-foreground">
             {t("privacy.updated")} 2026-11-13
           </p>
 
@@ -74,7 +74,7 @@ export default function Privacy() {
 
           <Link
             to="/"
-            className="mt-12 block font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
+            className="mt-12 block font-mono text-xs text-muted-foreground hover:text-foreground"
           >
             ← {t("privacy.backToApp")}
           </Link>

@@ -153,7 +153,7 @@ export function JumpBox() {
             onKeyDown={onKeyDown}
             className="h-8 w-full pr-8 font-mono text-sm placeholder:font-sans sm:h-7 sm:w-44 sm:text-xs"
           />
-          <kbd className="pointer-events-none absolute top-1/2 right-1.5 hidden -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-[0.6rem] text-muted-foreground sm:block">
+          <kbd className="pointer-events-none absolute top-1/2 right-1.5 hidden -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-xs text-muted-foreground sm:block">
             /
           </kbd>
 
