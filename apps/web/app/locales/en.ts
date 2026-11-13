@@ -216,7 +216,7 @@ export default {
   palette: {
     open: "Search or go to…",
     title: "Search or go to",
-    placeholder: "e.g. John 3:16, Psalm 23, a note or a topic",
+    placeholder: "e.g. John 3:16 or a note",
     backTo: "Close – back to {{ref}}",
     goTo: "Go to {{ref}}",
     continueAt: "Continue reading: {{ref}}",

@@ -57,6 +57,7 @@ function useActions(r: ReaderActions) {
   const lang = i18n.language.startsWith("da") ? "da" : "en";
   const sizeIdx = TEXT_SIZES.indexOf(size);
 
+  const isMobile = useIsMobile();
   const actions: (PaletteAction & { run: () => void; keepOpen?: boolean })[] = [
     {
       id: "translations",
@@ -132,14 +133,14 @@ function useActions(r: ReaderActions) {
       checked: lang === l,
       run: () => setUiLanguage(l),
     })),
-    {
+    ...(isMobile ? [] : [{
       id: "shortcuts",
       label: t("nav.shortcuts"),
       keywords: [...both("nav.shortcuts"), "keyboard tastatur"],
       shortcut: "?",
       common: true,
       run: () => window.dispatchEvent(new Event(OPEN_SHORTCUTS)),
-    },
+    }]),
   ];
   return actions;
 }
@@ -180,6 +181,12 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  // Esc returns focus to exactly where it was (a verse, the note editor…)
+  const returnTo = useRef<HTMLElement | null>(null);
+  if (open && returnTo.current === null && typeof document !== "undefined") {
+    returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+  if (!open) returnTo.current = null;
 
   const { notes } = useAllNotesQuery(open);
   const { data: tags = [] } = useQuery({
@@ -281,6 +288,7 @@ export function CommandPalette({
       <DialogContent
         showCloseButton={false}
         initialFocus={inputRef}
+        finalFocus={returnTo}
         className={cn(
           "flex flex-col gap-0 overflow-hidden p-0",
           isMobile

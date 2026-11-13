@@ -218,7 +218,7 @@ const da: typeof en = {
   palette: {
     open: "Søg eller gå til …",
     title: "Søg eller gå til",
-    placeholder: "Fx Johannes 3,16, Salme 23, en note eller et emne",
+    placeholder: "Fx Joh 3,16 eller en note",
     backTo: "Luk – tilbage til {{ref}}",
     goTo: "Gå til {{ref}}",
     continueAt: "Fortsæt hvor du slap: {{ref}}",
