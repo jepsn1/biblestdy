@@ -98,7 +98,7 @@ function ReferencesTable({
 
   return (
     <section className="flex h-full min-h-0 flex-col px-3 py-2">
-      <h3 className="mb-1 shrink-0 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
+      <h3 className="mb-1 shrink-0 font-mono text-xs tracking-widest text-muted-foreground uppercase">
         {t("note.references")}
       </h3>
       <ScrollArea className="min-h-0 flex-1">
@@ -125,7 +125,7 @@ function ReferencesTable({
                 focusRing,
               )}
             >
-              <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
+              <span className="font-mono text-xs whitespace-nowrap text-primary">
                 {formatReference(anchorReference(a))}
               </span>
               <span className="truncate font-serif text-xs text-muted-foreground italic">
@@ -324,7 +324,7 @@ export function NotePanel({
         );
       })()}
 
-      <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
+      <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
         <button
           type="button"
           className="hover:text-destructive"

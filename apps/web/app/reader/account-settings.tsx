@@ -1,225 +1,289 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
-import { UserRound } from "lucide-react";
-import { ThemeToggle } from "~/components/theme-toggle";
+import { Monitor, Moon, Sun, UserRound } from "lucide-react";
+import { Hint } from "~/components/hint";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
-import { Drawer, DrawerContent } from "~/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
 import { Input } from "~/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { appChannel, appVersion } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import { setUiLanguage } from "~/lib/i18n";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
+import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { api } from "~/lib/query";
+import { PanelHeader, panelTitleClass } from "./panel-header";
 
 const chipClass =
-  "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-[0.65rem] font-semibold text-primary transition-colors hover:bg-primary/25";
+  "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-semibold text-primary transition-colors hover:bg-primary/25";
 
 /** Account chip at the end of the reader nav (issue #17): opens the settings
- * surface — email, theme + language (moved out of the nav), version/channel,
- * privacy link, and the account delete danger zone. Popover on desktop,
- * bottom drawer on phones (the app's mobile-panel pattern). */
+ * surface. Popover on desktop, content-sized bottom drawer on phones; both
+ * share the PanelHeader (#62). Delete account is an AlertDialog owned here,
+ * outside the popover/drawer, so closing those never unmounts it. */
 export function AccountChip() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const chipRef = useRef<HTMLButtonElement>(null);
   const { data: session } = authClient.useSession();
   const email = session?.user.email ?? "";
-  const initial = email ? (
-    email[0].toUpperCase()
-  ) : (
-    <UserRound className="size-3.5" />
-  );
+  const initial = email ? email[0].toUpperCase() : <UserRound className="size-3.5" />;
 
-  if (isMobile) {
-    return (
-      <>
-        <button
-          type="button"
-          aria-label={t("settings.open")}
-          title={t("settings.open")}
-          className={chipClass}
-          onClick={() => setOpen(true)}
-        >
-          {initial}
-        </button>
-        <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
-          <DrawerContent aria-label={t("settings.open")} style={{ "--drawer-height": "80dvh" } as React.CSSProperties}>
-            <ScrollArea className="h-full">
-              <div className="px-4 pt-1 pb-8">
-                <SettingsContent email={email} />
-              </div>
-            </ScrollArea>
-          </DrawerContent>
-        </Drawer>
-      </>
-    );
+  function askDelete() {
+    setOpen(false);
+    setDeleteOpen(true);
   }
 
+  const content = <SettingsContent email={email} onDelete={askDelete} />;
+
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
+    <>
+      {isMobile ? (
+        <>
           <button
+            ref={chipRef}
             type="button"
             aria-label={t("settings.open")}
-            title={t("settings.open")}
             className={chipClass}
-          />
-        }
-      >
-        {initial}
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72" aria-label={t("settings.open")}>
-        <SettingsContent email={email} />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function SettingsContent({ email }: { email: string }) {
-  const { t, i18n } = useTranslation();
-
-  return (
-    <div className="flex flex-col gap-3 p-1 text-sm">
-      <div className="min-w-0">
-        <p className="font-mono text-[0.6rem] tracking-wide text-muted-foreground uppercase">
-          {t("settings.signedInAs")}
-        </p>
-        <p className="truncate font-mono text-xs">{email}</p>
-      </div>
-
-      <Separator />
-
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{t("settings.theme")}</span>
-        <ThemeToggle />
-      </div>
-
-      <ReaderStyleSwitch />
-
-      <TextSizeSwitch />
-
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{t("settings.language")}</span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("settings.language")}
-          onClick={() => setUiLanguage(i18n.language.startsWith("da") ? "en" : "da")}
-        >
-          <span className="font-mono text-[0.6rem] font-semibold">
-            {i18n.language.startsWith("da") ? "DA" : "EN"}
-          </span>
-        </Button>
-      </div>
-
-      {/* Real bundle version + channel arrive with the OTA slice (#19) */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{t("settings.version")}</span>
-        <span className="font-mono text-[0.65rem] text-muted-foreground">
-          {appVersion} · {appChannel}
-        </span>
-      </div>
-
-      <Link
-        to="/privacy"
-        className="font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
-      >
-        {t("settings.privacy")}
-      </Link>
-
-      <Separator />
-
-      <DangerZone />
-    </div>
-  );
-}
-
-/** Paper / Clean (#45): applies instantly, saved to the account. */
-function ReaderStyleSwitch() {
-  const { t } = useTranslation();
-  const active = useReaderStyle();
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-muted-foreground">{t("settings.style")}</span>
-      <div role="radiogroup" aria-label={t("settings.style")} className="flex rounded-md bg-muted p-0.5">
-        {READER_STYLES.map((style) => (
-          <button
-            key={style}
-            type="button"
-            role="radio"
-            aria-checked={active === style}
-            onClick={() => void saveReaderStyle(style).catch(() => undefined)}
-            className={
-              active === style
-                ? "rounded px-2 py-0.5 text-xs font-medium text-foreground shadow-sm bg-background"
-                : "rounded px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-            }
+            onClick={() => setOpen(true)}
           >
-            {t(`readerStyle.${style}`)}
+            {initial}
           </button>
-        ))}
-      </div>
-    </div>
+          <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
+            {/* Content-sized (#62): grows with the rows, capped at 92dvh */}
+            <DrawerContent className="[--drawer-content-max-height:92dvh]">
+              <PanelHeader onClose={() => setOpen(false)} closeLabel={t("settings.close")}>
+                <DrawerTitle className={panelTitleClass}>{t("settings.title")}</DrawerTitle>
+              </PanelHeader>
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="px-4 pt-2 pb-8">{content}</div>
+              </ScrollArea>
+            </DrawerContent>
+          </Drawer>
+        </>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <Hint label={t("settings.open")}>
+            <PopoverTrigger
+              render={
+                <button
+                  ref={chipRef}
+                  type="button"
+                  aria-label={t("settings.open")}
+                  className="flex items-center gap-2 rounded-full hover:bg-muted min-[1180px]:pr-2.5"
+                />
+              }
+            >
+              <span className={chipClass}>{initial}</span>
+              {/* Visible word next to the chip on wide screens (#62) */}
+              <span className="hidden text-sm min-[1180px]:inline">{t("settings.short")}</span>
+            </PopoverTrigger>
+          </Hint>
+          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0">
+            <PanelHeader onClose={() => setOpen(false)} closeLabel={t("settings.close")}>
+              <PopoverTitle className={panelTitleClass}>{t("settings.title")}</PopoverTitle>
+            </PanelHeader>
+            <div className="px-4 pt-2 pb-3">{content}</div>
+          </PopoverContent>
+        </Popover>
+      )}
+      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} returnFocus={chipRef} />
+    </>
   );
 }
 
-/** Text size (#61): 100–200% of text + chrome. Applies instantly (the page
- * re-lays out live), saved to the account. Own row: five steps need the width. */
-function TextSizeSwitch() {
-  const { t } = useTranslation();
-  const active = useTextSize();
-  const labelId = useId();
+/** One settings row (#62): label left, control right; 40px tall (48px on a
+ * phone). Wraps the control under its label when it doesn't fit (200%). */
+function SettingRow({
+  label,
+  labelId,
+  children,
+}: {
+  label: string;
+  labelId: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span id={labelId} className="text-xs text-muted-foreground">
-        {t("settings.textSize")}
+    <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-1 max-sm:min-h-12">
+      <span id={labelId} className="text-sm">
+        {label}
       </span>
-      <div
-        role="radiogroup"
-        aria-labelledby={labelId}
-        // Wraps to two rows when five steps don't fit (phone at 200%)
-        className="grid grid-cols-[repeat(auto-fit,minmax(3.5rem,1fr))] rounded-md bg-muted p-0.5"
-      >
-        {TEXT_SIZES.map((size) => (
-          <button
-            key={size}
-            type="button"
-            role="radio"
-            aria-checked={active === size}
-            onClick={() => void saveTextSize(size).catch(() => undefined)}
-            className={
-              active === size
-                ? "min-h-6 rounded px-1 py-0.5 text-xs font-medium tabular-nums text-foreground shadow-sm bg-background"
-                : "min-h-6 rounded px-1 py-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
-            }
-          >
-            {size}%
-          </button>
-        ))}
-      </div>
+      {children}
     </div>
   );
 }
 
-/** Delete account (App Store 5.1.1(v)): explicit typed confirm, then
- * DELETE /api/account → sign out → /signin. */
-function DangerZone() {
+/** Single-choice segmented control on shadcn ToggleGroup: arrow keys move,
+ * Space/Enter picks; pressing the active item never clears the choice. */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  labelledBy,
+}: {
+  value: T;
+  options: { value: T; label: string; icon?: React.ReactNode }[];
+  onChange: (value: T) => void;
+  labelledBy: string;
+}) {
+  return (
+    <ToggleGroup
+      value={[value]}
+      onValueChange={(next) => {
+        const picked = next[0] as T | undefined;
+        if (picked && picked !== value) onChange(picked);
+      }}
+      aria-labelledby={labelledBy}
+      spacing={1}
+      // Wraps instead of overflowing at 200% on a phone
+      className="max-w-full flex-wrap rounded-lg bg-muted p-0.5"
+    >
+      {options.map((o) => (
+        <ToggleGroupItem
+          key={o.value}
+          value={o.value}
+          size="sm"
+          className="h-7 gap-1.5 rounded-md px-2.5 text-xs font-normal text-muted-foreground hover:bg-background/60 hover:text-foreground aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:shadow-sm max-sm:h-9"
+        >
+          {o.icon}
+          {o.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+function SettingsContent({ email, onDelete }: { email: string; onDelete: () => void }) {
+  const { t, i18n } = useTranslation();
+  const ids = useId();
+  const theme = useThemePref();
+  const style = useReaderStyle();
+  const textSize = useTextSize();
+  const lang = i18n.language.startsWith("da") ? "da" : "en";
+  const themeIcon = { light: <Sun />, dark: <Moon />, system: <Monitor /> };
+
+  return (
+    <div className="flex flex-col text-sm">
+      <div className="min-w-0 py-1">
+        <p className="text-xs text-muted-foreground">{t("settings.signedInAs")}</p>
+        <p className="truncate">{email}</p>
+      </div>
+
+      <Separator className="my-2" />
+
+      <SettingRow label={t("settings.theme")} labelId={`${ids}-theme`}>
+        <Segmented
+          value={theme}
+          labelledBy={`${ids}-theme`}
+          onChange={setThemePref}
+          options={THEME_PREFS.map((p) => ({
+            value: p,
+            label: t(`theme.${p}`),
+            icon: themeIcon[p],
+          }))}
+        />
+      </SettingRow>
+
+      <SettingRow label={t("settings.style")} labelId={`${ids}-style`}>
+        <Segmented
+          value={style}
+          labelledBy={`${ids}-style`}
+          onChange={(s) => void saveReaderStyle(s).catch(() => undefined)}
+          options={READER_STYLES.map((s) => ({ value: s, label: t(`readerStyle.${s}`) }))}
+        />
+      </SettingRow>
+
+      {/* Text size (#61): applies live (the page re-lays out), saved to the account */}
+      <SettingRow label={t("settings.textSize")} labelId={`${ids}-size`}>
+        <Segmented
+          value={String(textSize)}
+          labelledBy={`${ids}-size`}
+          onChange={(s) => void saveTextSize(Number(s) as typeof textSize).catch(() => undefined)}
+          options={TEXT_SIZES.map((s) => ({ value: String(s), label: `${s}%` }))}
+        />
+      </SettingRow>
+
+      <SettingRow label={t("settings.language")} labelId={`${ids}-lang`}>
+        {/* Each language named in itself: findable whatever the UI language */}
+        <Segmented
+          value={lang}
+          labelledBy={`${ids}-lang`}
+          onChange={(l) => setUiLanguage(l)}
+          options={[
+            { value: "en", label: "English" },
+            { value: "da", label: "Dansk" },
+          ]}
+        />
+      </SettingRow>
+
+      <Separator className="my-2" />
+
+      <Button
+        variant="ghost"
+        className="h-10 justify-start px-0 text-destructive hover:bg-transparent hover:text-destructive hover:underline max-sm:h-12"
+        onClick={onDelete}
+      >
+        {t("settings.deleteAccount")}
+      </Button>
+
+      {/* Muted footer line (#62); real bundle version + channel arrive with OTA (#19) */}
+      <p className="pt-1 text-xs text-muted-foreground">
+        {t("settings.version")} {appVersion} · {appChannel} ·{" "}
+        <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
+          {t("settings.privacy")}
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+/** Delete account (App Store 5.1.1(v)), #62: an AlertDialog that keeps the
+ * typed confirm — DELETE /api/account → sign out → /signin. Focus starts in
+ * the confirm field and returns to the account chip on cancel. */
+function DeleteAccountDialog({
+  open,
+  onOpenChange,
+  returnFocus,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  returnFocus: React.RefObject<HTMLButtonElement | null>;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [confirming, setConfirming] = useState(false);
+  const inputId = useId();
   const [word, setWord] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const confirmWord = t("settings.deleteConfirmWord");
   const armed = word.trim().toLowerCase() === confirmWord;
+
+  function change(next: boolean) {
+    if (busy) return;
+    if (!next) {
+      setWord("");
+      setError(false);
+    }
+    onOpenChange(next);
+  }
 
   async function deleteAccount() {
     setBusy(true);
@@ -236,59 +300,47 @@ function DangerZone() {
     void navigate("/signin");
   }
 
-  if (!confirming) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="justify-start px-0 text-destructive hover:text-destructive"
-        onClick={() => setConfirming(true)}
-      >
-        {t("settings.deleteAccount")}
-      </Button>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2.5">
-      <p className="font-mono text-[0.6rem] tracking-wide text-destructive uppercase">
-        {t("settings.dangerZone")}
-      </p>
-      <p className="text-xs text-muted-foreground">{t("settings.deleteWarning")}</p>
-      <Input
-        autoFocus
-        aria-label={t("settings.deleteTypeToConfirm", { word: confirmWord })}
-        placeholder={confirmWord}
-        value={word}
-        onChange={(e) => setWord(e.target.value)}
-        className="h-7 font-mono text-xs"
-      />
-      <p className="text-[0.65rem] text-muted-foreground">
-        {t("settings.deleteTypeToConfirm", { word: confirmWord })}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={!armed || busy}
-          onClick={() => void deleteAccount()}
-        >
-          {busy ? t("settings.deleteBusy") : t("settings.deleteConfirm")}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={busy}
-          onClick={() => {
-            setConfirming(false);
-            setWord("");
-            setError(false);
+    <AlertDialog open={open} onOpenChange={change}>
+      <AlertDialogContent finalFocus={returnFocus}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("settings.deleteTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("settings.deleteWarning")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <form
+          className="flex flex-col gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (armed && !busy) void deleteAccount();
           }}
         >
-          {t("settings.deleteCancel")}
-        </Button>
-      </div>
-      {error && <p className="text-xs text-destructive">{t("settings.deleteError")}</p>}
-    </div>
+          <label htmlFor={inputId} className="text-xs text-muted-foreground">
+            {t("settings.deleteTypeToConfirm", { word: confirmWord })}
+          </label>
+          <Input
+            id={inputId}
+            autoComplete="off"
+            placeholder={confirmWord}
+            value={word}
+            onChange={(e) => setWord(e.target.value)}
+          />
+          {error && (
+            <p role="alert" className="text-xs text-destructive">
+              {t("settings.deleteError")}
+            </p>
+          )}
+        </form>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>{t("settings.deleteCancel")}</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            disabled={!armed || busy}
+            onClick={() => void deleteAccount()}
+          >
+            {busy ? t("settings.deleteBusy") : t("settings.deleteConfirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

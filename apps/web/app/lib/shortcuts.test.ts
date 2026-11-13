@@ -61,6 +61,11 @@ describe("ignoreShortcut", () => {
     expect(ignoreShortcut(key("ArrowLeft", el((s) => s === "[role='menu']")), noModal)).toBe(true);
   });
 
+  it("ignores arrows in a settings segmented control (#62: no page turn behind it)", () => {
+    const seg = el((s) => s === "[data-slot='toggle-group']");
+    expect(ignoreShortcut(key("ArrowRight", seg), noModal)).toBe(true);
+  });
+
   it("ignores IME composition and already-handled events", () => {
     expect(ignoreShortcut(key("ArrowLeft", body, { isComposing: true }), noModal)).toBe(true);
     expect(ignoreShortcut(key("ArrowLeft", body, { defaultPrevented: true }), noModal)).toBe(true);

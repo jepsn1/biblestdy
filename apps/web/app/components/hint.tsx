@@ -13,6 +13,8 @@ export function modKey(): string {
  * its keyboard shortcut. Mouse/keyboard focus only — touch never opens it,
  * so phones rely on labels (the "More" sheet). Delay comes from root's
  * TooltipProvider (~300ms). The child keeps its own aria-label.
+ * `shortcut` may say "mod+B": shown as ⌘B or Ctrl+B (resolved on open, so
+ * SSR markup never depends on the platform).
  */
 export function Hint({
   label,
@@ -33,9 +35,9 @@ export function Hint({
         {shortcut && (
           <kbd
             data-slot="kbd"
-            className="rounded-sm bg-background/20 px-1 font-mono text-[0.7rem] leading-4"
+            className="rounded-sm bg-background/20 px-1 font-mono text-xs leading-4"
           >
-            {shortcut}
+            {shortcut.replace("mod+", modKey())}
           </kbd>
         )}
       </TooltipContent>

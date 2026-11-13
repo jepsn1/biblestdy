@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { bookLocale } from "~/lib/book-name";
@@ -105,16 +106,17 @@ export function JumpBox() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="ml-auto sm:hidden"
-        aria-label={t("nav.jumpOpen")}
-        title={t("nav.jumpOpen")}
-        onClick={() => setOpen(true)}
-      >
-        <Search />
-      </Button>
+      <Hint label={t("nav.jumpOpen")} shortcut="/">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto sm:hidden"
+          aria-label={t("nav.jumpOpen")}
+          onClick={() => setOpen(true)}
+        >
+          <Search />
+        </Button>
+      </Hint>
 
       <form
         onSubmit={onSubmit}
@@ -198,19 +200,21 @@ export function JumpBox() {
           )}
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="sm:hidden"
-          aria-label={t("nav.jumpClose")}
-          onClick={() => {
-            setValue("");
-            close();
-          }}
-        >
-          <X />
-        </Button>
+        <Hint label={t("nav.jumpClose")} shortcut="Esc">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="sm:hidden"
+            aria-label={t("nav.jumpClose")}
+            onClick={() => {
+              setValue("");
+              close();
+            }}
+          >
+            <X />
+          </Button>
+        </Hint>
       </form>
     </>
   );
