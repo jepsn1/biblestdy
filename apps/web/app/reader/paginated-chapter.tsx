@@ -1,16 +1,18 @@
 import { useTranslation } from "react-i18next";
 import type { Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
+import { ignoreShortcut } from "~/lib/shortcuts";
 import { ChapterText } from "./chapter-text";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
+import { sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { noteMarksInChapter, useAllNotes, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
@@ -138,13 +140,27 @@ export function PaginatedChapter({
   const viewportOf = () =>
     scrollRef.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null;
 
-  // Desktop: center the sheet in the pane whenever it stops fitting (doc
-  // open/close). Phones scroll vertically — nothing to center.
-  useEffect(() => {
-    const vp = viewportOf();
-    if (!vp || scrollMode) return;
-    vp.scrollTo({ left: (vp.scrollWidth - vp.clientWidth) / 2, behavior: "smooth" });
-  }, [openNoteId, scrollMode]);
+  // Desktop sheet fit (#51): the pane's width (in rem) picks spread vs one
+  // column and whether annotation lanes get margin — never a sideways scroll.
+  const paneRef = useRef<HTMLDivElement>(null);
+  const [pane, setPane] = useState({ width: 0, rem: 16 });
+  useLayoutEffect(() => {
+    const el = paneRef.current;
+    if (!el || scrollMode) return;
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const width = el.clientWidth;
+      setPane((p) => (p.width === width && p.rem === rem ? p : { width, rem }));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [scrollMode]);
+  const hasLanes = annotationsApi.annotations.length > 0;
+  // Unmeasured (first paint): assume a roomy pane; the layout effect corrects
+  // it before the browser paints.
+  const layout = sheetLayout(pane.width ? pane.width / pane.rem : 120, hasLanes);
 
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
@@ -271,7 +287,7 @@ export function PaginatedChapter({
       alive = false;
       observer.disconnect();
     };
-  }, [chapterKey, scrollMode]);
+  }, [chapterKey, scrollMode, layout.columns]);
 
   useEffect(() => {
     setPage((p) => Math.min(p, pageCount - 1));
@@ -289,9 +305,8 @@ export function PaginatedChapter({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
       if (scrollMode) return; // no pages to turn; arrows stay native
+      if (ignoreShortcut(event)) return; // typing, modifiers, open modal
       if (event.key === "ArrowLeft") goPrev();
       if (event.key === "ArrowRight") goNext();
     }
@@ -371,6 +386,7 @@ export function PaginatedChapter({
       >
       {/* Any click in the reader cancels the reference spotlight */}
       <div
+        ref={paneRef}
         className="relative min-h-0 flex-1"
         onClick={() => selectedMarkId && setSelectedMarkId(null)}
       >
@@ -382,7 +398,7 @@ export function PaginatedChapter({
               <div ref={contentBoxRef} className="relative px-4 pt-8 pb-16">
                 <div
                   ref={contentRef}
-                  className="mx-auto max-w-[65ch] text-left font-serif text-lg leading-[1.7] text-foreground/95"
+                  className="mx-auto max-w-[65ch] text-left font-serif text-lg leading-[1.6] text-foreground/95"
                 >
                   {chapterText}
                 </div>
@@ -392,23 +408,27 @@ export function PaginatedChapter({
           </ScrollArea>
         ) : (
           <>
-            {/* The SHEET = spread + a 13.5rem margin lane each side (where
-                annotation boxes start). The spread takes what the lanes leave,
-                up to 60rem; below a 40rem spread the pane scrolls sideways
-                instead of squeezing further.
+            {/* The SHEET (#51) always fits the pane: a 2-column spread when
+                both columns get a proper measure, else one centred column —
+                both paged. Annotation lanes (where untouched boxes start)
+                flank the content box only when the chapter has annotations;
+                see sheet-layout.ts. Overflow is clipped, never scrolled.
                 isolate: local stacking context so the -z-10 ink paints behind
                 the text but still above the page background */}
-            <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
-              <div ref={regionRef} className="relative isolate mx-auto h-full w-full min-w-[67rem]">
-                {/* Spread: capped height (34em at body size) centered in the
-                    pane, so columns never run tall on big screens */}
+            <div className="h-full overflow-hidden">
+              <div ref={regionRef} className="relative isolate h-full w-full">
+                {/* Content box: capped height (34em at body size) centered in
+                    the pane, so columns never run tall on big screens */}
                 <div
                   ref={contentBoxRef}
-                  className="relative mx-auto flex h-full w-[calc(100%-27rem)] max-w-[60rem] flex-col justify-center overflow-hidden px-6 pt-8 pb-6"
+                  className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-8 pb-6"
+                  style={{ width: `${layout.contentWidth}rem` }}
                 >
                   <div
                     ref={contentRef}
-                    className="h-full max-h-[34em] text-left font-serif text-lg leading-[1.7] text-foreground/95 transition-transform duration-300 [column-fill:auto] columns-2 gap-x-14"
+                    className={`h-full max-h-[34em] text-left font-serif text-lg leading-[1.55] text-foreground/95 transition-transform duration-300 [column-fill:auto] gap-x-14 [.style-clean_&]:leading-[1.6] ${
+                      layout.columns === 2 ? "columns-2" : "columns-1"
+                    }`}
                     style={{ transform: `translateX(-${page * stride}px)` }}
                   >
                     {chapterText}
@@ -416,7 +436,7 @@ export function PaginatedChapter({
                 </div>
                 {inkLayers}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Page-flip zones, pinned to the pane edges */}
             <button

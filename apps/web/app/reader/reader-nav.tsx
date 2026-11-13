@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
+import { ignoreShortcut } from "~/lib/shortcuts";
 import {
   Select,
   SelectContent,
@@ -52,13 +53,11 @@ export function ReaderNav({
   // "/" focuses the jump box from anywhere
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement;
-      const typing = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
-      if (event.key === "/" && !typing) {
+      if (event.key === "Escape" && event.target === jumpRef.current) {
+        jumpRef.current?.blur();
+      } else if (event.key === "/" && !ignoreShortcut(event)) {
         event.preventDefault();
         jumpRef.current?.focus();
-      } else if (event.key === "Escape" && target === jumpRef.current) {
-        jumpRef.current?.blur();
       }
     }
     window.addEventListener("keydown", onKey);

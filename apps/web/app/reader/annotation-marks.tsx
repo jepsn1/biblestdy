@@ -32,6 +32,7 @@ const LANE = 190; // default box width, and the margin lane it starts in
 const GAP = 20; // px between content box and the default lane
 const MIN_W = 90;
 const MAX_W = 600;
+const EDGE = 36; // px kept clear at the pane edges (page-flip strips, w-8)
 const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
@@ -370,7 +371,12 @@ export function AnnotationMarks({
           laneCenter: compact
             ? { x: m.box.x + m.box.w / 2, y: m.box.y + m.box.h + 34 }
             : {
-                x: side === "left" ? leftLaneRight - LANE / 2 : rightLaneLeft + LANE / 2,
+                // Narrow pane (#51): lanes shrink — keep the default box on
+                // screen, clear of the edge page-flip strips
+                x:
+                  side === "left"
+                    ? Math.max(EDGE + LANE / 2, leftLaneRight - LANE / 2)
+                    : Math.min(region.offsetWidth - EDGE - LANE / 2, rightLaneLeft + LANE / 2),
                 y: m.box.y + m.box.h / 2,
               },
         });
