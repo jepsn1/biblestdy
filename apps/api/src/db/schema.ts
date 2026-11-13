@@ -171,3 +171,12 @@ export const readingQuotaDay = pgTable(
     index('reading_quota_day_day_idx').on(t.day),
   ],
 );
+
+/** Per-account preferences (#45). null readerStyle = not chosen yet. */
+export const userPreference = pgTable('user_preference', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  readerStyle: text('reader_style'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});

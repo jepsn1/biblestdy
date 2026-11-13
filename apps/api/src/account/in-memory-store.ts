@@ -7,6 +7,7 @@ export class InMemoryAccountStore implements AccountStore {
   private highlights: { userId: string }[] = [];
   private annotations: { userId: string }[] = [];
   private sessions: { userId: string }[] = [];
+  private preferences = new Set<string>();
 
   addUser(userId: string) {
     this.users.add(userId);
@@ -16,6 +17,9 @@ export class InMemoryAccountStore implements AccountStore {
   }
   addAnnotation(userId: string) {
     this.annotations.push({ userId });
+  }
+  addPreference(userId: string) {
+    this.preferences.add(userId);
   }
   addSession(userId: string) {
     this.sessions.push({ userId });
@@ -29,6 +33,9 @@ export class InMemoryAccountStore implements AccountStore {
   }
   annotationCount(userId: string) {
     return this.annotations.filter((a) => a.userId === userId).length;
+  }
+  hasPreference(userId: string) {
+    return this.preferences.has(userId);
   }
   sessionCount(userId: string) {
     return this.sessions.filter((s) => s.userId === userId).length;
@@ -45,6 +52,11 @@ export class InMemoryAccountStore implements AccountStore {
 
   deleteAnnotations(userId: string) {
     this.annotations = this.annotations.filter((a) => a.userId !== userId);
+    return Promise.resolve();
+  }
+
+  deletePreferences(userId: string) {
+    this.preferences.delete(userId);
     return Promise.resolve();
   }
 

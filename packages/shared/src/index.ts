@@ -24,3 +24,9 @@ export {
 } from './anchor.js'
 export type { ChapterConnections, PassageLink } from './connections.js'
 export type { Tag } from './tags.js'
+export {
+  READER_STYLES,
+  isReaderStyle,
+  type ReaderStyle,
+  type Preferences,
+} from './preferences.js'
