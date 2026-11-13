@@ -153,9 +153,9 @@ export function JumpBox() {
               setActive(-1);
             }}
             onKeyDown={onKeyDown}
-            className="h-8 w-full pr-8 font-mono text-control placeholder:font-sans sm:h-7 sm:w-44 sm:text-meta"
+            className="h-8 w-full pr-8 font-mono text-control placeholder:font-sans sm:h-7 sm:w-52 sm:text-list lg:w-72"
           />
-          <kbd className="pointer-events-none absolute top-1/2 right-1.5 hidden -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-meta text-muted-foreground sm:block">
+          <kbd className="pointer-events-none absolute top-1/2 right-1.5 hidden -translate-y-1/2 rounded border border-border bg-muted px-1 font-mono text-meta text-muted-foreground sm:block pointer-coarse:hidden">
             /
           </kbd>
 

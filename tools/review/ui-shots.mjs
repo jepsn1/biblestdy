@@ -214,7 +214,7 @@ await shot("66-note-save-retry", {}, R + "?v=14", async (p) => {
   must((await apiText(p, `/api/notes?${CH}`)).includes('"title":"The bronze serpent"'), "title not restored");
 });
 await shot("67-tag-remove-undo", {}, R, async (p) => {
-  await click(PANEL)(p); await p.getByRole("button", { name: /^(Remove tag|Fjern tagget) new-birth$/ }).click(); await p.waitForTimeout(900);
+  await click(PANEL)(p); await p.getByRole("button", { name: /^(Remove topic|Fjern emnet) new-birth$/ }).click(); await p.waitForTimeout(900);
   must(/new-birth/.test(await toast(p).innerText()), "no 'Tag removed' toast");
   await snap(p, "67-toast-tag-removed"); await undo(p);
   must((await apiText(p, `/api/connections?${CH}`)).includes('"new-birth"'), "Undo did not re-tag the passage");

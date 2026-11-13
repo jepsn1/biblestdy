@@ -42,12 +42,21 @@ export function ReaderNav({
   annotationBoxesOpen: boolean;
   onToggleAnnotationBoxes: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const pwa = usePwaInstall();
   const nameOf = useBookName();
   const current = getBook(book);
   const chapterCount = current?.chapters ?? 1;
+  const uiLanguage = i18n.language.split("-")[0];
+  const languageName = (code: string) => {
+    if (!code || code.split("-")[0] === uiLanguage) return null;
+    try {
+      return new Intl.DisplayNames([i18n.language], { type: "language" }).of(code) ?? null;
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <nav
@@ -126,7 +135,11 @@ export function ReaderNav({
                 <SelectItem key={tr.id} value={tr.id} title={tr.name} className="min-h-9">
                   <span className="grid w-full min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-baseline gap-2">
                     <span className="font-mono">{tr.abbreviation}</span>
-                    <span className="truncate text-meta text-muted-foreground">{tr.name}</span>
+                    <span className="truncate text-meta text-muted-foreground">
+                      {tr.name}
+                      {/* The text's language when it isn't the UI's (#66): "· engelsk" */}
+                      {languageName(tr.language) && ` · ${languageName(tr.language)}`}
+                    </span>
                   </span>
                 </SelectItem>
               ))}

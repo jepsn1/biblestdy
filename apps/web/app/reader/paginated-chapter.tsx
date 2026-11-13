@@ -145,6 +145,13 @@ export function PaginatedChapter({
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   /** The verse Tab lands on (#65) — kept on the current page. */
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);
+  /** Verses with words on the current page (footer range, #66). */
+  const [pageVerses, setPageVerses] = useState<{ first: number; last: number } | null>(null);
+  /** Reading place across reflows (#66): see the effect near the keys. */
+  const readingVerse = useRef<number | null>(null);
+  const placePage = useRef<number | null>(null);
+  const restoring = useRef(false);
+  const layoutSig = useRef("");
   const noteMarks = noteMarksInChapter(
     notesApi.notes,
     chapter.translationId,
@@ -386,6 +393,8 @@ export function PaginatedChapter({
     setAnimate(false);
     setPage(wanted === "last" ? 0 : wanted);
     setRovingVerse(null);
+    readingVerse.current = null;
+    placePage.current = null;
     // Phones: a new chapter starts at the top
     if (scrollMode) viewportOf()?.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -549,7 +558,16 @@ export function PaginatedChapter({
   /** At a boundary the control says where it goes; inside, it's a page turn. */
   const prevTarget = onFirstPage ? prevChapter : null;
   const nextTarget = onLastPage ? nextChapter : null;
-  const attribution = [hereLabel, translation.name, chapter.copyright].filter(Boolean).join(" · ");
+  // "World English Bible · Public domain" (#66) — the API's PUBLIC DOMAIN in
+  // the UI language; other copyright lines are the publisher's own words
+  const copyright = chapter.copyright && /^public domain$/i.test(chapter.copyright.trim())
+    ? t("reader.publicDomain")
+    : chapter.copyright;
+  const attribution = [translation.name, copyright].filter(Boolean).join(" · ");
+  /** "John 3:1–11" — the verses on this page (one verse: "John 3:16"). */
+  const rangeLabel = pageVerses
+    ? `${hereLabel}:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
+    : hereLabel;
 
   /** Desktop: jump to a page (Home/End). */
   function goToPage(target: number) {
@@ -625,6 +643,50 @@ export function PaginatedChapter({
       for (const el of clips) el.removeEventListener("scroll", unscroll);
     };
   });
+
+  // Reading place (#66): the first verse on the page the reader chose. A
+  // reflow (panel opened/closed, pane resized, text size, annotations laid
+  // in) turns to the page that now holds it instead of keeping the page
+  // number. A focused verse wins (#65, below). Also feeds the footer range.
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content || scrollMode || stride === 0 || resolvedKey !== chapterKey) return;
+    const sig = `${chapterKey}|${stride}|${pageCount}|${layout.columns}|${textSize}|${inlineAnnotations}|${annotationsApi.annotations.length}`;
+    const reflow = layoutSig.current.startsWith(`${chapterKey}|`) && sig !== layoutSig.current;
+    layoutSig.current = sig;
+    const focusedVerse = document.activeElement?.closest?.(`[${VERSE_FOCUS}]`);
+    if (reflow && readingVerse.current !== null && wantedVerse.current === null && !focusedVerse) {
+      const el = verseEl(readingVerse.current);
+      const target = el ? pageOf(el, stride) : null;
+      if (target !== null && target !== page) {
+        const p = Math.min(target, pageCount - 1);
+        if (typeof wantedPage.current === "number") wantedPage.current = p;
+        restoring.current = true;
+        setPage(p);
+        return;
+      }
+    }
+    let first: number | null = null;
+    let last: number | null = null;
+    for (const el of content.querySelectorAll<HTMLElement>("[data-verse][data-word]")) {
+      if (pageOf(el, stride) !== page) continue;
+      const v = Number(el.dataset.verse);
+      if (first === null) first = v;
+      last = v;
+    }
+    setPageVerses((pv) =>
+      first === null || last === null
+        ? null
+        : pv?.first === first && pv.last === last
+          ? pv
+          : { first, last },
+    );
+    // A page the reader chose (not our own reflow correction) sets the place
+    if (first !== null && (readingVerse.current === null || (!reflow && !restoring.current && page !== placePage.current)))
+      readingVerse.current = first;
+    placePage.current = page;
+    restoring.current = false;
+  }, [scrollMode, stride, resolvedKey, chapterKey, pageCount, layout.columns, textSize, inlineAnnotations, annotationsApi.annotations.length, page]);
 
   // Off-page controls are inert (no Tab stop on a hidden page); the verse
   // cursor stays on this page, and follows a page turn if it had focus.
@@ -809,18 +871,9 @@ export function PaginatedChapter({
                     the pane, so columns never run tall on big screens */}
                 <div
                   ref={contentBoxRef}
-                  className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-8 pb-6"
+                  className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-6 pb-6"
                   style={{ width: `${layout.contentWidth}rem` }}
                 >
-                  {/* Running head (#52) in the box's top padding — absolute,
-                      so the text (and the ink measured from it) never moves.
-                      Screen readers get the live region instead. */}
-                  <p
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-6 top-2 truncate text-center font-sans text-meta tabular-nums text-muted-foreground"
-                  >
-                    {t("reader.runningHead", { ref: hereLabel, page: page + 1, count: pageCount })}
-                  </p>
                   <div
                     ref={contentRef}
                     id={CHAPTER_TEXT_ID}
@@ -844,11 +897,16 @@ export function PaginatedChapter({
         )}
       </div>
 
-      {/* One control set (#52): quiet ‹ 1 / 3 › — at a chapter boundary the
-          arrow says where it goes ("‹ John 2" / "John 4 ›"). Phones scroll,
-          so their buttons always step chapters, labelled the same way. */}
-      <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4 border-t border-border px-2 py-2 text-meta text-muted-foreground sm:px-6">
+      {/* One footer line (#52, #66), aligned to the text measure:
+          "World English Bible · Public domain" ··· "‹ John 2 · John 3:1–11 · 1/4 · John 4 ›".
+          At a chapter boundary an arrow says where it goes; the top running
+          head is gone. Phones scroll, so their buttons always step chapters. */}
+      <footer
+        className="mx-auto flex w-full shrink-0 items-center justify-between gap-4 border-t border-border px-2 py-2 text-meta text-muted-foreground sm:px-6"
+        style={scrollMode ? undefined : { maxWidth: `${Math.max(layout.contentWidth, 30)}rem` }}
+      >
         {!scrollMode && <span className="min-w-0 flex-1 truncate">{attribution}</span>}
+        <span className="flex shrink-0 items-center gap-1 tabular-nums">
         <NavButton
           dir="prev"
           target={prevTarget ? refLabel(prevTarget) : null}
@@ -856,8 +914,14 @@ export function PaginatedChapter({
           onClick={goPrev}
         />
         {!scrollMode && (
-          <span aria-hidden className="-mx-2 min-w-[3rem] text-center tabular-nums">
-            {page + 1} / {pageCount}
+          <span aria-hidden className="flex items-center gap-1.5 whitespace-nowrap">
+            {prevTarget && <span>·</span>}
+            <span>{rangeLabel}</span>
+            <span>·</span>
+            <span>
+              {page + 1}/{pageCount}
+            </span>
+            {nextTarget && <span>·</span>}
           </span>
         )}
         <NavButton
@@ -866,9 +930,10 @@ export function PaginatedChapter({
           disabled={onLastPage && !nextChapter}
           onClick={goNext}
         />
+        </span>
         {!scrollMode && (
           <p aria-live="polite" className="sr-only">
-            {t("reader.announce", { ref: hereLabel, page: page + 1, count: pageCount })}
+            {t("reader.announce", { ref: rangeLabel, page: page + 1, count: pageCount })}
           </p>
         )}
       </footer>

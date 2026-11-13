@@ -60,7 +60,7 @@ export function AnnotationEditor({
         >
           {t("note.delete")}
         </button>
-        <span className="text-muted-foreground">{t("note.escCancel")}</span>
+        <span className="text-muted-foreground pointer-coarse:hidden">{t("note.escCancel")}</span>
         <button
           type="button"
           className={cn("min-h-6 rounded px-1 text-primary hover:opacity-80", focusRing)}
