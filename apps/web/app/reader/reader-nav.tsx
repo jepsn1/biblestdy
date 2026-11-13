@@ -140,7 +140,7 @@ export function ReaderNav({
         {/* "Notes & topics" (#62, was the unexplained "Connections"): icon +
             tooltip from sm, the word itself from 1180px. Phones reach it, the
             margin-notes toggle and install through the labelled More sheet. */}
-        <Hint label={t("nav.connectionsToggle")}>
+        <Hint label={t("nav.connectionsToggle")} shortcut="mod+.">
           <Button
             variant={connectionsOpen ? "secondary" : "ghost"}
             size="icon-sm"

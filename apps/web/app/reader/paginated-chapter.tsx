@@ -24,6 +24,7 @@ import {
   type WantedPage,
 } from "./chapter-nav";
 import { ChapterText } from "./chapter-text";
+import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
@@ -142,6 +143,8 @@ export function PaginatedChapter({
   // The selection being made — its wash is painted with the highlights
   const [selection, setSelection] = useState<Anchor | null>(null);
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
+  /** The verse Tab lands on (#65) — kept on the current page. */
+  const [rovingVerse, setRovingVerse] = useState<number | null>(null);
   const noteMarks = noteMarksInChapter(
     notesApi.notes,
     chapter.translationId,
@@ -382,6 +385,7 @@ export function PaginatedChapter({
     writtenP.current = searchParams.get("p");
     setAnimate(false);
     setPage(wanted === "last" ? 0 : wanted);
+    setRovingVerse(null);
     // Phones: a new chapter starts at the top
     if (scrollMode) viewportOf()?.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -541,16 +545,101 @@ export function PaginatedChapter({
   const nextTarget = onLastPage ? nextChapter : null;
   const attribution = [hereLabel, translation.name, chapter.copyright].filter(Boolean).join(" · ");
 
+  /** Desktop: jump to a page (Home/End). */
+  function goToPage(target: number) {
+    if (scrollMode || target === page) return;
+    wantedPage.current = null;
+    wantedVerse.current = null;
+    setAnimate(true);
+    setPage(target);
+  }
+
+  /** F6 (#65): focus moves between the text and the open side panel. */
+  function cycleFocus() {
+    const aside = areaRef.current?.querySelector<HTMLElement>("aside");
+    const active = document.activeElement;
+    if (aside && !aside.contains(active)) {
+      const target =
+        aside.querySelector<HTMLElement>("[data-panel-focus]") ??
+        aside.querySelector<HTMLElement>('[contenteditable="true"]') ??
+        aside.querySelector<HTMLElement>("input, button, a[href]");
+      target?.focus({ preventScroll: true });
+      return;
+    }
+    const verse = contentRef.current?.querySelector<HTMLElement>(`[${VERSE_FOCUS}][tabindex="0"]`);
+    (verse ?? contentRef.current)?.focus({ preventScroll: true });
+  }
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (scrollMode) return; // no pages to turn; arrows stay native
+      if (event.key === "F6" && !event.altKey && !event.ctrlKey && !event.metaKey && !sideInDrawer) {
+        event.preventDefault(); // browser's own F6 = address bar
+        cycleFocus();
+        return;
+      }
       if (ignoreShortcut(event)) return; // typing, modifiers, open modal
+      // Chapters (#65): [ / ] — the chapter's start, both ways
+      if (event.key === "[" && prevChapter) navigate(chapterHref(prevChapter));
+      if (event.key === "]" && nextChapter) navigate(chapterHref(nextChapter));
+      if (scrollMode) return; // no pages to turn; arrows stay native
       if (event.key === "ArrowLeft") goPrev();
       if (event.key === "ArrowRight") goNext();
+      if (event.key === "Home") goToPage(0);
+      if (event.key === "End") goToPage(pageCount - 1);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  // Paged reader (#65): focus on a hidden page turns to that page. The sheet
+  // is overflow-clipped — the browser's own scroll-into-view would shift it
+  // sideways, so that scroll is undone.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || scrollMode) return;
+    const clips = [regionRef.current?.parentElement, contentBoxRef.current].filter(
+      (el): el is HTMLElement => !!el,
+    );
+    const unscroll = () => {
+      for (const el of clips) if (el.scrollLeft || el.scrollTop) el.scrollTo(0, 0);
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      unscroll();
+      const target = e.target as HTMLElement;
+      if (target === content) return;
+      const p = pageOf(target, stride);
+      if (p !== null && p !== page && p < pageCount) goToPage(p);
+    };
+    content.addEventListener("focusin", onFocusIn);
+    for (const el of clips) el.addEventListener("scroll", unscroll);
+    return () => {
+      content.removeEventListener("focusin", onFocusIn);
+      for (const el of clips) el.removeEventListener("scroll", unscroll);
+    };
+  });
+
+  // Off-page controls are inert (no Tab stop on a hidden page); the verse
+  // cursor stays on this page, and follows a page turn if it had focus.
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content || scrollMode || stride === 0) return;
+    for (const el of content.querySelectorAll<HTMLElement>("button, a[href], input, textarea")) {
+      const off = pageOf(el, stride) !== page;
+      if (el.inert !== off) el.inert = off;
+    }
+  });
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content || scrollMode || stride === 0) return;
+    const verses = [...content.querySelectorAll<HTMLElement>(`[${VERSE_FOCUS}]`)];
+    const onPage = (el: HTMLElement) => pageOf(el, stride) === page;
+    const current = verses.find((el) => el.tabIndex === 0);
+    if (current && onPage(current)) return;
+    const first = verses.find(onPage);
+    if (!first) return;
+    setRovingVerse(Number(first.getAttribute(VERSE_FOCUS)));
+    if (current && document.activeElement === current) first.focus({ preventScroll: true });
+  }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize]);
 
   /** End of chapter (#52): flows right after the last verse — the last page
    * on desktop, the end of the scroll on phones (which also carry the
@@ -590,6 +679,8 @@ export function PaginatedChapter({
       onEditAnnotation={annotationsApi.edit}
       onRemoveAnnotation={annotationsApi.remove}
       onSelectionChange={onSelectionChange}
+      rovingVerse={rovingVerse}
+      onRovingVerseChange={setRovingVerse}
       inlineAnnotations={inlineAnnotations}
       firstUseHint={firstUseHint}
       onDismissHint={dismissHint}
@@ -866,8 +957,8 @@ function NavButton({
   const label = target
     ? t(dir === "prev" ? "reader.prevChapterTo" : "reader.nextChapterTo", { ref: target })
     : t(dir === "prev" ? "reader.prevPage" : "reader.nextPage");
-  // A page turn names its arrow key; a chapter step has no key of its own
-  const shortcut = target ? undefined : dir === "prev" ? "←" : "→";
+  // A page turn names its arrow key; a chapter step its bracket (#65)
+  const shortcut = target ? (dir === "prev" ? "[" : "]") : dir === "prev" ? "←" : "→";
   return (
     <Hint label={label} shortcut={shortcut} side="top">
       <Button

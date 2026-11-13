@@ -113,7 +113,7 @@ export function ConnectionsPanel({
       className="flex h-full w-full flex-col bg-background"
     >
       <PanelHeader onClose={onClose} closeLabel={t("connections.close")}>
-        <h2 id={headingId} ref={headingRef} tabIndex={-1} className={`${panelTitleClass} outline-none`}>
+        <h2 id={headingId} ref={headingRef} tabIndex={-1} data-panel-focus className={`${panelTitleClass} outline-none`}>
           {t("connections.title")}
         </h2>
       </PanelHeader>

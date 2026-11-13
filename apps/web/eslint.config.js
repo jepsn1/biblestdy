@@ -47,18 +47,6 @@ const biblestdy = {
   },
 };
 
-/**
- * Files being rewritten in parallel by #63 (annotations + highlight menu).
- * Rules they currently break are `warn` here so this lands without touching
- * them; flip to error after wave 2. (#62's files are clean and back on error.)
- */
-const WAVE2_FILES = [
-  "app/reader/paginated-chapter.tsx",
-  "app/reader/chapter-text.tsx",
-  "app/reader/annotation-marks.tsx",
-  "app/reader/highlight-marks.tsx",
-];
-
 export default tseslint.config(
   { ignores: ["build/", "dist/", ".react-router/", "public/", "dev-dist/"] },
   {
@@ -82,16 +70,6 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "error",
       "biblestdy/no-faded-text": "error",
       "biblestdy/no-small-text": "error",
-    },
-  },
-  {
-    files: WAVE2_FILES,
-    linterOptions: { reportUnusedDisableDirectives: "warn" },
-    rules: {
-      "biblestdy/no-small-text": "warn",
-      "jsx-a11y/no-autofocus": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/click-events-have-key-events": "warn",
     },
   },
   {
