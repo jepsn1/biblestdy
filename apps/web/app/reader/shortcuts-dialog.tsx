@@ -20,7 +20,7 @@ function Keys({ keys }: { keys: string[][] }) {
   const { t } = useTranslation();
   const mod = modKey().replace("+", "");
   return (
-    <span className="flex flex-wrap items-center justify-end gap-1">
+    <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">
       {keys.map((combo, i) => (
         <Fragment key={i}>
           {i > 0 && <span className="text-meta text-muted-foreground">{t("shortcuts.or")}</span>}

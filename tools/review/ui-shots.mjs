@@ -221,7 +221,7 @@ await shot("67-tag-remove-undo", {}, R, async (p) => {
 }, true);
 await shot("68-annotation-remove-undo", {}, R, async (p) => {
   const b = p.getByRole("button", { name: "water + Spirit?" }).first(); await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(500);
-  await p.locator("[data-annotation-editing]").getByRole("button", { name: /^(delete|slet)$/ }).click(); await p.waitForTimeout(900);
+  await p.locator("[data-annotation-editing]").getByRole("button", { name: /^(Delete|Slet)$/ }).click(); await p.waitForTimeout(900);
   must(/Margin note removed/.test(await toast(p).innerText()), "no 'Margin note removed' toast");
   await snap(p, "68-toast-annotation-removed"); await undo(p);
   must((await apiText(p, `/api/annotations?${CH}`)).includes("water + Spirit?"), "Undo did not restore the annotation");
@@ -283,6 +283,20 @@ await shot("K18-panel-keys", {}, R, async (p) => {
   await p.keyboard.press("Control+."); await p.waitForTimeout(600); must((await p.locator("aside h2", { hasText: PANEL }).count()) === 0, "Ctrl+. did not close");
 });
 await shot("K19-brackets", {}, R, async (p) => { await p.locator("body").press("]"); await p.waitForTimeout(1500); must(/\/read\/JHN\/4/.test(p.url()), `] went to ${p.url()}`); await p.locator("body").press("["); await p.waitForTimeout(1500); must(/\/read\/JHN\/3(\?|$)/.test(p.url()), `[ went to ${p.url()}`); });
+// #66 footer + reading place: one footer line with the page's verse range; opening/closing a
+// side panel (reflow) keeps the verse the reader was on in view.
+const footerText = (p) => p.locator("footer").last().innerText();
+const verseVisible = (p, v) => p.evaluate((v) => { const el = document.querySelector(`[data-verse="${v}"][data-word]`); const c = document.getElementById("chapter-text").parentElement.getBoundingClientRect(); const r = el.getBoundingClientRect(); return r.left >= c.left - 1 && r.right <= c.right + 1; }, v);
+await shot("T1-footer-range", {}, R, async (p) => { const f = await footerText(p); must(/World English Bible · Public domain/.test(f), `footer copyright: ${f}`); must(/John 3:1–\d+ · 1\/\d/.test(f.replace(/\s+/g, " ")), `footer range: ${f}`); must((await p.locator("p[aria-hidden]", { hasText: "page 1 of" }).count()) === 0, "running head still shown"); });
+await shot("T1b-footer-da", { lang: "da" }, R, async (p) => { const f = await footerText(p); must(/Fri af ophavsret/.test(f), `da copyright: ${f}`); });
+await shot("T2-reflow-keeps-place", {}, R, async (p) => {
+  if ((await p.locator("aside").count()) > 0) { await p.keyboard.press("Control+."); await p.waitForTimeout(700); }
+  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(800);
+  const v = Number((await footerText(p)).match(/John 3:(\d+)/)[1]); must(v > 1, "not on page 2");
+  await p.keyboard.press("Control+."); await p.waitForTimeout(1500); must(await verseVisible(p, v), `verse ${v} not in view with the panel open`);
+  await snap(p, "T2-panel-open-same-place");
+  await p.keyboard.press("Control+."); await p.waitForTimeout(1500); must(await verseVisible(p, v), `verse ${v} not in view after closing the panel`);
+});
 // Leave the account at the default size
 { const ctx = await ctxFor({}); await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: "paper", textSize: 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } }); await ctx.close(); }
 fs.writeFileSync(`${OUT}/axe${ONLY ? "-partial" : ""}.json`, JSON.stringify(audits, null, 1));
