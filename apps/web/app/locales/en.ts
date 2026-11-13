@@ -274,7 +274,12 @@ export default {
     promiseFreeBody:
       "Reading, highlights, margin notes, notes and topics are free, and will stay free. biblestdy is a non-commercial project.",
     faqTitle: "Questions",
+    madeBy: "Made by Marcus",
     faq: {
+      who: {
+        q: "Who is behind biblestdy?",
+        a: "Hi, I\u2019m Marcus. I build biblestdy on my own, in Denmark, as a non-commercial project \u2014 run through my small company MJK Holding ApS, so there is someone accountable behind it. Follow along on Instagram, or write to support@biblestdy.com.",
+      },
       new: {
         q: "I\u2019m new to the Bible (or haven\u2019t read it in years). Is this for me?",
         a: "Yes. You don\u2019t need to know anything first. Many people begin with the Gospel of Mark \u2014 it\u2019s short and tells about Jesus from the start. Read a chapter at a time and mark what you notice.",

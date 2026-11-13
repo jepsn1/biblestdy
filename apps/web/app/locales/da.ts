@@ -213,7 +213,7 @@ const da: typeof en = {
     ctaNote: "Gratis. Du logger ind med din e-mail \u2014 vi sender dig en kode. Ingen adgangskode, ingen reklamer, ingen sporing.",
     whyVerse:
       "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
-    whyVerseRef: "Johannes 5,39\u201340 \u00b7 WEB",
+    whyVerseRef: "John 5:39\u201340 \u00b7 WEB",
     whyBody1:
       "Målet er ikke at læse Bibelen for læsningens skyld, og heller ikke at samle noter. Skrifterne peger på Jesus Kristus \u2014 og i ham er livet.",
     whyBody2:
@@ -276,7 +276,12 @@ const da: typeof en = {
     promiseFreeBody:
       "Læsning, markeringer, margennoter, noter og emner er gratis, og det bliver de ved med at være. biblestdy er et ikke-kommercielt projekt.",
     faqTitle: "Spørgsmål",
+    madeBy: "Lavet af Marcus",
     faq: {
+      who: {
+        q: "Hvem står bag biblestdy?",
+        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark, som et ikke-kommercielt projekt \u2014 drevet gennem mit lille selskab MJK Holding ApS, så der er en ansvarlig bag. Følg med på Instagram, eller skriv til support@biblestdy.com.",
+      },
       new: {
         q: "Jeg er ny i Bibelen (eller har ikke læst i den siden konfirmationen). Er det her for mig?",
         a: "Ja. Du behøver ikke vide noget på forhånd. Mange begynder med Markusevangeliet \u2014 det er kort, og det fortæller om Jesus fra begyndelsen. Læs et kapitel ad gangen, og markér det du lægger mærke til.",

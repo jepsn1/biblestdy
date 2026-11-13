@@ -27,6 +27,7 @@ import { StudyMock } from "./study-mock";
  * urgency, no conversion tricks. All copy in locales (`landing.*`). */
 
 const SUPPORT_EMAIL = "support@biblestdy.com";
+const INSTAGRAM_URL = "https://www.instagram.com/marcusjepsn/";
 
 export function Landing() {
   const { t, i18n } = useTranslation();
@@ -164,7 +165,7 @@ export function Landing() {
         <section className="mx-auto max-w-2xl px-6 pb-20">
           <h2 className="text-center font-serif text-title font-medium">{t("landing.faqTitle")}</h2>
           <div className="mt-8 divide-y divide-border border-y border-border">
-            {(["new", "free", "translations", "private", "phone", "group", "password", "danish"] as const).map((k) => (
+            {(["who", "new", "free", "translations", "private", "phone", "group", "password", "danish"] as const).map((k) => (
               <details key={k} className="group py-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-phone font-medium [&::-webkit-details-marker]:hidden">
                   {t(`landing.faq.${k}.q`)}
@@ -178,6 +179,16 @@ export function Landing() {
                 <p className="mt-2 text-phone leading-relaxed text-muted-foreground">
                   {t(`landing.faq.${k}.a`)}
                 </p>
+                {k === "who" && (
+                  <a
+                    href={INSTAGRAM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-phone text-primary hover:underline"
+                  >
+                    Instagram: @marcusjepsn
+                  </a>
+                )}
               </details>
             ))}
           </div>
@@ -203,7 +214,18 @@ export function Landing() {
 
         {/* Footer */}
         <footer className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-6 py-10 text-meta text-muted-foreground sm:flex-row sm:justify-between">
-          <p>{t("signin.operatedBy", operator)}</p>
+          <p>
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground"
+            >
+              {t("landing.madeBy")}
+            </a>
+            {" · "}
+            {t("signin.operatedBy", operator)}
+          </p>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link to="/privacy" className="hover:text-foreground">
               {t("settings.privacy")}
