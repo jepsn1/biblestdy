@@ -43,6 +43,7 @@ async function seedUser(ctx: Ctx, userId: string) {
   await ctx.tags.tagPassage(userId, gen1Passage, 'creation');
   ctx.accountStore.addHighlight(userId);
   ctx.accountStore.addAnnotation(userId);
+  ctx.accountStore.addPreference(userId);
   ctx.accountStore.addSession(userId);
   return note;
 }
@@ -59,6 +60,7 @@ describe('AccountService (cascade account deletion, issue #17)', () => {
     expect(await ctx.tags.listTags('u1')).toEqual([]);
     expect(ctx.accountStore.highlightCount('u1')).toBe(0);
     expect(ctx.accountStore.annotationCount('u1')).toBe(0);
+    expect(ctx.accountStore.hasPreference('u1')).toBe(false);
     expect(ctx.accountStore.sessionCount('u1')).toBe(0);
     expect(ctx.accountStore.hasUser('u1')).toBe(false);
   });
@@ -96,6 +98,7 @@ describe('AccountService (cascade account deletion, issue #17)', () => {
     expect(await ctx.tags.tagsForPassage('u2', gen1Passage)).toHaveLength(1);
     expect(ctx.accountStore.highlightCount('u2')).toBe(1);
     expect(ctx.accountStore.annotationCount('u2')).toBe(1);
+    expect(ctx.accountStore.hasPreference('u2')).toBe(true);
     expect(ctx.accountStore.sessionCount('u2')).toBe(1);
     expect(ctx.accountStore.hasUser('u2')).toBe(true);
   });

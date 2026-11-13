@@ -5,6 +5,7 @@ import { AnnotationsModule } from './annotations/annotations.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { HighlightsModule } from './highlights/highlights.module';
 import { NotesModule } from './notes/notes.module';
+import { PreferencesModule } from './preferences/preferences.module';
 import { ScriptureModule } from './scripture/scripture.module';
 import { TagsModule } from './tags/tags.module';
 
@@ -17,6 +18,7 @@ import { TagsModule } from './tags/tags.module';
     NotesModule,
     ConnectionsModule,
     TagsModule,
+    PreferencesModule,
   ],
   controllers: [AppController],
 })

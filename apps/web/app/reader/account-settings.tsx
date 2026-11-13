@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
+import { READER_STYLES } from "@biblestdy/shared";
 import { UserRound } from "lucide-react";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Button } from "~/components/ui/button";
@@ -13,6 +14,7 @@ import { useIsMobile } from "~/hooks/use-mobile";
 import { appChannel, appVersion } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import { setUiLanguage } from "~/lib/i18n";
+import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { api } from "~/lib/query";
 
 const chipClass =
@@ -99,6 +101,8 @@ function SettingsContent({ email }: { email: string }) {
         <ThemeToggle />
       </div>
 
+      <ReaderStyleSwitch />
+
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">{t("settings.language")}</span>
         <Button
@@ -131,6 +135,35 @@ function SettingsContent({ email }: { email: string }) {
       <Separator />
 
       <DangerZone />
+    </div>
+  );
+}
+
+/** Paper / Clean (#45): applies instantly, saved to the account. */
+function ReaderStyleSwitch() {
+  const { t } = useTranslation();
+  const active = useReaderStyle();
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-muted-foreground">{t("settings.style")}</span>
+      <div role="radiogroup" aria-label={t("settings.style")} className="flex rounded-md bg-muted p-0.5">
+        {READER_STYLES.map((style) => (
+          <button
+            key={style}
+            type="button"
+            role="radio"
+            aria-checked={active === style}
+            onClick={() => void saveReaderStyle(style).catch(() => undefined)}
+            className={
+              active === style
+                ? "rounded px-2 py-0.5 text-xs font-medium text-foreground shadow-sm bg-background"
+                : "rounded px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+            }
+          >
+            {t(`readerStyle.${style}`)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

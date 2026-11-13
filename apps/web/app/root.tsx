@@ -48,6 +48,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `if(localStorage.getItem("theme")==="dark")document.documentElement.classList.add("dark")`,
           }}
         />
+        {/* Same for the reader style (#45, Clean = .style-clean; Paper = none).
+            Key/class mirror lib/reader-style.ts (not imported: root is SSR'd) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("readerStyle")==="clean")document.documentElement.classList.add("style-clean")}catch(e){}`,
+          }}
+        />
         <Meta />
         <Links />
       </head>

@@ -6,7 +6,7 @@ import type { AccountStore } from './account.store';
 /**
  * Account deletion (issue #17, App Store 5.1.1(v)): wipes EVERYTHING the user
  * owns — notes (+ anchors + tag links), own tags (+ passage links), highlights,
- * annotations, Better Auth sessions, then the user row. The cascade is explicit
+ * annotations, preferences, Better Auth sessions, then the user row. The cascade is explicit
  * through the store seams (not left to FK cascade) so in-memory and Drizzle
  * behave identically and tag orphan-cleanup matches TagsService semantics.
  */
@@ -58,6 +58,7 @@ export class AccountService {
 
     await this.accounts.deleteHighlights(userId);
     await this.accounts.deleteAnnotations(userId);
+    await this.accounts.deletePreferences(userId);
     await this.accounts.deleteSessions(userId);
     await this.accounts.deleteUser(userId);
     return true;

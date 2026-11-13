@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { session, user } from '../db/auth-schema';
-import { annotation, highlight } from '../db/schema';
+import { annotation, highlight, userPreference } from '../db/schema';
 
 /**
  * Persistence primitives for account deletion (issue #17). The cascade order
@@ -12,6 +12,7 @@ export interface AccountStore {
   userExists(userId: string): Promise<boolean>;
   deleteHighlights(userId: string): Promise<void>;
   deleteAnnotations(userId: string): Promise<void>;
+  deletePreferences(userId: string): Promise<void>;
   /** Revokes every Better Auth session of the user. */
   deleteSessions(userId: string): Promise<void>;
   /** Deletes the user row itself (linked auth rows go with it). */
@@ -34,6 +35,10 @@ export class DrizzleAccountStore implements AccountStore {
 
   async deleteAnnotations(userId: string): Promise<void> {
     await db.delete(annotation).where(eq(annotation.userId, userId));
+  }
+
+  async deletePreferences(userId: string): Promise<void> {
+    await db.delete(userPreference).where(eq(userPreference.userId, userId));
   }
 
   async deleteSessions(userId: string): Promise<void> {
