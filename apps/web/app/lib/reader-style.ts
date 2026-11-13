@@ -8,14 +8,13 @@ import { api } from "./query";
  * root.tsx applies it before first paint. Light/dark is separate (theme-toggle).
  */
 
+/** Also hard-coded in root.tsx's pre-paint script — keep in sync. */
 const STORAGE_KEY = "readerStyle";
 export const STYLE_CLASS: Record<ReaderStyle, string> = {
   paper: "style-paper",
   clean: "style-clean",
 };
 
-/** Inline pre-paint script for root.tsx (no flash of the wrong style). */
-export const READER_STYLE_PREPAINT = `try{if(localStorage.getItem("${STORAGE_KEY}")==="clean")document.documentElement.classList.add("style-clean")}catch(e){}`;
 
 let listeners: (() => void)[] = [];
 function subscribe(cb: () => void) {

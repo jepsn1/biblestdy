@@ -14,7 +14,6 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { Route } from "./+types/root";
 import { queryClient } from "~/lib/query";
-import { READER_STYLE_PREPAINT } from "~/lib/reader-style";
 import "./app.css";
 
 // Fonts are self-hosted via @fontsource imports in app.css
@@ -49,8 +48,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `if(localStorage.getItem("theme")==="dark")document.documentElement.classList.add("dark")`,
           }}
         />
-        {/* Same for the reader style (#45, Clean = .style-clean; Paper = none) */}
-        <script dangerouslySetInnerHTML={{ __html: READER_STYLE_PREPAINT }} />
+        {/* Same for the reader style (#45, Clean = .style-clean; Paper = none).
+            Key/class mirror lib/reader-style.ts (not imported: root is SSR'd) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("readerStyle")==="clean")document.documentElement.classList.add("style-clean")}catch(e){}`,
+          }}
+        />
         <Meta />
         <Links />
       </head>
