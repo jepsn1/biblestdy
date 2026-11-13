@@ -1,0 +1,423 @@
+{
+ "reference": "Psalms 23",
+ "copyright": "PUBLIC DOMAIN",
+ "content": [
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "d"
+   },
+   "items": [
+    {
+     "text": "A Psalm by David.",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "1",
+      "style": "v",
+      "sid": "PSA 23:1"
+     },
+     "items": [
+      {
+       "text": "1",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "Yahweh is my shepherd;",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.1",
+      "verseOrgIds": [
+       "PSA.23.1"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:1"
+   },
+   "items": [
+    {
+     "text": "I shall lack nothing.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.1",
+      "verseOrgIds": [
+       "PSA.23.1"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "2",
+      "style": "v",
+      "sid": "PSA 23:2"
+     },
+     "items": [
+      {
+       "text": "2",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "He makes me lie down in green pastures.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.2",
+      "verseOrgIds": [
+       "PSA.23.2"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:2"
+   },
+   "items": [
+    {
+     "text": "He leads me beside still waters.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.2",
+      "verseOrgIds": [
+       "PSA.23.2"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "3",
+      "style": "v",
+      "sid": "PSA 23:3"
+     },
+     "items": [
+      {
+       "text": "3",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "He restores my soul.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.3",
+      "verseOrgIds": [
+       "PSA.23.3"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:3"
+   },
+   "items": [
+    {
+     "text": "He guides me in the paths of righteousness for his name’s sake.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.3",
+      "verseOrgIds": [
+       "PSA.23.3"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "4",
+      "style": "v",
+      "sid": "PSA 23:4"
+     },
+     "items": [
+      {
+       "text": "4",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "Even though I walk through the valley of the shadow of death,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:4"
+   },
+   "items": [
+    {
+     "text": "I will fear no evil, for you are with me.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1",
+    "vid": "PSA 23:4"
+   },
+   "items": [
+    {
+     "text": "Your rod and your staff,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:4"
+   },
+   "items": [
+    {
+     "text": "they comfort me.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "5",
+      "style": "v",
+      "sid": "PSA 23:5"
+     },
+     "items": [
+      {
+       "text": "5",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "You prepare a table before me",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:5"
+   },
+   "items": [
+    {
+     "text": "in the presence of my enemies.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1",
+    "vid": "PSA 23:5"
+   },
+   "items": [
+    {
+     "text": "You anoint my head with oil.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:5"
+   },
+   "items": [
+    {
+     "text": "My cup runs over.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "6",
+      "style": "v",
+      "sid": "PSA 23:6"
+     },
+     "items": [
+      {
+       "text": "6",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "Surely goodness and loving kindness shall follow me all the days of my life,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.6",
+      "verseOrgIds": [
+       "PSA.23.6"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:6"
+   },
+   "items": [
+    {
+     "text": "and I will dwell in Yahweh’s house forever.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.6",
+      "verseOrgIds": [
+       "PSA.23.6"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}
