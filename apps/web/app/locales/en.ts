@@ -199,10 +199,10 @@ export default {
   },
   support: {
     title: "biblestdy is free",
-    body: "Hi, I'm Marcus. I build biblestdy on my own, free and without ads. I don't take donations yet. If you like it, follow along on Instagram or join the group chat for news.",
+    body: "Hi, I'm Marcus. I build biblestdy on my own, with no ads. I don't take donations yet, but if you like it, follow along on Instagram.",
     follow: "Follow @{{handle}}",
-    chat: "Group chat",
-    chatHint: "Group chat: message me and I'll add you. Members can see your profile.",
+    chat: "Message me to join the group chat",
+    chatHint: "Opens Instagram. Your page stays here. In the group chat, others can see your Instagram name.",
     close: "Close",
     settings: "Follow biblestdy",
   },

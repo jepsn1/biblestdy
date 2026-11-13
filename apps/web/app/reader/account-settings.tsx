@@ -276,7 +276,7 @@ function SettingsContent({
 
       {/* The one-time support notice, findable again (Instagram, new tab) */}
       <div className="flex flex-col gap-2 py-1">
-        <p className="text-meta text-muted-foreground">{t("support.settings")}</p>
+        <p className="text-control font-medium">{t("support.settings")}</p>
         <SupportLinks quiet />
       </div>
 

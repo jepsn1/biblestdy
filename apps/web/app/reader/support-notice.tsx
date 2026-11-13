@@ -31,6 +31,7 @@ export function SupportLinks({ onFollow, quiet }: { onFollow?: () => void; quiet
         {t("support.chat")}
         <ExternalLink aria-hidden />
       </a>
+      <p className="basis-full text-meta text-muted-foreground">{t("support.chatHint")}</p>
     </div>
   );
 }
@@ -55,27 +56,24 @@ export function SupportNotice({ onClose }: { onClose: () => void }) {
     <section
       ref={ref}
       aria-labelledby={titleId}
-      className="fixed inset-x-4 bottom-16 z-40 mx-auto max-w-sm animate-in fade-in rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg duration-150 sm:inset-x-auto sm:right-4 sm:bottom-20 sm:w-72"
+      className="fixed inset-x-4 bottom-16 z-40 mx-auto max-w-md animate-in fade-in rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg duration-150 xl:inset-x-auto xl:right-4 xl:bottom-20 xl:w-90"
     >
       <div role="status" className="sr-only">
         {t("support.title")}
       </div>
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <img src="/marcus.webp" alt="" width={40} height={40} className="size-10 shrink-0 rounded-full" />
-        <div className="min-w-0 flex-1">
-          <h2 id={titleId} className="text-control font-semibold">
-            {t("support.title")}
-          </h2>
-          <p className="mt-0.5 text-list">{t("support.body")}</p>
-        </div>
-        <Button variant="ghost" size="sm" className="-mt-1 -mr-1 shrink-0 max-sm:h-11 max-sm:px-3" onClick={onClose}>
+        <h2 id={titleId} className="min-w-0 flex-1 text-control font-semibold">
+          {t("support.title")}
+        </h2>
+        <Button variant="outline" size="sm" className="shrink-0 max-sm:h-11 max-sm:px-3" onClick={onClose}>
           {t("support.close")}
         </Button>
       </div>
+      <p className="mt-2 text-list">{t("support.body")}</p>
       <div className="mt-3">
         <SupportLinks onFollow={onClose} />
       </div>
-      <p className="mt-2 text-meta text-muted-foreground">{t("support.chatHint")}</p>
     </section>
   );
 }

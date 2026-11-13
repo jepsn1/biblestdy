@@ -201,10 +201,10 @@ const da: typeof en = {
   },
   support: {
     title: "biblestdy er gratis",
-    body: "Hej, jeg hedder Marcus og bygger biblestdy selv, gratis og uden reklamer. Jeg tager ikke imod donationer endnu. Kan du lide appen, så følg med på Instagram eller gå med i gruppechatten for nyheder.",
+    body: "Hej, jeg hedder Marcus og bygger biblestdy selv, uden reklamer. Jeg tager ikke imod donationer endnu, men kan du lide appen, så følg med på Instagram.",
     follow: "Følg @{{handle}}",
-    chat: "Gruppechat",
-    chatHint: "Gruppechat: skriv til mig, så tilføjer jeg dig. Andre kan se din profil.",
+    chat: "Skriv til mig for at komme med i gruppechatten",
+    chatHint: "Åbner Instagram. Din side bliver her. I gruppechatten kan andre se dit Instagram-navn.",
     close: "Luk",
     settings: "Følg biblestdy",
   },
