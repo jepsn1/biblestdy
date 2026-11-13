@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { operator } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import i18n, { setUiLanguage } from "~/lib/i18n";
 import { redirectIfAuthed } from "~/lib/require-auth";
@@ -139,6 +140,9 @@ export default function SignIn() {
         >
           {t("settings.privacy")}
         </Link>
+        <p className="mt-4 text-center font-mono text-[0.6rem] text-muted-foreground/70">
+          {t("signin.operatedBy", operator)}
+        </p>
       </div>
     </main>
   );
