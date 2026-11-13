@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Hint } from "~/components/hint";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
@@ -653,10 +654,12 @@ export function PaginatedChapter({
         defaultSize={openNote ? `${100 - noteSize}%` : "100%"}
         className="flex min-h-0 flex-col"
       >
-      {/* Any click in the reader cancels the reference spotlight (pointer,
-          not click: the pane is no control — Esc/keys are #65's) */}
+      {/* Any press in the reader cancels the reference spotlight (a mouse
+          nicety; keyboard users clear it from the note's references).
+          Pointer-up: word presses stop it there (chapter-text.tsx) */}
       <div
         ref={paneRef}
+        role="presentation"
         className="relative min-h-0 flex-1"
         onPointerUp={() => selectedMarkId && setSelectedMarkId(null)}
       >
@@ -803,9 +806,10 @@ export function PaginatedChapter({
             onOpenChange={(open) => !open && closeConnections()}
             showSwipeHandle
           >
+            {/* Content-sized (#62): short lists get a short sheet, capped at 92dvh */}
             <DrawerContent
               aria-label={t("connections.title")}
-              style={{ "--drawer-height": "70dvh" } as React.CSSProperties}
+              className="[--drawer-content-max-height:92dvh]"
             >
               <ConnectionsPanel
                 translationId={chapter.translationId}
@@ -862,20 +866,22 @@ function NavButton({
   const label = target
     ? t(dir === "prev" ? "reader.prevChapterTo" : "reader.nextChapterTo", { ref: target })
     : t(dir === "prev" ? "reader.prevPage" : "reader.nextPage");
-  const hint = target ? label : t(dir === "prev" ? "reader.prevPageHint" : "reader.nextPageHint");
+  // A page turn names its arrow key; a chapter step has no key of its own
+  const shortcut = target ? undefined : dir === "prev" ? "←" : "→";
   return (
-    <Button
-      variant="ghost"
-      size={target ? "sm" : "icon-sm"}
-      aria-label={label}
-      title={hint}
-      disabled={disabled}
-      onClick={onClick}
-      className="shrink-0 text-muted-foreground hover:text-foreground"
-    >
-      {dir === "prev" && <Icon data-icon={target ? "inline-start" : undefined} />}
-      {target}
-      {dir === "next" && <Icon data-icon={target ? "inline-end" : undefined} />}
-    </Button>
+    <Hint label={label} shortcut={shortcut} side="top">
+      <Button
+        variant="ghost"
+        size={target ? "sm" : "icon-sm"}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className="shrink-0 text-muted-foreground hover:text-foreground"
+      >
+        {dir === "prev" && <Icon data-icon={target ? "inline-start" : undefined} />}
+        {target}
+        {dir === "next" && <Icon data-icon={target ? "inline-end" : undefined} />}
+      </Button>
+    </Hint>
   );
 }

@@ -62,12 +62,16 @@ function SelectContent({
   align = "center",
   alignOffset = 0,
   alignItemWithTrigger = true,
+  listClassName,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
     SelectPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
-  >) {
+  > & {
+    /** Layout of the option list itself, e.g. a number grid (#62). */
+    listClassName?: string
+  }) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -85,7 +89,7 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
-          <SelectPrimitive.List>{children}</SelectPrimitive.List>
+          <SelectPrimitive.List className={listClassName}>{children}</SelectPrimitive.List>
           <SelectScrollDownButton />
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>
@@ -109,8 +113,12 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  indicator = true,
   ...props
-}: SelectPrimitive.Item.Props) {
+}: SelectPrimitive.Item.Props & {
+  /** false: no check mark (grid cells show selection by colour). */
+  indicator?: boolean
+}) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -120,9 +128,16 @@ function SelectItem({
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
+      <SelectPrimitive.ItemText
+        data-slot="select-item-text"
+        className={cn(
+          "flex min-w-0 flex-1 shrink-0 gap-2 whitespace-nowrap",
+          !indicator && "justify-center"
+        )}
+      >
         {children}
       </SelectPrimitive.ItemText>
+      {indicator && (
       <SelectPrimitive.ItemIndicator
         render={
           <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
@@ -130,6 +145,7 @@ function SelectItem({
       >
         <CheckIcon className="pointer-events-none" />
       </SelectPrimitive.ItemIndicator>
+      )}
     </SelectPrimitive.Item>
   )
 }

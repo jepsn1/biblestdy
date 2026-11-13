@@ -5,7 +5,7 @@ import { loadPreferences, savePreferences } from "./preferences";
 /**
  * Reader style (#45): Paper (default, no class) or Clean (`.style-clean` on
  * <html>). Saved per account (/api/preferences), mirrored to localStorage so
- * root.tsx applies it before first paint. Light/dark is separate (theme-toggle).
+ * root.tsx applies it before first paint. Light/dark is separate (lib/theme.ts).
  */
 
 /** Also hard-coded in root.tsx's pre-paint script — keep in sync. */

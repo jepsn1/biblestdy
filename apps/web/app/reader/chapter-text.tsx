@@ -28,6 +28,7 @@ import {
   type VirtualAnchor,
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
+import { NOTE_OPENER } from "./note-panel";
 import { layoutChapter, type WordPiece } from "./chapter-layout";
 
 function isColor(value: unknown): value is HighlightColor {
@@ -565,6 +566,7 @@ export function ChapterText({
                         key={m.id}
                         type="button"
                         data-ink-box
+                        {...{ [NOTE_OPENER]: "" }}
                         aria-label={t("reader.openNoteNamed", { title: m.title || t("note.untitled") })}
                         title={m.title || t("note.untitled")}
                         onClick={(e) => {

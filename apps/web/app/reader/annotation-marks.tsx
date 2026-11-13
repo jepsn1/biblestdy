@@ -7,6 +7,7 @@ import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import { lineRuns, placeRailChips, type Rect } from "./ink-geometry";
 import type { NoteMark } from "./use-notes";
+import { NOTE_OPENER } from "./note-panel";
 import {
   bracketPath,
   leaderPath,
@@ -494,6 +495,7 @@ export function AnnotationMarks({
               key={m.mark.id}
               type="button"
               data-ink-box
+              {...{ [NOTE_OPENER]: "" }}
               aria-label={t("reader.openNoteNamed", { title })}
               title={title}
               onClick={() => onOpenNote(m.mark.noteId)}

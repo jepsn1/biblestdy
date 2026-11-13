@@ -48,16 +48,11 @@ const biblestdy = {
 };
 
 /**
- * Files being rewritten in parallel by #62 (overlays & settings) and #63
- * (annotations + highlight menu). Rules they currently break are `warn` here
- * so this lands without touching them; flip to error after wave 2.
+ * Files being rewritten in parallel by #63 (annotations + highlight menu).
+ * Rules they currently break are `warn` here so this lands without touching
+ * them; flip to error after wave 2. (#62's files are clean and back on error.)
  */
 const WAVE2_FILES = [
-  "app/reader/account-settings.tsx",
-  "app/reader/style-chooser.tsx",
-  "app/reader/note-panel.tsx",
-  "app/reader/connections-panel.tsx",
-  "app/reader/reader-nav.tsx",
   "app/reader/paginated-chapter.tsx",
   "app/reader/chapter-text.tsx",
   "app/reader/annotation-marks.tsx",

@@ -33,10 +33,15 @@ import {
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useIsDark } from "~/components/theme-toggle";
+import { useEffect, useRef, useState } from "react";
+import { useIsDark } from "~/lib/theme";
+import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
 import { useNoteTags } from "./use-tags";
+
+/** Marks a control that opens a note (margin chip, phone marker): the side
+ * panel takes focus from it and hands it back on close (#63). */
+export const NOTE_OPENER = "data-note-opener";
 
 /** The note's tags (issue #10) — own component so the query mounts per note. */
 function NoteTagsRow({ noteId }: { noteId: string }) {
@@ -97,7 +102,7 @@ function ReferencesTable({
 
   return (
     <section className="flex h-full min-h-0 flex-col px-3 py-2">
-      <h3 className="mb-1 shrink-0 font-mono text-[0.6rem] tracking-widest text-muted-foreground uppercase">
+      <h3 className="mb-1 shrink-0 font-mono text-xs tracking-widest text-muted-foreground uppercase">
         {t("note.references")}
       </h3>
       <ScrollArea className="min-h-0 flex-1">
@@ -124,7 +129,7 @@ function ReferencesTable({
                 focusRing,
               )}
             >
-              <span className="font-mono text-[0.65rem] whitespace-nowrap text-primary">
+              <span className="font-mono text-xs whitespace-nowrap text-primary">
                 {formatReference(anchorReference(a))}
               </span>
               <span className="truncate font-serif text-xs text-muted-foreground italic">
@@ -194,6 +199,22 @@ export function NotePanel({
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const dark = useIsDark();
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  // Opened from a note chip (desktop side panel): focus moves to the title;
+  // closing the panel returns it to that chip. Drawers manage their own focus.
+  useEffect(() => {
+    if (mobile) return;
+    const opener = document.activeElement?.closest<HTMLElement>(`[${NOTE_OPENER}]`) ?? null;
+    if (!opener) return;
+    const aside = titleRef.current?.closest("aside");
+    titleRef.current?.focus({ preventScroll: true });
+    return () => {
+      const active = document.activeElement;
+      if ((active === document.body || aside?.contains(active)) && opener.isConnected)
+        opener.focus({ preventScroll: true });
+    };
+  }, [mobile, note.id]);
 
   // Fresh note -> fresh buffers (the editor itself resets via key={note.id})
   useEffect(() => {
@@ -222,8 +243,9 @@ export function NotePanel({
     <aside className="flex h-full w-full flex-col bg-background">
       {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <PanelHeader onClose={onClose} closeLabel={t("note.close")} className="pl-3">
         <input
+          ref={titleRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t("note.titlePlaceholder")}
@@ -239,15 +261,7 @@ export function NotePanel({
             focusRing,
           )}
         />
-        <button
-          type="button"
-          aria-label={t("note.close")}
-          onClick={onClose}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
-      </header>
+      </PanelHeader>
 
       {/* Tags group study across the graph (issue #10) — chips open topic pages */}
       <div className="border-b border-border px-3 py-1.5">
@@ -331,7 +345,7 @@ export function NotePanel({
         );
       })()}
 
-      <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-[0.6rem] text-muted-foreground">
+      <footer className="flex items-center justify-between border-t border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
         <button
           type="button"
           className="hover:text-destructive"

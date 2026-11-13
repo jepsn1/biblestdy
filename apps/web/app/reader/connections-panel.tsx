@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
 import type { Note } from "@biblestdy/shared";
 import { anchorReference, formatReference } from "@biblestdy/shared";
-import { X } from "lucide-react";
+import { useEffect, useId, useRef } from "react";
 import { useNavigate } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { PanelHeader, panelTitleClass } from "./panel-header";
 import { TagChips } from "./tag-chips";
 import { useConnections } from "./use-connections";
 import { usePassageTags } from "./use-tags";
@@ -13,6 +14,9 @@ import { usePassageTags } from "./use-tags";
  * notes anchored in this chapter, the passages they also anchor to
  * ("also appears in"), and the most recent notes as re-entry into study.
  */
+/** Marks the nav button that opens a side panel, so focus can return to it. */
+export const PANEL_TOGGLE = "data-panel-toggle";
+
 export function ConnectionsPanel({
   translationId,
   book,
@@ -26,13 +30,41 @@ export function ConnectionsPanel({
   chapter: number;
   onOpenNote: (id: string) => void;
   onClose: () => void;
-  /** Drawer build (#13): touch-sized rows, drawer handle closes (no X). */
+  /** Drawer build (#13): touch-sized rows; the drawer owns focus. */
   mobile?: boolean;
 }) {
   const { t } = useTranslation();
+  const headingId = useId();
   const navigate = useNavigate();
   const connections = useConnections(translationId, book, chapter, true);
   const passageTags = usePassageTags(translationId, book, chapter);
+  const asideRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Side panel (not a drawer) opened from its nav toggle: focus moves to the
+  // panel heading; closing it hands focus back to the toggle (#62).
+  useEffect(() => {
+    if (mobile) return;
+    if (document.activeElement?.closest(`[${PANEL_TOGGLE}="connections"]`)) {
+      headingRef.current?.focus();
+    }
+    const aside = asideRef.current;
+    // Esc closes the side panel while focus is in it (drawers handle Esc themselves)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) onCloseRef.current();
+    };
+    aside?.addEventListener("keydown", onKey);
+    return () => {
+      aside?.removeEventListener("keydown", onKey);
+      if (aside?.contains(document.activeElement) || document.activeElement === document.body) {
+        document.querySelector<HTMLElement>(`[${PANEL_TOGGLE}="connections"]`)?.focus();
+      }
+    };
+  }, [mobile]);
 
   /** A note anchored here opens in place; one from elsewhere is read there,
    * arriving with its panel open (?note= survives navigation). */
@@ -58,7 +90,7 @@ export function ConnectionsPanel({
         <span className="block truncate font-serif text-sm">
           {note.title || t("note.untitled")}
         </span>
-        <span className="block truncate font-mono text-[0.6rem] text-muted-foreground">
+        <span className="block truncate font-mono text-xs text-muted-foreground">
           {note.anchors.map((a) => formatReference(anchorReference(a))).join(" · ")}
         </span>
       </button>
@@ -67,27 +99,23 @@ export function ConnectionsPanel({
 
   function SectionTitle({ children }: { children: string }) {
     return (
-      <h3 className="px-2 pb-1 font-sans text-[0.65rem] font-semibold tracking-widest text-primary uppercase">
+      <h3 className="px-2 pb-1 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
         {children}
       </h3>
     );
   }
 
   return (
-    <aside className="flex h-full w-full flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h2 className="font-serif text-lg font-medium">{t("connections.title")}</h2>
-        {!mobile && (
-          <button
-            type="button"
-            aria-label={t("connections.close")}
-            onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
-        )}
-      </header>
+    <aside
+      ref={asideRef}
+      aria-labelledby={headingId}
+      className="flex h-full w-full flex-col bg-background"
+    >
+      <PanelHeader onClose={onClose} closeLabel={t("connections.close")}>
+        <h2 id={headingId} ref={headingRef} tabIndex={-1} className={`${panelTitleClass} outline-none`}>
+          {t("connections.title")}
+        </h2>
+      </PanelHeader>
 
       <ScrollArea className="min-h-0 flex-1">
         {connections && (
@@ -106,7 +134,7 @@ export function ConnectionsPanel({
                 />
                 {connections.topics.some((tp) => !tp.onPassage) && (
                   <div className="mt-1.5">
-                    <span className="font-mono text-[0.6rem] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">
                       {t("connections.viaNotes")}{" "}
                     </span>
                     {connections.topics
@@ -116,9 +144,9 @@ export function ConnectionsPanel({
                           key={tp.id}
                           type="button"
                           onClick={() => navigate(`/topic/${encodeURIComponent(tp.name)}`)}
-                          className="font-mono text-[0.6rem] text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                          className="font-mono text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
                         >
-                          {t.name}
+                          {tp.name}
                           {i < arr.length - 1 ? ", " : ""}
                         </button>
                       ))}
@@ -156,7 +184,7 @@ export function ConnectionsPanel({
                   <span className="block font-serif text-sm">
                     {formatReference({ book: p.book, chapter: p.chapter })}
                   </span>
-                  <span className="block truncate font-mono text-[0.6rem] text-muted-foreground">
+                  <span className="block truncate font-mono text-xs text-muted-foreground">
                     {t("connections.via")} {p.notes.map((n) => n.title || t("note.untitled")).join(", ")}
                   </span>
                 </button>
