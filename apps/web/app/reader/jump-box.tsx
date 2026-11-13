@@ -1,10 +1,11 @@
-import { findBook, parseReference, suggestBooks, type BookLocale } from "@biblestdy/shared";
+import { findBook, parseReference, suggestBooks } from "@biblestdy/shared";
 import { Search, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { bookLocale } from "~/lib/book-name";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import { referenceHref } from "./chapter-nav";
@@ -21,7 +22,7 @@ const BOOK_PART = /^\s*(\d?\.?\s*\p{L}[\p{L}\s.']*)$/u;
 export function JumpBox() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const locale: BookLocale = i18n.language?.startsWith("da") ? "da" : "en";
+  const locale = bookLocale(i18n.language);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const [value, setValue] = useState("");

@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import type { Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
-import { getBook } from "@biblestdy/shared";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -8,6 +7,7 @@ import { Button, buttonVariants } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
+import { useBookName } from "~/lib/book-name";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import {
@@ -82,6 +82,7 @@ export function PaginatedChapter({
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const nameOf = useBookName();
   const contentRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const contentBoxRef = useRef<HTMLDivElement>(null);
@@ -460,7 +461,7 @@ export function PaginatedChapter({
 
   /** "John 4" — localized book names where the UI has them (#52). */
   const refLabel = (r: ChapterRef) =>
-    `${t(`books.${r.book}`, { defaultValue: getBook(r.book)?.name ?? r.book })} ${r.chapter}`;
+    `${nameOf(r.book)} ${r.chapter}`;
   const hereLabel = refLabel(chapter);
   const onFirstPage = scrollMode || page === 0;
   const onLastPage = scrollMode || page >= pageCount - 1;

@@ -37,7 +37,7 @@ describe('suggestBooks', () => {
   it('"joh" → John first, with both names', () => {
     const s = suggestBooks('joh', 'da')
     expect(s[0]).toEqual({ id: 'JHN', name: 'Johannes', alt: 'John' })
-    expect(s.map((x) => x.id)).toEqual(expect.arrayContaining(['1JN', '2JN', '3JN']))
+    expect(s.map((x) => x.id)).toEqual(['JHN', '1JN', '2JN', '3JN', 'REV'])
   })
 
   it('matches English names in a Danish UI and vice versa', () => {

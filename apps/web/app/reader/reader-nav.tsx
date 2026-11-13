@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
+import { useBookName } from "~/lib/book-name";
 import {
   Select,
   SelectContent,
@@ -41,19 +42,20 @@ export function ReaderNav({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const pwa = usePwaInstall();
+  const nameOf = useBookName();
   const current = getBook(book);
   const chapterCount = current?.chapters ?? 1;
 
   return (
     <nav className="relative shrink-0 border-b border-border bg-background/85">
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
         <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
 
         <div className="h-4 w-px bg-border" />
 
         <span className="min-w-0 truncate font-serif text-sm font-medium">
-          {t(`books.${book}`, { defaultValue: current?.name ?? book })}
+          {nameOf(book)}
         </span>
 
         <Select

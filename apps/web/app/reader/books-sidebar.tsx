@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
 } from "~/components/ui/sidebar";
 import { authClient } from "~/lib/auth-client";
+import { bookLocale, useBookName } from "~/lib/book-name";
 
 const OLD_TESTAMENT = BOOKS.slice(0, 39);
 const NEW_TESTAMENT = BOOKS.slice(39);
@@ -26,14 +27,15 @@ export function BooksSidebar({ book }: { book: string }) {
   const { t, i18n } = useTranslation();
   const [filter, setFilter] = useState("");
   const query = filter.trim().toLowerCase();
-  const locale = i18n.language?.startsWith("da") ? "da" : "en";
+  const locale = bookLocale(i18n.language);
+  const nameOf = useBookName();
   // Same English + Danish matching as the jump box (#53)
   const suggested = new Set(query ? suggestBooks(query, locale, BOOKS.length).map((s) => s.id) : []);
 
   // Match display name, or any alias the reference parser accepts ("jn", "1jo"…)
   const matches = (b: (typeof BOOKS)[number]) =>
     query === "" ||
-    t(`books.${b.id}`, { defaultValue: b.name }).toLowerCase().includes(query) ||
+    nameOf(b.id).toLowerCase().includes(query) ||
     b.name.toLowerCase().includes(query) ||
     suggested.has(b.id) ||
     findBook(query, locale)?.id === b.id;
@@ -130,7 +132,7 @@ function BookGroup({
   books: readonly (typeof BOOKS)[number][];
   current: string;
 }) {
-  const { t } = useTranslation();
+  const nameOf = useBookName();
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="font-mono text-[0.6rem] tracking-widest uppercase">
@@ -149,7 +151,7 @@ function BookGroup({
                     to={`/read/${b.id}/1`}
                     aria-current={b.id === current ? "page" : undefined}
                   >
-                    {t(`books.${b.id}`, { defaultValue: b.name })}
+                    {nameOf(b.id)}
                   </Link>
                 }
               />

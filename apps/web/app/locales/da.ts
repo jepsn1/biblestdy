@@ -1,4 +1,3 @@
-import { BOOKS, bookName } from "@biblestdy/shared";
 import type en from './en';
 
 /** Danish UI strings (issue #12) — same shape as en.ts, enforced by the type. */
@@ -189,8 +188,6 @@ const da: typeof en = {
     hours_one: "{{count}} time",
     hours_other: "{{count}} timer",
   },
-  /** Book display names (#53), from the shared canon table. */
-  books: Object.fromEntries(BOOKS.map((b) => [b.id, bookName(b.id, "da")])) as Record<string, string>,
   error: {
     oops: "Hovsa!",
     unexpected: "Der opstod en uventet fejl.",

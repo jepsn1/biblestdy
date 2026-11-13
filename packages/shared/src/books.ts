@@ -156,8 +156,8 @@ export interface BookSuggestion {
 /**
  * Autocomplete for the reference box (#53): books whose English or Danish
  * name/alias starts with what was typed, or one of whose name words does
- * ("kor" → 1 Korintherbrev). Exact alias matches first, then the UI
- * locale's names, then canonical order.
+ * ("kor" → 1 Korintherbrev). Exact alias matches first, then display
+ * names (UI locale first), then other aliases; ties in canonical order.
  */
 export function suggestBooks(query: string, locale: BookLocale = 'en', limit = 6): BookSuggestion[] {
   const q = normalizeName(query.replace(/\./g, ''))
@@ -170,17 +170,20 @@ export function suggestBooks(query: string, locale: BookLocale = 'en', limit = 6
     const daAll = da.flatMap((n) => [n, ...asciiVariants(n)])
     const [mine, other] = locale === 'da' ? [daAll, en] : [en, daAll]
     const prefix = (s: string) => s.startsWith(q) || s.startsWith(qTight)
-    const displayWords = [book.name, danish(book)[0]]
-      .map((n) => n.toLowerCase())
-      .flatMap((n) => [n, ...asciiVariants(n)])
-      .flatMap((n) => n.split(' ').slice(1))
-    let score: number
+    const withAscii = (n: string) => [n.toLowerCase(), ...asciiVariants(n.toLowerCase())]
+    const enName = withAscii(book.name)
+    const daName = withAscii(danish(book)[0])
+    const [myName, otherName] = locale === 'da' ? [daName, enName] : [enName, daName]
+    // "1 Johannesbrev" → "johannesbrev": typing the name without its number
+    const nameWords = [...enName, ...daName].flatMap((n) => n.split(' ').slice(1))
     const exact = (list: string[]) => list.includes(q) || list.includes(qTight)
+    let score: number
     if (exact(mine)) score = 0
     else if (exact(other)) score = 0.5
-    else if (mine.some(prefix)) score = 1
-    else if (other.some(prefix)) score = 2
-    else if (displayWords.some(prefix)) score = 3
+    else if (myName.some(prefix)) score = 1
+    else if (otherName.some(prefix)) score = 2
+    else if (nameWords.some(prefix)) score = 3
+    else if ([...mine, ...other].some(prefix)) score = 4 // abbreviation/official title
     else return
     scored.push({ book, score, index })
   })

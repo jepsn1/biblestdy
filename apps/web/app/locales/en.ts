@@ -1,4 +1,3 @@
-import { BOOKS, bookName } from "@biblestdy/shared";
 /** English UI strings (issue #12). Adding a locale = adding a sibling file. */
 export default {
   nav: {
@@ -187,8 +186,6 @@ export default {
     hours_one: "{{count}} hour",
     hours_other: "{{count}} hours",
   },
-  /** Book display names (#53), from the shared canon table. */
-  books: Object.fromEntries(BOOKS.map((b) => [b.id, bookName(b.id, "en")])) as Record<string, string>,
   error: {
     oops: "Oops!",
     unexpected: "An unexpected error occurred.",
