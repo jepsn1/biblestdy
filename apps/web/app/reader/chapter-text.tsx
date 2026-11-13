@@ -13,6 +13,7 @@ import { FileText, X } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
+import { notifyCopied, notifyCopyFailed } from "~/lib/notify";
 import { cn, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { formatCopy } from "./copy-attribution";
@@ -360,8 +361,14 @@ export function ChapterText({
       ]);
     } catch {
       // No ClipboardItem/rich write (older webviews) — plain text still carries the citation
-      await navigator.clipboard.writeText(text).catch(() => {});
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        notifyCopyFailed(e);
+        return;
+      }
     }
+    notifyCopied(formatReference(anchorReference(anchor)), translationAbbreviation);
   }
 
   function wordPosOf(target: EventTarget | null): WordPos | null {

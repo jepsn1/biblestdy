@@ -65,6 +65,17 @@ describe('AccountService (cascade account deletion, issue #17)', () => {
     expect(ctx.accountStore.hasUser('u1')).toBe(false);
   });
 
+  it('also wipes notes still in their undo window (soft-deleted, #64)', async () => {
+    const ctx = make();
+    const note = await seedUser(ctx, 'u1');
+    await ctx.notes.remove('u1', note.id);
+
+    await ctx.account.deleteAccount('u1');
+    expect(await ctx.noteStore.allNoteIds('u1')).toEqual([]);
+    expect(await ctx.noteStore.anchorsFor([note.id])).toEqual([]);
+    expect(await ctx.tags.listTags('u1')).toEqual([]);
+  });
+
   it('removes note-tag and passage-tag links, not just the tag rows', async () => {
     const ctx = make();
     const note = await seedUser(ctx, 'u1');

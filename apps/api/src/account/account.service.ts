@@ -24,14 +24,15 @@ export class AccountService {
     if (!(await this.accounts.userExists(userId))) return false;
 
     // Notes: drop tag links first (remembering which tags may orphan), then
-    // the notes themselves — anchors go with the note.
-    const noteIds = (await this.notes.listNotes(userId)).map((n) => n.id);
+    // the notes themselves — anchors go with the note. Soft-deleted notes
+    // (#64, still in their undo window) go too.
+    const noteIds = await this.notes.allNoteIds(userId);
     const links = await this.tags.tagsForNotes(noteIds);
     for (const link of links) {
       await this.tags.untagNote(link.noteId, link.id);
     }
     for (const id of noteIds) {
-      await this.notes.deleteNote(userId, id);
+      await this.notes.purgeNote(userId, id);
     }
 
     // Own tags: drop remaining note + passage links, then the tag itself.

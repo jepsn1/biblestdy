@@ -14,6 +14,7 @@ function make(overrides: Partial<HighlightsService> = {}) {
     listForChapter: vi.fn(),
     create: vi.fn(),
     remove: vi.fn(),
+    restore: vi.fn(),
     recolor: vi.fn(),
     ...overrides,
   };
@@ -77,6 +78,22 @@ describe('HighlightsController', () => {
     });
     await expect(controller.remove(req, 'h1')).resolves.toEqual({ ok: true });
     expect(service.remove).toHaveBeenCalledWith('user-1', 'h1');
+  });
+
+  it('restores a deleted highlight for the session user (#64)', async () => {
+    const restored = { id: 'h1' } as Highlight;
+    const { service, controller } = make({
+      restore: vi.fn().mockResolvedValue(restored),
+    });
+    await expect(controller.restore(req, 'h1')).resolves.toBe(restored);
+    expect(service.restore).toHaveBeenCalledWith('user-1', 'h1');
+  });
+
+  it('404s restoring a highlight that is not the user deleted one', async () => {
+    const { controller } = make({ restore: vi.fn().mockResolvedValue(null) });
+    await expect(controller.restore(req, 'nope')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('recolors an owned highlight', async () => {

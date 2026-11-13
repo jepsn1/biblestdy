@@ -161,6 +161,23 @@ describe('ConnectionsService (panel assembly)', () => {
     ]);
   });
 
+  it('a deleted note leaves the panel; restoring brings it back (#64)', async () => {
+    const { notes, connections } = make();
+    const note = await notes.create('u1', { ...jhn3, title: 'Gone' });
+    await notes.addAnchor('u1', note.id, gen1);
+    await notes.remove('u1', note.id);
+
+    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
+    expect(panel.notesHere).toEqual([]);
+    expect(panel.alsoAppearsIn).toEqual([]);
+    expect(panel.recent).toEqual([]);
+
+    await notes.restore('u1', note.id);
+    const back = await connections.forChapter('u1', 'WEB', 'JHN', 3);
+    expect(back.notesHere.map((n) => n.id)).toEqual([note.id]);
+    expect(back.alsoAppearsIn).toHaveLength(1);
+  });
+
   it('assembles only the requesting user own graph', async () => {
     const { notes, connections } = make();
     await notes.create('u1', { ...jhn3, title: 'mine' });

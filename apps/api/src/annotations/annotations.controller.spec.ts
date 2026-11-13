@@ -15,6 +15,7 @@ function make(overrides: Partial<AnnotationsService> = {}) {
     create: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
+    restore: vi.fn(),
     ...overrides,
   };
   return { service, controller: new AnnotationsController(service) };

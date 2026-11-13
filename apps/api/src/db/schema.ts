@@ -32,6 +32,8 @@ export const highlight = pgTable('highlight', {
   endVerse: integer('end_verse').notNull(),
   endWord: integer('end_word').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  /** Soft delete (#64): set on DELETE, cleared by restore (undo); purged after an hour. */
+  deletedAt: timestamp('deleted_at'),
 });
 
 /** A short inline annotation (handwritten scribble) on a word-span, owned by one user. */
@@ -55,6 +57,8 @@ export const annotation = pgTable('annotation', {
   width: real('width'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  /** Soft delete (#64), see highlight.deletedAt. */
+  deletedAt: timestamp('deleted_at'),
 });
 
 /**
@@ -70,6 +74,8 @@ export const note = pgTable('note', {
   body: text('body').notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  /** Soft delete (#64): anchors + tags stay attached so restore is exact. */
+  deletedAt: timestamp('deleted_at'),
 });
 
 /** One passage a note is anchored to (word-span, see Anchor in shared). */

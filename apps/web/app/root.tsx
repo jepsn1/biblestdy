@@ -18,6 +18,7 @@ import { queryClient } from "~/lib/query";
 import { TEXT_SIZE_PREPAINT } from "~/lib/text-size-prepaint";
 import { THEME_PREPAINT } from "~/lib/theme-prepaint";
 import { watchSystemTheme } from "~/lib/theme";
+import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
 
@@ -81,6 +82,13 @@ export default function App() {
       <TooltipProvider delay={300}>
         <Outlet />
       </TooltipProvider>
+      {/* Feedback toasts (#64): bottom centre, clear of the reader's footer
+          bar (page arrows) on every screen size */}
+      <Toaster
+        position="bottom-center"
+        offset={{ bottom: "4rem" }}
+        mobileOffset={{ bottom: "calc(3.75rem + env(safe-area-inset-bottom))" }}
+      />
     </QueryClientProvider>
   );
 }

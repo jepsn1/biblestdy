@@ -1,10 +1,13 @@
 import type { Anchor, Note, NoteAnchor } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import i18n from "~/lib/i18n";
+import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api } from "~/lib/query";
 
-/** Mutations must not fail silently — log, return null, let callers no-op. */
-function logFail(e: unknown): null {
-  console.error("[notes]", e);
+/** Mutations must not fail silently (#64) — toast, return null, let callers
+ * no-op. */
+function toastFail(e: unknown): null {
+  notifyError(e);
   return null;
 }
 
@@ -73,7 +76,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const created = await api<Note>("/api/notes", {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(logFail);
+    }).catch(toastFail);
     if (created) {
       qc.setQueryData<Note[]>(key, (n = []) => [...n, created]);
       invalidateAll();
@@ -81,23 +84,43 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     return created;
   }
 
-  async function edit(id: string, patch: { title?: string; body?: string }) {
+  /** Saves title/body. Resolves to the server's copy — the note panel's
+   * save state comes from this — and REJECTS on failure, so the panel can
+   * show "Not saved · Retry" (#64). */
+  async function edit(id: string, patch: { title?: string; body?: string }): Promise<Note> {
     const updated = await api<Note>(`/api/notes/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
-    }).catch(logFail);
-    if (updated) {
-      qc.setQueryData<Note[]>(key, (n = []) =>
-        n.map((x) => (x.id === updated.id ? updated : x)),
-      );
-      invalidateAll();
-    }
+    });
+    qc.setQueryData<Note[]>(key, (n = []) => n.map((x) => (x.id === updated.id ? updated : x)));
+    invalidateAll();
+    return updated;
   }
 
-  async function remove(id: string) {
-    await api(`/api/notes/${id}`, { method: "DELETE" }).catch(logFail);
-    qc.setQueryData<Note[]>(key, (n = []) => n.filter((x) => x.id !== id));
+  /** Brings a deleted note back with its anchors and tags (Undo). Throws if
+   * the server can't. */
+  async function restore(id: string): Promise<Note> {
+    const note = await api<Note>(`/api/notes/${id}/restore`, { method: "POST" });
+    if (inChapter(note)) {
+      qc.setQueryData<Note[]>(key, (n = []) => [...n.filter((x) => x.id !== id), note]);
+    }
     invalidateAll();
+    return note;
+  }
+
+  /** Deletes at once (optimistic), then "Note deleted · Undo" (#64: the API
+   * soft-deletes). A failed delete puts the note back and says so. */
+  async function remove(id: string) {
+    const removed = qc.getQueryData<Note[]>(key)?.find((x) => x.id === id);
+    const deleted = await removeWithUndo({
+      hide: () => qc.setQueryData<Note[]>(key, (n = []) => n.filter((x) => x.id !== id)),
+      unhide: () => removed && qc.setQueryData<Note[]>(key, (n = []) => [...n, removed]),
+      remove: () => api(`/api/notes/${id}`, { method: "DELETE" }),
+      restore: () => restore(id),
+      message: i18n.t("toast.noteDeleted"),
+      retry: () => remove(id),
+    });
+    if (deleted) invalidateAll();
   }
 
   /** Anchors an existing note (possibly from another chapter) to a span here. */
@@ -105,7 +128,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors`, {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(logFail);
+    }).catch(toastFail);
     if (updated) {
       qc.setQueryData<Note[]>(key, (n = []) =>
         n.some((x) => x.id === updated.id)
@@ -122,7 +145,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   async function detach(noteId: string, anchorId: string) {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
-    }).catch(logFail);
+    }).catch(toastFail);
     if (updated) {
       qc.setQueryData<Note[]>(key, (n = []) =>
         n
@@ -133,7 +156,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     }
   }
 
-  return { notes, add, edit, remove, attach, detach };
+  return { notes, add, edit, remove, restore, attach, detach };
 }
 
 /** Per-verse counts of notes anchored here in OTHER translations (#11) —

@@ -109,6 +109,37 @@ describe('NotesService (note↔anchor graph)', () => {
     expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toHaveLength(0);
   });
 
+  it('a deleted note is invisible everywhere until restored, anchors intact (#64)', async () => {
+    const svc = make();
+    const web2 = { ...jhn3, translationId: 'WEB2' };
+    const note = await svc.create('u1', { ...jhn3, title: 'Grace' });
+    await svc.addAnchor('u1', note.id, gen1);
+    await svc.addAnchor('u1', note.id, web2);
+    expect(await svc.remove('u1', note.id)).toBe(true);
+
+    expect(await svc.listAll('u1')).toEqual([]);
+    expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toEqual([]);
+    expect(await svc.otherVersionNoteCounts('u1', 'WEB', 'JHN', 3)).toEqual([]);
+    expect(await svc.update('u1', note.id, { title: 'x' })).toBeNull();
+    expect(await svc.addAnchor('u1', note.id, psa23)).toBeNull();
+    expect(await svc.remove('u1', note.id)).toBe(false);
+
+    const restored = await svc.restore('u1', note.id);
+    expect(restored?.title).toBe('Grace');
+    expect(restored?.anchors).toHaveLength(3);
+    expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toHaveLength(1);
+  });
+
+  it('restore only brings back a deleted note of the same user', async () => {
+    const svc = make();
+    const note = await svc.create('u1', jhn3);
+    expect(await svc.restore('u1', note.id)).toBeNull(); // not deleted
+    await svc.remove('u1', note.id);
+    expect(await svc.restore('u2', note.id)).toBeNull();
+    expect(await svc.restore('u1', 'nope')).toBeNull();
+    expect(await svc.restore('u1', note.id)).not.toBeNull();
+  });
+
   it('a chapter with two anchors of the same note lists it once', async () => {
     const svc = make();
     const note = await svc.create('u1', jhn3);

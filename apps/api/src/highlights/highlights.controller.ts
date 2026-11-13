@@ -51,6 +51,17 @@ export class HighlightsController {
     return this.highlights.create(req.user.id, dto);
   }
 
+  /** Undo a delete (#64): the row comes back as it was. */
+  @Post(':id/restore')
+  async restore(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+  ): Promise<Highlight> {
+    const restored = await this.highlights.restore(req.user.id, id);
+    if (!restored) throw new NotFoundException();
+    return restored;
+  }
+
   @Patch(':id')
   async update(
     @Req() req: AuthedRequest,

@@ -89,6 +89,17 @@ export class NotesController {
     return updated;
   }
 
+  /** Undo a delete (#64): the row comes back as it was. */
+  @Post(':id/restore')
+  async restore(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+  ): Promise<Note> {
+    const restored = await this.notes.restore(req.user.id, id);
+    if (!restored) throw new NotFoundException();
+    return restored;
+  }
+
   @Delete(':id')
   async remove(
     @Req() req: AuthedRequest,

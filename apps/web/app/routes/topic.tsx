@@ -2,9 +2,11 @@ import { useTranslation } from "react-i18next";
 import type { Note, Tag } from "@biblestdy/shared";
 import { anchorReference, formatReference } from "@biblestdy/shared";
 import { ArrowLeft } from "lucide-react";
-import { data, Link } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
+import { ListSkeleton } from "~/components/list-skeleton";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import i18n from "~/lib/i18n";
+import { apiUrl } from "~/lib/api-base";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
@@ -20,22 +22,31 @@ export function meta({ params }: Route.MetaArgs) {
   return [{ title: `${params.name} — biblestdy` }];
 }
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+export async function clientLoader() {
   const session = await requireAuth();
   await Promise.all([loadReaderStyle(session.user.id), loadTextSize(session.user.id)]);
-  const res = await fetch(`/api/tags/topic/${encodeURIComponent(params.name)}`, {
+  return null;
+}
+
+/** null = no such topic (404). */
+async function fetchTopic(name: string): Promise<Topic | null> {
+  const res = await fetch(apiUrl(`/api/tags/topic/${encodeURIComponent(name)}`), {
     credentials: "include",
   });
-  if (res.status === 404) throw data(i18n.t("topic.notFound"), { status: 404 });
-  if (!res.ok) throw data(i18n.t("topic.loadError"), { status: 502 });
-  return { topic: (await res.json()) as Topic };
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GET topic -> ${res.status}`);
+  return (await res.json()) as Topic;
 }
 
 /** The topic page (issue #10): everything tagged with one topic — notes and
- * passages — each linking back into the reader. */
-export default function TopicPage({ loaderData }: Route.ComponentProps) {
-  const { topic } = loaderData;
+ * passages — each linking back into the reader. The page frame shows at once
+ * with skeleton rows while the topic loads (#64). */
+export default function TopicPage({ params }: Route.ComponentProps) {
   const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ["topic", params.name],
+    queryFn: () => fetchTopic(params.name),
+  });
 
   return (
     <main className="h-dvh overflow-hidden bg-background">
@@ -51,62 +62,81 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
             <span className="font-mono text-xs tracking-widest text-primary uppercase">
               {t("topic.label")}
             </span>
-            <h1 className="font-serif text-3xl font-medium tracking-tight">{topic.tag.name}</h1>
+            <h1 className="font-serif text-3xl font-medium tracking-tight">
+              {query.data?.tag.name ?? params.name}
+            </h1>
           </header>
-
-          <section>
-            <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
-              {t("topic.notes")}
-            </h2>
-            {topic.notes.length === 0 && (
-              <p className="font-serif text-sm text-muted-foreground italic">
-                {t("topic.emptyNotes")}
-              </p>
-            )}
-            <div className="flex flex-col gap-1">
-              {topic.notes.map((n) => {
-                const a = n.anchors[0];
-                return (
-                  <Link
-                    key={n.id}
-                    to={a ? `/read/${a.book}/${a.chapter}?note=${n.id}` : "/"}
-                    className="rounded px-2 py-1.5 hover:bg-accent"
-                  >
-                    <span className="block truncate font-serif text-base">
-                      {n.title || t("note.untitled")}
-                    </span>
-                    <span className="block truncate font-mono text-xs text-muted-foreground">
-                      {n.anchors.map((x) => formatReference(anchorReference(x))).join(" · ")}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
-              {t("topic.passages")}
-            </h2>
-            {topic.passages.length === 0 && (
-              <p className="font-serif text-sm text-muted-foreground italic">
-                {t("topic.emptyPassages")}
-              </p>
-            )}
-            <div className="flex flex-col gap-1">
-              {topic.passages.map((p) => (
-                <Link
-                  key={`${p.translationId}/${p.book}.${p.chapter}`}
-                  to={`/read/${p.book}/${p.chapter}`}
-                  className="rounded px-2 py-1.5 font-serif text-base hover:bg-accent"
-                >
-                  {formatReference({ book: p.book, chapter: p.chapter })}
-                </Link>
-              ))}
-            </div>
-          </section>
+          {query.isPending ? (
+            <ListSkeleton sections={[3, 2]} className="-mx-2 gap-8" />
+          ) : query.isError || !query.data ? (
+            <p role="alert" className="font-serif text-sm text-muted-foreground italic">
+              {query.isError ? t("topic.loadError") : t("topic.notFound")}
+            </p>
+          ) : (
+            <TopicBody topic={query.data} />
+          )}
         </div>
       </ScrollArea>
     </main>
+  );
+}
+
+function TopicBody({ topic }: { topic: Topic }) {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <section>
+        <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
+          {t("topic.notes")}
+        </h2>
+        {topic.notes.length === 0 && (
+          <p className="font-serif text-sm text-muted-foreground italic">
+            {t("topic.emptyNotes")}
+          </p>
+        )}
+        <div className="flex flex-col gap-1">
+          {topic.notes.map((n) => {
+            const a = n.anchors[0];
+            return (
+              <Link
+                key={n.id}
+                to={a ? `/read/${a.book}/${a.chapter}?note=${n.id}` : "/"}
+                className="rounded px-2 py-1.5 hover:bg-accent"
+              >
+                <span className="block truncate font-serif text-base">
+                  {n.title || t("note.untitled")}
+                </span>
+                <span className="block truncate font-mono text-xs text-muted-foreground">
+                  {n.anchors.map((x) => formatReference(anchorReference(x))).join(" · ")}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-sans text-xs font-semibold tracking-widest text-primary uppercase">
+          {t("topic.passages")}
+        </h2>
+        {topic.passages.length === 0 && (
+          <p className="font-serif text-sm text-muted-foreground italic">
+            {t("topic.emptyPassages")}
+          </p>
+        )}
+        <div className="flex flex-col gap-1">
+          {topic.passages.map((p) => (
+            <Link
+              key={`${p.translationId}/${p.book}.${p.chapter}`}
+              to={`/read/${p.book}/${p.chapter}`}
+              className="rounded px-2 py-1.5 font-serif text-base hover:bg-accent"
+            >
+              {formatReference({ book: p.book, chapter: p.chapter })}
+            </Link>
+          ))}
+        </div>
+      </section>
+    </>
   );
 }

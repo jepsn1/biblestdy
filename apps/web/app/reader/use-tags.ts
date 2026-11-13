@@ -1,9 +1,12 @@
 import type { Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import i18n from "~/lib/i18n";
+import { notifyError, notifyUndo } from "~/lib/notify";
 import { api } from "~/lib/query";
 
-function logFail(e: unknown): null {
-  console.error("[tags]", e);
+/** Failed tag writes say so (#64) — toast, return null. */
+function toastFail(e: unknown): null {
+  notifyError(e);
   return null;
 }
 
@@ -29,16 +32,19 @@ export function useNoteTags(noteId: string) {
       await api<Tag[]>(`/api/tags/note/${noteId}`, {
         method: "POST",
         body: JSON.stringify({ name }),
-      }).catch(logFail),
+      }).catch(toastFail),
     );
   }
 
-  async function remove(tagId: string) {
-    settle(
-      await api<Tag[]>(`/api/tags/note/${noteId}/${tagId}`, {
-        method: "DELETE",
-      }).catch(logFail),
-    );
+  /** Untags, then "Tag removed · Undo" — undo re-adds it by name (the tag
+   * itself may have been dropped as unused; re-adding recreates it). */
+  async function remove(tag: Tag) {
+    const updated = await api<Tag[]>(`/api/tags/note/${noteId}/${tag.id}`, {
+      method: "DELETE",
+    }).catch(toastFail);
+    if (!updated) return;
+    settle(updated);
+    notifyUndo(i18n.t("toast.tagRemoved", { name: tag.name }), () => add(tag.name));
   }
 
   return { tags, add, remove };
@@ -58,20 +64,24 @@ export function usePassageTags(translationId: string, book: string, chapter: num
     await api<Tag[]>("/api/tags/passage", {
       method: "POST",
       body: JSON.stringify({ ...passage, name }),
-    }).catch(logFail);
+    }).catch(toastFail);
     settle();
   }
 
-  async function remove(tagId: string) {
+  /** Untags the passage, then "Tag removed · Undo" (re-adds by name). */
+  async function remove(tag: Tag) {
     const params = new URLSearchParams({
       translation: translationId,
       book,
       chapter: String(chapter),
     });
-    await api<Tag[]>(`/api/tags/passage/${tagId}?${params}`, {
+    const updated = await api<Tag[]>(`/api/tags/passage/${tag.id}?${params}`, {
       method: "DELETE",
-    }).catch(logFail);
+    }).catch(toastFail);
     settle();
+    if (updated) {
+      notifyUndo(i18n.t("toast.tagRemoved", { name: tag.name }), () => add(tag.name));
+    }
   }
 
   return { add, remove };
