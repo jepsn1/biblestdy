@@ -85,7 +85,6 @@ export function BooksSidebar({ book }: { book: string }) {
           <span className="font-mono text-control font-semibold tracking-tight text-primary">
             biblestdy
           </span>
-          <span className="font-mono text-meta text-muted-foreground">v0</span>
         </Link>
         <SidebarInput
           placeholder={t("sidebar.filterBooks")}
