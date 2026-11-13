@@ -303,7 +303,7 @@ export default {
     closeTitle: "Take up and read.",
     closeBody: "Open a chapter, mark what speaks to you, and let your study grow over the years.",
     mock: {
-      margin: "“has” — now, not only someday (v. 36)",
+      margin: "begins now, not only someday — v. 36",
       noteLabel: "Note",
       noteTitle: "God gives first",
       noteBody:

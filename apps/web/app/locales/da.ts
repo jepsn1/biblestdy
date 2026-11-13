@@ -305,7 +305,7 @@ const da: typeof en = {
     closeTitle: "Tag og læs.",
     closeBody: "Åbn et kapitel, markér det der taler til dig, og lad dit studie vokse gennem årene.",
     mock: {
-      margin: "“has” — nu, ikke kun en dag (v. 36)",
+      margin: "begynder nu, ikke kun en dag — v. 36",
       noteLabel: "Note",
       noteTitle: "Gud giver først",
       noteBody:
