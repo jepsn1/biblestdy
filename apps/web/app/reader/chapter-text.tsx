@@ -533,7 +533,12 @@ export function ChapterText({
           <div
             data-selection-menu
             className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
-            style={{ left: menu.x, top: menu.y }}
+            // Keep the widest menu (w-64) on screen when the word sits at a
+            // phone's edge — it centers on the word otherwise
+            style={{
+              left: Math.min(Math.max(menu.x, 136), window.innerWidth - 136),
+              top: menu.y,
+            }}
           >
             <div
               key={menu.kind}

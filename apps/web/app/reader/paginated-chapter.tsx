@@ -392,17 +392,19 @@ export function PaginatedChapter({
           </ScrollArea>
         ) : (
           <>
-            {/* The SHEET is print-fixed (spread + margin lanes): when the pane
-                is narrower, it scrolls sideways instead of squeezing.
+            {/* The SHEET = spread + a 13.5rem margin lane each side (where
+                annotation boxes start). The spread takes what the lanes leave,
+                up to 60rem; below a 40rem spread the pane scrolls sideways
+                instead of squeezing further.
                 isolate: local stacking context so the -z-10 ink paints behind
                 the text but still above the page background */}
             <ScrollArea ref={scrollRef} orientation="horizontal" className="h-full">
-              <div ref={regionRef} className="relative isolate mx-auto h-full w-[87rem]">
+              <div ref={regionRef} className="relative isolate mx-auto h-full w-full min-w-[67rem]">
                 {/* Spread: capped height (34em at body size) centered in the
                     pane, so columns never run tall on big screens */}
                 <div
                   ref={contentBoxRef}
-                  className="relative mx-auto flex h-full max-w-[60rem] flex-col justify-center overflow-hidden px-6 pt-8 pb-6"
+                  className="relative mx-auto flex h-full w-[calc(100%-27rem)] max-w-[60rem] flex-col justify-center overflow-hidden px-6 pt-8 pb-6"
                 >
                   <div
                     ref={contentRef}
