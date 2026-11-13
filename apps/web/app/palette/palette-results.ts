@@ -9,7 +9,7 @@ import { referenceHref } from "../reader/chapter-nav";
  * Never touches scripture (reading quota): rows are references and titles.
  */
 
-export type GroupId = "continue" | "recent" | "passage" | "books" | "actions" | "notes" | "topics" | "hint";
+export type GroupId = "recent" | "passage" | "books" | "actions" | "notes" | "topics" | "hint";
 
 export type PaletteItem = {
   id: string;
@@ -48,12 +48,14 @@ export type PaletteContext = {
   tags: Tag[];
   actions: PaletteAction[];
   recent: RecentPassage[];
-  /** `lastRead` storage value, e.g. "JHN/3?p=2". */
-  lastRead?: string | null;
   here: RecentPassage;
+  /** The reading translation: a note opens on its anchor in this one. */
+  translationId: string;
   labels: {
     goTo: (ref: string) => string;
-    continueAt: (ref: string) => string;
+    /** Empty palette with no history: what to type. */
+    emptyHint: string;
+    morePassages: (n: number) => string;
     invalid: string;
     noTextSearch: string;
     untitled: string;
@@ -98,15 +100,18 @@ function refLabel(ctx: PaletteContext, ref: Reference): string {
   return out;
 }
 
-function noteItem(ctx: PaletteContext, note: Note, snippet?: string): PaletteItem {
-  const a = note.anchors[0];
+/** The anchor a row shows and opens: the one that matched the typed passage,
+ * else the one in the reading translation, else the first. */
+function noteItem(ctx: PaletteContext, note: Note, snippet?: string, matched?: Note["anchors"][number]): PaletteItem {
+  const a = matched ?? note.anchors.find((x) => x.translationId === ctx.translationId) ?? note.anchors[0];
+  const more = new Set(note.anchors.map((x) => `${x.book}${x.chapter}${x.startVerse}`)).size - 1;
   const ref = a && refLabel(ctx, { book: a.book, chapter: a.chapter, verse: a.startVerse });
   const title = note.title.trim() || plainText(note.body).slice(0, 60) || ctx.labels.untitled;
   return {
     id: `note:${note.id}`,
     group: "notes",
     label: title,
-    detail: [ref, snippet].filter(Boolean).join(" · ") || undefined,
+    detail: [ref, more > 0 && ctx.labels.morePassages(more), snippet].filter(Boolean).join(" · ") || undefined,
     href: a ? `/read/${a.book}/${a.chapter}?note=${note.id}` : undefined,
   };
 }
@@ -119,11 +124,6 @@ function snippet(text: string, query: string): string | undefined {
   if (i < 0) return undefined;
   const start = Math.max(0, i - 40);
   return `${start > 0 ? "…" : ""}${text.slice(start, i + q.length + 40).trim()}${i + q.length + 40 < text.length ? "…" : ""}`;
-}
-
-function parseLastRead(v: string | null | undefined): (RecentPassage & { href: string }) | null {
-  const m = /^([A-Z0-9]{3})\/(\d+)/.exec(v ?? "");
-  return m ? { book: m[1], chapter: Number(m[2]), href: `/read/${v}` } : null;
 }
 
 const actionItem = (a: PaletteAction): PaletteItem => ({
@@ -139,17 +139,9 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   const raw = input.trim();
 
   if (!raw) {
+    // Recently read first (where you were), then a few actions
     const out: PaletteItem[] = [];
-    const last = parseLastRead(ctx.lastRead);
-    if (last && !(last.book === ctx.here.book && last.chapter === ctx.here.chapter)) {
-      out.push({
-        id: "continue",
-        group: "continue",
-        label: ctx.labels.continueAt(refLabel(ctx, last)),
-        href: last.href,
-      });
-    }
-    const seen = new Set([`${ctx.here.book}/${ctx.here.chapter}`, last ? `${last.book}/${last.chapter}` : ""]);
+    const seen = new Set([`${ctx.here.book}/${ctx.here.chapter}`]);
     for (const r of ctx.recent) {
       const key = `${r.book}/${r.chapter}`;
       if (seen.has(key)) continue;
@@ -157,6 +149,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
       out.push({ id: `recent:${key}`, group: "recent", label: refLabel(ctx, r), href: `/read/${key}` });
       if (out.filter((i) => i.group === "recent").length >= LIMITS.recent) break;
     }
+    if (out.length === 0) out.push({ id: "empty-hint", group: "hint", label: ctx.labels.emptyHint, disabled: true });
     out.push(...ctx.actions.filter((a) => a.common).slice(0, LIMITS.common).map(actionItem));
     return out;
   }
@@ -197,9 +190,12 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     if (ref && ref.chapter !== undefined) {
       const from = ref.verse ?? 1;
       const to = ref.verse === undefined ? Infinity : (ref.endChapter && ref.endChapter !== ref.chapter ? Infinity : (ref.endVerse ?? ref.verse));
-      notes = ctx.notes
-        .filter((n) => n.anchors.some((a) => a.book === ref.book && a.chapter === ref.chapter && a.endVerse >= from && a.startVerse <= to))
-        .map((n) => noteItem(ctx, n));
+      const hits = (n: Note) =>
+        n.anchors.filter((a) => a.book === ref.book && a.chapter === ref.chapter && a.endVerse >= from && a.startVerse <= to);
+      notes = ctx.notes.flatMap((n) => {
+        const h = hits(n);
+        return h.length ? [noteItem(ctx, n, undefined, h.find((a) => a.translationId === ctx.translationId) ?? h[0])] : [];
+      });
     } else if (q) {
       const scored: { n: Note; score: number; body: string }[] = [];
       for (const n of ctx.notes) {
@@ -214,7 +210,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   }
 
   // 5. Topics
-  if ((!only && !ref) || only === "topics") {
+  if ((!only && !(ref && ref.chapter !== undefined)) || only === "topics") {
     const hits = q ? ctx.tags.filter((t) => wordPrefixMatch(t.name, q)) : ctx.tags;
     out.push(
       ...hits.slice(0, only ? 50 : LIMITS.topics).map((t) => ({

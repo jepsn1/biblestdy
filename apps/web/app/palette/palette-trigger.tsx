@@ -1,12 +1,10 @@
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { ignoreShortcut } from "~/lib/shortcuts";
-import { OPEN_PALETTE } from "./command-palette";
-
-const open = () => window.dispatchEvent(new Event(OPEN_PALETTE));
+import { openPalette as open } from "./command-palette";
 
 /**
  * The nav's "Search or go to…" (replaces the jump box, #53). Same place and
@@ -19,11 +17,22 @@ export function PaletteTrigger() {
   const { t } = useTranslation();
   // Platform key resolved on the client (SSR markup never depends on it)
   const [mod, setMod] = useState("Ctrl+");
+  // iOS opens the keyboard only for a focus inside the tap itself: focus this
+  // proxy now, the palette's input takes over (keyboard stays up)
+  const proxy = useRef<HTMLInputElement>(null);
   useEffect(() => setMod(modKey()), []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.defaultPrevented || e.isComposing) return;
+      // Never stack on another modal (shortcuts list, chooser, onboarding)
+      if (document.querySelector("[aria-modal='true'], [role='dialog'][data-open], [role='alertdialog'][data-open]")) return;
+      // Alt+/ works from any field, the note editor too (code: Option+/ types ÷ on a Mac)
+      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === "Slash") {
+        e.preventDefault();
+        open();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault(); // beats the browser's own Ctrl+K (Firefox web search)
         open();
@@ -46,10 +55,19 @@ export function PaletteTrigger() {
         className="ml-auto sm:hidden"
         aria-label={t("palette.open")}
         aria-haspopup="dialog"
-        onClick={open}
+        onClick={() => {
+          proxy.current?.focus();
+          open();
+        }}
       >
         <Search />
       </Button>
+      <input
+        ref={proxy}
+        aria-hidden
+        tabIndex={-1}
+        className="pointer-events-none fixed top-0 left-0 size-px text-phone opacity-0 sm:hidden"
+      />
       <button
         type="button"
         aria-haspopup="dialog"

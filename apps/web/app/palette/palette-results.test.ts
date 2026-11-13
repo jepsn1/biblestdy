@@ -38,11 +38,12 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
       { book: "PSA", chapter: 23 },
       { book: "PSA", chapter: 23 },
     ],
-    lastRead: "ROM/8?p=2",
     here: { book: "JHN", chapter: 3 },
+    translationId: "web",
     labels: {
       goTo: (r) => `Go to ${r}`,
-      continueAt: (r) => `Continue: ${r}`,
+      emptyHint: "type a passage",
+      morePassages: (n) => `+${n} more`,
       invalid: "invalid",
       noTextSearch: "no text search",
       untitled: "Untitled",
@@ -108,9 +109,23 @@ describe("palette results", () => {
     ]);
   });
 
-  it("empty: continue reading, recent (deduped, not the current chapter), common actions", () => {
-    expect(ids("")).toEqual(["continue", "recent:PSA/23", "action:dark", "action:shortcuts"]);
-    expect(buildResults("", ctx())[0]).toMatchObject({ label: "Continue: Romans 8", href: "/read/ROM/8?p=2" });
+  it("empty: recent (deduped, not the current chapter), then common actions", () => {
+    expect(ids("")).toEqual(["recent:PSA/23", "action:dark", "action:shortcuts"]);
+  });
+
+  it("empty with no history: a hint on what to type", () => {
+    expect(ids("", ctx({ recent: [] }))).toEqual(["empty-hint", "action:dark", "action:shortcuts"]);
+  });
+
+  it("a note on several passages shows and opens the one that matched", () => {
+    const multi: Note = { id: "m", title: "Adoption", body: "", anchors: [anchor("ROM", 8, 15), anchor("GAL", 4, 5)] };
+    const row = buildResults("gal 4", ctx({ notes: [multi] })).find((r) => r.id === "note:m");
+    expect(row).toMatchObject({ href: "/read/GAL/4?note=m", detail: "Galatians 4:5 · +1 more" });
+  });
+
+  it("a book-name query still finds a topic of that name", () => {
+    expect(ids("grace", ctx({ tags: [{ id: "g", name: "job" }] }))).not.toContain("topic:g");
+    expect(ids("job", ctx({ tags: [{ id: "g", name: "job" }] }))).toContain("topic:g");
   });
 
   it("an untitled note shows its first words", () => {

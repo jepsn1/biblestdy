@@ -2,9 +2,10 @@ import type { Tag, Translation } from "@biblestdy/shared";
 import { TEXT_SIZES, translationInfo } from "@biblestdy/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Check, CornerDownLeft, Search } from "lucide-react";
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import { modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
@@ -26,6 +27,13 @@ import { buildResults, type GroupId, type PaletteAction, type PaletteItem } from
 
 /** Event name: the nav's search button opens the palette. */
 export const OPEN_PALETTE = "biblestdy:palette";
+
+/** Where focus was when the palette opened (Esc returns there). */
+let opener: HTMLElement | null = null;
+export function openPalette() {
+  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  window.dispatchEvent(new Event(OPEN_PALETTE));
+}
 
 /** What the reader lets the palette do (state lives in the read route). */
 export type ReaderActions = {
@@ -58,13 +66,14 @@ function useActions(r: ReaderActions) {
   const sizeIdx = TEXT_SIZES.indexOf(size);
 
   const isMobile = useIsMobile();
-  const actions: (PaletteAction & { run: () => void; keepOpen?: boolean })[] = [
+  const actions: (PaletteAction & { run: () => void; keepOpen?: boolean; opensDialog?: boolean })[] = [
     {
       id: "translations",
       label: t("palette.chooseTranslation"),
       keywords: [...both("palette.chooseTranslation"), ...both("nav.translation")],
       shortcut: "T",
       common: true,
+      opensDialog: true,
       run: () => window.dispatchEvent(new Event(OPEN_TRANSLATIONS)),
     },
     ...r.translations.map((tr) => ({
@@ -99,18 +108,32 @@ function useActions(r: ReaderActions) {
     ...(r.nextHref ? [{ id: "next", label: t("nav.nextChapter"), keywords: both("nav.nextChapter"), shortcut: "]", run: () => {} }] : []),
     ...THEME_PREFS.map((p) => ({
       id: `theme-${p}`,
-      label: t("palette.theme", { value: t(`theme.${p}`) }),
+      label: theme === p ? t("palette.theme", { value: t(`theme.${p}`) }) : t("palette.switchTheme", { value: t(`theme.${p}`).toLowerCase() }),
       keywords: [...both("settings.theme"), ...both(`theme.${p}`)],
       checked: theme === p,
       common: p !== theme && p !== "system",
-      run: () => setThemePref(p),
+      run: () => {
+        const prev = theme;
+        setThemePref(p);
+        toast(t("palette.themeChanged", { value: t(`theme.${p}`) }), {
+          duration: 8000,
+          action: { label: t("toast.undo"), onClick: () => setThemePref(prev) },
+        });
+      },
     })),
     ...(["paper", "clean"] as const).map((s) => ({
       id: `style-${s}`,
       label: t("palette.style", { value: t(`readerStyle.${s}`) }),
       keywords: [...both("settings.style"), ...both(`readerStyle.${s}`)],
       checked: style === s,
-      run: () => void saveReaderStyle(s),
+      run: () => {
+        const prev = style;
+        void saveReaderStyle(s);
+        toast(t("palette.styleChanged", { value: t(`readerStyle.${s}`) }), {
+          duration: 8000,
+          action: { label: t("toast.undo"), onClick: () => void saveReaderStyle(prev) },
+        });
+      },
     })),
     {
       id: "size-up",
@@ -139,6 +162,7 @@ function useActions(r: ReaderActions) {
       keywords: [...both("nav.shortcuts"), "keyboard tastatur"],
       shortcut: "?",
       common: true,
+      opensDialog: true,
       run: () => window.dispatchEvent(new Event(OPEN_SHORTCUTS)),
     }]),
   ];
@@ -146,7 +170,6 @@ function useActions(r: ReaderActions) {
 }
 
 const GROUP_LABEL: Record<GroupId, string> = {
-  continue: "palette.groupContinue",
   recent: "palette.groupRecent",
   passage: "palette.groupPassage",
   books: "palette.groupBooks",
@@ -181,12 +204,28 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  // Esc returns focus to exactly where it was (a verse, the note editor…)
-  const returnTo = useRef<HTMLElement | null>(null);
-  if (open && returnTo.current === null && typeof document !== "undefined") {
-    returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  }
-  if (!open) returnTo.current = null;
+  /** After closing: back where focus was (Esc), the text (navigated), or
+   * nothing (another dialog took over). */
+  const nextFocus = useRef<"return" | "text" | "none">("return");
+  const afterClose = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (open) nextFocus.current = "return";
+  }, [open]);
+
+  // iOS doesn't shrink dvh for the keyboard: size the phone sheet to the visual viewport
+  const [vvh, setVvh] = useState<number | null>(null);
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!open || !isMobile || !vv) return;
+    const update = () => setVvh(vv.height);
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [open, isMobile]);
 
   const { notes } = useAllNotesQuery(open);
   const { data: tags = [] } = useQuery({
@@ -205,17 +244,12 @@ export function CommandPalette({
       tags,
       actions,
       recent: readRecent(),
-      lastRead: (() => {
-        try {
-          return localStorage.getItem("lastRead");
-        } catch {
-          return null;
-        }
-      })(),
       here: { book: reader.book, chapter: reader.chapter },
+      translationId: reader.translationId,
       labels: {
         goTo: (ref) => t("palette.goTo", { ref }),
-        continueAt: (ref) => t("palette.continueAt", { ref }),
+        emptyHint: t("palette.emptyHint"),
+        morePassages: (n) => t("palette.morePassages", { count: n }),
         invalid: t("nav.jumpInvalid"),
         noTextSearch: t("palette.noTextSearch"),
         untitled: t("palette.untitled"),
@@ -242,10 +276,22 @@ export function CommandPalette({
     if (item.action) {
       const a = actions.find((x) => x.id === item.action);
       if (!a) return;
-      if (a.id === "prev" && reader.prevHref) navigate(reader.prevHref);
-      else if (a.id === "next" && reader.nextHref) navigate(reader.nextHref);
-      else a.run();
-      if (!a.keepOpen) onOpenChange(false);
+      if (a.keepOpen) {
+        a.run();
+        return;
+      }
+      if (a.id === "prev" || a.id === "next") {
+        nextFocus.current = "text";
+        onOpenChange(false);
+        navigate((a.id === "prev" ? reader.prevHref : reader.nextHref)!);
+      } else if (a.opensDialog) {
+        nextFocus.current = "none";
+        afterClose.current = a.run;
+        onOpenChange(false);
+      } else {
+        a.run();
+        onOpenChange(false);
+      }
       return;
     }
     if (!item.href) return;
@@ -253,6 +299,7 @@ export function CommandPalette({
       window.open(item.href, "_blank", "noopener");
       return;
     }
+    nextFocus.current = "text";
     onOpenChange(false);
     navigate(item.href);
   }
@@ -282,13 +329,91 @@ export function CommandPalette({
 
   const here = `${nameOf(reader.book)} ${reader.chapter}`;
   const count = selectable.length;
+  // Result count for screen readers, settled (not every keystroke)
+  const [status, setStatus] = useState("");
+  useEffect(() => {
+    const id = window.setTimeout(() => setStatus(count > 0 ? t("palette.count", { count }) : t("palette.noResults")), 400);
+    return () => window.clearTimeout(id);
+  }, [count, t]);
+
+  // Rows by group, each a labelled role=group for screen readers
+  const groups: { group: GroupId; rows: { item: PaletteItem; i: number }[] }[] = [];
+  items.forEach((item, i) => {
+    const last = groups[groups.length - 1];
+    if (last?.group === item.group) last.rows.push({ item, i });
+    else groups.push({ group: item.group, rows: [{ item, i }] });
+  });
+
+  function row(item: PaletteItem, i: number) {
+    return (
+      // Keyboard goes through the input (aria-activedescendant), as in any combobox
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+      <li
+        key={item.id}
+        id={`${listId}-${i}`}
+        role="option"
+        aria-selected={i === active}
+        aria-disabled={item.disabled || undefined}
+        aria-checked={item.checked}
+        // Keep focus in the input; activation is a click (screen readers and
+        // voice control send only click). Middle-click = new tab.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => run(item, e.metaKey || e.ctrlKey)}
+        onAuxClick={(e) => e.button === 1 && run(item, true)}
+        onMouseMove={() => !item.disabled && active !== i && setActive(i)}
+        className={cn(
+          "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 max-sm:min-h-12",
+          item.disabled ? "text-list text-muted-foreground" : "cursor-pointer",
+          i === active && "bg-accent text-accent-foreground",
+        )}
+      >
+        <span className="min-w-0 flex-1">
+          <span className={cn("block text-control max-sm:text-phone", item.group === "books" && "font-serif")}>
+            {item.label}
+          </span>
+          {item.detail && <span className="block truncate text-meta text-muted-foreground">{item.detail}</span>}
+        </span>
+        {item.checked && <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden />}
+        {item.shortcut && (
+          <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 font-mono text-meta leading-5 text-muted-foreground pointer-coarse:hidden">
+            {item.shortcut}
+          </kbd>
+        )}
+        {i === active && !item.disabled && (
+          <CornerDownLeft className="size-4 shrink-0 text-muted-foreground pointer-coarse:hidden" aria-hidden />
+        )}
+      </li>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next, details) => {
+        // Esc with text typed clears it first; a second Esc closes
+        if (!next && details?.reason === "escape-key" && query) {
+          details.cancel();
+          setQuery("");
+          return;
+        }
+        onOpenChange(next);
+      }}
+      onOpenChangeComplete={(isOpen) => {
+        if (isOpen) return;
+        const fn = afterClose.current;
+        afterClose.current = null;
+        fn?.();
+      }}
+    >
       <DialogContent
         showCloseButton={false}
         initialFocus={inputRef}
-        finalFocus={returnTo}
+        finalFocus={() => {
+          if (nextFocus.current === "none") return false;
+          if (nextFocus.current === "text") return document.getElementById("chapter-text") ?? true;
+          return opener?.isConnected ? opener : true;
+        }}
+        style={isMobile && vvh ? { height: vvh } : undefined}
         className={cn(
           "flex flex-col gap-0 overflow-hidden p-0",
           isMobile
@@ -324,59 +449,32 @@ export function CommandPalette({
             onKeyDown={onKeyDown}
             className="h-12 min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone"
           />
+          {/* A worded way out on every screen (an iPad without keyboard too) */}
+          {!isMobile && (
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => onOpenChange(false)}>
+              <span className="pointer-coarse:hidden">{t("palette.close")}</span>
+              <span className="hidden pointer-coarse:inline">{t("palette.backTo", { ref: here })}</span>
+            </Button>
+          )}
         </div>
         <div role="status" className="sr-only">
-          {count > 0 ? t("palette.count", { count }) : t("palette.noResults")}
+          {status}
         </div>
         <ScrollArea className="min-h-0 flex-1" viewportClassName={isMobile ? undefined : "max-h-[min(60dvh,28rem)]"}>
           <ul id={listId} role="listbox" aria-label={t("palette.title")} className="p-1.5">
-            {items.map((item, i) => {
-              const first = i === 0 || items[i - 1].group !== item.group;
-              const heading = GROUP_LABEL[item.group];
+            {groups.map(({ group, rows }) => {
+              const heading = GROUP_LABEL[group];
+              if (!heading) return rows.map(({ item, i }) => row(item, i));
+              const hid = `${listId}-g-${group}`;
               return (
-                <Fragment key={item.id}>
-                  {first && heading && (
-                    <li role="presentation" className="eyebrow px-3 pt-3 pb-1">
-                      {t(heading)}
-                    </li>
-                  )}
-                  <li
-                    id={`${listId}-${i}`}
-                    role="option"
-                    aria-selected={i === active}
-                    aria-disabled={item.disabled || undefined}
-                    aria-checked={item.checked}
-                    // mousedown, not click: keep the input focused
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      run(item, e.metaKey || e.ctrlKey || e.button === 1);
-                    }}
-                    onMouseMove={() => !item.disabled && active !== i && setActive(i)}
-                    className={cn(
-                      "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 max-sm:min-h-12",
-                      item.disabled ? "text-list text-muted-foreground" : "cursor-pointer",
-                      i === active && "bg-accent text-accent-foreground",
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className={cn("block text-control max-sm:text-phone", item.group === "books" && "font-serif")}>
-                        {item.label}
-                      </span>
-                      {item.detail && (
-                        <span className="block truncate text-meta text-muted-foreground">{item.detail}</span>
-                      )}
-                    </span>
-                    {item.checked && <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden />}
-                    {item.shortcut && (
-                      <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 font-mono text-meta leading-5 text-muted-foreground pointer-coarse:hidden">
-                        {item.shortcut}
-                      </kbd>
-                    )}
-                    {i === active && !item.disabled && (
-                      <CornerDownLeft className="size-4 shrink-0 text-muted-foreground pointer-coarse:hidden" aria-hidden />
-                    )}
-                  </li>
-                </Fragment>
+                <li key={group} role="presentation">
+                  <div id={hid} className="eyebrow px-3 pt-3 pb-1" aria-hidden>
+                    {t(heading)}
+                  </div>
+                  <ul role="group" aria-labelledby={hid}>
+                    {rows.map(({ item, i }) => row(item, i))}
+                  </ul>
+                </li>
               );
             })}
           </ul>
