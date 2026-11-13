@@ -1,0 +1,1089 @@
+{
+ "reference": "Johannesevangeliet 3",
+ "copyright": "© 2015 by Biblica, Inc.®",
+ "content": [
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "s1"
+   },
+   "items": [
+    {
+     "text": "xx, xxx xxxxxx xxxxxxx xxx xxxx xxx, xxx xxxxx xxx",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "m"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "1",
+      "style": "v",
+      "sid": "JHN 3:1"
+     },
+     "items": [
+      {
+       "text": "1",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxxxx xxxxx xxxxxxx xxxxxxxx xxx xx xx xx xxxxxxx xxxxxx, xx xxxxxxxx xxx xxxx xxxxxxxxx, xxx xx xxxx xxx xxxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.1",
+      "verseOrgIds": [
+       "JHN.3.1"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "2",
+      "style": "v",
+      "sid": "JHN 3:2"
+     },
+     "items": [
+      {
+       "text": "2",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "„xxxxxx,” xxxxx xxx, „xx xx xxxx xxxx, xx xxx xxx xxxxx xxx, xxx xxxxx xxxxx xxxx xx xxxxxxxx, xx xxx, xxxx xxxx xxx xxx xxx xxx.”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.2",
+      "verseOrgIds": [
+       "JHN.3.2"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "3",
+      "style": "v",
+      "sid": "JHN 3:3"
+     },
+     "items": [
+      {
+       "text": "3",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxxxx xxxxx: „xxx xxxxx xxx xxx: xxx xx xxx, xxxx xx xxxxxxxx xxxxxx xxxx xxxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.3",
+      "verseOrgIds": [
+       "JHN.3.3"
+      ]
+     }
+    },
+    {
+     "text": " xx xxx xxx xxxxx xxx x xxxx xxxx.”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.3",
+      "verseOrgIds": [
+       "JHN.3.3"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "4",
+      "style": "v",
+      "sid": "JHN 3:4"
+     },
+     "items": [
+      {
+       "text": "4",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "„xxxx xxxxx xx?” xxxxxx xxxxxxxxx. „xx xxxxxxx xxxxxxxx xxx xx xxxxxxx xxxxx xxx x xxx xxxx xxxx xxxx xx xxxxx xxxx xxxxx xx xxxx?”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.4",
+      "verseOrgIds": [
+       "JHN.3.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "5",
+      "style": "v",
+      "sid": "JHN 3:5"
+     },
+     "items": [
+      {
+       "text": "5",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxx xxxxxxx: „xxx xxxxx xxx xxx: xxx xx xxx, xxxx xx xxxxxxxx xxxxxx xxxx xx xxxx xxxx",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.5",
+      "verseOrgIds": [
+       "JHN.3.5"
+      ]
+     }
+    },
+    {
+     "text": " xx xxx, xx xxx xxx xxxxx xxx x xxxx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.5",
+      "verseOrgIds": [
+       "JHN.3.5"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "6",
+      "style": "v",
+      "sid": "JHN 3:6"
+     },
+     "items": [
+      {
+       "text": "6",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxxxxxxx xxxxx xx xxxxxxxxxxxx, xxx xxxx xxx xxxxx xx xxxxxxxx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.6",
+      "verseOrgIds": [
+       "JHN.3.6"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "7",
+      "style": "v",
+      "sid": "JHN 3:7"
+     },
+     "items": [
+      {
+       "text": "7",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxxx xxxx xxxx xx xxxxxxxxx xxxx, xx xxx xxxxx, xx x xxxx xxxxx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.7",
+      "verseOrgIds": [
+       "JHN.3.7"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "8",
+      "style": "v",
+      "sid": "JHN 3:8"
+     },
+     "items": [
+      {
+       "text": "8",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxx xx xxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.8",
+      "verseOrgIds": [
+       "JHN.3.8"
+      ]
+     }
+    },
+    {
+     "text": " xxx xxxxxx, xxxxxxx xxx xxx. xx xxx xxxx xx, xxxx xxx xxxxxx xxx, xxxxx xxxx xxx xxxx xxx, xxx xx xxx xxxx xxxx xxxxx. xxxxx xx xxx xxxx, xxx xxxx xxx xxxxx xx xxxxxxxx xxxxxxxx xxx.”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.8",
+      "verseOrgIds": [
+       "JHN.3.8"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "9",
+      "style": "v",
+      "sid": "JHN 3:9"
+     },
+     "items": [
+      {
+       "text": "9",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "„xxxxx, xxxxxxx xxx xxx xxx?” xxxxxxx xxxxxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.9",
+      "verseOrgIds": [
+       "JHN.3.9"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "10",
+      "style": "v",
+      "sid": "JHN 3:10"
+     },
+     "items": [
+      {
+       "text": "10",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxx xxxxxxx: „xx xx xxxxx xxx xxxxxxx xxxx. xxxxxxx xx xxx xxxx? ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.10",
+      "verseOrgIds": [
+       "JHN.3.10"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "11",
+      "style": "v",
+      "sid": "JHN 3:11"
+     },
+     "items": [
+      {
+       "text": "11",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxx xxx xxx: xx xxxxx xx xxx, xx xxxxxx xxx, xx xx xxxxxxxxx xx xxx, xx xxx xxx – xxx x xxxx xxxx xx xx! ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.11",
+      "verseOrgIds": [
+       "JHN.3.11"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "12",
+      "style": "v",
+      "sid": "JHN 3:12"
+     },
+     "items": [
+      {
+       "text": "12",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxx x xxxx xxxx xxx, xxx xxx xxxxxxxxx xxx xx xx xxxxxxxx xxxx, xxxxxxx xxxxxx x xx xxxxx xxx xxx, xxxx xxx xxxxxxxx xx xxxxxxxx xxx xx xx xxxxxxxxx? ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.12",
+      "verseOrgIds": [
+       "JHN.3.12"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "13",
+      "style": "v",
+      "sid": "JHN 3:13"
+     },
+     "items": [
+      {
+       "text": "13",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxx xxxxxxxx xxx xxxx xxx xx xx, xxxx xxx xx x xxxxxx, xxxxxxxx xxxxxxxxxxxxxx, xxx xx xx xxxxxx xxx xxx xxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.13",
+      "verseOrgIds": [
+       "JHN.3.13"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "14-15",
+      "style": "v",
+      "sid": "JHN 3:14-15"
+     },
+     "items": [
+      {
+       "text": "14-15",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxxxx xxxxx xxxxxxx xxxxxxxxxxxxx xx xx xxxxx xxx xxxx xx xx xxxxx xxx x xxxxxxx, xx xx, xxx xx xxx xx xxx, xxxxxxx xxxxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.14-JHN.3.15",
+      "verseOrgIds": [
+       "JHN.3.14",
+       "JHN.3.15"
+      ]
+     }
+    },
+    {
+     "text": " xxxxx xxxx xxxxxxxxxxxxxx xxxxxx xx, xx xxxxxx, xxx xxx xxx xxx xxx xx xxxx xx xxx, xxx xx xxx xxxxx xxx.”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.14-JHN.3.15",
+      "verseOrgIds": [
+       "JHN.3.14",
+       "JHN.3.15"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "16",
+      "style": "v",
+      "sid": "JHN 3:16"
+     },
+     "items": [
+      {
+       "text": "16",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxxxx xxxxxx xxxxxx xx xxxx, xx xxx xxx xxx xxxxxx xxx, xxx xx xxxxxx, xxx xxxx xx xxx, xxxx xxxx xx xxxxxxx, xxx xx xxx xxxxx xxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.16",
+      "verseOrgIds": [
+       "JHN.3.16"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "17",
+      "style": "v",
+      "sid": "JHN 3:17"
+     },
+     "items": [
+      {
+       "text": "17",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxxx xxxx xxx xxx xxx xxxxxx xxx xx xxxxx xxxxxx, xxx xxx xx xxxxxx xxxxxx xxx xxxxx xxxxxx xxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.17",
+      "verseOrgIds": [
+       "JHN.3.17"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "18",
+      "style": "v",
+      "sid": "JHN 3:18"
+     },
+     "items": [
+      {
+       "text": "18",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx, xxx xxxx xx xxx, xxxxxx xxxx xxxx. xxx xx, xxx xxxx xxxx xx xxx, xx xxxxxxxx xxxx, xxx xx xxx xxxxxx xx xxx xx xxxx xxxx xxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.18",
+      "verseOrgIds": [
+       "JHN.3.18"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "19",
+      "style": "v",
+      "sid": "JHN 3:19"
+     },
+     "items": [
+      {
+       "text": "19",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxxx xxxxxx xxx xxxxx xx xxxxxxxxxx xxxx xxxx. xx xxxxx xxx xxx x xxxxxx, xxxxxx xx xxxxxx xxxxxx xxxx xxx xxxxx. xxx xxxxxx xx, xxxxx xxxxx xxxxxxxxxx xxx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.19",
+      "verseOrgIds": [
+       "JHN.3.19"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "20",
+      "style": "v",
+      "sid": "JHN 3:20"
+     },
+     "items": [
+      {
+       "text": "20",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxx xxxxxxxxx xxxxx xxxxx xx xxxxxx xxx. xx xxxxxx xxxx, xx xxxxx xxxxxxxxxx xxxx xxxxx xxxx x xxxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.20",
+      "verseOrgIds": [
+       "JHN.3.20"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "21",
+      "style": "v",
+      "sid": "JHN 3:21"
+     },
+     "items": [
+      {
+       "text": "21",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xx, xxx xxxxxx xxxxxxxxx, xxxxxx xxxx x xxxxx, xx xxx xxx xxx, xx xx xxx xxxxxxx xxxxx xxxx xxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.21",
+      "verseOrgIds": [
+       "JHN.3.21"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "s1"
+   },
+   "items": [
+    {
+     "text": "xxxxxxxx xxxxxx xxxxxx xx xxx xx xxxx xxxx",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "m"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "22",
+      "style": "v",
+      "sid": "JHN 3:22"
+     },
+     "items": [
+      {
+       "text": "22",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxx xxx xxxxxx x xxxxxxxxx xxxxxxxx xxxxx xxxxx x xxxxx xxxxxx xxx xxxx xxxxxxxx, xxxx xxxxx xxx xxx xxx xx xxxx xxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.22",
+      "verseOrgIds": [
+       "JHN.3.22"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "23",
+      "style": "v",
+      "sid": "JHN 3:23"
+     },
+     "items": [
+      {
+       "text": "23",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxx xxxxxxxx xxxxx xxxxxx xxxxx xxxxxxxxx, xxx xxxx xxxx xxx xxx xx xxxxxxx xx xxx xxx. xxx xxxxxxx xxx xxxx xxx xxxx x xxxxxxxx xx xxxxx, xxxx xxx xxx xxxxxx xx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.23",
+      "verseOrgIds": [
+       "JHN.3.23"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "24",
+      "style": "v",
+      "sid": "JHN 3:24"
+     },
+     "items": [
+      {
+       "text": "24",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "(xxxxxxxx xxx xxxxx xxxx xxxxxx xxxxxx x xxxxxxx.)",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.24",
+      "verseOrgIds": [
+       "JHN.3.24"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "25",
+      "style": "v",
+      "sid": "JHN 3:25"
+     },
+     "items": [
+      {
+       "text": "25",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxx xxx xxxxxxxx’ xxxxxxxx x xxxxxxxxxx xxx xx xx xx xxxxxxx xxxxxx xx, xxxx xxx xxxxx xxx xxx xx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.25",
+      "verseOrgIds": [
+       "JHN.3.25"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "26",
+      "style": "v",
+      "sid": "JHN 3:26"
+     },
+     "items": [
+      {
+       "text": "26",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxx xxxxxxxxxxxx xxx xxxxxxxxxx xxx xxx xxxxxxxx xx xxxxx: „xxxxxx, xxx xxxx, xxx xxx xxx xxx xxx xxx xxxxxxxxxxxx, xx xxx xx xxx xxxxxxx xx, xxx xxxxx xxxx, xx xx xxx xxxx xxxx xxxx xxx xxx!”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.26",
+      "verseOrgIds": [
+       "JHN.3.26"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "p"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "27",
+      "style": "v",
+      "sid": "JHN 3:27"
+     },
+     "items": [
+      {
+       "text": "27",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxxxxx xxxxxxx: „xxx xx xxx, xxx xxxxx xxxx xxxxxx xx xx xxxxx xxxxxxx xxxxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.27",
+      "verseOrgIds": [
+       "JHN.3.27"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "28",
+      "style": "v",
+      "sid": "JHN 3:28"
+     },
+     "items": [
+      {
+       "text": "28",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "x xxx xx xxxx xxxx xxx xxxx, xx xxx xxxx xx xxxxxxx, xxx xxx xxxx xxxxxxx xxx xx xxxx xxxxx xxx xxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.28",
+      "verseOrgIds": [
+       "JHN.3.28"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "29",
+      "style": "v",
+      "sid": "JHN 3:29"
+     },
+     "items": [
+      {
+       "text": "29",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxxx xxxxxxxx xxxxxxxxxx – xxx xxxxxxxxxxx xxx, xxx xxxx xx xxxxxx xx xx xxxx xxxxxxxxxxx xxxxxx, xxxxxx xxxx, xxx xxx xxxxx xxx. xxxxxx xxxxxx xxx xxx xx xxxx xxx xxxxxx xxxx xxx, xxx xx xxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.29",
+      "verseOrgIds": [
+       "JHN.3.29"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "30",
+      "style": "v",
+      "sid": "JHN 3:30"
+     },
+     "items": [
+      {
+       "text": "30",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxx xxxxxxxxx xxx xxxxx xxxxxx xx xxxxxx, xxx xxx xxxxx xxxxxx xx xxxxxx.”",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.30",
+      "verseOrgIds": [
+       "JHN.3.30"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "s1"
+   },
+   "items": [
+    {
+     "text": "xxx xxxxx xxx xxx – xxxxxxxxx xxxxx xxx xxx",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "m"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "31",
+      "style": "v",
+      "sid": "JHN 3:31"
+     },
+     "items": [
+      {
+       "text": "31",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx, xxx xx xxxxxx xxxxxxx, xxxx xxxx xxx xx xxxx, xxx xx, xxx xxxxxx xxx xxxxx xxxxxx, xxxxx xxxxx xxxxxx xxx xx xx xxxxxxx xx xxx, xxx xxxxx xxxxx xxxxxx xxx. xxx, xxx xx xxxxxx xxx xxxxxx, xxxx xxxx xxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.31",
+      "verseOrgIds": [
+       "JHN.3.31"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "32",
+      "style": "v",
+      "sid": "JHN 3:32"
+     },
+     "items": [
+      {
+       "text": "32",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxxxxxx xx xxx, xxx xxxx xxx xxx xx xxxx, xx xxxxxxxxx xxx xxxxxx xxxxx xxx xxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.32",
+      "verseOrgIds": [
+       "JHN.3.32"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "33",
+      "style": "v",
+      "sid": "JHN 3:33"
+     },
+     "items": [
+      {
+       "text": "33",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxxx, xxx xx xxxxxx xxx xxx xx xxxx xxx, xxx xxxxxx xxxxx xx, xx xxx xxxxx xxxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.33",
+      "verseOrgIds": [
+       "JHN.3.33"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "34",
+      "style": "v",
+      "sid": "JHN 3:34"
+     },
+     "items": [
+      {
+       "text": "34",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx, xxx xxx xxx xxxxx, xxxxx xxxx xxx, xxx xxx xxxxx xxx xx xxx xxx xxxx xxxxxxxxxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.34",
+      "verseOrgIds": [
+       "JHN.3.34"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "35",
+      "style": "v",
+      "sid": "JHN 3:35"
+     },
+     "items": [
+      {
+       "text": "35",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxxxxx xxxxxx xxxxxx xx xxx xxxxxxxxx xxx x xxxx xxxxxx. ",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.35",
+      "verseOrgIds": [
+       "JHN.3.35"
+      ]
+     }
+    },
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "36",
+      "style": "v",
+      "sid": "JHN 3:36"
+     },
+     "items": [
+      {
+       "text": "36",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxx, xxx xxxx xx xxxxxx, xxx xxxxx xxx, xxx xx, xxx xxxx xxxxxxx xxx, xxx xxxx xxx x xxx xxx. xx xxxxxxxxx xxxxx xxxx xxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "JHN.3.36",
+      "verseOrgIds": [
+       "JHN.3.36"
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "note": "Structure-only: every letter/digit replaced by \"x\" (spaces + punctuation kept exactly) - licensed text, no redistribution."
+}

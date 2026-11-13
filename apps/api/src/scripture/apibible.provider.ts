@@ -1,4 +1,11 @@
-import type { Chapter, Section, Translation, Verse } from '@biblestdy/shared';
+import {
+  words,
+  type Chapter,
+  type Section,
+  type TextBlock,
+  type Translation,
+  type Verse,
+} from '@biblestdy/shared';
 import { ChapterNotFoundError, type ScriptureProvider } from './provider';
 
 const BASE_URL = 'https://api.scripture.api.bible/v1';
@@ -72,13 +79,14 @@ export class ApiBibleProvider implements ScriptureProvider {
       }
       throw err;
     }
-    const { verses, sections } = parseChapterContent(data.content);
+    const { verses, sections, blocks } = parseChapterContent(data.content);
     return {
       translationId,
       book,
       chapter,
       verses,
       sections: sections.length > 0 ? sections : undefined,
+      blocks: blocks.length > 0 ? blocks : undefined,
       copyright: data.copyright?.trim() || undefined,
     };
   }
@@ -105,35 +113,108 @@ class HttpStatusError extends Error {
 /** USFM paragraph styles that carry editorial section headings. */
 const HEADING_STYLES = new Set(['s', 's1', 's2', 's3', 'ms', 'ms1', 'ms2']);
 
+/** USFM paragraph styles -> reading layout. Unlisted styles (nb, r, cl…)
+ * open no block; their text still flows into verses exactly as before. */
+function blockStyle(
+  style: string,
+): Pick<TextBlock, 'kind' | 'level'> | 'stanza' | null {
+  if (style === 'b') return 'stanza';
+  if (/^(p|pi\d?|pm[ocr]?|ph\d?)$/.test(style)) return { kind: 'paragraph' };
+  if (/^(m|mi|pc|pr|d|cls|li\d?|lh|lf)$/.test(style)) return { kind: 'flush' };
+  const q = /^q(\d)?$|^q[mcr](\d)?$/.exec(style);
+  if (q) {
+    return { kind: 'poetry', level: Number(q[1] ?? q[2] ?? 1) };
+  }
+  return null;
+}
+
+/** Verse marker "16" -> 16; a bridge "14-15" -> 14 with label "14–15". */
+function parseVerseNumber(
+  raw: string,
+): { verse: number; label?: string } | null {
+  const m = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(raw.trim());
+  if (!m) return null;
+  const verse = Number(m[1]);
+  return m[2] ? { verse, label: `${m[1]}–${m[2]}` } : { verse };
+}
+
 /**
  * Flatten API.Bible JSON content: 'verse' tags open a verse and text nodes
  * accumulate into it; heading paragraphs (USFM s/ms styles) become sections
  * attached to the NEXT verse — kept apart from verse text so annotations can
  * never anchor to editorial titles.
+ *
+ * Paragraph/poetry paragraphs become `blocks` — layout positioned by verse +
+ * word index. Verse text is accumulated exactly as before blocks existed
+ * (text nodes joined with no separator), so word offsets of existing
+ * annotations never move; where the source runs two lines together without a
+ * space the block records a `char` offset inside the joined word.
  */
 export function parseChapterContent(content: ContentNode[]): {
   verses: Verse[];
   sections: Section[];
+  blocks: TextBlock[];
 } {
   const texts = new Map<number, string[]>();
+  const labels = new Map<number, string>();
   const sections: Section[] = [];
+  const blocks: TextBlock[] = [];
   const pendingTitles: string[] = [];
   let current: number | undefined;
+  let pendingBlock: Pick<TextBlock, 'kind' | 'level'> | null = null;
+  let pendingStanza = false;
+
+  const placeBlock = (verse: number, before: string, text: string) => {
+    if (!pendingBlock) return;
+    const prior = words(before);
+    let pos: Pick<TextBlock, 'verse' | 'word' | 'char'>;
+    if (prior.length === 0) pos = { verse, word: 0 };
+    else if (/\s$/.test(before) || /^\s/.test(text)) {
+      pos = { verse, word: prior.length };
+    } else {
+      // Joined without a space: the line starts inside the last word
+      const last = prior.length - 1;
+      pos = { verse, word: last, char: prior[last].length };
+    }
+    const block: TextBlock = { ...pos, ...pendingBlock };
+    if (pendingStanza) block.stanza = true;
+    const prev = blocks[blocks.length - 1];
+    if (
+      prev &&
+      prev.verse === block.verse &&
+      prev.word === block.word &&
+      prev.char === block.char
+    ) {
+      blocks[blocks.length - 1] = {
+        ...block,
+        ...(prev.stanza ? { stanza: true } : {}),
+      };
+    } else blocks.push(block);
+    pendingBlock = null;
+    pendingStanza = false;
+  };
 
   const walk = (nodes: ContentNode[]) => {
     for (const node of nodes) {
-      if (node.name === 'para' && HEADING_STYLES.has(node.attrs?.style ?? '')) {
-        const title = collectText(node).replace(/\s+/g, ' ').trim();
-        if (title) pendingTitles.push(title);
-        continue; // never mix heading text into verse flow
+      if (node.name === 'para') {
+        const style = node.attrs?.style ?? '';
+        if (HEADING_STYLES.has(style)) {
+          const title = collectText(node).replace(/\s+/g, ' ').trim();
+          if (title) pendingTitles.push(title);
+          continue; // never mix heading text into verse flow
+        }
+        const layout = blockStyle(style);
+        if (layout === 'stanza') pendingStanza = true;
+        else if (layout) pendingBlock = layout;
       }
       if (node.name === 'verse' && node.attrs?.number) {
-        const parsed = Number(node.attrs.number);
-        if (Number.isFinite(parsed)) {
-          current = parsed;
+        const parsed = parseVerseNumber(node.attrs.number);
+        if (parsed) {
+          current = parsed.verse;
+          if (parsed.label) labels.set(parsed.verse, parsed.label);
           while (pendingTitles.length > 0) {
             sections.push({
-              beforeVerse: parsed,
+              beforeVerse: parsed.verse,
               title: pendingTitles.shift()!,
             });
           }
@@ -144,6 +225,9 @@ export function parseChapterContent(content: ContentNode[]): {
       } else if (node.type === 'text' && node.text) {
         if (current !== undefined) {
           const parts = texts.get(current) ?? [];
+          if (node.text.trim() !== '') {
+            placeBlock(current, parts.join(''), node.text);
+          }
           parts.push(node.text);
           texts.set(current, parts);
         }
@@ -153,15 +237,24 @@ export function parseChapterContent(content: ContentNode[]): {
   };
   walk(content);
 
-  const verses = [...texts.entries()]
+  const verses: Verse[] = [...texts.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([verse, parts]) => ({
-      verse,
-      text: parts.join('').replace(/\s+/g, ' ').trim(),
-    }))
+    .map(([verse, parts]) => {
+      const label = labels.get(verse);
+      return {
+        verse,
+        ...(label ? { label } : {}),
+        text: parts.join('').replace(/\s+/g, ' ').trim(),
+      };
+    })
     .filter((v) => v.text.length > 0);
 
-  return { verses, sections };
+  const kept = new Set(verses.map((v) => v.verse));
+  return {
+    verses,
+    sections,
+    blocks: blocks.filter((b) => kept.has(b.verse)),
+  };
 }
 
 function collectText(node: ContentNode): string {

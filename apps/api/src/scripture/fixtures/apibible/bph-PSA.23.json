@@ -1,0 +1,500 @@
+{
+ "reference": "Salmernes Bog 23",
+ "copyright": "© 2015 by Biblica, Inc.®",
+ "content": [
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "s1"
+   },
+   "items": [
+    {
+     "text": "xxxxxx xx xxx xxxxx",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "d"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "1",
+      "style": "v",
+      "sid": "PSA 23:1"
+     },
+     "items": [
+      {
+       "text": "1",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxxx xx xxxxx.",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1",
+    "vid": "PSA 23:1"
+   },
+   "items": [
+    {
+     "text": "xxxxxx xx xxx xxxxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.1",
+      "verseOrgIds": [
+       "PSA.23.1"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:1"
+   },
+   "items": [
+    {
+     "text": "xxx xxxxxx xxxxx xxx xxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.1",
+      "verseOrgIds": [
+       "PSA.23.1"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "2",
+      "style": "v",
+      "sid": "PSA 23:2"
+     },
+     "items": [
+      {
+       "text": "2",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxx xxx xxx xxxxxx xxxx",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.2",
+      "verseOrgIds": [
+       "PSA.23.2"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:2"
+   },
+   "items": [
+    {
+     "text": "xx xxxxx xxx xxx xxxxxx xxxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.2",
+      "verseOrgIds": [
+       "PSA.23.2"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "3",
+      "style": "v",
+      "sid": "PSA 23:3"
+     },
+     "items": [
+      {
+       "text": "3",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxx xxx xx xxxxxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.3",
+      "verseOrgIds": [
+       "PSA.23.3"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:3"
+   },
+   "items": [
+    {
+     "text": "xx xxxxx xxx xx xxx xxxxx xxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.3",
+      "verseOrgIds": [
+       "PSA.23.3"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q3",
+    "vid": "PSA 23:3"
+   },
+   "items": [
+    {
+     "text": "xxx xxx xx xx xxx xx xxxxxxx xxx.",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "b"
+   },
+   "items": []
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "4",
+      "style": "v",
+      "sid": "PSA 23:4"
+     },
+     "items": [
+      {
+       "text": "4",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxxx xxx xxx xxxxxx xxxxxx xxxxxxxxxxxx xxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:4"
+   },
+   "items": [
+    {
+     "text": "xxx xxx xxx xxxxx xx xxxxxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1",
+    "vid": "PSA 23:4"
+   },
+   "items": [
+    {
+     "text": "xxx xx xxx xxx xxx xxxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:4"
+   },
+   "items": [
+    {
+     "text": "xxx xxxxxxxxx xxxxxxxxx xxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.4",
+      "verseOrgIds": [
+       "PSA.23.4"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "5",
+      "style": "v",
+      "sid": "PSA 23:5"
+     },
+     "items": [
+      {
+       "text": "5",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xx xxxxxx xxxx xxx xxx",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:5"
+   },
+   "items": [
+    {
+     "text": "xxx xxxxxx xx xxxx xxxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1",
+    "vid": "PSA 23:5"
+   },
+   "items": [
+    {
+     "text": "xx xxx xxx xxx xxxxxxxx",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:5"
+   },
+   "items": [
+    {
+     "text": "xx xxxxxx xxx xxxxx xxx xxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.5",
+      "verseOrgIds": [
+       "PSA.23.5"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1"
+   },
+   "items": [
+    {
+     "name": "verse",
+     "type": "tag",
+     "attrs": {
+      "number": "6",
+      "style": "v",
+      "sid": "PSA 23:6"
+     },
+     "items": [
+      {
+       "text": "6",
+       "type": "text"
+      }
+     ]
+    },
+    {
+     "text": "xxx xxxxxx xx xxxxxxxx xxxx",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.6",
+      "verseOrgIds": [
+       "PSA.23.6"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:6"
+   },
+   "items": [
+    {
+     "text": "xxxxxx xxx xxxxx xxxxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.6",
+      "verseOrgIds": [
+       "PSA.23.6"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q1",
+    "vid": "PSA 23:6"
+   },
+   "items": [
+    {
+     "text": "xx xxx xxx xxx xx xx x xxx xxx,",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.6",
+      "verseOrgIds": [
+       "PSA.23.6"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "para",
+   "type": "tag",
+   "attrs": {
+    "style": "q2",
+    "vid": "PSA 23:6"
+   },
+   "items": [
+    {
+     "text": "xx xxxxx xxx xxxxx.",
+     "type": "text",
+     "attrs": {
+      "verseId": "PSA.23.6",
+      "verseOrgIds": [
+       "PSA.23.6"
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "note": "Structure-only: every letter/digit replaced by \"x\" (spaces + punctuation kept exactly) - licensed text, no redistribution."
+}

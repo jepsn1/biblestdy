@@ -12,7 +12,7 @@ export {
 } from './books.js'
 export { DANISH_BOOKS, type BookLocale } from './book-names.js'
 export { parseReference, formatReference, compareReferences, type Reference } from './reference.js'
-export type { Translation, Verse, Section, Chapter } from './scripture.js'
+export type { Translation, Verse, Section, Chapter, TextBlock } from './scripture.js'
 export {
   words,
   buildAnchor,
