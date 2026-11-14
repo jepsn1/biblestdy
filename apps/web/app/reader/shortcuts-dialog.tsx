@@ -49,7 +49,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
     {
       title: t("shortcuts.reading"),
       rows: [
-        { keys: [["←"], ["→"]], label: t("shortcuts.pageTurn") },
+        { keys: [["←", "→"], ["PgUp", "PgDn"]], label: t("shortcuts.pageTurn") },
         { keys: [["Home"], ["End"]], label: t("shortcuts.firstLast") },
         { keys: [["["], ["]"]], label: t("shortcuts.chapter") },
         { keys: [["mod", "K"], ["/"]], label: t("shortcuts.jump") },

@@ -34,7 +34,7 @@ const LANE = 190; // default box width, and the margin lane it starts in
 const GAP = 20; // px between content box and the default lane
 const MIN_W = 90;
 const MAX_W = 600;
-const EDGE = 52; // px kept clear at the pane edges (sheet-layout FLIP_STRIP gutter: page-turn strips)
+const EDGE = 52; // px kept clear at the pane edges (sheet-layout GUTTER: the tool palette, left)
 const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines

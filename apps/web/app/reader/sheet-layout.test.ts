@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { boxesFitLane, FLIP_STRIP, LANE, RAIL, sheetLayout } from "./sheet-layout";
+import { boxesFitLane, GUTTER, LANE, RAIL, sheetLayout } from "./sheet-layout";
 
 /** Everything the layout places must fit the pane: no sideways scroll. */
 function fits(paneRem: number, lane: number) {
   const l = sheetLayout(paneRem, lane);
-  return l.contentWidth + 2 * l.lane + 2 * FLIP_STRIP <= paneRem + 1e-9;
+  return l.contentWidth + 2 * l.lane + 2 * GUTTER <= paneRem + 1e-9;
 }
 
 describe("sheetLayout", () => {

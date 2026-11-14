@@ -83,11 +83,11 @@ export default function App() {
         <Outlet />
       </TooltipProvider>
       {/* Feedback toasts (#64): bottom centre, clear of the reader's footer
-          bar (page arrows) on every screen size */}
+          page bar on every screen size */}
       <Toaster
         position="bottom-center"
-        offset={{ bottom: "4rem" }}
-        mobileOffset={{ bottom: "calc(3.75rem + env(safe-area-inset-bottom))" }}
+        offset={{ bottom: "5rem" }}
+        mobileOffset={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
       />
     </QueryClientProvider>
   );

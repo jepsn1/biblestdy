@@ -1,18 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { Button, buttonVariants } from "~/components/ui/button";
+import { buttonVariants } from "~/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Hint } from "~/components/hint";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { authClient } from "~/lib/auth-client";
 import { useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
-import { cn, focusRing } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import {
   type ChapterRef,
   chapterHref,
@@ -31,7 +30,8 @@ import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { boxesFitLane, LANE, RAIL, sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
-import { PALETTE_BOX, PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
+import { PageBar, type BarButton } from "./page-bar";
+import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
@@ -595,6 +595,53 @@ export function PaginatedChapter({
     ? `${hereLabel}:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
     : hereLabel;
 
+  // Page bar ends. Paged: a page turn inside the chapter; on the first/last
+  // page the chapter it crosses into. Phones: always chapters.
+  const prevButton: BarButton = prevTarget
+    ? {
+        label: refLabel(prevTarget),
+        name: t("reader.prevChapterTo", { ref: refLabel(prevTarget) }),
+        hintKey: scrollMode ? "[" : "←",
+        keys: scrollMode ? "[" : "ArrowLeft PageUp",
+        disabled: false,
+        onClick: goPrev,
+      }
+    : {
+        label: t("reader.prev"),
+        name: t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
+        hintKey: scrollMode ? "[" : "←",
+        keys: scrollMode ? "[" : "ArrowLeft PageUp",
+        disabled: onFirstPage,
+        onClick: goPrev,
+      };
+  const nextButton: BarButton = nextTarget
+    ? scrollMode
+      ? {
+          label: refLabel(nextTarget),
+          name: t("reader.nextChapterTo", { ref: refLabel(nextTarget) }),
+          hintKey: "]",
+          keys: "]",
+          disabled: false,
+          onClick: goNext,
+        }
+      : {
+          label: t("reader.continueTo", { ref: refLabel(nextTarget) }),
+          name: t("reader.continueTo", { ref: refLabel(nextTarget) }),
+          hintKey: "→",
+          keys: "ArrowRight PageDown",
+          disabled: false,
+          primary: true,
+          onClick: goNext,
+        }
+    : {
+        label: t("reader.next"),
+        name: t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
+        hintKey: scrollMode ? "]" : "→",
+        keys: scrollMode ? "]" : "ArrowRight PageDown",
+        disabled: onLastPage,
+        onClick: goNext,
+      };
+
   /** Desktop: jump to a page (Home/End). */
   function goToPage(target: number) {
     if (scrollMode || target === page) return;
@@ -689,8 +736,14 @@ export function PaginatedChapter({
         setToolPick((p) => ({ ...p, kind: pick }));
         return;
       }
-      if (event.key === "ArrowLeft") goPrev();
-      if (event.key === "ArrowRight") goNext();
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        goPrev();
+      }
+      if (event.key === "ArrowRight" || event.key === "PageDown") {
+        event.preventDefault();
+        goNext();
+      }
       if (event.key === "Home" || event.key === "End") {
         userTurn.current = true;
         goToPage(event.key === "Home" ? 0 : pageCount - 1);
@@ -808,11 +861,11 @@ export function PaginatedChapter({
     if (focused) first.focus({ preventScroll: true });
   }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize]);
 
-  /** End of chapter (#52): flows right after the last verse — the last page
-   * on desktop, the end of the scroll on phones (which also carry the
-   * attribution here, their footer being just the arrows). */
+  /** End of chapter (#52), phones: flows right after the last verse, with
+   * the attribution (their bar only names chapters). Paged, the page bar's
+   * last-page "Continue to …" does this job. */
   const chapterEnd = (
-    <div className="mt-10 flex break-inside-avoid flex-col items-start gap-4 font-sans">
+    <div className="mt-10 flex flex-col items-start gap-4 font-sans">
       {nextChapter && (
         <Link
           to={chapterHref(nextChapter)}
@@ -822,7 +875,7 @@ export function PaginatedChapter({
           <ArrowRight data-icon="inline-end" />
         </Link>
       )}
-      {scrollMode && <p className="text-meta text-muted-foreground">{attribution}</p>}
+      <p className="text-meta text-muted-foreground">{attribution}</p>
     </div>
   );
 
@@ -1003,7 +1056,6 @@ export function PaginatedChapter({
                     style={{ transform: `translateX(-${page * stride}px)` }}
                   >
                     {chapterText}
-                    {chapterEnd}
                   </div>
                   {wordInk}
                 </div>
@@ -1011,72 +1063,29 @@ export function PaginatedChapter({
               </div>
             </div>
 
-            {/* Page turns on the page (not the footer): a full-height strip at
-                each pane edge with a visible arrow — click/tap anywhere on it.
-                At a chapter boundary it names where it goes. */}
-            <div className="absolute inset-y-0 left-0 z-20 flex w-12 flex-col">
+            {/* Tool palette in the left gutter (mouse/trackpad only) */}
+            <div className="absolute top-0 left-0 z-20 w-12">
               <ToolPalette tool={tool} onChange={setToolPick} />
-              <PageTurn
-                dir="prev"
-                target={prevTarget ? refLabel(prevTarget) : null}
-                hidden={onFirstPage && !prevChapter}
-                onClick={goPrev}
-              />
-            </div>
-            <div className="absolute inset-y-0 right-0 z-20 flex w-12 flex-col">
-              <div aria-hidden className={cn(PALETTE_BOX, "pointer-events-none pointer-coarse:hidden")} />
-              <PageTurn
-                dir="next"
-                target={nextTarget ? refLabel(nextTarget) : null}
-                hidden={onLastPage && !nextChapter}
-                onClick={goNext}
-              />
             </div>
             <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
           </>
         )}
       </div>
 
-      {/* One footer line (#52, #66), aligned to the text measure:
-          "World English Bible · Public domain" ··· "‹ John 2 · John 3:1–11 · 1/4 · John 4 ›".
-          At a chapter boundary an arrow says where it goes; the top running
-          head is gone. Phones scroll, so their buttons always step chapters. */}
-      <footer
-        className="mx-auto flex w-full shrink-0 items-center justify-between gap-4 border-t border-border px-2 py-2 text-meta text-muted-foreground sm:px-6"
-        style={scrollMode ? undefined : { maxWidth: `${Math.max(layout.contentWidth, 30)}rem` }}
-      >
-        {!scrollMode && <span className="min-w-0 flex-1 truncate">{attribution}</span>}
-        {scrollMode ? (
-          // Phones scroll the chapter: these step chapters, not pages
-          <span className="flex shrink-0 items-center gap-1">
-            <NavButton
-              dir="prev"
-              target={prevChapter ? refLabel(prevChapter) : null}
-              disabled={!prevChapter}
-              onClick={goPrev}
-            />
-            <NavButton
-              dir="next"
-              target={nextChapter ? refLabel(nextChapter) : null}
-              disabled={!nextChapter}
-              onClick={goNext}
-            />
-          </span>
-        ) : (
-          <span aria-hidden className="flex shrink-0 items-center gap-1.5 whitespace-nowrap tabular-nums">
-            <span>{rangeLabel}</span>
-            <span>·</span>
-            <span>
-              {page + 1}/{pageCount}
-            </span>
-          </span>
-        )}
-        {!scrollMode && (
-          <p aria-live="polite" className="sr-only">
-            {t("reader.announce", { ref: rangeLabel, page: page + 1, count: pageCount })}
-          </p>
-        )}
-      </footer>
+      <PageBar
+        label={t(scrollMode ? "reader.chaptersNav" : "reader.pagesNav")}
+        position={scrollMode ? hereLabel : `${rangeLabel} · ${t("reader.pageOf", { page: page + 1, count: pageCount })}`}
+        credit={scrollMode ? undefined : attribution}
+        prev={prevButton}
+        next={nextButton}
+        phone={scrollMode}
+        maxWidth={scrollMode ? undefined : Math.max(layout.contentWidth, 30)}
+      />
+      {!scrollMode && (
+        <p aria-live="polite" className="sr-only">
+          {t("reader.announce", { ref: rangeLabel, page: page + 1, count: pageCount })}
+        </p>
+      )}
       </ResizablePanel>
 
       {/* An open note takes the side slot; closing it brings connections back.
@@ -1161,97 +1170,5 @@ export function PaginatedChapter({
         </>
       )}
     </div>
-  );
-}
-
-/** Page-turn strip (desktop/tablet): the whole strip is the button; the
- * arrow sits in a visible circle. Crossing into another chapter, the strip
- * also prints it ("John 4", set vertically like a book's running head). */
-function PageTurn({
-  dir,
-  target,
-  hidden,
-  onClick,
-}: {
-  dir: "prev" | "next";
-  /** "John 4" when this press changes chapter; null = page turn. */
-  target: string | null;
-  /** Nothing that way (Genesis 1's first page, Revelation 22's last). */
-  hidden: boolean;
-  onClick: () => void;
-}) {
-  const { t } = useTranslation();
-  if (hidden) return null;
-  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
-  const label = target
-    ? t(dir === "prev" ? "reader.prevChapterTo" : "reader.nextChapterTo", { ref: target })
-    : t(dir === "prev" ? "reader.prevPage" : "reader.nextPage");
-  const shortcut = target ? (dir === "prev" ? "[" : "]") : dir === "prev" ? "←" : "→";
-  return (
-    <Hint label={label} shortcut={shortcut} side={dir === "prev" ? "right" : "left"}>
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onClick}
-        className={cn(
-          "group relative flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center text-muted-foreground transition-colors hover:bg-foreground/[0.03] hover:text-foreground",
-          "outline-none",
-        )}
-      >
-        {/* Focus shows on the circle, not as a full-height frame */}
-        <span className="flex size-9 items-center justify-center rounded-full border border-border bg-background shadow-xs transition-colors group-hover:border-foreground/25 group-focus-visible:ring-3 group-focus-visible:ring-ring/50 group-active:scale-95">
-          <Icon className="size-5" aria-hidden />
-        </span>
-        {target && (
-          // Under the arrow (absolute: the arrow stays level with the other
-          // strip's), horizontal and wrapping — "John 4" reads without a head tilt
-          <span
-            aria-hidden
-            className="absolute top-[calc(50%+1.5rem)] inset-x-0.5 text-center text-list leading-tight font-medium break-words"
-          >
-            {target}
-          </span>
-        )}
-      </button>
-    </Hint>
-  );
-}
-
-/** Footer arrow (phones): icon-only page turn (tooltip names the key), or labelled
- * with the chapter it opens when it crosses one. */
-function NavButton({
-  dir,
-  target,
-  disabled,
-  onClick,
-}: {
-  dir: "prev" | "next";
-  /** "John 4" when this press changes chapter; null = page turn. */
-  target: string | null;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  const { t } = useTranslation();
-  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
-  const label = target
-    ? t(dir === "prev" ? "reader.prevChapterTo" : "reader.nextChapterTo", { ref: target })
-    : t(dir === "prev" ? "reader.prevPage" : "reader.nextPage");
-  // A page turn names its arrow key; a chapter step its bracket (#65)
-  const shortcut = target ? (dir === "prev" ? "[" : "]") : dir === "prev" ? "←" : "→";
-  return (
-    <Hint label={label} shortcut={shortcut} side="top">
-      <Button
-        variant="ghost"
-        size={target ? "sm" : "icon-sm"}
-        aria-label={label}
-        disabled={disabled}
-        onClick={onClick}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
-      >
-        {dir === "prev" && <Icon data-icon={target ? "inline-start" : undefined} />}
-        {target}
-        {dir === "next" && <Icon data-icon={target ? "inline-end" : undefined} />}
-      </Button>
-    </Hint>
   );
 }

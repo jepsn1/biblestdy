@@ -3,7 +3,7 @@
  * sideways scroll. Decides spread (2 columns) vs one centred column, and how
  * much margin the annotation lanes get. All sizes in rem; the caller converts.
  *
- * Pane = [flip strip][lane][ pad | text | pad ][lane][flip strip]
+ * Pane = [gutter][lane][ pad | text | pad ][lane][gutter]
  * - Lanes (where untouched annotation boxes start) exist only when the
  *   chapter has annotations (LANE); note chips alone need a narrower rail
  *   (RAIL, #63); otherwise the text takes the space.
@@ -11,7 +11,10 @@
  *   one column up to SINGLE_MAX (paged the same way).
  */
 
-export const FLIP_STRIP = 3; // edge gutter each side: the page-turn strips (and the tool palette, left)
+/** Edge gutter each side: the tool palette's column on the left, mirrored
+ * on the right so the sheet stays centred (page turns live in the page bar
+ * under the pane, clear of every lane). */
+export const GUTTER = 3;
 export const PAD = 1.5; // content box inline padding (px-6), each side
 export const COL_GAP = 3.5; // gap-x-14
 export const COL_MAX = 27; // ≈55 chars/line at text-reading Literata
@@ -33,7 +36,7 @@ export type SheetLayout = {
 
 /** `laneRem`: margin wanted each side — LANE, RAIL or 0. */
 export function sheetLayout(paneRem: number, laneRem: number): SheetLayout {
-  const avail = Math.max(0, paneRem - 2 * FLIP_STRIP);
+  const avail = Math.max(0, paneRem - 2 * GUTTER);
   const hasLanes = laneRem > 0;
   const lanes = 2 * laneRem;
   const spreadMin = 2 * SPREAD_MIN_COL + COL_GAP + 2 * PAD;
@@ -57,9 +60,9 @@ const BOX_CLEARANCE_PX = 52 + 8;
 
 /** Do margin boxes fit beside the text at this layout and rem size? The
  * narrowest box, pushed against the pane edge, must end before the text
- * column (lane + edge strip + content padding). If not, annotations print as
+ * column (lane + edge gutter + content padding). If not, annotations print as
  * lines under their verse instead (#63) — never a box on the words. */
 export function boxesFitLane(layout: SheetLayout, remPx: number): boolean {
-  const roomPx = (layout.lane + FLIP_STRIP + PAD) * remPx - BOX_CLEARANCE_PX;
+  const roomPx = (layout.lane + GUTTER + PAD) * remPx - BOX_CLEARANCE_PX;
   return roomPx >= Math.max(BOX_MIN_PX, BOX_MIN_REM * remPx);
 }
