@@ -22,7 +22,7 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 
 ## Conventions
 
-- **Terminology (2026-07-09, everywhere — UI, code, DB, API):** *annotation* = short handwritten scribble anchored to a span (circle/bracket + placed box, table `annotation`, `/api/annotations`); *note* = standalone markdown document (side-by-side editor, table `note`, `/api/notes`). "Doc"/"full note" are dead terms.
+- **Terminology (2026-07-09, everywhere — UI, code, DB, API):** *annotation* = short handwritten scribble anchored to a span (circle/bracket + placed box, table `annotation`, `/api/annotations`); *note* = standalone markdown document (side-by-side editor, table `note`, `/api/notes`). "Doc"/"full note" are dead terms. Notes live at `/notes` (list + editor) and beside the text (reader Notes panel); a note has 0..n references (anchors) and topics — plan + phases in `docs/notes-plan.md`.
 
 - Commits: author `jepsn1 <jepsn1@users.noreply.github.com>` via `git -c user.name=... -c user.email=...` (gh CLI v2.4 = single account; owner login is jepsn1, work login mk-logbuy gets overwritten — see memory).
 - Deep modules (Reference, Anchor, Annotation graph, Connections, Scripture provider) live behind small interfaces with isolated Vitest behavior tests — no browser/DB/live API in tests.
