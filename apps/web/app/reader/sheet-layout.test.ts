@@ -34,7 +34,7 @@ describe("sheetLayout", () => {
     const l = sheetLayout(40, LANE);
     expect(l.columns).toBe(1);
     expect(l.contentWidth).toBe(25);
-    expect(l.lane).toBeCloseTo(4.5);
+    expect(l.lane).toBeCloseTo(3.75);
   });
 
   it("notes only: a narrower chip rail keeps the spread", () => {

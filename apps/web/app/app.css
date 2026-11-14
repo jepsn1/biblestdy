@@ -18,6 +18,12 @@
  * Inside the Scripture flow, sizes relative to the reading size stay em.
  */
 @theme {
+  /* Reader chrome on the sheet's edges (tool palette, colour key): one
+     inset from the pane's corner, so both sit on the same left line; the
+     gutter = that inset + the palette (2.25rem button + padding + border)
+     + a hair, mirrored right (sheet-layout GUTTER) */
+  --spacing-reader-inset: 0.75rem;
+  --spacing-reader-gutter: 3.75rem;
   --text-*: initial;
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
@@ -414,7 +420,7 @@
 /* Paged: the tool palette's gutter stays clear, as on a page turn */
 @media (min-width: 640px) {
   :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
-    clip-path: inset(0 0 0 3rem);
+    clip-path: inset(0 0 0 3.75rem); /* --spacing-reader-gutter */
   }
 }
 :root[data-chapter-turn]::view-transition-old(chapter-sheet),

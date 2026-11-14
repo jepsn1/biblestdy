@@ -1,4 +1,4 @@
-import { HIGHLIGHT_COLORS, HIGHLIGHT_LABEL_MAX, type HighlightColor, type HighlightLabels } from "@biblestdy/shared";
+import { HIGHLIGHT_COLORS, HIGHLIGHT_LABEL_MAX, type HighlightColor } from "@biblestdy/shared";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
@@ -12,11 +12,12 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { saveHighlightLabels, upFirst, useHighlightLabels } from "~/lib/highlight-labels";
+import { cleanLabels, saveHighlightLabels, upFirst, useHighlightLabels } from "~/lib/highlight-labels";
 import { notifyError } from "~/lib/notify";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
-/** Event name: the settings and the tool palette open the dialog; `detail`
+/** Event name: the settings open the dialog (the only way on phones; on
+ * desktop the colour key names them in place too); `detail`
  * = the element focus goes back to when it closes. */
 export const OPEN_COLOR_NAMES = "biblestdy:color-names";
 export function openColorNames(returnTo?: HTMLElement | null) {
@@ -68,11 +69,7 @@ function ColorNamesForm({ onDone }: { onDone: () => void }) {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy.current) return;
-    const next: HighlightLabels = {};
-    for (const c of HIGHLIGHT_COLORS) {
-      const name = draft[c].replace(/\s+/gu, " ").trim();
-      if (name) next[c] = name;
-    }
+    const next = cleanLabels(draft);
     busy.current = true;
     const save = () =>
       saveHighlightLabels(next).catch((err: unknown) => notifyError(err, { retry: save }));

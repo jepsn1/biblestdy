@@ -1,22 +1,33 @@
-import { HIGHLIGHT_COLORS, type HighlightColor } from "@biblestdy/shared";
-import { ChevronDown } from "lucide-react";
+import { HIGHLIGHT_COLORS, HIGHLIGHT_LABEL_MAX, type HighlightColor } from "@biblestdy/shared";
+import { ChevronDown, Tag } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Hint } from "~/components/hint";
 import { useTranslation } from "react-i18next";
-import { isShown, setHighlightFilter, toggleColor, useHighlightFilter } from "~/lib/highlight-filter";
-import { useColorName, useHighlightLabels } from "~/lib/highlight-labels";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { isShown, setHighlightFilter, toggleColor, useHighlightFilter, type HighlightFilter } from "~/lib/highlight-filter";
+import { cleanLabels, saveHighlightLabels, upFirst, useColorName, useHighlightLabels } from "~/lib/highlight-labels";
+import { notifyError } from "~/lib/notify";
 import { cn, focusRing } from "~/lib/utils";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
 const OPEN_KEY = "colourKeyOpen";
 
+/** Marks the key, so the tool palette keeps its colours clear of it. */
+export const COLOUR_KEY_ATTR = "data-colour-key";
+
 /**
- * The colour key (bottom-left of the sheet): what each colour means, once
- * the reader has named one ("blue = God speaking"), and a filter — click a
- * colour to bring its highlights forward (the rest turn see-through), click
- * others to add or drop them,
- * "Show all" to reset. Folds to a small chip; the fold is remembered on this
- * device, the filter only for the session.
+ * The colour key (bottom-left of the sheet, on the palette's left line): the
+ * one place the colours have words. Picking a colour to highlight with is
+ * the palette's job; the key
+ * - says what each colour means ("blue = God speaking"), and names them in
+ *   place ("Name colours…": its rows turn into fields) — where the names
+ *   show; Settings keeps a dialog for phones;
+ * - filters: click a colour to bring its highlights forward (the rest turn
+ *   see-through), click others to add or drop them, "Show all" to reset.
+ * Always there on desktop; folded to a chip until a colour is named, unless
+ * the reader opened it — the fold is remembered on this device, the filter
+ * only for the session.
  * Never over the text or the running foot: where the key doesn't fit in the
  * margin left of the text (`room`), it shrinks to a swatch button in the
  * palette's gutter that opens the key on demand, over the page until put away.
@@ -27,14 +38,21 @@ export function ColourKey({ room }: { room?: number }) {
   const labels = useHighlightLabels();
   const { title } = useColorName();
   const filter = useHighlightFilter();
-  const [open, setOpen] = useState(true);
+  // The reader's own fold, once they chose one; else open once a colour is named
+  const [fold, setFold] = useState<boolean | null>(null);
   useEffect(() => {
     try {
-      if (localStorage.getItem(OPEN_KEY) === "0") setOpen(false);
+      const v = localStorage.getItem(OPEN_KEY);
+      if (v) setFold(v === "1");
     } catch {
-      // storage blocked: starts open
+      // storage blocked: follows the names
     }
   }, []);
+  const [editing, setEditing] = useState(false);
+  const open = editing || (fold ?? Object.keys(labels).length > 0);
+  /** Said once by the live region (names saved), until the next action. */
+  const [said, setSaid] = useState<string | null>(null);
+  const nameRef = useRef<HTMLButtonElement>(null);
   // Its width as laid out in the margin; 0 = not measured yet (renders there
   // once, measured before paint)
   const keyRef = useRef<HTMLDivElement>(null);
@@ -45,10 +63,11 @@ export function ColourKey({ room }: { room?: number }) {
   const chipRef = useRef<HTMLButtonElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (tight && !popped) return;
+    // Not while naming: the fields' width mustn't send the key to the gutter
+    if ((tight && !popped) || editing) return;
     const w = keyRef.current?.offsetWidth ?? 0;
     setNatural((n) => (n === w ? n : w));
-  }, [tight, popped, open, labels, filter, room]);
+  }, [tight, popped, open, labels, filter, room, editing]);
   useEffect(() => {
     if (!tight) setPopped(false);
   }, [tight]);
@@ -60,8 +79,8 @@ export function ColourKey({ room }: { room?: number }) {
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
   }, [popped]);
-  function fold(next: boolean) {
-    setOpen(next);
+  function toggleOpen(next: boolean) {
+    setFold(next);
     try {
       localStorage.setItem(OPEN_KEY, next ? "1" : "0");
     } catch {
@@ -69,13 +88,21 @@ export function ColourKey({ room }: { room?: number }) {
     }
   }
 
-  // Only once a colour means something (or a filter is still on)
-  if (Object.keys(labels).length === 0 && !filter) return null;
+  function stopEditing(saved: boolean) {
+    setEditing(false);
+    setSaid(saved ? t("colourKey.saved") : null);
+    // Back to the button that opened the fields (rendered again next frame)
+    requestAnimationFrame(() => nameRef.current?.focus());
+  }
+  function filterBy(next: HighlightFilter) {
+    setSaid(null);
+    setHighlightFilter(next);
+  }
 
   const shown = HIGHLIGHT_COLORS.filter((c) => isShown(filter, c));
-  const status = filter
-    ? t("colourKey.showing", { colors: shown.map(title).join(", ") })
-    : t("colourKey.showingAll");
+  const status =
+    said ??
+    (filter ? t("colourKey.showing", { colors: shown.map(title).join(", ") }) : t("colourKey.showingAll"));
   const swatch = (c: HighlightColor, on: boolean) => (
     <span
       aria-hidden
@@ -101,76 +128,105 @@ export function ColourKey({ room }: { room?: number }) {
       ref={keyRef}
       role="group"
       aria-labelledby={`${ids}-title`}
+      {...(!tight && { [COLOUR_KEY_ATTR]: "" })}
       className={cn(
         "pointer-events-auto flex flex-col rounded-[calc(var(--radius-md)+0.25rem+1px)] border border-border bg-background p-1 text-meta shadow-xs",
         tight
           ? "absolute bottom-0 left-full ml-2 w-max max-w-[18rem] shadow-md"
-          : "absolute bottom-3 left-3 z-20 max-w-[min(18rem,calc(100%-1.5rem))]",
+          : "absolute bottom-reader-inset left-reader-inset z-20 max-w-[min(18rem,calc(100%-2*var(--spacing-reader-inset)))]",
+        // Naming: room for the fields, over the page while it lasts
+        editing && "w-72 max-w-[calc(100vw-2rem)]",
       )}
     >
       {!tight && live}
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-expanded={listed}
-          aria-controls={`${ids}-list`}
-          onClick={() => (tight ? putAway() : fold(!open))}
-          className={cn(
-            "flex h-7 items-center gap-1.5 rounded-md px-2 whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground",
-            listed && "min-w-0 flex-1",
-            focusRing,
-          )}
-        >
-          {!listed && (
-            <span aria-hidden className="flex -space-x-0.5">
-              {HIGHLIGHT_COLORS.map((c) => (
-                <span key={c} className="contents">
-                  {swatch(c, isShown(filter, c))}
+      {editing ? (
+        <NamesForm titleId={`${ids}-title`} onDone={stopEditing} />
+      ) : (
+        <>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-expanded={listed}
+              aria-controls={`${ids}-list`}
+              onClick={() => (tight ? putAway() : toggleOpen(!open))}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-md px-2 whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground",
+                listed && "min-w-0 flex-1",
+                focusRing,
+              )}
+            >
+              {!listed && (
+                <span aria-hidden className="flex -space-x-0.5">
+                  {HIGHLIGHT_COLORS.map((c) => (
+                    <span key={c} className="contents">
+                      {swatch(c, isShown(filter, c))}
+                    </span>
+                  ))}
                 </span>
-              ))}
-            </span>
-          )}
-          <span id={`${ids}-title`} className={cn("font-medium", listed && "truncate")}>
-            {t("colourKey.title")}
-          </span>
-          {/* Folded with a filter on: say so, so it isn't forgotten */}
-          {!listed && filter && <span className="shrink-0">{t("colourKey.count", { shown: shown.length, all: HIGHLIGHT_COLORS.length })}</span>}
-          <ChevronDown aria-hidden className={cn("ml-auto size-3.5 shrink-0 transition-transform", listed && "rotate-180")} />
-        </button>
-        {filter && (
-          <button
-            type="button"
-            onClick={() => setHighlightFilter(null)}
-            className={cn("h-7 shrink-0 rounded-md px-2 font-medium hover:bg-muted", focusRing)}
-          >
-            {t("colourKey.showAll")}
-          </button>
-        )}
-      </div>
-      {listed && (
-        <ul id={`${ids}-list`} className="flex flex-col">
-          {HIGHLIGHT_COLORS.map((c) => {
-            const on = isShown(filter, c);
-            return (
-              <li key={c}>
+              )}
+              <span id={`${ids}-title`} className={cn("font-medium", listed && "truncate")}>
+                {t("colourKey.title")}
+              </span>
+              {/* Folded with a filter on: say so, so it isn't forgotten */}
+              {!listed && filter && <span className="shrink-0">{t("colourKey.count", { shown: shown.length, all: HIGHLIGHT_COLORS.length })}</span>}
+              <ChevronDown aria-hidden className={cn("ml-auto size-3.5 shrink-0 transition-transform", listed && "rotate-180")} />
+            </button>
+            {filter && (
+              <button
+                type="button"
+                onClick={() => filterBy(null)}
+                className={cn("h-7 shrink-0 rounded-md px-2 font-medium hover:bg-muted", focusRing)}
+              >
+                {t("colourKey.showAll")}
+              </button>
+            )}
+          </div>
+          {listed && (
+            <ul id={`${ids}-list`} className="flex flex-col">
+              {HIGHLIGHT_COLORS.map((c) => {
+                const on = isShown(filter, c);
+                return (
+                  <li key={c}>
+                    {/* What a click does, in words: it filters, never highlights */}
+                    <Hint label={filterHint(t, filter, on)} side="right">
+                      <button
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => filterBy(toggleColor(filter, c))}
+                        className={cn(
+                          "flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left hover:bg-muted",
+                          !on && "text-muted-foreground",
+                          focusRing,
+                        )}
+                      >
+                        {swatch(c, on)}
+                        <span className="truncate">{title(c)}</span>
+                      </button>
+                    </Hint>
+                  </li>
+                );
+              })}
+              {/* Naming lives with the names; quiet, as most never rename */}
+              <li className="mt-0.5 border-t border-border pt-0.5">
                 <button
+                  ref={nameRef}
                   type="button"
-                  aria-pressed={on}
-                  title={title(c)}
-                  onClick={() => setHighlightFilter(toggleColor(filter, c))}
+                  onClick={() => {
+                    setSaid(null);
+                    setEditing(true);
+                  }}
                   className={cn(
-                    "flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left hover:bg-muted",
-                    !on && "text-muted-foreground",
+                    "flex h-7 w-full items-center gap-2 rounded-md px-2 text-left whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground",
                     focusRing,
                   )}
                 >
-                  {swatch(c, on)}
-                  <span className="truncate">{title(c)}</span>
+                  <Tag aria-hidden className="size-3.5 shrink-0" />
+                  {t("colorNames.open")}
                 </button>
               </li>
-            );
-          })}
-        </ul>
+            </ul>
+          )}
+        </>
       )}
     </div>
   );
@@ -182,7 +238,8 @@ export function ColourKey({ room }: { room?: number }) {
       ref={wrapRef}
       // Esc puts the opened key away (its buttons get the keys)
       role="presentation"
-      className="pointer-events-auto absolute bottom-3 left-0 z-20 flex w-12 justify-center"
+      {...{ [COLOUR_KEY_ATTR]: "" }}
+      className="pointer-events-auto absolute bottom-reader-inset left-reader-inset z-20"
       onKeyDown={(e) => {
         if (e.key !== "Escape" || !popped) return;
         e.stopPropagation(); // not the palette's Esc
@@ -217,5 +274,98 @@ export function ColourKey({ room }: { room?: number }) {
       </div>
       {popped && key}
     </div>
+  );
+}
+
+/** What a click on a key row does — in words, for the mouse reader. */
+function filterHint(t: (key: string) => string, filter: HighlightFilter, on: boolean): string {
+  if (!filter) return t("colourKey.focusOne");
+  return t(on ? "colourKey.fade" : "colourKey.bringBack");
+}
+
+/** The key's rows as fields: each colour's swatch and its name to type.
+ * Enter saves, Esc cancels; an empty field = the colour's own name again. */
+function NamesForm({ titleId, onDone }: { titleId: string; onDone: (saved: boolean) => void }) {
+  const { t } = useTranslation();
+  const ids = useId();
+  const saved = useHighlightLabels();
+  const [draft, setDraft] = useState<Partial<Record<HighlightColor, string>>>(() => ({ ...saved }));
+  const busy = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    const form = formRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault(); // not the reader's Esc (puts a tool down)
+      e.stopPropagation(); // nor the gutter key's (puts the key away)
+      done.current(false);
+    };
+    form?.addEventListener("keydown", onKey);
+    return () => form?.removeEventListener("keydown", onKey);
+  }, []);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy.current) return;
+    busy.current = true;
+    const next = cleanLabels(draft);
+    const save = () =>
+      saveHighlightLabels(next).catch((err: unknown) => notifyError(err, { retry: save }));
+    void save().finally(() => (busy.current = false));
+    onDone(true); // the names show at once; a failed save says so and reverts
+  }
+
+  return (
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      className="flex flex-col gap-1.5"
+    >
+      <div className="px-2 pt-1">
+        <p id={titleId} className="font-medium">
+          {t("colorNames.title")}
+        </p>
+        <p id={`${ids}-hint`} className="text-muted-foreground">
+          {t("colourKey.nameHint")}
+        </p>
+      </div>
+      <ul className="flex flex-col gap-1 px-1">
+        {HIGHLIGHT_COLORS.map((c, i) => {
+          const own = upFirst(t(`menu.colors.${c}`));
+          return (
+            <li key={c} className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="size-3.5 shrink-0 rounded-full ring-1 ring-foreground/15"
+                style={{ background: HIGHLIGHT_SWATCH[c] }}
+              />
+              <Input
+                // Asked for to type in: the first field takes focus
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus={i === 0}
+                aria-label={t("colourKey.nameFor", { color: own })}
+                aria-describedby={`${ids}-hint`}
+                value={draft[c] ?? ""}
+                placeholder={own}
+                maxLength={HIGHLIGHT_LABEL_MAX}
+                autoComplete="off"
+                onChange={(e) => setDraft((d) => ({ ...d, [c]: e.target.value }))}
+                className="h-8 px-2"
+              />
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex justify-end gap-1">
+        <Button type="button" variant="ghost" size="sm" onClick={() => onDone(false)}>
+          {t("colorNames.cancel")}
+        </Button>
+        <Button type="submit" size="sm">
+          {t("colorNames.save")}
+        </Button>
+      </div>
+    </form>
   );
 }

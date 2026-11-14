@@ -219,6 +219,12 @@ const da: typeof en = {
     count: "{{shown}} af {{all}}",
     showing: "{{colors}} fremhævet; andre farver tonet ned",
     showingAll: "Viser alle markeringer",
+    focusOne: "Fremhæv; ton de andre farver ned",
+    fade: "Ton disse markeringer ned",
+    bringBack: "Fremhæv disse markeringer igen",
+    nameHint: "Fx blå = “Gud taler”. Står feltet tomt, beholder farven sit eget navn.",
+    nameFor: "Navn til {{color}}",
+    saved: "Farvenavne gemt",
   },
   colorNames: {
     open: "Navngiv farver…",

@@ -1,4 +1,4 @@
-import type { HighlightColor, HighlightLabels } from "@biblestdy/shared";
+import { HIGHLIGHT_COLORS, type HighlightColor, type HighlightLabels } from "@biblestdy/shared";
 import { useCallback, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { loadPreferences, savePreferences } from "./preferences";
@@ -45,6 +45,17 @@ export async function saveHighlightLabels(next: HighlightLabels): Promise<void> 
     if (labels === next) set(prev);
     throw e;
   }
+}
+
+/** The naming fields (colour key, settings dialog) → the names to save:
+ * spaces tidied; an empty field = the colour's own name (not stored). */
+export function cleanLabels(draft: Partial<Record<HighlightColor, string>>): HighlightLabels {
+  const next: HighlightLabels = {};
+  for (const c of HIGHLIGHT_COLORS) {
+    const name = (draft[c] ?? "").replace(/\s+/gu, " ").trim();
+    if (name) next[c] = name;
+  }
+  return next;
 }
 
 /** First letter up ("gold" → "Gold") for a name standing on its own. */
