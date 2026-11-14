@@ -118,3 +118,14 @@ export function layoutChapter(chapter: Chapter): LaidBlock[] {
   }
   return out;
 }
+
+/**
+ * The chapter's drop numeral stands in for verse 1's number, like a printed
+ * Bible. Any other opening — a bridge ("1–2", BPH Job 3) or a chapter that
+ * starts past verse 1 — must still print its own label beside the numeral,
+ * or those verse numbers vanish behind it. null = the numeral alone says it.
+ */
+export function openingLabel(verse: Verse): string | null {
+  if (verse.verse === 1 && !verse.label) return null;
+  return verse.label ?? String(verse.verse);
+}

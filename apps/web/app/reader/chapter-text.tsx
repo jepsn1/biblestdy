@@ -32,7 +32,7 @@ import {
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
 import { NOTE_OPENER } from "./note-panel";
-import { layoutChapter, type WordPiece } from "./chapter-layout";
+import { layoutChapter, openingLabel, type WordPiece } from "./chapter-layout";
 import {
   extendByVerse,
   extendByWord,
@@ -894,8 +894,22 @@ export function ChapterText({
                 <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
                   {piece.showNumber &&
                     (bi === 0 && pi === 0 ? (
-                      // Prose: the numeral drops beside the opening lines
-                      block.kind !== "poetry" && chapterNumeral(v, "float")
+                      <>
+                        {/* Prose: the numeral drops beside the opening lines */}
+                        {block.kind !== "poetry" && chapterNumeral(v, "float")}
+                        {openingLabel(v) && (
+                          // A bridge ("1–2") or late start keeps its printed
+                          // number; the numeral already names it to screen
+                          // readers and is the verse's keyboard stop
+                          <sup
+                            data-opening-label
+                            aria-hidden
+                            className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none"
+                          >
+                            {openingLabel(v)}
+                          </sup>
+                        )}
+                      </>
                     ) : numbered.has(v.verse) ? (
                       <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
                         {v.label ?? v.verse}
