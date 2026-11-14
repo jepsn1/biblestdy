@@ -1,4 +1,4 @@
-import type { HighlightColor } from "@biblestdy/shared";
+import type { AnnotationMark, HighlightColor } from "@biblestdy/shared";
 import { HIGHLIGHT_COLORS } from "@biblestdy/shared";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Check } from "lucide-react";
@@ -321,5 +321,66 @@ export function AnchoredPanel({
         {children}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Pen styles as one row of worded choices ("Box · Underline · Circle ·
+ * Bracket"): a mark without text. `value` = an existing mark's style. */
+export function ActionMenuMarks({
+  value,
+  onPick,
+}: {
+  value: AnnotationMark | null;
+  onPick: (mark: AnnotationMark) => void;
+}) {
+  const { mobile, close } = useContext(MenuCtx);
+  const { t } = useTranslation();
+  const styles = ["contour", "underline", "circle", "bracket"] as const;
+  if (mobile) {
+    return (
+      <div role="group" aria-label={t("marks.style")} className="grid grid-cols-4 gap-1 px-1 py-1">
+        {styles.map((m) => (
+          <button
+            key={m}
+            type="button"
+            aria-pressed={m === value}
+            onClick={() => {
+              onPick(m);
+              close();
+            }}
+            className={cn(
+              "min-h-11 rounded-md px-1 text-list hover:bg-accent",
+              m === value && "bg-accent font-medium",
+              focusRing,
+            )}
+          >
+            {t(`marks.${m}`)}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <MenuPrimitive.RadioGroup
+      value={value}
+      aria-label={t("marks.style")}
+      className="flex items-center gap-0.5 px-1 py-0.5"
+    >
+      {styles.map((m) => (
+        <MenuPrimitive.RadioItem
+          key={m}
+          value={m}
+          label={t(`marks.${m}`)}
+          closeOnClick
+          onClick={() => onPick(m)}
+          className={cn(
+            "flex-1 cursor-default rounded-md px-1.5 py-1 text-center text-meta outline-none data-highlighted:bg-accent",
+            m === value && "font-semibold",
+          )}
+        >
+          {t(`marks.${m}`)}
+        </MenuPrimitive.RadioItem>
+      ))}
+    </MenuPrimitive.RadioGroup>
   );
 }

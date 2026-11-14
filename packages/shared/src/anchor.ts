@@ -93,7 +93,8 @@ export interface NewHighlight extends Anchor {
 /** A short inline annotation: handwritten scribble anchored to a span. */
 export interface Annotation extends Anchor {
   id: string
-  text: string
+  /** Margin text; null = a plain pen mark (no text). */
+  text: string | null
   /** Where the user dragged the annotation box, as an offset from the anchored words'
    * center (px). Null/absent = automatic placement. Anchor-relative so the
    * box travels with its verse across reflow/pagination. */
@@ -101,11 +102,18 @@ export interface Annotation extends Anchor {
   offsetY?: number | null
   /** User-resized box width (px); null/absent = default. */
   width?: number | null
+  /** Pen style; null/absent = auto (one line circled, several bracketed). */
+  mark?: AnnotationMark | null
 }
+
+/** Pen styles: box following the words, underline, circle, side bracket. */
+export type AnnotationMark = 'contour' | 'underline' | 'circle' | 'bracket'
 
 /** Create payload for an annotation. */
 export interface NewAnnotation extends Anchor {
-  text: string
+  /** Absent/null = a plain pen mark. */
+  text?: string | null
+  mark?: AnnotationMark | null
 }
 
 /** One of a note's anchors: an addressable span with its own id (issue #8). */

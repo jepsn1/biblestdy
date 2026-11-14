@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, WordPos } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, AnnotationMark, WordPos } from "@biblestdy/shared";
 import {
   anchorReference,
   buildAnchor,
@@ -24,6 +24,7 @@ import {
   ActionMenu,
   ActionMenuColors,
   ActionMenuItem,
+  ActionMenuMarks,
   ActionMenuSeparator,
   AnchoredPanel,
   SELECTION_UI_ATTR,
@@ -52,8 +53,10 @@ type MenuState =
   | { kind: "selection"; anchor: Anchor }
   /** An existing highlight, opened from the word at `at`. */
   | { kind: "highlight"; highlight: Highlight; at: WordPos }
-  /** Writing an annotation for the selection. */
-  | { kind: "compose"; anchor: Anchor }
+  /** Writing an annotation for the selection (`editId`: text for an existing plain mark). */
+  | { kind: "compose"; anchor: Anchor; editId?: string }
+  /** A plain pen mark (no text), opened from the word at `at`. */
+  | { kind: "mark"; annotation: Annotation; at: WordPos }
   /** Picking an existing note to anchor to the selection too. */
   | { kind: "attach"; anchor: Anchor }
   | null;
@@ -121,6 +124,7 @@ export function ChapterText({
   onRemoveHighlight,
   onAddAnnotation,
   onEditAnnotation,
+  onMarkAnnotation,
   onRemoveAnnotation,
   onAddNote,
   onAttachNote,
@@ -153,8 +157,11 @@ export function ChapterText({
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRecolorHighlight: (id: string, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
-  onAddAnnotation: (anchor: Anchor, text: string) => void;
-  onEditAnnotation: (id: string, text: string) => void;
+  /** text null = a plain pen mark in `mark` style. */
+  onAddAnnotation: (anchor: Anchor, text: string | null, mark?: AnnotationMark) => void;
+  onEditAnnotation: (id: string, text: string | null) => void;
+  /** Circle or line for a several-word annotation. */
+  onMarkAnnotation?: (id: string, mark: AnnotationMark) => void;
   onRemoveAnnotation: (id: string) => void;
   onAddNote: (anchor: Anchor) => void;
   onAttachNote: (noteId: string, anchor: Anchor) => void;
@@ -499,8 +506,9 @@ export function ChapterText({
       getBoundingClientRect: () => {
         const m = menuRef.current;
         if (!m) return DOMRect.fromRect(EMPTY_RECT);
-        const anchor = m.kind === "highlight" ? m.highlight : m.anchor;
-        const at = m.kind === "highlight" ? m.at : { verse: anchor.endVerse, word: anchor.endWord };
+        const anchor = m.kind === "highlight" ? m.highlight : m.kind === "mark" ? m.annotation : m.anchor;
+        const at =
+          m.kind === "highlight" || m.kind === "mark" ? m.at : { verse: anchor.endVerse, word: anchor.endWord };
         const el = wordEl(at.verse, at.word);
         if (!el) return DOMRect.fromRect(EMPTY_RECT);
         const line = lineOf(anchorRects(anchor), plain(el.getBoundingClientRect()));
@@ -586,6 +594,12 @@ export function ChapterText({
     const overlaps = (x: Anchor) =>
       at(x.startVerse, x.startWord) <= at(anchor.endVerse, anchor.endWord) &&
       at(anchor.startVerse, anchor.startWord) <= at(x.endVerse, x.endWord);
+    if (t.kind === "annotate" && t.pen !== "text") {
+      // A plain pen mark: drawn at once, no popup (text can come later)
+      setTouchSel(null);
+      onAddAnnotation(anchor, null, t.pen);
+      return;
+    }
     if (t.kind === "annotate") {
       // The composer, wash kept on the words. After the stroke's own click
       // (fired on the words' common parent) — else it reads as an outside press
@@ -684,6 +698,14 @@ export function ChapterText({
       onOpenNote(markId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel
       return;
     }
+    const plain = markId ? annotations.find((a) => a.id === markId && !a.text) : undefined;
+    if (plain) {
+      // A plain pen mark: its own small menu (style, add text, remove)
+      event.stopPropagation();
+      setTouchSel(null);
+      setMenu({ kind: "mark", annotation: plain, at: pos });
+      return;
+    }
     if (markId) {
       event.stopPropagation();
       onFocusAnnotation(markId); // highlight the matching placed annotation
@@ -733,7 +755,10 @@ export function ChapterText({
 
   function saveDraft(keyboard = false) {
     const text = draft.trim();
-    if (text && menu?.kind === "compose") onAddAnnotation(menu.anchor, text);
+    if (text && menu?.kind === "compose") {
+      if (menu.editId) onEditAnnotation(menu.editId, text);
+      else onAddAnnotation(menu.anchor, text);
+    }
     closeMenu(keyboard);
   }
 
@@ -741,7 +766,7 @@ export function ChapterText({
   // markers (phones) after the verse number of the mark's START verse.
   const linesByVerse = new Map<number, Annotation[]>();
   if (inlineAnnotations)
-    for (const a of [...annotations].sort((x, y) => x.startVerse - y.startVerse || x.startWord - y.startWord))
+    for (const a of [...annotations].filter((x) => x.text).sort((x, y) => x.startVerse - y.startVerse || x.startWord - y.startWord))
       linesByVerse.set(a.endVerse, [...(linesByVerse.get(a.endVerse) ?? []), a]);
   const markersByVerse = new Map<number, NoteMark[]>();
   if (mobile)
@@ -926,7 +951,13 @@ export function ChapterText({
                     editingId === a.id ? (
                       <span key={a.id} className="my-1 block indent-0">
                         <AnnotationEditor
-                          text={a.text}
+                          text={a.text ?? ""}
+                          mark={a.mark ?? (a.startVerse !== a.endVerse ? "bracket" : "circle")}
+                          onMark={onMarkAnnotation && ((mark) => onMarkAnnotation(a.id, mark))}
+                          onRemoveText={() => {
+                            onEditAnnotation(a.id, null);
+                            setEditingId(null);
+                          }}
                           onSave={(text) => {
                             onEditAnnotation(a.id, text);
                             setEditingId(null);
@@ -1014,14 +1045,16 @@ export function ChapterText({
       <ActionMenu
         // A fresh menu per view: focus lands on the new list
         key={menu?.kind === "attach" ? "attach" : "actions"}
-        open={menu?.kind === "selection" || menu?.kind === "highlight" || menu?.kind === "attach"}
+        open={menu?.kind === "selection" || menu?.kind === "highlight" || menu?.kind === "attach" || menu?.kind === "mark"}
         onOpenChange={(open, keyboard) => !open && closeMenu(keyboard)}
         anchor={virtualAnchor}
         mobile={mobile}
         label={t(
           menu?.kind === "highlight"
             ? "menu.highlightLabel"
-            : menu?.kind === "attach"
+            : menu?.kind === "mark"
+              ? "marks.label"
+              : menu?.kind === "attach"
               ? "menu.noteLink"
               : "menu.selectionLabel",
         )}
@@ -1044,6 +1077,8 @@ export function ChapterText({
               preferred={defaultColor}
               onPick={(color) => addHighlight(menu.anchor, color)}
             />
+            {/* A pen mark, no text: box / underline / circle / bracket */}
+            <ActionMenuMarks value={null} onPick={(mark) => onAddAnnotation(menu.anchor, null, mark)} />
             <ActionMenuSeparator />
             <ActionMenuItem
               hint={t("menu.annotateHint")}
@@ -1075,6 +1110,33 @@ export function ChapterText({
             <ActionMenuSeparator />
             <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.anchor)}>
               {t("menu.copy")}
+            </ActionMenuItem>
+          </>
+        )}
+        {menu?.kind === "mark" && (
+          <>
+            <ActionMenuMarks
+              value={menu.annotation.mark ?? null}
+              onPick={(mark) => onMarkAnnotation?.(menu.annotation.id, mark)}
+            />
+            <ActionMenuSeparator />
+            <ActionMenuItem
+              onSelect={() => {
+                setDraft("");
+                const a = menu.annotation;
+                const compose = { kind: "compose" as const, anchor: a, editId: a.id };
+                nextMenu.current = compose;
+                setMenu(compose);
+              }}
+            >
+              {t("marks.addText")}
+            </ActionMenuItem>
+            <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.annotation)}>
+              {t("menu.copy")}
+            </ActionMenuItem>
+            <ActionMenuSeparator />
+            <ActionMenuItem destructive onSelect={() => onRemoveAnnotation(menu.annotation.id)}>
+              {t("marks.remove")}
             </ActionMenuItem>
           </>
         )}

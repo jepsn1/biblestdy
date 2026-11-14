@@ -28,6 +28,7 @@ export {
   type NewHighlight,
   type HighlightColor,
   type Annotation,
+  type AnnotationMark,
   type NewAnnotation,
   type Note,
   type NoteAnchor,

@@ -146,10 +146,11 @@ function annotationItem(ctx: PaletteContext, a: Annotation, q: string): PaletteI
   const end = a.endVerse !== a.startVerse ? a.endVerse : undefined;
   const ref = refLabel(ctx, { book: a.book, chapter: a.chapter, verse: a.startVerse, endVerse: end });
   const other = a.translationId !== ctx.translationId;
+  const text = a.text ?? ""; // plain pen marks have none
   return {
     id: `annotation:${a.id}`,
     group: "annotations",
-    label: snippet(a.text, q) ?? (a.text.length > 80 ? `${a.text.slice(0, 80).trim()}…` : a.text),
+    label: snippet(text, q) ?? (text.length > 80 ? `${text.slice(0, 80).trim()}…` : text),
     detail: other ? `${ref} · ${ctx.translationAbbr(a.translationId)}` : ref,
     href: referenceHref({ book: a.book, chapter: a.chapter, verse: a.startVerse }),
     translationId: other ? a.translationId : undefined,
@@ -253,10 +254,10 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     const elsewhere = (a: Annotation) => Number(a.translationId !== ctx.translationId);
     const hits = onPassage
       ? ctx.annotations
-          .filter(onPassage)
+          .filter((a) => a.text && onPassage(a))
           .sort((a, b) => elsewhere(a) - elsewhere(b) || a.startVerse - b.startVerse || a.startWord - b.startWord)
       : q
-        ? ctx.annotations.filter((a) => wordPrefixMatch(a.text, q))
+        ? ctx.annotations.filter((a) => a.text && wordPrefixMatch(a.text, q))
         : [];
     out.push(...hits.slice(0, only ? 50 : LIMITS.annotations).map((a) => annotationItem(ctx, a, onPassage ? "" : q)));
   }

@@ -186,3 +186,156 @@ export function scribblePath(
   }
   return d;
 }
+
+/** Corner-rounded polygon → dense polyline (each corner a small arc). */
+function roundedOutline(poly: [number, number][], radius: number): [number, number][] {
+  const out: [number, number][] = [];
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const [px, py] = poly[(i + n - 1) % n];
+    const [cx, cy] = poly[i];
+    const [nx, ny] = poly[(i + 1) % n];
+    const lin = Math.hypot(cx - px, cy - py);
+    const lout = Math.hypot(nx - cx, ny - cy);
+    const r = Math.min(radius, lin / 2, lout / 2);
+    if (r < 0.5 || lin === 0 || lout === 0) {
+      out.push([cx, cy]);
+      continue;
+    }
+    const a: [number, number] = [cx + ((px - cx) / lin) * r, cy + ((py - cy) / lin) * r];
+    const b: [number, number] = [cx + ((nx - cx) / lout) * r, cy + ((ny - cy) / lout) * r];
+    for (let k = 0; k <= 4; k++) {
+      const t = k / 4;
+      // Quadratic Bézier a → corner → b
+      out.push([
+        (1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * cx + t * t * b[0],
+        (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * cy + t * t * b[1],
+      ]);
+    }
+  }
+  out.push(out[0]);
+  return out;
+}
+
+/** Trace a closed polyline once round plus an overshoot, by pen: jitter,
+ * smoothed through midpoints. Starts a little before its first point. */
+function penLoop(outline: [number, number][], rnd: () => number): string {
+  const lens = [0];
+  for (let i = 1; i < outline.length; i++)
+    lens.push(lens[i - 1] + Math.hypot(outline[i][0] - outline[i - 1][0], outline[i][1] - outline[i - 1][1]));
+  const total = lens[lens.length - 1];
+  if (total === 0) return "";
+  const at = (d: number): [number, number] => {
+    const m = ((d % total) + total) % total;
+    let i = 1;
+    while (i < lens.length - 1 && lens[i] < m) i++;
+    const f = (m - lens[i - 1]) / (lens[i] - lens[i - 1] || 1);
+    return [
+      outline[i - 1][0] + (outline[i][0] - outline[i - 1][0]) * f,
+      outline[i - 1][1] + (outline[i][1] - outline[i - 1][1]) * f,
+    ];
+  };
+  const start = -total * (0.04 + rnd() * 0.04);
+  const sweep = total * (1.05 + rnd() * 0.05);
+  const steps = Math.max(24, Math.round(sweep / 12));
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const [px, py] = at(start + (sweep * i) / steps);
+    pts.push([px + (rnd() - 0.5) * 1.6, py + (rnd() - 0.5) * 1.2]);
+  }
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+    const my = (pts[i][1] + pts[i + 1][1]) / 2;
+    d += ` Q ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+  }
+  return d;
+}
+
+type Run = { left: number; top: number; right: number; bottom: number };
+
+/**
+ * Hand-drawn loop around a multi-line span: a rounded rectangle (four soft
+ * corners) instead of an ellipse, so a block of lines is circled without
+ * the loop swelling over the neighbouring text.
+ */
+export function roundedScribblePath(x: number, y: number, w: number, h: number, seed: string): string {
+  const rnd = mulberry32(hashSeed(seed + ":rounded"));
+  const l = x - SCRIBBLE_PAD_X;
+  const r = x + w + SCRIBBLE_PAD_X;
+  const t = y - SCRIBBLE_PAD_Y - 1;
+  const b = y + h + SCRIBBLE_PAD_Y + 1;
+  // Clockwise from the bottom-left, so the pen starts low like a real gesture
+  return penLoop(roundedOutline([[l, b], [l, t], [r, t], [r, b]], 12), rnd);
+}
+
+/**
+ * A box that follows the words (like a text-selection outline): the first
+ * line from the first marked word, full lines between, the last line to the
+ * last marked word — never boxing words outside the mark. Rounded corners,
+ * pen wobble. Lines that don't touch (a mark ending left of where it began
+ * on the line above) get a loop each.
+ */
+export function contourPath(runs: Run[], seed: string): string {
+  if (runs.length === 0) return "";
+  const rnd = mulberry32(hashSeed(seed + ":contour"));
+  const px = 3;
+  const py = 1.5;
+  const lines = [...runs]
+    .sort((a, b) => a.top - b.top)
+    .map((r) => ({ l: r.left - px, r: r.right + px, t: r.top - py, b: r.bottom + py }));
+  // Chains of lines that overlap sideways share one outline
+  const chains: (typeof lines)[] = [];
+  for (const ln of lines) {
+    const last = chains.at(-1)?.at(-1);
+    if (last && ln.l < last.r - 4 && ln.r > last.l + 4) chains.at(-1)!.push(ln);
+    else chains.push([ln]);
+  }
+  return chains
+    .map((c) => {
+      // Breaks between lines: halfway through the line gap
+      const mid = (i: number) => (c[i].b + c[i + 1].t) / 2;
+      const poly: [number, number][] = [];
+      const n = c.length;
+      // Left side, bottom up, then right side, top down (clockwise in screen space)
+      poly.push([c[n - 1].l, c[n - 1].b]);
+      for (let i = n - 1; i > 0; i--) {
+        poly.push([c[i].l, mid(i - 1)]);
+        poly.push([c[i - 1].l, mid(i - 1)]);
+      }
+      poly.push([c[0].l, c[0].t]);
+      poly.push([c[0].r, c[0].t]);
+      for (let i = 0; i < n - 1; i++) {
+        poly.push([c[i].r, mid(i)]);
+        poly.push([c[i + 1].r, mid(i)]);
+      }
+      poly.push([c[n - 1].r, c[n - 1].b]);
+      // Drop zero-length steps (lines with the same edge)
+      const clean = poly.filter((p, i) => {
+        const q = poly[(i + poly.length - 1) % poly.length];
+        return Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.5;
+      });
+      return penLoop(roundedOutline(clean, 7), rnd);
+    })
+    .join(" ");
+}
+
+/** A pen underline under each marked line: slightly wavy, a touch long. */
+export function underlinePath(runs: Run[], seed: string): string {
+  const rnd = mulberry32(hashSeed(seed + ":underline"));
+  return runs
+    .map((r) => {
+      const y = r.bottom + 2 + (rnd() - 0.5);
+      const x1 = r.left - 1 - rnd() * 2;
+      const x2 = r.right + 1 + rnd() * 3;
+      const steps = Math.max(2, Math.round((x2 - x1) / 40));
+      let d = `M ${x1.toFixed(1)} ${(y + (rnd() - 0.5) * 1.2).toFixed(1)}`;
+      for (let i = 1; i <= steps; i++) {
+        const x = x1 + ((x2 - x1) * i) / steps;
+        const cx = x - (x2 - x1) / steps / 2;
+        d += ` Q ${cx.toFixed(1)} ${(y + (rnd() - 0.5) * 2).toFixed(1)} ${x.toFixed(1)} ${(y + (rnd() - 0.5) * 1.2).toFixed(1)}`;
+      }
+      return d;
+    })
+    .join(" ");
+}

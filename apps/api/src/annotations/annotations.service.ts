@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
-import type { Annotation, NewAnnotation } from '@biblestdy/shared';
+import type { Annotation, AnnotationMark, NewAnnotation } from '@biblestdy/shared';
 import { db } from '../db';
 import { annotation } from '../db/schema';
+
+const MARKS = new Set<AnnotationMark>(['contour', 'underline', 'circle', 'bracket']);
 
 /** Persistence for inline annotations. All queries are scoped to a single user. */
 @Injectable()
@@ -51,10 +53,11 @@ export class AnnotationsService {
     userId: string,
     id: string,
     patch: {
-      text?: string;
+      text?: string | null;
       offsetX?: number;
       offsetY?: number;
       width?: number;
+      mark?: AnnotationMark | null;
     },
   ): Promise<Annotation | null> {
     const [row] = await db
@@ -118,5 +121,6 @@ function toAnnotation(row: typeof annotation.$inferSelect): Annotation {
     offsetX: row.offsetX,
     offsetY: row.offsetY,
     width: row.width,
+    mark: MARKS.has(row.mark as AnnotationMark) ? (row.mark as AnnotationMark) : null,
   };
 }

@@ -66,7 +66,8 @@ export class AnnotationsController {
       dto.text === undefined &&
       dto.offsetX === undefined &&
       dto.offsetY === undefined &&
-      dto.width === undefined
+      dto.width === undefined &&
+      dto.mark === undefined
     ) {
       throw new BadRequestException('nothing to update');
     }

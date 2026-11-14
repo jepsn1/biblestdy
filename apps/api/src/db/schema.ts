@@ -45,7 +45,8 @@ export const annotation = pgTable('annotation', {
   translationId: text('translation_id').notNull(),
   book: text('book').notNull(),
   chapter: integer('chapter').notNull(),
-  text: text('text').notNull(),
+  // Null = a plain pen mark (no margin text)
+  text: text('text'),
   startVerse: integer('start_verse').notNull(),
   startWord: integer('start_word').notNull(),
   endVerse: integer('end_verse').notNull(),
@@ -55,6 +56,8 @@ export const annotation = pgTable('annotation', {
   offsetY: real('offset_y'),
   // User-resized box width (px); null = default lane width
   width: real('width'),
+  // Pen style: 'contour' | 'underline' | 'circle' | 'bracket'; null = auto by line count
+  mark: text('mark'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   /** Soft delete (#64), see highlight.deletedAt. */

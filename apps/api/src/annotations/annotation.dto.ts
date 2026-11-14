@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -12,15 +13,24 @@ import {
 /** Inline annotations are short — cap the length so full annotations (#7) stay the home for long-form. */
 const MAX_INLINE = 500;
 
+const MARKS = ['contour', 'underline', 'circle', 'bracket'] as const;
+type AnnotationMarkValue = (typeof MARKS)[number];
+
 export class CreateAnnotationDto {
   @IsString()
   @MinLength(1)
   translationId!: string;
 
+  /** Absent/null = a plain pen mark, no margin text. */
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(MAX_INLINE)
-  text!: string;
+  text?: string | null;
+
+  @IsOptional()
+  @IsIn(MARKS)
+  mark?: AnnotationMarkValue | null;
 
   @IsString()
   @MinLength(1)
@@ -48,11 +58,12 @@ export class CreateAnnotationDto {
 }
 
 export class UpdateAnnotationDto {
+  /** null removes the text: the annotation becomes a plain pen mark. */
   @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(MAX_INLINE)
-  text?: string;
+  text?: string | null;
 
   /** Dragged position, offset from the anchored words' center (px). */
   @IsOptional()
@@ -69,4 +80,9 @@ export class UpdateAnnotationDto {
   @Min(90)
   @Max(600)
   width?: number;
+
+  /** Pen style; null = auto (one line circled, several bracketed). */
+  @IsOptional() // undefined or null = auto
+  @IsIn(MARKS)
+  mark?: AnnotationMarkValue | null;
 }
