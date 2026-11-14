@@ -1,4 +1,4 @@
-import { bookName, type Note } from "@biblestdy/shared";
+import { bookName, type Annotation, type Note } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
 import { buildResults, plainText, wordPrefixMatch, type PaletteContext } from "./palette-results";
 
@@ -18,12 +18,30 @@ const notes: Note[] = [
   { id: "n3", title: "", body: "Untitled thought about grace", anchors: [anchor("ROM", 8, 28)] },
 ];
 
+const ann = (id: string, text: string, book: string, chapter: number, startVerse: number, translationId = "web"): Annotation => ({
+  id,
+  text,
+  translationId,
+  book,
+  chapter,
+  startVerse,
+  startWord: 0,
+  endVerse: startVerse,
+  endWord: 2,
+});
+const annotations: Annotation[] = [
+  ann("x1", "Born of water — baptism?", "JHN", 3, 5),
+  ann("x2", "The Shepherd provides", "PSA", 23, 1, "kjv"),
+  ann("x3", "Født af Ånden", "JHN", 3, 8),
+];
+
 function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
   const locale = over.locale ?? "en";
   return {
     locale,
     bookName: (id) => bookName(id, locale),
     notes,
+    annotations,
     tags: [
       { id: "t1", name: "new-birth" },
       { id: "t2", name: "grace" },
@@ -40,6 +58,7 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
     ],
     here: { book: "JHN", chapter: 3 },
     translationId: "web",
+    translationAbbr: (id) => id.toUpperCase(),
     labels: {
       goTo: (r) => `Go to ${r}`,
       emptyHint: "type a passage",
@@ -130,6 +149,53 @@ describe("palette results", () => {
 
   it("an untitled note shows its first words", () => {
     expect(buildResults("@grace", ctx())[0].label).toBe("Untitled thought about grace");
+  });
+});
+
+describe("palette results: margin notes", () => {
+  it("found by words: its text, the verse it's on, opening there", () => {
+    const row = buildResults("baptism", ctx()).find((r) => r.group === "annotations");
+    expect(row).toMatchObject({ id: "annotation:x1", label: "Born of water — baptism?", detail: "John 3:5", href: "/read/JHN/3?v=5" });
+    expect(row?.translationId).toBeUndefined();
+  });
+
+  it("case- and accent-insensitive", () => {
+    expect(ids("ANDEN")).toContain("annotation:x3");
+    expect(ids("født")).toContain("annotation:x3");
+  });
+
+  it("in another version: names it and opens in it", () => {
+    const row = buildResults("shepherd", ctx()).find((r) => r.id === "annotation:x2");
+    expect(row).toMatchObject({ detail: "Psalms 23:1 · KJV", href: "/read/PSA/23?v=1", translationId: "kjv" });
+  });
+
+  it("a typed passage lists the margin notes on it, after notes", () => {
+    expect(ids("john 3")).toEqual(["passage", "note:n2", "annotation:x1", "annotation:x3"]);
+    expect(ids("john 3:5")).toEqual(["passage", "annotation:x1"]);
+    expect(ids("john 3:6-8")).toEqual(["passage", "annotation:x3"]);
+  });
+
+  it("on a passage, this version's come first", () => {
+    const c = ctx({ annotations: [ann("k", "kjv one", "JHN", 3, 1, "kjv"), ann("w", "web one", "JHN", 3, 9)] });
+    expect(ids("john 3", c).filter((id) => id.startsWith("annotation"))).toEqual(["annotation:w", "annotation:k"]);
+  });
+
+  it("Danish reference format", () => {
+    expect(buildResults("vand", ctx({ locale: "da", annotations: [ann("d", "vand og Ånd", "JHN", 3, 5)] }))[0]).toMatchObject({
+      detail: "Johannes 3,5",
+    });
+  });
+
+  it("@ narrows to notes and margin notes", () => {
+    expect(ids("@shep")).toEqual(["annotation:x2"]);
+    expect(buildResults("@born", ctx()).every((r) => r.group === "notes" || r.group === "annotations")).toBe(true);
+  });
+
+  it("a long one is clipped around the match", () => {
+    const long = `${"word ".repeat(30)}needle ${"tail ".repeat(30)}`.trim();
+    const row = buildResults("needle", ctx({ annotations: [ann("l", long, "ROM", 1, 1)] })).find((r) => r.id === "annotation:l");
+    expect(row?.label.startsWith("…")).toBe(true);
+    expect(row?.label.length).toBeLessThan(100);
   });
 });
 

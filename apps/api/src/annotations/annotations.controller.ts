@@ -22,13 +22,18 @@ import { AnnotationsService } from './annotations.service';
 export class AnnotationsController {
   constructor(private readonly annotations: AnnotationsService) {}
 
+  /** No query params: ALL the user's annotations (palette search). With
+   * translation+book+chapter: that chapter's annotations. */
   @Get()
   async list(
     @Req() req: AuthedRequest,
-    @Query('translation') translationId: string,
-    @Query('book') book: string,
-    @Query('chapter') chapter: string,
+    @Query('translation') translationId?: string,
+    @Query('book') book?: string,
+    @Query('chapter') chapter?: string,
   ): Promise<Annotation[]> {
+    if (!translationId && !book && !chapter) {
+      return this.annotations.listAll(req.user.id);
+    }
     const chapterNum = Number(chapter);
     if (!translationId || !book || !Number.isInteger(chapterNum)) {
       throw new BadRequestException(
