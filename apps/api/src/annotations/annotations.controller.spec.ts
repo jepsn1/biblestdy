@@ -12,6 +12,7 @@ const req = {
 function make(overrides: Partial<AnnotationsService> = {}) {
   const service = {
     listForChapter: vi.fn(),
+    listAll: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
@@ -33,6 +34,16 @@ describe('AnnotationsController', () => {
       'JHN',
       3,
     );
+  });
+
+  it('lists all with no params', async () => {
+    const all = [{ id: 'a1' }] as Annotation[];
+    const { service, controller } = make({
+      listAll: vi.fn().mockResolvedValue(all),
+    });
+    expect(await controller.list(req)).toBe(all);
+    expect(service.listAll).toHaveBeenCalledWith('user-1');
+    expect(service.listForChapter).not.toHaveBeenCalled();
   });
 
   it('rejects a list request missing params', async () => {

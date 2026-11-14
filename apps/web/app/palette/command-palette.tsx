@@ -22,6 +22,7 @@ import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { cn } from "~/lib/utils";
 import { OPEN_SHORTCUTS } from "../reader/shortcuts-dialog";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
+import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllNotesQuery } from "../reader/use-notes";
 import { buildResults, type GroupId, type PaletteAction, type PaletteItem } from "./palette-results";
 
@@ -175,13 +176,15 @@ const GROUP_LABEL: Record<GroupId, string> = {
   books: "palette.groupBooks",
   actions: "palette.groupActions",
   notes: "palette.groupNotes",
+  annotations: "palette.groupAnnotations",
   topics: "palette.groupTopics",
   hint: "",
 };
 
 /**
  * Command palette + omni search (⌘K / Ctrl+K anywhere, `/` when not typing):
- * one field → passages, books, your notes (by passage or words), topics and
+ * one field → passages, books, your notes and margin notes (by passage or
+ * words), topics and
  * reader actions. Keyboard-first (↑/↓, Enter, ⌘/Ctrl+Enter = new tab, Tab
  * completes a book, Esc closes); every row is clickable. Full screen on
  * phones with a worded way back. Never fetches scripture.
@@ -228,6 +231,7 @@ export function CommandPalette({
   }, [open, isMobile]);
 
   const { notes } = useAllNotesQuery(open);
+  const annotations = useAllAnnotationsQuery(open);
   const { data: tags = [] } = useQuery({
     queryKey: ["tags", "all"],
     queryFn: () => api<Tag[]>("/api/tags").catch(() => []),
@@ -241,11 +245,13 @@ export function CommandPalette({
       locale,
       bookName: nameOf,
       notes,
+      annotations,
       tags,
       actions,
       recent: readRecent(),
       here: { book: reader.book, chapter: reader.chapter },
       translationId: reader.translationId,
+      translationAbbr: (id) => reader.translations.find((tr) => tr.id === id)?.abbreviation ?? id,
       labels: {
         goTo: (ref) => t("palette.goTo", { ref }),
         emptyHint: t("palette.emptyHint"),
@@ -257,7 +263,7 @@ export function CommandPalette({
     });
     // actions is rebuilt each render; its labels follow the state it reads
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, query, notes, tags, locale, reader, t, nameOf, actions.map((a) => a.label + a.checked).join()]);
+  }, [open, query, notes, annotations, tags, locale, reader, t, nameOf, actions.map((a) => a.label + a.checked).join()]);
 
   const selectable = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
   // The first selectable row is highlighted while typing (Enter = top row)
@@ -295,6 +301,9 @@ export function CommandPalette({
       return;
     }
     if (!item.href) return;
+    // A margin note in another version: read in that one (the reader's sticky
+    // choice, as the translation chooser sets it), so it's there on arrival
+    if (item.translationId) localStorage.setItem("translationId", item.translationId);
     if (newTab) {
       window.open(item.href, "_blank", "noopener");
       return;

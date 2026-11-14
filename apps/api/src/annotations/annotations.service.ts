@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { Annotation, NewAnnotation } from '@biblestdy/shared';
 import { db } from '../db';
 import { annotation } from '../db/schema';
@@ -25,6 +25,16 @@ export class AnnotationsService {
           isNull(annotation.deletedAt),
         ),
       );
+    return rows.map(toAnnotation);
+  }
+
+  /** Every live annotation of the user's, most recently edited first. */
+  async listAll(userId: string): Promise<Annotation[]> {
+    const rows = await db
+      .select()
+      .from(annotation)
+      .where(and(eq(annotation.userId, userId), isNull(annotation.deletedAt)))
+      .orderBy(desc(annotation.updatedAt));
     return rows.map(toAnnotation);
   }
 

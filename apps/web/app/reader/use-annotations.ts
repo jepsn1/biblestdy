@@ -4,6 +4,18 @@ import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api } from "~/lib/query";
 
+/** All the user's annotations (palette search). Writes only touch chapter
+ * caches, so it refetches each time it's enabled (palette opened). */
+export function useAllAnnotationsQuery(enabled: boolean) {
+  const { data: annotations = [] } = useQuery({
+    queryKey: ["annotations", "all"],
+    queryFn: () => api<Annotation[]>("/api/annotations").catch(() => []),
+    enabled,
+    staleTime: 0,
+  });
+  return annotations;
+}
+
 /** Loads + mutates the current chapter's inline annotations for the signed-in
  * user. Failed writes surface a toast with Retry; removal offers Undo (#64). */
 export function useAnnotations(translationId: string, book: string, chapter: number) {

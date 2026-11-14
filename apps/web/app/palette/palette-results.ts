@@ -1,15 +1,24 @@
-import { parseReference, suggestBooks, type BookLocale, type Note, type Reference, type Tag } from "@biblestdy/shared";
+import {
+  parseReference,
+  suggestBooks,
+  type Annotation,
+  type BookLocale,
+  type Note,
+  type Reference,
+  type Tag,
+} from "@biblestdy/shared";
 import { referenceHref } from "../reader/chapter-nav";
 
 /**
  * Command palette results (one pure function, so the ranking is testable):
  * the typed text → fixed, grouped rows. Order never changes while typing,
  * and a parsed reference is always the first row, so "rom 8:28 ⏎" is one
- * step. Prefixes narrow to one group: `>` actions, `#` topics, `@` notes.
+ * step. Prefixes narrow to one group: `>` actions, `#` topics, `@` notes
+ * (and margin notes).
  * Never touches scripture (reading quota): rows are references and titles.
  */
 
-export type GroupId = "recent" | "passage" | "books" | "actions" | "notes" | "topics" | "hint";
+export type GroupId = "recent" | "passage" | "books" | "actions" | "notes" | "annotations" | "topics" | "hint";
 
 export type PaletteItem = {
   id: string;
@@ -26,6 +35,8 @@ export type PaletteItem = {
   complete?: string;
   /** Not selectable (a hint line). */
   disabled?: boolean;
+  /** Opens in this translation (a margin note lives in one). */
+  translationId?: string;
 };
 
 export type PaletteAction = {
@@ -45,12 +56,16 @@ export type PaletteContext = {
   locale: BookLocale;
   bookName: (id: string) => string;
   notes: Note[];
+  /** Margin notes (inline annotations), most recent first. */
+  annotations: Annotation[];
   tags: Tag[];
   actions: PaletteAction[];
   recent: RecentPassage[];
   here: RecentPassage;
   /** The reading translation: a note opens on its anchor in this one. */
   translationId: string;
+  /** A translation's abbreviation ("KJV"), shown on other-version rows. */
+  translationAbbr: (id: string) => string;
   labels: {
     goTo: (ref: string) => string;
     /** Empty palette with no history: what to type. */
@@ -62,7 +77,7 @@ export type PaletteContext = {
   };
 };
 
-export const LIMITS = { books: 6, actions: 6, notes: 5, topics: 5, recent: 5, common: 4 };
+export const LIMITS = { books: 6, actions: 6, notes: 5, annotations: 5, topics: 5, recent: 5, common: 4 };
 
 /** Lowercase, accents folded (é → e), so matching ignores both. */
 export function fold(s: string): string {
@@ -126,6 +141,21 @@ function snippet(text: string, query: string): string | undefined {
   return `${start > 0 ? "…" : ""}${text.slice(start, i + q.length + 40).trim()}${i + q.length + 40 < text.length ? "…" : ""}`;
 }
 
+/** A margin note: its words, where it sits, and the version if not this one. */
+function annotationItem(ctx: PaletteContext, a: Annotation, q: string): PaletteItem {
+  const end = a.endVerse !== a.startVerse ? a.endVerse : undefined;
+  const ref = refLabel(ctx, { book: a.book, chapter: a.chapter, verse: a.startVerse, endVerse: end });
+  const other = a.translationId !== ctx.translationId;
+  return {
+    id: `annotation:${a.id}`,
+    group: "annotations",
+    label: snippet(a.text, q) ?? (a.text.length > 80 ? `${a.text.slice(0, 80).trim()}…` : a.text),
+    detail: other ? `${ref} · ${ctx.translationAbbr(a.translationId)}` : ref,
+    href: referenceHref({ book: a.book, chapter: a.chapter, verse: a.startVerse }),
+    translationId: other ? a.translationId : undefined,
+  };
+}
+
 const actionItem = (a: PaletteAction): PaletteItem => ({
   id: `action:${a.id}`,
   group: "actions",
@@ -184,14 +214,22 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     out.push(...hits.slice(0, only ? hits.length : LIMITS.actions).map(actionItem));
   }
 
+  // A span on the typed passage (chapter, or verses overlapping the range)
+  const onPassage =
+    ref && ref.chapter !== undefined
+      ? (() => {
+          const from = ref.verse ?? 1;
+          const to = ref.verse === undefined ? Infinity : (ref.endChapter && ref.endChapter !== ref.chapter ? Infinity : (ref.endVerse ?? ref.verse));
+          return (a: { book: string; chapter: number; startVerse: number; endVerse: number }) =>
+            a.book === ref.book && a.chapter === ref.chapter && a.endVerse >= from && a.startVerse <= to;
+        })()
+      : null;
+
   // 4. Notes: on the typed passage, else by words (title hits first)
   if (!only || only === "notes") {
     let notes: PaletteItem[] = [];
-    if (ref && ref.chapter !== undefined) {
-      const from = ref.verse ?? 1;
-      const to = ref.verse === undefined ? Infinity : (ref.endChapter && ref.endChapter !== ref.chapter ? Infinity : (ref.endVerse ?? ref.verse));
-      const hits = (n: Note) =>
-        n.anchors.filter((a) => a.book === ref.book && a.chapter === ref.chapter && a.endVerse >= from && a.startVerse <= to);
+    if (onPassage) {
+      const hits = (n: Note) => n.anchors.filter(onPassage);
       notes = ctx.notes.flatMap((n) => {
         const h = hits(n);
         return h.length ? [noteItem(ctx, n, undefined, h.find((a) => a.translationId === ctx.translationId) ?? h[0])] : [];
@@ -209,7 +247,21 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     out.push(...notes.slice(0, only ? 50 : LIMITS.notes));
   }
 
-  // 5. Topics
+  // 5. Margin notes: on the typed passage (this version first, in verse
+  // order), else by words
+  if (!only || only === "notes") {
+    const elsewhere = (a: Annotation) => Number(a.translationId !== ctx.translationId);
+    const hits = onPassage
+      ? ctx.annotations
+          .filter(onPassage)
+          .sort((a, b) => elsewhere(a) - elsewhere(b) || a.startVerse - b.startVerse || a.startWord - b.startWord)
+      : q
+        ? ctx.annotations.filter((a) => wordPrefixMatch(a.text, q))
+        : [];
+    out.push(...hits.slice(0, only ? 50 : LIMITS.annotations).map((a) => annotationItem(ctx, a, onPassage ? "" : q)));
+  }
+
+  // 6. Topics
   if ((!only && !(ref && ref.chapter !== undefined)) || only === "topics") {
     const hits = q ? ctx.tags.filter((t) => wordPrefixMatch(t.name, q)) : ctx.tags;
     out.push(
