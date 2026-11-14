@@ -341,7 +341,7 @@ export default {
     body: "Hi, my name is Marcus. I made biblestdy myself, with no ads and no income. If you like the app, follow along on Instagram.",
     follow: "Follow @{{handle}}",
     chat: "Join the group chat",
-    close: "Close",
+    close: "Close message",
     settings: "Follow biblestdy",
   },
   translations: {

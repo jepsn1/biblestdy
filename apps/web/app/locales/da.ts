@@ -343,7 +343,7 @@ const da: typeof en = {
     body: "Hej, mit navn er Marcus. Jeg har lavet biblestdy selv, uden reklamer og uden indtægt. Hvis du kan lide appen, så følg med på Instagram.",
     follow: "Følg @{{handle}}",
     chat: "Gå med i gruppechatten",
-    close: "Luk",
+    close: "Luk besked",
     settings: "Følg biblestdy",
   },
   translations: {
