@@ -387,9 +387,10 @@
 /*
  * Chapter turn: crossing into the next/previous chapter slides the sheet
  * exactly like an in-chapter page turn (300ms, Tailwind's transition easing)
- * — a view transition on [data-chapter-sheet] (the paged content box, or the
- * phone's scroll pane), so the words and their ink move together. The rest
- * of the page switches at once, as in a page turn; clicks go through.
+ * — a view transition on [data-chapter-sheet] (the paged sheet, or the
+ * phone's scroll pane), so the words and their ink move together; margin
+ * ink waits and fades in, as on a page turn. The rest of the page switches
+ * at once; clicks go through.
  * `data-chapter-turn` (next|prev) is set by the reader only for this, and
  * never under reduced motion.
  */
@@ -408,6 +409,12 @@
 }
 :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
   overflow: hidden;
+}
+/* Paged: the tool palette's gutter stays clear, as on a page turn */
+@media (min-width: 640px) {
+  :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
+    clip-path: inset(0 0 0 3rem);
+  }
 }
 :root[data-chapter-turn]::view-transition-old(chapter-sheet),
 :root[data-chapter-turn]::view-transition-new(chapter-sheet) {

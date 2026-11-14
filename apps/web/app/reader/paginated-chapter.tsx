@@ -1024,13 +1024,12 @@ export function PaginatedChapter({
                 see sheet-layout.ts. Overflow is clipped, never scrolled.
                 isolate: local stacking context so the -z-10 ink paints behind
                 the text but still above the page background */}
-            <div className="h-full overflow-hidden">
+            <div data-chapter-sheet className="h-full overflow-hidden">
               <div ref={regionRef} className="relative isolate h-full w-full">
                 {/* Content box: capped height (34em at body size) centered in
                     the pane, so columns never run tall on big screens */}
                 <div
                   ref={contentBoxRef}
-                  data-chapter-sheet
                   className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-6 pb-6"
                   style={{ width: `${layout.contentWidth}rem` }}
                 >
