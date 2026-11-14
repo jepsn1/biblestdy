@@ -207,9 +207,9 @@ export default {
     heroTitleB: "Your notes beside it.",
     heroBody:
       "biblestdy is a quiet place to read the Bible, mark what you notice, and keep your thoughts with the passages they belong to \u2014 so you can come back to them.",
-    ctaStart: "Start reading for free",
+    ctaStart: "Start reading",
     ctaHow: "See how it works",
-    ctaNote: "Sign in with your email \u2014 we send you a code. No password, no ads, no tracking.",
+    ctaNote: "Free. Sign in with your email \u2014 we send you a code. No password, no ads, no tracking.",
     whyVerse:
       "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
     whyVerseRef: "John 5:39\u201340 \u00b7 WEB",
