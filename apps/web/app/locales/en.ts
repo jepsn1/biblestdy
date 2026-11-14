@@ -481,6 +481,7 @@ export default {
     closeNote: "Close the note",
     closePanel: "Close the panel",
     sidebar: "Books sidebar",
+    penStyle: "Pen style (while the pen is on)",
     help: "This list",
     or: "or",
   },

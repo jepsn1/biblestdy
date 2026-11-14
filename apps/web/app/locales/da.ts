@@ -483,6 +483,7 @@ const da: typeof en = {
     closeNote: "Luk noten",
     closePanel: "Luk panelet",
     sidebar: "Bogliste",
+    penStyle: "Pennens stil (mens pennen er valgt)",
     help: "Denne liste",
     or: "eller",
   },
