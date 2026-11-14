@@ -528,8 +528,6 @@ export function AnnotationMarks({
               <path
                 key={p.key}
                 d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
-                // A continuation's leader is dotted: the same note, a second place
-                strokeDasharray={p.copy ? "2 4" : undefined}
                 fill="none"
                 stroke={NOTE_INK}
                 strokeWidth={active ? 1.8 : 1.4}
@@ -721,7 +719,6 @@ export function AnnotationMarks({
                     style={{
                       color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT,
                       textAlign: "inherit",
-                      opacity: p.copy && !active ? 0.6 : undefined,
                     }}
                   >
                     {/* Continuation of a span split across columns/pages: marked

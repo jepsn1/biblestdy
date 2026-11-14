@@ -73,7 +73,7 @@ const R = "/read/JHN/3";
 const PANEL = /^(Notes & topics|Noter og emner)$/;
 const more = (row) => async (p) => { await p.getByRole("button", { name: /^(More|Mere)$/ }).first().click(); await p.waitForTimeout(700); await p.getByRole("button", { name: row }).first().click(); await p.waitForTimeout(800); };
 const phonePanel = more(/^(Notes & topics|Noter og emner)/);
-const phoneBoxes = async (p) => { await more(/^(Margin notes|Randnoter)/)(p); await p.keyboard.press("Escape"); await p.waitForTimeout(600); };
+const phoneBoxes = async (p) => { await more(/^(Margin notes|Annoteringer)/)(p); await p.keyboard.press("Escape"); await p.waitForTimeout(600); };
 await shot("01-signin-desktop", { auth: false }, "/signin", undefined, true);
 await shot("02-signin-phone", { auth: false, w: 390, h: 844 }, "/signin");
 await shot("03-reader-desktop-paper", {}, R, undefined, true);
