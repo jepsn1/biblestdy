@@ -880,8 +880,11 @@ export function ChapterText({
             style={
               block.kind === "poetry"
                 ? // Hanging indent: q1 at 1em, q2 at 2em…; a wrapped line sits
-                  // 2em deeper so it never reads as the next poetry line
-                  { paddingLeft: `${block.level + 2}em`, textIndent: "-2em" }
+                  // 2em deeper so it never reads as the next poetry line.
+                  // Clears the drop numeral: a one-line prose opening (BPH
+                  // Job 3) leaves it overhanging, and the hanging indent
+                  // would slide the next verse number under it.
+                  { paddingLeft: `${block.level + 2}em`, textIndent: "-2em", clear: "left" }
                 : block.kind === "paragraph" && !block.opening
                   ? { textIndent: "1em" }
                   : undefined
