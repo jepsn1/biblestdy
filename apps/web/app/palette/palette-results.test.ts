@@ -75,7 +75,7 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
     colorLabel: () => undefined,
     colorWords: (c) => [c, { green: "grøn", blue: "blå" }[c as string] ?? c],
     labels: {
-      goTo: (r) => `Go to ${r}`,
+      closest: "Closest match",
       morePassages: (n) => `+${n} more`,
       invalid: "invalid",
       noMatches: (q) => `No matches for ${q}`,
@@ -94,12 +94,12 @@ const ids = (input: string, c = ctx()) => buildResults(input, c).map((i) => i.id
 describe("palette results", () => {
   it("a typed reference is the first row and links to the verse", () => {
     const [first] = buildResults("rom 8:28", ctx());
-    expect(first).toMatchObject({ group: "passage", label: "Go to Romans 8:28", href: "/read/ROM/8?v=28" });
+    expect(first).toMatchObject({ group: "passage", label: "Romans 8:28", href: "/read/ROM/8?v=28", complete: "Romans 8:28" });
   });
 
   it("Danish: 'Joh 3,16' parses and is labelled in Danish", () => {
     const [first] = buildResults("Joh 3,16", ctx({ locale: "da" }));
-    expect(first.label).toBe("Go to Johannes 3,16");
+    expect(first.label).toBe("Johannes 3,16");
   });
 
   it("a reference also lists your notes on that passage", () => {
@@ -159,11 +159,13 @@ describe("palette results", () => {
     expect(ids("dark", c)).toEqual(["note:d", "action:dark"]);
   });
 
-  it("rows carry the typed words to bold; a passage doesn't", () => {
+  it("rows carry the typed words to bold; a passage its letters and numbers apart", () => {
     expect(buildResults("adop", ctx()).find((r) => r.id === "note:n1")?.match).toBe("adop");
     expect(buildResults("joh", ctx()).find((r) => r.id === "book:JHN")?.match).toBe("joh");
     expect(buildResults("mørk", ctx()).find((r) => r.id === "action:dark")?.match).toBe("mørk");
-    expect(buildResults("rom 8", ctx()).every((r) => !r.match)).toBe(true);
+    expect(buildResults("j3", ctx())[0]).toMatchObject({ label: "John 3", match: "j 3" });
+    // Your study on that passage isn't bolded by the reference
+    expect(buildResults("rom 8", ctx()).slice(1).every((r) => !r.match)).toBe(true);
   });
 
   it("a note on several passages shows and opens the one that matched", () => {
@@ -179,6 +181,63 @@ describe("palette results", () => {
 
   it("an untitled note shows its first words", () => {
     expect(buildResults("@grace", ctx())[0].label).toBe("Untitled thought about grace");
+  });
+});
+
+describe("palette results: passages", () => {
+  const passages = (input: string, c = ctx()) => buildResults(input, c).filter((r) => r.group === "passage").map((r) => r.label);
+
+  it("'j3': several J books' chapter 3, John first; notes on John 3 follow", () => {
+    const rows = passages("j3");
+    expect(rows[0]).toBe("John 3");
+    expect(rows.length).toBeGreaterThan(2);
+    expect(ids("j3")).toContain("note:n2");
+  });
+
+  it.each([
+    ["joh 3", "John 3"],
+    ["jn3:16", "John 3:16"],
+    ["john 3 16", "John 3:16"],
+    ["3:16 john", "John 3:16"],
+    ["1jn 4", "1 John 4"],
+    ["first john 4", "1 John 4"],
+    ["john 3:16–4:2", "John 3:16–4:2"],
+  ])("%s → %s", (input, label) => {
+    expect(passages(input)).toEqual([label]);
+  });
+
+  it("Danish UI: Danish names and separators", () => {
+    const da = ctx({ locale: "da" });
+    expect(passages("sl 23", da)).toEqual(["Salmerne 23"]);
+    expect(passages("Åb 21,4", da)).toEqual(["Åbenbaringen 21,4"]);
+    expect(passages("1 mos 1", da)).toEqual(["1 Mosebog 1"]);
+  });
+
+  it("'3 john': the book first, then John 3", () => {
+    const rows = buildResults("3 john", ctx());
+    expect(rows[0]).toMatchObject({ id: "book:3JN", group: "books" });
+    expect(rows.find((r) => r.group === "passage")).toMatchObject({ label: "John 3", href: "/read/JHN/3" });
+    expect(ids("3 john 1")[0]).toBe("passage");
+    expect(passages("3 john 1")).toEqual(["3 John 1"]);
+  });
+
+  it("a typo: the guess says so, and your words are still searched", () => {
+    const c = ctx({ notes: [{ id: "j", title: "jonh 3 notes", body: "", anchors: [anchor("ROM", 1, 1)] }] });
+    const rows = buildResults("jonh 3", c);
+    expect(rows[0]).toMatchObject({ label: "John 3", detail: "Closest match" });
+    expect(rows.map((r) => r.id)).toContain("note:j");
+    // Not scoped to John 3 (a guess): its notes don't show
+    expect(rows.map((r) => r.id)).not.toContain("note:n2");
+  });
+
+  it("books: worded ordinals and misspelt names", () => {
+    expect(ids("first john")[0]).toBe("book:1JN");
+    expect(ids("phillipians")[0]).toBe("book:PHP");
+    expect(buildResults("phillipians", ctx())[0]).toMatchObject({ label: "Philippians", detail: "Filipperbrevet" });
+  });
+
+  it("prefixes still narrow: '>j3' isn't a passage", () => {
+    expect(buildResults(">j3", ctx()).some((r) => r.group === "passage")).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 import {
+  bookName,
   HIGHLIGHT_COLORS,
-  parseReference,
   suggestBooks,
   type Annotation,
   type BookLocale,
@@ -11,12 +11,14 @@ import {
   type Tag,
 } from "@biblestdy/shared";
 import { referenceHref } from "../reader/chapter-nav";
+import { bookQuery, findPassages, reversedBook, typoBooks, type PassageHit } from "./passage-query";
 
 /**
  * Command palette results (one pure function, so the ranking is testable):
  * the typed text → fixed, grouped rows. Empty, it's a launcher: a few
- * commands, then recently read. Typed, it's a search: a parsed reference is
- * always the first row ("rom 8:28 ⏎" is one step), then books, your study
+ * commands, then recently read. Typed, it's a search: the passages it could
+ * mean come first ("rom 8:28 ⏎" is one step; "j3" offers John 3, James 3…,
+ * see passage-query), then books, your study
  * (colours, notes, margin notes, highlights), topics, and commands last.
  * Order never changes while typing. Prefixes narrow to one group: `>`
  * commands, `#` topics, `@` notes (and margin notes, highlights). Marks also
@@ -99,7 +101,8 @@ export type PaletteContext = {
   /** A colour's plain names, both UI languages ("blue", "blå"): find its row. */
   colorWords: (c: HighlightColor) => string[];
   labels: {
-    goTo: (ref: string) => string;
+    /** Detail of a passage found through a typo ("jonh 3" → John 3). */
+    closest: string;
     morePassages: (n: number) => string;
     invalid: string;
     /** Nothing found: says so, with the typed text… */
@@ -115,7 +118,7 @@ export type PaletteContext = {
   };
 };
 
-export const LIMITS = { books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4, colorHits: 20 };
+export const LIMITS = { passages: 5, books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4, colorHits: 20 };
 
 /** Lowercase, accents folded (é → e), so matching ignores both. */
 export function fold(s: string): string {
@@ -171,6 +174,12 @@ export function plainText(md: string): string {
     .replace(/[*_~`>#]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** A passage row's words to bold: letters and numbers apart ("j3" → "j 3":
+ * the J of John, the 3). */
+function passageMatch(q: string): string {
+  return q.match(/\p{L}+|\d+/gu)?.join(" ") ?? "";
 }
 
 function refLabel(ctx: PaletteContext, ref: Reference): string {
@@ -305,30 +314,47 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   const q = only ? raw.slice(1).trim() : raw;
   const out: PaletteItem[] = [];
 
-  // 1. The typed reference
-  const ref = only ? null : parseReference(q, ctx.locale);
-  if (ref && ref.chapter !== undefined) {
-    out.push({ id: "passage", group: "passage", label: ctx.labels.goTo(refLabel(ctx, ref)), href: referenceHref(ref) });
-  }
+  // 1. The passages it could mean (only a sure one scopes your study to
+  // it: a typo's guess still searches your words, "3 john" is a book first)
+  const bookPart = only ? undefined : /^\s*(\d?\.?\s*\p{L}[\p{L}\s.']*)$/u.exec(q)?.[1];
+  const hits = only || bookPart ? [] : findPassages(q, ctx.locale, LIMITS.passages);
+  const ref = hits[0]?.kind === "exact" || hits[0]?.kind === "prefix" ? hits[0].ref : null;
+  const passageItem = (h: PassageHit, i: number): PaletteItem => {
+    const label = refLabel(ctx, h.ref);
+    return {
+      id: i ? `passage:${h.ref.book}` : "passage",
+      group: "passage",
+      label,
+      detail: h.kind === "fuzzy" ? ctx.labels.closest : undefined,
+      href: referenceHref(h.ref),
+      complete: label,
+      match: passageMatch(q),
+    };
+  };
+  out.push(...hits.map(passageItem));
 
-  // 2. Books (word-start, both languages); Enter = chapter 1, Tab completes
-  if (!only && !(ref && ref.chapter !== undefined)) {
-    const bookPart = /^\s*(\d?\.?\s*\p{L}[\p{L}\s.']*)$/u.exec(q)?.[1];
-    if (bookPart) {
-      for (const s of suggestBooks(bookPart, ctx.locale, LIMITS.books)) {
-        out.push({ id: `book:${s.id}`, group: "books", label: s.name, detail: s.alt, href: `/read/${s.id}/1`, complete: `${s.name} `, match: bookPart });
-      }
-    } else if (/\d/.test(q) && /\p{L}/u.test(q)) {
-      // Looks like a reference but isn't one ("rom 99")
-      out.push({ id: "invalid", group: "hint", label: ctx.labels.invalid, disabled: true });
+  // 2. Books (word-start, both languages, "first john" too, a misspelt name
+  // last); Enter = chapter 1, Tab completes. "3 john" also offers John 3.
+  if (bookPart) {
+    const found = suggestBooks(bookQuery(bookPart), ctx.locale, LIMITS.books);
+    const ids = found.length ? found.map((s) => s.id) : typoBooks(bookPart, ctx.locale);
+    for (const id of ids) {
+      const name = bookName(id, ctx.locale);
+      const alt = bookName(id, ctx.locale === "da" ? "en" : "da");
+      out.push({ id: `book:${id}`, group: "books", label: name, detail: alt !== name ? alt : undefined, href: `/read/${id}/1`, complete: `${name} `, match: bookPart });
     }
+    const flipped = reversedBook(bookPart, ctx.locale);
+    if (flipped) out.push(passageItem(flipped, 1));
+  } else if (!only && !hits.length && /\d/.test(q) && /\p{L}/u.test(q)) {
+    // Looks like a reference but isn't one ("rom 99")
+    out.push({ id: "invalid", group: "hint", label: ctx.labels.invalid, disabled: true });
   }
 
   // 3. Highlight colours, by the reader's name or the plain one ("God
   // speaking", "blue", "blå"): one row each, that brings the colour out
   const colorHit = (c: HighlightColor) =>
     !!q && [ctx.colorLabel(c) ?? "", ...ctx.colorWords(c)].some((w) => w && wordPrefixMatch(w, q));
-  if (!only && !(ref && ref.chapter !== undefined)) {
+  if (!only && !ref) {
     const counts = new Map<HighlightColor, number>();
     for (const h of ctx.highlights) counts.set(h.color, (counts.get(h.color) ?? 0) + 1);
     for (const c of HIGHLIGHT_COLORS) {
@@ -349,15 +375,14 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   }
 
   // A span on the typed passage (chapter, or verses overlapping the range)
-  const onPassage =
-    ref && ref.chapter !== undefined
-      ? (() => {
-          const from = ref.verse ?? 1;
-          const to = ref.verse === undefined ? Infinity : (ref.endChapter && ref.endChapter !== ref.chapter ? Infinity : (ref.endVerse ?? ref.verse));
-          return (a: { book: string; chapter: number; startVerse: number; endVerse: number }) =>
-            a.book === ref.book && a.chapter === ref.chapter && a.endVerse >= from && a.startVerse <= to;
-        })()
-      : null;
+  const onPassage = ref
+    ? (() => {
+        const from = ref.verse ?? 1;
+        const to = ref.verse === undefined ? Infinity : (ref.endChapter && ref.endChapter !== ref.chapter ? Infinity : (ref.endVerse ?? ref.verse));
+        return (a: { book: string; chapter: number; startVerse: number; endVerse: number }) =>
+          a.book === ref.book && a.chapter === ref.chapter && a.endVerse >= from && a.startVerse <= to;
+      })()
+    : null;
 
   // 4. Notes: on the typed passage, else by words (title hits first)
   if (!only || only === "notes") {
@@ -412,7 +437,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   }
 
   // 7. Topics
-  if ((!only && !(ref && ref.chapter !== undefined)) || only === "topics") {
+  if ((!only && !ref) || only === "topics") {
     const hits = q ? ctx.tags.filter((t) => wordPrefixMatch(t.name, q)) : ctx.tags;
     out.push(
       ...hits.slice(0, only ? 50 : LIMITS.topics).map((t) => ({
