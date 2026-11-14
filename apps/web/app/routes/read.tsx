@@ -1,4 +1,4 @@
-import type { Chapter, Translation } from "@biblestdy/shared";
+import type { Translation } from "@biblestdy/shared";
 import { formatReference } from "@biblestdy/shared";
 import { useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
@@ -14,7 +14,7 @@ import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
-import { readingLimitError } from "../reader/reading-limit";
+import { loadChapter, prefetchNeighbours } from "../reader/chapter-cache";
 import { ReaderNav } from "../reader/reader-nav";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
 import { SkipToText } from "../reader/skip-link";
@@ -24,6 +24,9 @@ import { CommandPalette, OPEN_PALETTE } from "../palette/command-palette";
 import { pushRecent } from "~/lib/recent-passages";
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
+
+/** How long a chapter must stay open before its neighbours are fetched. */
+const PREFETCH_DELAY_MS = 800;
 
 let translationsCache: Translation[] | undefined;
 
@@ -77,15 +80,8 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
     loadTextSize(session.user.id),
   ]);
   const translation = pickTranslation(translations);
-  const res = await fetchScripture(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
-  if (res.status === 404 || res.status === 400) {
-    throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
-  }
-  // Over the reading quota (#29): friendly wait message, no auto-retry
-  const limit = await readingLimitError(res, i18n.t);
-  if (limit) throw limit;
-  if (!res.ok) throw data(i18n.t("error.chapterLoad"), { status: 502 });
-  const chapter = (await res.json()) as Chapter;
+  // From memory when already read or prefetched (chapter-cache.ts)
+  const chapter = await loadChapter(translation.id, { book: params.book, chapter: Number(params.chapter) });
   // Only a chapter that actually loaded may become the launch page; the
   // reader adds the page (?p) once it knows it (#52)
   const here = `${chapter.book}/${chapter.chapter}`;
@@ -134,6 +130,23 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   // Prev/next continue across books (#52): John 21 → Acts 1
   const prevChapter = adjacentChapter(chapter, -1);
   const nextChapter = adjacentChapter(chapter, 1);
+  // Read ahead (both ways) once the reader has settled on this chapter, so
+  // the next turn renders from memory. A short wait first: skimming through
+  // chapters with [ / ] fetches nothing extra.
+  useEffect(() => {
+    const prev = adjacentChapter(chapter, -1);
+    const next = adjacentChapter(chapter, 1);
+    let idle = 0;
+    const timer = window.setTimeout(() => {
+      const run = () => prefetchNeighbours(translation.id, [next, prev]);
+      if ("requestIdleCallback" in window) idle = window.requestIdleCallback(run, { timeout: 2000 });
+      else run();
+    }, PREFETCH_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      if (idle) window.cancelIdleCallback(idle);
+    };
+  }, [chapter, translation.id]);
   // ONE side slot, content switches: 'connections' | a note id | null.
   // Connections open/closed is the sticky ambient preference; a note borrows
   // the slot and closing it falls back to that preference.

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { cn, focusRing } from "~/lib/utils";
@@ -14,17 +14,15 @@ export type BarButton = {
   keys: string;
   /** Nothing that way (Genesis 1's first page, Revelation 22's last). */
   disabled: boolean;
-  /** Crossing into the next chapter at the end of this one: the bar's one
-   * filled button, with an arrow instead of a chevron. */
-  primary?: boolean;
   onClick: () => void;
 };
 
 /**
  * Page bar: the reader's one page-turn control, pinned under the
- * reading pane at the width of the text — "‹ Previous" · "John 3:11–21 ·
- * Page 2 of 4" (+ credit) · "Next ›". At a chapter boundary a button names
- * where it goes; the last page's Next becomes "Continue to John 4 →".
+ * reading pane at the width of the text — "‹ Previous" · "3:11–21 · Page 2
+ * of 4" (+ credit) · "Next ›". The Bible reads as one book: from a chapter's
+ * last page Next is simply the next chapter's first (only the accessible
+ * name says where it crosses to), so the buttons never change shape.
  * Buttons keep a minimum width and stay mounted (disabled, still focusable)
  * so nothing shifts and focus stays put while turning pages with Enter.
  * Phones (scroll mode) get the same bar stepping chapters, larger targets.
@@ -41,7 +39,7 @@ export function PageBar({
   /** Landmark name: "Pages" / "Chapters". */
   label: string;
   /** Centre line (paged: visual only, the live region announces turns): parts
-   * joined by " · ", each kept whole when the line wraps. */
+   * joined by " · ", each kept whole when the line wraps. Empty: none. */
   position: string[];
   credit?: string;
   prev: BarButton;
@@ -68,14 +66,16 @@ export function PageBar({
       >
         <BarEnd button={prev} dir="prev" phone={phone} />
         <div className="min-w-0 text-center">
-          <p aria-hidden={!phone} className="text-control text-foreground tabular-nums text-balance">
-            {position.map((part, i) => (
-              <Fragment key={i}>
-                {i > 0 && " · "}
-                <span className={cn(!phone && "whitespace-nowrap")}>{part}</span>
-              </Fragment>
-            ))}
-          </p>
+          {position.length > 0 && (
+            <p aria-hidden={!phone} className="text-control text-foreground tabular-nums text-balance">
+              {position.map((part, i) => (
+                <Fragment key={i}>
+                  {i > 0 && " · "}
+                  <span className={cn(!phone && "whitespace-nowrap")}>{part}</span>
+                </Fragment>
+              ))}
+            </p>
+          )}
           {credit && <p className="mt-0.5 text-meta text-muted-foreground text-balance">{credit}</p>}
         </div>
         <BarEnd button={next} dir="next" phone={phone} />
@@ -85,11 +85,11 @@ export function PageBar({
 }
 
 function BarEnd({ button, dir, phone }: { button: BarButton; dir: "prev" | "next"; phone: boolean }) {
-  const Icon = button.primary ? ArrowRight : dir === "prev" ? ChevronLeft : ChevronRight;
+  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
   return (
     <Hint label={button.name} shortcut={button.hintKey} side="top">
       <Button
-        variant={button.primary ? "default" : "outline"}
+        variant="outline"
         // Still focusable when disabled: a page turn that reaches the end
         // doesn't throw keyboard focus back to the page
         disabled={button.disabled}
@@ -101,16 +101,14 @@ function BarEnd({ button, dir, phone }: { button: BarButton; dir: "prev" | "next
           "min-w-28 gap-1.5 px-3 text-control",
           phone ? "min-h-12 max-w-full" : "min-h-11",
           dir === "prev" ? "justify-self-start" : "justify-self-end",
-          !button.primary &&
-            // /55: ≥3:1 against the page in every reader style
-            "border-foreground/55 text-foreground dark:border-foreground/55 dark:bg-background dark:hover:bg-muted",
+          // /55: ≥3:1 against the page in every reader style
+          "border-foreground/55 text-foreground dark:border-foreground/55 dark:bg-background dark:hover:bg-muted",
           "aria-disabled:pointer-events-none aria-disabled:opacity-50",
           focusRing,
         )}
       >
         {dir === "prev" && <Icon aria-hidden data-icon="inline-start" />}
-        {/* Desktop labels never clip (the centre wraps instead); phones
-            truncate a long book name rather than crowd out the centre */}
+        {/* Desktop labels never clip (the centre wraps instead) */}
         <span className={cn(phone && "min-w-0 truncate")}>{button.label}</span>
         {dir === "next" && <Icon aria-hidden data-icon="inline-end" />}
       </Button>

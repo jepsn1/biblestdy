@@ -18,19 +18,25 @@ export function useAllAnnotationsQuery(enabled: boolean) {
   return annotations;
 }
 
+/** One chapter's annotations — shared with the neighbour prefetch. */
+export function annotationsQuery(translationId: string, book: string, chapter: number) {
+  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  return {
+    queryKey: ["annotations", translationId, book, chapter],
+    queryFn: () => api<Annotation[]>(`/api/annotations?${params}`).catch(() => []),
+  };
+}
+
 /** Loads + mutates the current chapter's inline annotations for the signed-in
  * user. Failed writes surface a toast with Retry; removal offers Undo (#64).
  * With the loaded `text`, new annotations carry their marked words (`quote`)
  * and older ones without get them backfilled. */
 export function useAnnotations(translationId: string, book: string, chapter: number, text?: Chapter) {
   const qc = useQueryClient();
-  const key = ["annotations", translationId, book, chapter];
-  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  const query = annotationsQuery(translationId, book, chapter);
+  const key = query.queryKey;
 
-  const { data: annotations = [], isFetched } = useQuery({
-    queryKey: key,
-    queryFn: () => api<Annotation[]>(`/api/annotations?${params}`).catch(() => []),
-  });
+  const { data: annotations = [], isFetched } = useQuery(query);
   useQuoteBackfill("annotations", annotations, text, key);
 
   const replace = (updated: Annotation) =>
