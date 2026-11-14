@@ -142,6 +142,9 @@ export function PaginatedChapter({
   const wantedVerse = useRef<number | null>(null);
   /** Bumped per verse jump: re-resolves the page even when nothing else moved. */
   const [verseTick, setVerseTick] = useState(0);
+  /** Bumped when webfonts land: the words rewrap, so the page's verse range
+   * (running foot) and Tab stop are read again. */
+  const [fontTick, setFontTick] = useState(0);
   const [flash, setFlash] = useState<VerseRange | null>(null);
   const [page, setPage] = useState(() => {
     const wanted = parsePageParam(searchParams.get("p"));
@@ -389,7 +392,10 @@ export function PaginatedChapter({
     if (!content || pageStride <= 0) return null;
     const contentRect = content.getBoundingClientRect();
     const s = contentRect.width / content.offsetWidth || 1;
-    return Math.max(0, Math.floor((el.getBoundingClientRect().left - contentRect.left) / s / pageStride));
+    // By its centre: a drop numeral (negative margin) or a hanging line
+    // starts a hair left of its column, which read as the page before
+    const r = el.getBoundingClientRect();
+    return Math.max(0, Math.floor(((r.left + r.right) / 2 - contentRect.left) / s / pageStride));
   }
 
   /** Phones: scroll an element to the upper third of the pane. Not
@@ -515,6 +521,7 @@ export function PaginatedChapter({
     void document.fonts?.ready.then(() => {
       if (!alive) return;
       measure();
+      setFontTick((t) => t + 1);
       if (wantedVerse.current !== null) setVerseTick((t) => t + 1);
     });
     const observer = new ResizeObserver(measure);
@@ -1004,7 +1011,7 @@ export function PaginatedChapter({
     placePage.current = page;
     restoring.current = false;
     if (placeRef) placeRef.current = readingVerse.current;
-  }, [scrollMode, stride, resolvedKey, chapterKey, pageCount, layout.columns, textSize, inlineAnnotations, annotationsApi.annotations.length, page, placeRef]);
+  }, [scrollMode, stride, resolvedKey, chapterKey, pageCount, layout.columns, textSize, inlineAnnotations, annotationsApi.annotations.length, page, placeRef, fontTick]);
 
   // Off-page controls are inert (no Tab stop on a hidden page); the verse
   // cursor stays on this page, and follows a page turn if it had focus.
@@ -1040,7 +1047,7 @@ export function PaginatedChapter({
     if (!first) return;
     setRovingVerse(Number(first.getAttribute(VERSE_FOCUS)));
     if (focused) first.focus({ preventScroll: true });
-  }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize]);
+  }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize, fontTick]);
 
   /** End of chapter, phones: the attribution right after the last verse
    * (their foot has no credit line). The foot's Next goes on. */
@@ -1241,7 +1248,7 @@ export function PaginatedChapter({
                     {/* The next chapter's opening fills this chapter's last
                         page (#flow) — off it (inert) on every other page */}
                     {runOnTarget && runOnText && stride > 0 && (
-                      <div ref={spillBoxRef} className="mt-[1.6em]" inert={page < pageCount - 1}>
+                      <div ref={spillBoxRef} data-spill className="mt-[1.6em]" inert={page < pageCount - 1}>
                         <ChapterSpill
                           key={`${runOnText.translationId}/${runOnText.book}.${runOnText.chapter}`}
                           chapter={runOnText}
