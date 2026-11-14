@@ -1,6 +1,6 @@
 import type { AnnotationMark, HighlightColor } from "@biblestdy/shared";
 import { HIGHLIGHT_COLORS } from "@biblestdy/shared";
-import { Eraser, FileText, MousePointer2, PenLine, TextCursorInput, type LucideIcon } from "lucide-react";
+import { Eraser, FileText, MousePointer2, PenLine, Tag, type LucideIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Hint } from "~/components/hint";
@@ -195,7 +195,7 @@ function NameColorsButton({ className }: { className?: string }) {
         onClick={(e) => openColorNames(e.currentTarget)}
         className={cn(buttonClass, className, focusRing)}
       >
-        <TextCursorInput className="size-4.5" aria-hidden />
+        <Tag className="size-4.5" aria-hidden />
       </button>
     </Hint>
   );
