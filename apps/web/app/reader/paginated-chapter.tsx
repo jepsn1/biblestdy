@@ -1,9 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
-import { ArrowRight } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
-import { buttonVariants } from "~/components/ui/button";
+import { useNavigate, useSearchParams } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
@@ -43,8 +41,8 @@ export const CHAPTER_TEXT_ID = "chapter-text";
  * minimum (35rem) + a ~20rem reading column. ~880px at 100%. */
 const SIDE_BY_SIDE_MIN = 55;
 
-/** Page bar width (rem): the text column's, but never so narrow that
- * "Continue to …" squeezes the position line into a stack. */
+/** Page bar width (rem): the text column's, but never so narrow that the
+ * position line is squeezed into a stack. */
 const BAR_MIN = 36;
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
@@ -594,57 +592,40 @@ export function PaginatedChapter({
     ? t("reader.publicDomain")
     : chapter.copyright;
   const attribution = [translation.name, copyright].filter(Boolean).join(" · ");
-  /** "John 3:1–11" — the verses on this page (one verse: "John 3:16"). */
-  const rangeLabel = pageVerses
-    ? `${hereLabel}:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
-    : hereLabel;
+  /** ":1–11" — the verses on this page (one verse: ":16"). */
+  const verseSpan = pageVerses
+    ? `:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
+    : "";
+  /** "John 3:1–11" (announced), and the bar's bookless "3:1–11" — the book
+   * is in the top bar already, like a printed Bible's running head. */
+  const rangeLabel = `${hereLabel}${verseSpan}`;
+  const shortRange = `${chapter.chapter}${verseSpan}`;
 
-  // Page bar ends. Paged: a page turn inside the chapter; on the first/last
-  // page the chapter it crosses into. Phones: always chapters.
-  const prevButton: BarButton = prevTarget
-    ? {
-        label: refLabel(prevTarget),
-        name: t("reader.prevChapterTo", { ref: refLabel(prevTarget) }),
-        hintKey: scrollMode ? "[" : "←",
-        keys: scrollMode ? "[" : "ArrowLeft PageUp",
-        disabled: false,
-        onClick: goPrev,
-      }
-    : {
-        label: t("reader.prev"),
-        name: t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
-        hintKey: scrollMode ? "[" : "←",
-        keys: scrollMode ? "[" : "ArrowLeft PageUp",
-        disabled: onFirstPage,
-        onClick: goPrev,
-      };
-  const nextButton: BarButton = nextTarget
-    ? scrollMode
-      ? {
-          label: refLabel(nextTarget),
-          name: t("reader.nextChapterTo", { ref: refLabel(nextTarget) }),
-          hintKey: "]",
-          keys: "]",
-          disabled: false,
-          onClick: goNext,
-        }
-      : {
-          label: t("reader.continueTo", { ref: refLabel(nextTarget) }),
-          name: t("reader.continueTo", { ref: refLabel(nextTarget) }),
-          hintKey: "→",
-          keys: "ArrowRight PageDown",
-          disabled: false,
-          primary: true,
-          onClick: goNext,
-        }
-    : {
-        label: t("reader.next"),
-        name: t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
-        hintKey: scrollMode ? "]" : "→",
-        keys: scrollMode ? "]" : "ArrowRight PageDown",
-        disabled: onLastPage,
-        onClick: goNext,
-      };
+  // Page bar ends: always just "‹ Previous" / "Next ›" — crossing into the
+  // next chapter is one more page turn. The accessible name says where a
+  // crossing lands. Phones: always chapters.
+  const crossName = (dir: "prev" | "next", target: ChapterRef) =>
+    t(scrollMode ? `reader.${dir}ChapterTo` : `reader.${dir}Into`, { ref: refLabel(target) });
+  const prevButton: BarButton = {
+    label: t("reader.prev"),
+    name: prevTarget
+      ? crossName("prev", prevTarget)
+      : t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
+    hintKey: scrollMode ? "[" : "←",
+    keys: scrollMode ? "[" : "ArrowLeft PageUp",
+    disabled: onFirstPage && !prevTarget,
+    onClick: goPrev,
+  };
+  const nextButton: BarButton = {
+    label: t("reader.next"),
+    name: nextTarget
+      ? crossName("next", nextTarget)
+      : t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
+    hintKey: scrollMode ? "]" : "→",
+    keys: scrollMode ? "]" : "ArrowRight PageDown",
+    disabled: onLastPage && !nextTarget,
+    onClick: goNext,
+  };
 
   /** Desktop: jump to a page (Home/End). */
   function goToPage(target: number) {
@@ -795,7 +776,10 @@ export function PaginatedChapter({
     const reflow = layoutSig.current.startsWith(`${chapterKey}|`) && sig !== layoutSig.current;
     layoutSig.current = sig;
     const focusedVerse = document.activeElement?.closest?.(`[${VERSE_FOCUS}]`);
-    if (reflow && readingVerse.current !== null && wantedVerse.current === null && !focusedVerse) {
+    // Arriving backwards (?p=last) holds the LAST page through reflows — the
+    // marks loading in widen the lanes and add pages after the first resolve
+    const holdLast = wantedPage.current === "last";
+    if (reflow && !holdLast && readingVerse.current !== null && wantedVerse.current === null && !focusedVerse) {
       const el = verseEl(readingVerse.current);
       const target = el ? pageOf(el, stride) : null;
       if (target !== null && target !== page) {
@@ -865,29 +849,16 @@ export function PaginatedChapter({
     if (focused) first.focus({ preventScroll: true });
   }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize]);
 
-  /** End of chapter (#52), phones: flows right after the last verse, with
-   * the attribution (their bar only names chapters). Paged, the page bar's
-   * last-page "Continue to …" does this job. */
-  const chapterEnd = (
-    <div className="mt-10 flex flex-col items-start gap-4 font-sans">
-      {nextChapter && (
-        <Link
-          to={chapterHref(nextChapter)}
-          className={cn(buttonVariants({ variant: "outline", size: "lg" }), "px-4")}
-        >
-          {t("reader.continueTo", { ref: refLabel(nextChapter) })}
-          <ArrowRight data-icon="inline-end" />
-        </Link>
-      )}
-      <p className="text-meta text-muted-foreground">{attribution}</p>
-    </div>
-  );
+  /** End of chapter, phones: the attribution right after the last verse
+   * (their bar has no credit line). The bar's Next goes on. */
+  const chapterEnd = <p className="mt-10 font-sans text-meta text-muted-foreground">{attribution}</p>;
 
   const chapterText = (
     <ChapterText
       chapter={chapter}
       translationAbbreviation={translation.abbreviation}
       heading={heading}
+      bookName={nameOf(chapter.book)}
       highlights={highlights}
       annotations={annotationsApi.annotations}
       noteMarks={noteMarks}
@@ -1078,7 +1049,7 @@ export function PaginatedChapter({
 
       <PageBar
         label={t(scrollMode ? "reader.chaptersNav" : "reader.pagesNav")}
-        position={scrollMode ? [hereLabel] : [rangeLabel, t("reader.pageOf", { page: page + 1, count: pageCount })]}
+        position={scrollMode ? [] : [shortRange, t("reader.pageOf", { page: page + 1, count: pageCount })]}
         credit={scrollMode ? undefined : attribution}
         prev={prevButton}
         next={nextButton}

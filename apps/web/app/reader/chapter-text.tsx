@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, AnnotationMark, WordPos } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, AnnotationMark, Verse, WordPos } from "@biblestdy/shared";
 import {
   anchorReference,
   buildAnchor,
@@ -112,6 +112,7 @@ export function ChapterText({
   chapter,
   translationAbbreviation,
   heading,
+  bookName,
   highlights,
   annotations,
   noteMarks,
@@ -142,7 +143,10 @@ export function ChapterText({
   chapter: Chapter;
   /** Shown in the reference line of copied text, e.g. "(NIV)". */
   translationAbbreviation: string;
+  /** "John 3": the chapter's (screen-reader) heading. */
   heading: string;
+  /** "John": printed above a book's first chapter, like a Bible. */
+  bookName: string;
   highlights: Highlight[];
   annotations: Annotation[];
   noteMarks: NoteMark[];
@@ -777,6 +781,30 @@ export function ChapterText({
   blocks.forEach((b, bi) => b.pieces.forEach((p, pi) => lastPiece.set(p.verse.verse, `${bi}:${pi}`)));
   // The verse's own number is its keyboard stop (#65) — the first one only
   const numbered = new Set<number>();
+  // The chapter's numeral stands in for the first verse's number, like a
+  // printed Bible — and is that verse's keyboard stop, named as the verse
+  const opening = blocks[0]?.pieces[0];
+  if (opening?.showNumber) numbered.add(opening.verse.verse);
+  const chapterNumeral = (v: Verse, set: "float" | "above") => (
+    <span
+      {...{ [VERSE_FOCUS]: v.verse }}
+      data-chapter-numeral
+      role="button"
+      aria-haspopup="menu"
+      aria-label={t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text })}
+      tabIndex={v.verse === tabVerse ? 0 : -1}
+      className={cn(
+        set === "float"
+          ? // Two lines deep, its top on the first line's capitals
+            "float-left mt-[0.06em] mr-[0.14em] -ml-[0.04em]"
+          : "inline-block",
+        "rounded-sm font-serif text-[3.15em] leading-[0.9] font-medium text-foreground tabular-nums lining-nums select-none",
+        focusRing,
+      )}
+    >
+      {chapter.chapter}
+    </span>
+  );
 
   return (
     <div
@@ -795,7 +823,17 @@ export function ChapterText({
       // construction (drag wash on desktop, tap + handles on phones)
       className="select-none [-webkit-touch-callout:none]"
     >
-      <h1 className="mb-8 font-serif text-display font-medium tracking-tight">{heading}</h1>
+      {/* Like a printed Bible: the book's name only where the book begins,
+          and each chapter opens on its big numeral (below) — the top bar
+          names the place. Screen readers still get "John 3" as the h1. */}
+      {chapter.chapter === 1 ? (
+        <h1 className="mb-6 font-serif text-display font-medium tracking-tight">
+          <span aria-hidden>{bookName}</span>
+          <span className="sr-only">{heading}</span>
+        </h1>
+      ) : (
+        <h1 className="sr-only">{heading}</h1>
+      )}
       {firstUseHint && (
         <p
           data-first-use-hint
@@ -819,17 +857,23 @@ export function ChapterText({
       {blocks.map((block, bi) => (
         <Fragment key={bi}>
           {block.headings.map((title) => (
-            // Editorial heading: a quiet book-style subhead, never anchorable
+            // Editorial heading: a book-style subhead in the section colour,
+            // setting passages apart; never anchorable
             <h2
               key={title}
               data-section
-              className={`mb-[0.4em] font-serif text-[0.95em] leading-snug font-semibold text-muted-foreground [break-after:avoid] ${
+              className={`mb-[0.4em] font-serif text-[0.95em] leading-snug font-semibold text-passage [break-after:avoid] ${
                 bi === 0 ? "mt-0" : "mt-[1.6em]"
               }`}
             >
               {title}
             </h2>
           ))}
+          {bi === 0 && block.kind === "poetry" && opening?.showNumber && (
+            // Poetry (a psalm) is set line by line — nothing to wrap around
+            // the numeral, so it stands above the first line
+            <p className="mb-[0.15em]">{chapterNumeral(opening.verse, "above")}</p>
+          )}
           <p
             data-block={block.kind}
             className={block.stanza ? "mt-[0.85em]" : undefined}
@@ -849,7 +893,10 @@ export function ChapterText({
               return (
                 <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
                   {piece.showNumber &&
-                    (numbered.has(v.verse) ? (
+                    (bi === 0 && pi === 0 ? (
+                      // Prose: the numeral drops beside the opening lines
+                      block.kind !== "poetry" && chapterNumeral(v, "float")
+                    ) : numbered.has(v.verse) ? (
                       <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
                         {v.label ?? v.verse}
                       </sup>

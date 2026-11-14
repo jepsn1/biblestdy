@@ -44,22 +44,28 @@ export function useAllNotesQuery(enabled: boolean) {
   return { notes, loaded: isFetched };
 }
 
+/** One chapter's notes — shared with the neighbour prefetch. */
+export function notesQuery(translationId: string, book: string, chapter: number) {
+  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  return {
+    queryKey: ["notes", translationId, book, chapter],
+    queryFn: () => api<Note[]>(`/api/notes?${params}`).catch(() => []),
+  };
+}
+
 /** Loads + mutates the current chapter's notes (markdown documents) for the
  * signed-in user. */
 export function useNotes(translationId: string, book: string, chapter: number) {
   const qc = useQueryClient();
-  const key = ["notes", translationId, book, chapter];
-  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  const query = notesQuery(translationId, book, chapter);
+  const key = query.queryKey;
 
   const inChapter = (n: Note) =>
     n.anchors.some(
       (a) => a.translationId === translationId && a.book === book && a.chapter === chapter,
     );
 
-  const { data: notes = [] } = useQuery({
-    queryKey: key,
-    queryFn: () => api<Note[]>(`/api/notes?${params}`).catch(() => []),
-  });
+  const { data: notes = [] } = useQuery(query);
 
   /** A note reaches into every chapter it anchors in — after any mutation,
    * refetch all note queries (the setQueryData above keeps this chapter
@@ -159,6 +165,18 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   return { notes, add, edit, remove, restore, attach, detach };
 }
 
+/** One chapter's other-version counts — shared with the neighbour prefetch. */
+export function otherVersionsQuery(translationId: string, book: string, chapter: number) {
+  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  return {
+    queryKey: ["notes", "other-versions", translationId, book, chapter],
+    queryFn: () =>
+      api<{ verse: number; count: number }[]>(`/api/notes/other-versions?${params}`).catch(
+        () => [],
+      ),
+  };
+}
+
 /** Per-verse counts of notes anchored here in OTHER translations (#11) —
  * bridges versions until shadow notes. Key sits under ["notes"] so note
  * mutations invalidate it too. */
@@ -167,13 +185,6 @@ export function useOtherVersionCounts(
   book: string,
   chapter: number,
 ): Map<number, number> {
-  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
-  const { data = [] } = useQuery({
-    queryKey: ["notes", "other-versions", translationId, book, chapter],
-    queryFn: () =>
-      api<{ verse: number; count: number }[]>(`/api/notes/other-versions?${params}`).catch(
-        () => [],
-      ),
-  });
+  const { data = [] } = useQuery(otherVersionsQuery(translationId, book, chapter));
   return new Map(data.map((c) => [c.verse, c.count]));
 }

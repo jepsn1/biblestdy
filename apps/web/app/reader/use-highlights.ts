@@ -18,6 +18,15 @@ export function useAllHighlightsQuery(enabled: boolean) {
   return highlights;
 }
 
+/** One chapter's highlights — shared with the neighbour prefetch. */
+export function highlightsQuery(translationId: string, book: string, chapter: number) {
+  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  return {
+    queryKey: ["highlights", translationId, book, chapter],
+    queryFn: () => api<Highlight[]>(`/api/highlights?${params}`).catch(() => []),
+  };
+}
+
 /** Loads + mutates the current chapter's highlights for the signed-in user.
  * With the loaded `text`, new highlights carry their marked words (`quote`)
  * and older ones without get them backfilled.
@@ -25,13 +34,10 @@ export function useAllHighlightsQuery(enabled: boolean) {
  * API soft-deletes, `restore` brings the row back). */
 export function useHighlights(translationId: string, book: string, chapter: number, text?: Chapter) {
   const qc = useQueryClient();
-  const key = ["highlights", translationId, book, chapter];
-  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
+  const query = highlightsQuery(translationId, book, chapter);
+  const key = query.queryKey;
 
-  const { data: highlights = [], isFetched } = useQuery({
-    queryKey: key,
-    queryFn: () => api<Highlight[]>(`/api/highlights?${params}`).catch(() => []),
-  });
+  const { data: highlights = [], isFetched } = useQuery(query);
   useQuoteBackfill("highlights", highlights, text, key);
 
   /** Put a (re)created highlight into the cache, replacing any same-id copy. */
