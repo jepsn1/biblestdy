@@ -447,13 +447,25 @@ export function CommandPalette({
             )}
           </span>
           {item.detail && (
-            <span className="block truncate text-meta text-muted-foreground">
+            <span
+              className={cn(
+                "block text-meta text-muted-foreground",
+                !item.disabled && "truncate",
+                // Muted grey on the selected row's tint is under 4.5:1
+                i === active && "text-accent-foreground",
+              )}
+            >
               <Marked text={item.detail} match={item.match} />
             </span>
           )}
         </span>
         {item.kind && (
-          <span className="shrink-0 rounded border border-border px-1.5 text-meta leading-5 text-muted-foreground">
+          <span
+            className={cn(
+              "shrink-0 rounded border border-border px-1.5 text-meta leading-5 text-muted-foreground",
+              i === active && "text-accent-foreground",
+            )}
+          >
             <Marked text={item.kind} match={item.match} />
           </span>
         )}
@@ -570,6 +582,8 @@ export function CommandPalette({
               type="button"
               aria-expanded={tipsOpen}
               aria-controls={`${listId}-tips`}
+              // A click keeps typing in the field (↑/↓ still work); Tab reaches it too
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setTipsOpen((o) => !o)}
               className="flex min-h-8 items-center gap-1 rounded-md px-1.5 text-meta text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:min-h-11"
             >
