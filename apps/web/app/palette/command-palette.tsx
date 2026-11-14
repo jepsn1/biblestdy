@@ -456,7 +456,8 @@ export function CommandPalette({
         onAuxClick={(e) => e.button === 1 && run(item, true)}
         onMouseMove={() => !item.disabled && active !== i && setActive(i)}
         className={cn(
-          "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 max-sm:min-h-12",
+          // scroll-mt: scrolled to while moving up, a row clears its group's sticky heading
+          "flex min-h-10 scroll-mt-10 items-center gap-3 rounded-md px-3 py-2 max-sm:min-h-12",
           item.disabled ? "text-list text-muted-foreground" : "cursor-pointer",
           i === active && "bg-accent text-accent-foreground",
         )}
