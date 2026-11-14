@@ -35,7 +35,7 @@ export {
   type NoteAnchor,
   type NewNote,
 } from './anchor.js'
-export type { ChapterConnections, PassageLink } from './connections.js'
+export type { ChapterConnections } from './connections.js'
 export type { Tag } from './tags.js'
 export {
   READER_STYLES,

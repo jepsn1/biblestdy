@@ -124,7 +124,7 @@ export function ConnectionsPanel({
                         className={cn("w-full rounded px-2 text-left hover:bg-accent", mobile ? "py-2.5" : "py-1.5", focusRing)}
                       >
                         <span className="block truncate font-serif text-control">{noteTitle(n, t("note.untitled"))}</span>
-                        <span className="block truncate font-mono text-meta text-primary">
+                        <span className="block truncate text-meta tabular-nums text-primary">
                           {mine.map((a) => anchorLabel(a, nameOf, locale)).join(" · ")}
                         </span>
                         {elsewhere.length > 0 && (

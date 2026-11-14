@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bookName, type Chapter, type Note } from "@biblestdy/shared";
-import { anchorForReference, anchorLabel, filterNotes, noteTitle } from "./note-list";
+import { anchorForReference, anchorLabel, filterNotes, keepOrder, noteTitle } from "./note-list";
 
 const T = "2026-11-01T00:00:00.000Z";
 const anchor = (book: string, chapter: number, startVerse: number, endVerse = startVerse) => ({
@@ -92,5 +92,15 @@ describe("anchorForReference", () => {
     expect(anchorForReference({ book: "JHN" }, chapter)).toBe("noChapter");
     expect(anchorForReference({ book: "JHN", chapter: 3, verse: 2, endChapter: 4, endVerse: 1 }, chapter)).toBe("crossChapter");
     expect(anchorForReference({ book: "JHN", chapter: 3, verse: 9 }, chapter)).toBe("noVerse");
+  });
+});
+
+describe("keepOrder", () => {
+  const n = (id: string) => ({ id });
+  it("an edited note (now first by last edit) stays where it was", () => {
+    expect(keepOrder([n("b"), n("a"), n("c")], ["a", "b", "c"]).map((x) => x.id)).toEqual(["a", "b", "c"]);
+  });
+  it("a note new since the view was entered comes first; deleted ones drop out", () => {
+    expect(keepOrder([n("new"), n("a"), n("c")], ["a", "b", "c"]).map((x) => x.id)).toEqual(["new", "a", "c"]);
   });
 });

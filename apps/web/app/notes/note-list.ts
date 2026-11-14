@@ -128,3 +128,16 @@ export function anchorForReference(ref: Reference, chapter: Chapter): Anchor | R
     endWord: Math.max(0, words(end.text).length - 1),
   };
 }
+
+/**
+ * Keeps the list still while a note is being edited: `notes` in the order of
+ * `frozen` (ids as they stood when the view was entered), notes not in it
+ * (new since) first in their given order. Saving a note bumps its last-edit
+ * time — without this the row would jump to the top mid-sentence.
+ */
+export function keepOrder<T extends { id: string }>(notes: T[], frozen: string[]): T[] {
+  const at = new Map(frozen.map((id, i) => [id, i]));
+  const fresh = notes.filter((n) => !at.has(n.id));
+  const known = notes.filter((n) => at.has(n.id)).sort((a, b) => at.get(a.id)! - at.get(b.id)!);
+  return [...fresh, ...known];
+}

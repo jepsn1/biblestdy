@@ -19,7 +19,7 @@ import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
-import { anchorLabel, compareAnchors, filterNotes, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
+import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
 import { lastReadHref } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
@@ -72,7 +72,14 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const listHeadingId = useId();
   const sortId = useId();
 
-  const shown = filterNotes(notes, { query, topic, sort, bookName: nameOf, locale });
+  const filtered = filterNotes(notes, { query, topic, sort, bookName: nameOf, locale });
+  // The order freezes per view (open note, filter, sort): editing a note
+  // bumps its last edit, but its row must not jump while you type. Leaving
+  // the note (or changing the view) re-sorts.
+  const viewKey = `${params.id ?? ""}|${query}|${topic ?? ""}|${sort}|${loaded}`;
+  const [frozen, setFrozen] = useState(() => ({ key: viewKey, ids: filtered.map((n) => n.id) }));
+  if (frozen.key !== viewKey) setFrozen({ key: viewKey, ids: filtered.map((n) => n.id) });
+  const shown = frozen.key === viewKey ? keepOrder(filtered, frozen.ids) : filtered;
   const open = params.id ? notes.find((n) => n.id === params.id) : undefined;
   const back = lastReadHref(typeof localStorage !== "undefined" ? localStorage.getItem("lastRead") : null) ?? "/read/JHN/3";
   // Keeps ?topic= while moving between notes
@@ -97,7 +104,9 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   /** A reference reads in context: the reader opens there with the note
    * beside the text and the span selected. */
   function readAnchor(note: Note, a: NoteAnchor) {
-    navigate(`/read/${a.book}/${a.chapter}?note=${note.id}&mark=${encodeURIComponent(`note:${note.id}:${a.id}`)}`);
+    // ?v lands on the verse's page at once (also when the mark can't be
+    // drawn, e.g. a reference made in another translation); ?mark selects it
+    navigate(`/read/${a.book}/${a.chapter}?v=${a.startVerse}&note=${note.id}&mark=${encodeURIComponent(`note:${note.id}:${a.id}`)}`);
   }
 
   // A link to a note that's gone (deleted, another account): back to the list
@@ -215,7 +224,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
                       </span>
                       <span className={cn("shrink-0 text-meta tabular-nums", current ? "text-foreground" : "text-muted-foreground")}>{editedOn(n.updatedAt, i18n.language)}</span>
                     </span>
-                    <span className={cn("block truncate font-mono text-meta", refs.length ? (current ? "text-foreground" : "text-primary") : current ? "text-foreground italic" : "text-muted-foreground italic")}>
+                    <span className={cn("block truncate text-meta tabular-nums", refs.length ? (current ? "text-foreground" : "text-primary") : current ? "text-foreground italic" : "text-muted-foreground italic")}>
                       {refs.length ? refs.map((a) => anchorLabel(a, nameOf, locale)).join(" · ") : t("notes.noPassages")}
                     </span>
                     {(n.tags?.length ?? 0) > 0 && (

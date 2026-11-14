@@ -149,7 +149,7 @@ function ReferencesTable({
                 focusRing,
               )}
             >
-              <span className="font-mono text-meta whitespace-nowrap text-primary">
+              <span className="text-meta tabular-nums whitespace-nowrap text-primary">
                 {anchorLabel(a, nameOf, locale)}
               </span>
               <span className="truncate font-serif text-meta text-muted-foreground italic">
