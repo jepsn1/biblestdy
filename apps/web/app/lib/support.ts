@@ -7,8 +7,8 @@
 
 export const INSTAGRAM_HANDLE = "marcusjepsn";
 export const INSTAGRAM_URL = `https://www.instagram.com/${INSTAGRAM_HANDLE}/`;
-/** Group chat: a DM to the owner until there's an invite link / channel. */
-export const GROUP_CHAT_URL = `https://ig.me/m/${INSTAGRAM_HANDLE}`;
+/** Instagram group chat invite (swap for the channel once there is one). */
+export const GROUP_CHAT_URL = "https://ig.me/j/d4-wBd5KNzCY959L/";
 
 export const SUPPORT_AFTER_SECONDS = 10 * 60;
 const TICK_SECONDS = 15;
