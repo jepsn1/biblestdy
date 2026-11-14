@@ -215,7 +215,7 @@ export default {
     title: "Colour key",
     showAll: "Show all",
     count: "{{shown}} of {{all}}",
-    showing: "Showing highlights in {{colors}}",
+    showing: "{{colors}} in full; other colours faded",
     showingAll: "Showing all highlights",
   },
   colorNames: {

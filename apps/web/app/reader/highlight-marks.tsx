@@ -1,5 +1,6 @@
 import type { Anchor, Highlight } from "@biblestdy/shared";
 import { useLayoutEffect, useState, type RefObject } from "react";
+import { isShown, type HighlightFilter } from "~/lib/highlight-filter";
 import { HIGHLIGHT_BG } from "./highlight-colors";
 import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geometry";
 
@@ -12,7 +13,10 @@ import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geome
  * piece (the box-decoration-break: clone look), clamped to its text column.
  */
 
-type MarkRect = { key: string; x: number; y: number; w: number; h: number; color: string };
+type MarkRect = { key: string; x: number; y: number; w: number; h: number; color: string; faint?: boolean };
+
+/** A colour the key filters out: still there, see-through. */
+const FAINT = 0.3;
 
 /** One radius for every wash (#63). */
 const RADIUS = 3;
@@ -24,6 +28,7 @@ export function HighlightMarks({
   flowRef,
   layoutKey,
   hidden = false,
+  shown = null,
 }: {
   highlights: Highlight[];
   /** The selection being made — painted like a highlight, in --selection. */
@@ -37,6 +42,8 @@ export function HighlightMarks({
   layoutKey: string;
   /** Spotlight active — the marker layer disappears with the other ink. */
   hidden?: boolean;
+  /** The colour key's filter (null = all): other colours paint faint. */
+  shown?: HighlightFilter;
 }) {
   const [rects, setRects] = useState<MarkRect[]>([]);
 
@@ -65,7 +72,7 @@ export function HighlightMarks({
         gap,
       };
       const out: MarkRect[] = [];
-      const paint = (a: Anchor, key: string, color: string) => {
+      const paint = (a: Anchor, key: string, color: string, faint = false) => {
         // Measure straight from the word spans — overlapping highlights all
         // render, independent of any per-word ownership
         const words: Rect[] = [];
@@ -100,13 +107,16 @@ export function HighlightMarks({
             w: run.right - run.left,
             h: run.bottom - run.top + pad * 2,
             color,
+            faint,
           });
         });
       };
       // Wider washes paint first so a nested highlight's color reads on top
       const size = (a: Anchor) => (a.endVerse - a.startVerse) * 1000 + (a.endWord - a.startWord);
-      for (const hl of [...highlights].sort((a, b) => size(b) - size(a)))
-        paint(hl, hl.id, HIGHLIGHT_BG[hl.color]);
+      // Faint (filtered-out) ones first: a shown colour always reads on top
+      const faint = (hl: Highlight) => !isShown(shown, hl.color);
+      for (const hl of [...highlights].sort((a, b) => Number(faint(b)) - Number(faint(a)) || size(b) - size(a)))
+        paint(hl, hl.id, HIGHLIGHT_BG[hl.color], faint(hl));
       if (selection) paint(selection, "selection", "var(--selection)");
       setRects(out);
     };
@@ -122,7 +132,7 @@ export function HighlightMarks({
       alive = false;
       ro.disconnect();
     };
-  }, [highlights, selection, layoutKey, boxRef, flowRef]);
+  }, [highlights, selection, layoutKey, boxRef, flowRef, shown]);
 
   return (
     <svg
@@ -140,6 +150,8 @@ export function HighlightMarks({
           height={r.h}
           rx={RADIUS}
           fill={r.color}
+          fillOpacity={r.faint ? FAINT : undefined}
+          className="transition-[fill-opacity] duration-200"
         />
       ))}
     </svg>

@@ -217,7 +217,7 @@ const da: typeof en = {
     title: "Farvekode",
     showAll: "Vis alle",
     count: "{{shown}} af {{all}}",
-    showing: "Viser markeringer i {{colors}}",
+    showing: "{{colors}} fremhævet; andre farver tonet ned",
     showingAll: "Viser alle markeringer",
   },
   colorNames: {

@@ -12,7 +12,8 @@ const OPEN_KEY = "colourKeyOpen";
 /**
  * The colour key (bottom-left of the sheet): what each colour means, once
  * the reader has named one ("blue = God speaking"), and a filter — click a
- * colour to show only its highlights, click others to add or drop them,
+ * colour to bring its highlights forward (the rest turn see-through), click
+ * others to add or drop them,
  * "Show all" to reset. Folds to a small chip; the fold is remembered on this
  * device, the filter only for the session.
  */
