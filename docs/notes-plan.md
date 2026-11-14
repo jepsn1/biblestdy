@@ -59,14 +59,16 @@ Sofie (book designer), Birthe (68, low vision), Jonas (a11y), Mads (interaction)
 - Entry points: sidebar "Notes" link, palette "All notes" action.
 
 ### Phase 2 — linking (issues)
-- Note-to-note links + backlinks ("Linked from").
-- Reference editing: reorder (position column), edit a range, translation shown per reference, cross-chapter ranges (multi-anchor or range anchor).
-- Trash view for deleted notes (restore within the purge window).
-- Retire chapter tags: migrate `passage_tag` into notes or keep as "chapter topics" — decide with data.
+- Note-to-note links + backlinks ("Linked from") — #116.
+- Reference editing: reorder (position column), edit a range, translation shown per reference, cross-chapter ranges, searchable "Create note link…" picker — #117.
+- Trash view for deleted notes (restore within the purge window) — #118.
+- Retire chapter tags: migrate `passage_tag` into notes or keep as "chapter topics" — decide with data — #119.
 
 ### Phase 3 — seeing the web of study
-- Graph view (opt-in, from the Notes page).
-- Markdown export (includes references + links), per VISION.
+- Graph view (opt-in, from the Notes page) — #120.
+- Markdown export (includes references + links), per VISION — #121.
 
 ### Sermon mode (#112) prerequisites
-- Note `source` (manual / sermon) + transcript attachment, AI-proposed references kept as suggestions the user accepts. Only audio/transcript goes to the model, never Bible text.
+- Note `source` (manual / sermon) + transcript attachment, AI-proposed references kept as suggestions the user accepts. Only audio/transcript goes to the model, never Bible text — #122.
+
+Also found: editor placeholder fails AA contrast (pre-existing) — #123.
