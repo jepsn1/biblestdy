@@ -197,6 +197,145 @@ export default {
     deleteError: "Deletion failed — try again.",
     deleteCancel: "Keep my account",
   },
+  landing: {
+    metaTitle: "biblestdy — a quiet place to study the Bible",
+    metaDescription:
+      "Read Scripture, mark what speaks to you, and keep your notes with the passages they belong to. Free, private, in Danish and English.",
+    signIn: "Sign in",
+    eyebrow: "For anyone who reads the Bible",
+    heroTitleA: "Scripture first.",
+    heroTitleB: "Your notes beside it.",
+    heroBody:
+      "biblestdy is a quiet place to read the Bible, mark what you notice, and keep your thoughts with the passages they belong to \u2014 so you can come back to them.",
+    ctaStart: "Start reading",
+    ctaHow: "See how it works",
+    ctaNote: "Free. Sign in with your email \u2014 we send you a code. No password, no ads, no tracking.",
+    whyVerse:
+      "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
+    whyVerseRef: "John 5:39\u201340 \u00b7 WEB",
+    whyBody1:
+      "Reading the Bible is not the goal in itself, and neither is collecting notes. The Scriptures point to Jesus Christ \u2014 and in him is life.",
+    whyBody2:
+      "So biblestdy tries to stay out of the way. The text comes first \u2014 with room to listen, and a place to keep what you learn.",
+    howEyebrow: "How you study",
+    howTitle: "Mark it the way you would on paper",
+    howBody:
+      "Select a few words, then decide how much to say about them — from nothing at all to a full page.",
+    howHighlightTitle: "Highlight",
+    howHighlightBody:
+      "A stroke of marker over the words that stopped you. Six colours, no text needed.",
+    howMarginTitle: "Scribble in the margin",
+    howMarginBody:
+      "Circle a phrase or bracket a passage and jot a short thought beside it — like a pencil in your Bible.",
+    howNoteTitle: "Write a note",
+    howNoteBody:
+      "A full note for what needs more room: a sermon, a question, a study. It sits next to the text, not somewhere else.",
+    growEyebrow: "Study that stays",
+    growTitle: "Nothing you learn gets lost",
+    growBody:
+      "Passages shed light on one another. Your notes can follow the thread across books \u2014 and find you again when you return.",
+    growLinkTitle: "One note, many passages",
+    growLinkBody:
+      "Attach a note to every passage it touches. Open any of them and the note is there.",
+    growTopicTitle: "Topics",
+    growTopicBody:
+      "Tag notes and passages \u2014 grace, prayer, forgiveness \u2014 and see everything on a topic in one place.",
+    growReturnTitle: "Find it again",
+    growReturnBody:
+      "Come back to a chapter and your notes are waiting, along with where else they point.",
+    readEyebrow: "Made for reading",
+    readTitle: "A page, not a feed",
+    readBody:
+      "The whole chapter laid out like a printed Bible, so you read passages in context instead of scrolling past single verses.",
+    readPagesTitle: "Turn the page",
+    readPagesBody:
+      "Chapters are set as pages you turn. Verse numbers and the translators\u2019 section headings sit where you expect them, set apart from the text itself.",
+    readTranslationsTitle: "Several translations",
+    readTranslationsBody:
+      "In English: NIV, NKJV and the World English Bible. In Danish: Bibelen p\u00e5 hverdagsdansk. Your notes stay where you wrote them \u2014 switch translation and the verses you\u2019ve written about are still marked.",
+    readLookTitle: "Paper or Clean, light or dark",
+    readLookBody: "A warm printed page or a plain modern one — by day or by night.",
+    readSizeTitle: "Text as large as you need",
+    readSizeBody: "Turn the text size up to 200%; everything else grows with it.",
+    readDevicesTitle: "Desk, tablet and phone",
+    readDevicesBody:
+      "Study at your desk, read in your armchair. Add it to your home screen and it opens like an app.",
+    readKeysTitle: "Keyboard, if you like",
+    readKeysBody:
+      "Type a reference like “rom 8:28” to go straight there. Shortcuts for those who study a lot.",
+    promiseEyebrow: "What we hold to",
+    promiseTitle: "A few promises",
+    promiseInterpretTitle: "Scripture stays Scripture",
+    promiseInterpretBody:
+      "The Bible text is shown unaltered, with its copyright. Your notes \u2014 and anything we add later \u2014 sit beside the text, never mixed into it.",
+    promisePrivateTitle: "Yours, and private",
+    promisePrivateBody:
+      "Your notes are yours. No tracking, no ads, and we never sell your data. Delete everything whenever you want.",
+    promiseFreeTitle: "Free",
+    promiseFreeBody:
+      "Reading, highlights, margin notes, notes and topics are free, and will stay free. No ads.",
+    faqTitle: "Questions",
+    madeBy: "Made by Marcus",
+    faq: {
+      who: {
+        q: "Who is behind biblestdy?",
+        a: "Hi, I\u2019m Marcus. I build biblestdy on my own, in Denmark \u2014 run through my small company MJK Holding ApS, so there is someone accountable behind it. Follow along on Instagram, or write to marcus@jepsn.com.",
+      },
+      new: {
+        q: "I\u2019m new to the Bible (or haven\u2019t read it in years). Is this for me?",
+        a: "Yes. You don\u2019t need to know anything first. Many people begin with the Gospel of Mark \u2014 it\u2019s short and tells about Jesus from the start. Read a chapter at a time and mark what you notice.",
+      },
+      free: {
+        q: "Does it cost anything?",
+        a: "No. Reading, marking, notes and topics are free, and will stay free. No ads. biblestdy is built by one person in Denmark.",
+      },
+      translations: {
+        q: "Which Bible translations can I read?",
+        a: "In English: NIV, NKJV and the World English Bible. In Danish: Bibelen p\u00e5 hverdagsdansk, an easy-to-read translation in modern Danish. The authorised 1992 translation and Bibelen 2020 are not available yet \u2014 that needs an agreement with Bibelselskabet. The text comes from licensed sources and is shown unaltered, with its copyright notice.",
+      },
+      private: {
+        q: "Who can see my notes?",
+        a: "Only you. We store your email and what you write yourself, tied to your account so it follows you between devices. Nobody else can read it, and we never sell or share data.",
+      },
+      phone: {
+        q: "Does it work on my phone or iPad?",
+        a: "Yes, in the browser. To get it on your home screen on iPhone or iPad: open biblestdy.com in Safari, tap the Share button (the square with an arrow pointing up), and choose \u201cAdd to Home Screen\u201d. It then sits among your other apps and opens full-screen.",
+      },
+      group: {
+        q: "Can we use it in a Bible study group?",
+        a: "Yes \u2014 for now each on your own. Everyone reads the same passage with their own notes, and you share what you found when you meet \u2014 not through the app.",
+      },
+      password: {
+        q: "How do I sign in?",
+        a: "Type your email and we send you a code. There is no password to remember.",
+      },
+      danish: {
+        q: "Is it in Danish?",
+        a: "Yes. The whole app is in Danish and English \u2014 choose either, whichever Bible translation you read.",
+      },
+    },
+    closeTitle: "Take up and read.",
+    closeBody: "Open a chapter, mark what you notice, and let your study grow at your own pace.",
+    vis: {
+      tryColours: "Try a colour",
+      marginNote: "every morning, before the news",
+      noteTitle: "Still before God",
+      noteBody: "Read beside 1 Kings 19:12 \u2014 God was not in the storm, but in the quiet.",
+      diagramCaption: "One note, three passages. Open any of them and it\u2019s there.",
+      looksCaption: "Paper or Clean, light or dark \u2014 whatever is restful for your eyes.",
+      phoneCaption: "On your phone: one column at a time, big enough to read.",
+    },
+    mock: {
+      margin: "begins now, not only someday \u2014 cf. v. 36",
+      noteLabel: "Your note",
+      noteTitle: "God gives first",
+      noteBody:
+        "Love here is not a feeling but a gift: he gave his Son. Paul says the same — while we were yet sinners.",
+      topicsLabel: "Topics",
+      topic1: "love",
+      topic2: "grace",
+    },
+  },
   support: {
     title: "biblestdy is free",
     body: "Hi, I'm Marcus. I build biblestdy on my own, with no ads. I don't take donations yet, but if you like it, follow along on Instagram.",
@@ -265,7 +404,7 @@ export default {
       "You can delete your account at any time from the settings inside the app. Deletion is immediate and removes everything you ever stored.",
     operatorTitle: "Who runs biblestdy",
     operatorBody:
-      "biblestdy is run by {{name}} (CVR {{cvr}}), {{country}}, which is responsible for your data (the data controller). It is a free, non-commercial project.",
+      "biblestdy is run by {{name}} (CVR {{cvr}}), {{country}}, which is responsible for your data (the data controller).",
     contactTitle: "Questions or help",
     contactBody: "Write us — support and privacy questions alike:",
     backToApp: "back to biblestdy",
