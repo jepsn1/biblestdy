@@ -11,7 +11,7 @@
  *   one column up to SINGLE_MAX (paged the same way).
  */
 
-export const FLIP_STRIP = 2; // edge gutter each side (once the page-flip strips; #52 dropped them)
+export const FLIP_STRIP = 3; // edge gutter each side: the page-turn strips (and the tool palette, left)
 export const PAD = 1.5; // content box inline padding (px-6), each side
 export const COL_GAP = 3.5; // gap-x-14
 export const COL_MAX = 27; // ≈55 chars/line at text-reading Literata
@@ -53,7 +53,7 @@ const BOX_MIN_PX = 90;
 /** …nor than this many rem (large text sizes, #61). */
 export const BOX_MIN_REM = 5;
 /** px a box keeps from the pane edge (annotation-marks EDGE) + from the text. */
-const BOX_CLEARANCE_PX = 36 + 8;
+const BOX_CLEARANCE_PX = 52 + 8;
 
 /** Do margin boxes fit beside the text at this layout and rem size? The
  * narrowest box, pushed against the pane edge, must end before the text
