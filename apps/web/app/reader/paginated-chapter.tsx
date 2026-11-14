@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams, useViewTransitionState } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
@@ -557,6 +557,21 @@ export function PaginatedChapter({
    * the new page. Any other page change (reflow) turns to the focus instead. */
   const userTurn = useRef(false);
 
+  // Crossing into a chapter is one more page turn: the sheet slides
+  // the same way (a view transition, app.css), unless motion is reduced
+  const { pathname } = useLocation();
+  const sliding = useViewTransitionState(pathname);
+  useEffect(() => {
+    if (!sliding) delete document.documentElement.dataset.chapterTurn;
+  }, [sliding]);
+  function crossTo(target: ChapterRef, dir: "prev" | "next", landing?: number | "last") {
+    const slide =
+      typeof document.startViewTransition === "function" &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (slide) document.documentElement.dataset.chapterTurn = dir;
+    navigate(chapterHref(target, landing), { viewTransition: slide });
+  }
+
   function goPrev() {
     userTurn.current = true;
     if (!scrollMode && page > 0) {
@@ -564,7 +579,7 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page - 1);
-    } else if (prevChapter) navigate(chapterHref(prevChapter, scrollMode ? 0 : "last"));
+    } else if (prevChapter) crossTo(prevChapter, "prev", scrollMode ? 0 : "last");
   }
 
   function goNext() {
@@ -574,7 +589,7 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page + 1);
-    } else if (nextChapter) navigate(chapterHref(nextChapter));
+    } else if (nextChapter) crossTo(nextChapter, "next");
   }
 
   /** "John 4" — localized book names where the UI has them (#52). */
@@ -710,8 +725,8 @@ export function PaginatedChapter({
         return;
       }
       // Chapters (#65): [ / ] — the chapter's start, both ways
-      if (event.key === "[" && prevChapter) navigate(chapterHref(prevChapter));
-      if (event.key === "]" && nextChapter) navigate(chapterHref(nextChapter));
+      if (event.key === "[" && prevChapter) crossTo(prevChapter, "prev");
+      if (event.key === "]" && nextChapter) crossTo(nextChapter, "next");
       if (scrollMode) return; // no pages to turn; arrows stay native
       // Palette tools: V puts down; Shift + the menu's own letter picks one
       // (Shift so a stray key never drops the reader into a mode)
@@ -939,7 +954,7 @@ export function PaginatedChapter({
         page={scrollMode ? 0 : page}
         stride={scrollMode ? 0 : stride}
         penHost={penHost}
-        marginHidden={turning}
+        marginHidden={turning || sliding}
         compact={scrollMode}
         marginBoxes={marginBoxes}
         railChips={!scrollMode}
@@ -983,7 +998,7 @@ export function PaginatedChapter({
         {scrollMode ? (
           /* Phone: one ragged-right column, scrolled vertically. The ink
              layers share the region's box, so they scroll with the text. */
-          <ScrollArea ref={scrollRef} className="h-full">
+          <ScrollArea ref={scrollRef} data-chapter-sheet className="h-full">
             <div ref={regionRef} className="relative isolate">
               <div ref={contentBoxRef} className="relative px-4 pt-8 pb-16">
                 <div
@@ -1015,6 +1030,7 @@ export function PaginatedChapter({
                     the pane, so columns never run tall on big screens */}
                 <div
                   ref={contentBoxRef}
+                  data-chapter-sheet
                   className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-6 pb-6"
                   style={{ width: `${layout.contentWidth}rem` }}
                 >

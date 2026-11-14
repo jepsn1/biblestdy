@@ -385,6 +385,79 @@
 }
 
 /*
+ * Chapter turn: crossing into the next/previous chapter slides the sheet
+ * exactly like an in-chapter page turn (300ms, Tailwind's transition easing)
+ * — a view transition on [data-chapter-sheet] (the paged content box, or the
+ * phone's scroll pane), so the words and their ink move together. The rest
+ * of the page switches at once, as in a page turn; clicks go through.
+ * `data-chapter-turn` (next|prev) is set by the reader only for this, and
+ * never under reduced motion.
+ */
+:root[data-chapter-turn] [data-chapter-sheet] {
+  view-transition-name: chapter-sheet;
+}
+:root[data-chapter-turn]::view-transition {
+  pointer-events: none;
+}
+:root[data-chapter-turn]::view-transition-old(root),
+:root[data-chapter-turn]::view-transition-new(root) {
+  animation: none;
+}
+:root[data-chapter-turn]::view-transition-group(chapter-sheet) {
+  animation-duration: 300ms;
+}
+:root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
+  overflow: hidden;
+}
+:root[data-chapter-turn]::view-transition-old(chapter-sheet),
+:root[data-chapter-turn]::view-transition-new(chapter-sheet) {
+  height: 100%;
+  mix-blend-mode: normal;
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: both;
+}
+:root[data-chapter-turn="next"]::view-transition-old(chapter-sheet) {
+  animation-name: sheet-to-left;
+}
+:root[data-chapter-turn="next"]::view-transition-new(chapter-sheet) {
+  animation-name: sheet-from-right;
+}
+:root[data-chapter-turn="prev"]::view-transition-old(chapter-sheet) {
+  animation-name: sheet-to-right;
+}
+:root[data-chapter-turn="prev"]::view-transition-new(chapter-sheet) {
+  animation-name: sheet-from-left;
+}
+@keyframes sheet-to-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sheet-from-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-to-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/*
  * Landing page (signed-out `/`). `.force-light` pins a preview subtree to the
  * light tokens even when the visitor's page is dark (the "four looks" row);
  * `.dark` on a subtree already forces dark. Draw-in animations: the hero
