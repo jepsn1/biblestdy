@@ -132,9 +132,10 @@
   --secondary-foreground: oklch(0.26 0.02 80);
   --muted: oklch(0.925 0.012 88);
   --muted-foreground: oklch(0.5 0.02 82);
-  /* Passage (section) headings in the text: a sage green (not blue — that's the pen),
-     ≥ 4.5:1 on --background (5.7:1) */
-  --passage: oklch(0.48 0.08 145);
+  /* Passage (section) headings: rubric red, like a printed Bible's section
+     heads — muted brick, darker and lower-chroma than --destructive, not a
+     highlight hue (washes) nor the pen's blue. 6.3:1 on --background */
+  --passage: oklch(0.48 0.12 33);
   --accent: oklch(0.9 0.02 88);
   --accent-foreground: oklch(0.26 0.02 80);
   --destructive: oklch(0.55 0.19 25);
@@ -185,7 +186,7 @@
   --secondary-foreground: oklch(0.92 0.015 90);
   --muted: oklch(0.25 0.01 80);
   --muted-foreground: oklch(0.64 0.02 85);
-  --passage: oklch(0.78 0.08 145); /* 9.8:1 */
+  --passage: oklch(0.75 0.1 40); /* warm terracotta rubric, 8.3:1 */
   --accent: oklch(0.28 0.02 85);
   --accent-foreground: oklch(0.92 0.015 90);
   --destructive: oklch(0.62 0.19 25);
@@ -241,7 +242,7 @@
   --secondary-foreground: oklch(0.21 0.006 286);
   --muted: oklch(0.967 0.001 286);
   --muted-foreground: oklch(0.53 0.014 286);
-  --passage: oklch(0.52 0.13 150); /* a clear green on white, 5.2:1 */
+  --passage: oklch(0.5 0.15 32); /* rubric red on white, 6.5:1 */
   --accent: oklch(0.967 0.001 286);
   --accent-foreground: oklch(0.21 0.006 286);
   --destructive: oklch(0.577 0.245 27);
@@ -278,7 +279,7 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.21 0.006 286);
   --muted-foreground: oklch(0.705 0.015 286);
-  --passage: oklch(0.79 0.12 155); /* 10.8:1 */
+  --passage: oklch(0.75 0.12 38); /* 8.6:1 */
   --accent: oklch(0.27 0.006 286);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22);
