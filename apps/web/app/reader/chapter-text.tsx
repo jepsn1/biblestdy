@@ -13,6 +13,7 @@ import { FileText, X } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
+import type { ReaderTool } from "./tool-palette";
 import { notifyCopied, notifyCopyFailed } from "~/lib/notify";
 import { cn, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
@@ -125,6 +126,7 @@ export function ChapterText({
   onAttachNote,
   onOpenNote,
   onFocusAnnotation,
+  tool,
   onSelectionChange,
   rovingVerse,
   onRovingVerseChange,
@@ -158,6 +160,8 @@ export function ChapterText({
   onAttachNote: (noteId: string, anchor: Anchor) => void;
   onOpenNote: (id: string) => void;
   onFocusAnnotation: (id: string | null) => void;
+  /** Desktop tool palette: a tool acts on each selection directly (no menu). */
+  tool?: ReaderTool;
   /** The live selection (wash painted by HighlightMarks, behind the text). */
   onSelectionChange: (anchor: Anchor | null) => void;
   /** The verse Tab lands on (#65): kept on the current page by the reader;
@@ -573,6 +577,41 @@ export function ChapterText({
     return { verse: Number(el.dataset.verse), word: Number(el.dataset.word) };
   }
 
+  /** A tool from the palette is on: selections get it straight away. */
+  const activeTool = !mobile && tool && tool.kind !== "select" ? tool : null;
+  const touchSelNow = useRef(touchSel);
+  touchSelNow.current = touchSel;
+
+  function applyTool(t: ReaderTool, anchor: Anchor) {
+    const at = (v: number, w: number) => v * 100000 + w;
+    const overlaps = (x: Anchor) =>
+      at(x.startVerse, x.startWord) <= at(anchor.endVerse, anchor.endWord) &&
+      at(anchor.startVerse, anchor.startWord) <= at(x.endVerse, x.endWord);
+    if (t.kind === "annotate") {
+      // The composer, wash kept on the words. After the stroke's own click
+      // (fired on the words' common parent) — else it reads as an outside press
+      window.setTimeout(() => keyAction("m", anchor, null), 0);
+      return;
+    }
+    setTouchSel(null);
+    if (t.kind === "highlight") {
+      const same = highlights.find(
+        (h) =>
+          h.startVerse === anchor.startVerse &&
+          h.startWord === anchor.startWord &&
+          h.endVerse === anchor.endVerse &&
+          h.endWord === anchor.endWord,
+      );
+      if (!same) addHighlight(anchor, t.color);
+      else if (same.color !== t.color) onRecolorHighlight(same.id, t.color);
+    } else if (t.kind === "note") onAddNote(anchor);
+    else if (t.kind === "erase") {
+      // Highlights and annotations the stroke touches (notes are never erased)
+      for (const h of highlights) if (overlaps(h)) onRemoveHighlight(h.id);
+      for (const a of annotations) if (overlaps(a)) onRemoveAnnotation(a.id);
+    }
+  }
+
   /** Desktop drag-select: native selection is off everywhere (no half words
    * possible) — a mouse drag paints the same word-snapped wash the phone
    * handles do, and the release opens the menu. */
@@ -603,6 +642,11 @@ export function ChapterText({
   function onPointerUp(event: React.PointerEvent) {
     const drag = dragSel.current;
     dragSel.current = null;
+    if (drag?.moved && activeTool) {
+      const sel = touchSelNow.current;
+      if (sel) applyTool(activeTool, buildAnchor(passage, sel.a, sel.b));
+      return;
+    }
     if (drag?.moved) {
       setTouchSel((sel) => {
         if (sel) setMenu({ kind: "selection", anchor: buildAnchor(passage, sel.a, sel.b) });
@@ -619,6 +663,17 @@ export function ChapterText({
   function onWordClick(event: React.PointerEvent, pos: WordPos) {
     const markId = annotationCoverage.get(`${pos.verse}:${pos.word}`)?.id;
     const hit = hlCoverage.get(`${pos.verse}:${pos.word}`);
+    if (activeTool) {
+      // A click is a one-word stroke; the eraser takes what's under it
+      event.stopPropagation();
+      if (activeTool.kind === "erase") {
+        if (markId && !markId.startsWith("note:")) onRemoveAnnotation(markId);
+        else if (hit) onRemoveHighlight(hit.id);
+      } else if (activeTool.kind === "highlight" && hit) {
+        if (hit.color !== activeTool.color) onRecolorHighlight(hit.id, activeTool.color);
+      } else applyTool(activeTool, buildAnchor(passage, pos, pos));
+      return;
+    }
     if (markId?.startsWith("note:")) {
       event.stopPropagation();
       onOpenNote(markId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel

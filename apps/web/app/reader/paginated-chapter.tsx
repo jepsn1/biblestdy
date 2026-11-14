@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, NoteAnchor, Translation } from "@biblestdy/shared";
+import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -8,6 +8,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/componen
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Hint } from "~/components/hint";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
+import { authClient } from "~/lib/auth-client";
 import { useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
@@ -30,6 +31,7 @@ import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { boxesFitLane, LANE, RAIL, sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
+import { PALETTE_BOX, ToolPalette, ToolStatus, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
@@ -132,6 +134,20 @@ export function PaginatedChapter({
   const [resolvedKey, setResolvedKey] = useState<string | null>(null);
   /** Slide only for the reader's own page turns, never on arrival. */
   const [animate, setAnimate] = useState(false);
+  // Tool palette (desktop): Select by default; the highlighter starts in the
+  // reader's own colour until they pick another
+  const { data: session } = authClient.useSession();
+  const prefColor = session?.user.defaultHighlightColor;
+  const [toolPick, setToolPick] = useState<{ kind: ToolKind; color: HighlightColor | null }>({
+    kind: "select",
+    color: null,
+  });
+  const tool: ReaderTool = {
+    kind: toolPick.kind,
+    color:
+      toolPick.color ??
+      (HIGHLIGHT_COLORS.includes(prefColor as HighlightColor) ? (prefColor as HighlightColor) : DEFAULT_HIGHLIGHT_COLOR),
+  };
   /** Mid-slide: pane-fixed margin ink waits (see AnnotationMarks). */
   const [turning, setTurning] = useState(false);
   /** Inside the content box, sliding with the text: circles/brackets. */
@@ -647,6 +663,11 @@ export function PaginatedChapter({
         return;
       }
       if (ignoreShortcut(event)) return; // typing, modifiers, open modal
+      // Esc puts a palette tool down (Select again) — once no menu wants it
+      if (event.key === "Escape" && tool.kind !== "select" && !document.querySelector("[role='menu'][data-open]")) {
+        setToolPick((p) => ({ ...p, kind: "select" }));
+        return;
+      }
       // Chapters (#65): [ / ] — the chapter's start, both ways
       if (event.key === "[" && prevChapter) navigate(chapterHref(prevChapter));
       if (event.key === "]" && nextChapter) navigate(chapterHref(nextChapter));
@@ -817,6 +838,7 @@ export function PaginatedChapter({
       onAttachNote={(noteId, anchor) => void notesApi.attach(noteId, anchor)}
       onOpenNote={setOpenNoteId}
       onFocusAnnotation={setActiveAnnotationId}
+      tool={scrollMode ? undefined : tool}
     />
   );
 
@@ -957,6 +979,7 @@ export function PaginatedChapter({
                     className={cn(
                       "h-full max-h-[34em] touch-manipulation text-left font-serif text-reading leading-[1.55] text-foreground outline-none [column-fill:auto] gap-x-14 [.style-clean_&]:leading-[1.6]",
                       layout.columns === 2 ? "columns-2" : "columns-1",
+                      tool.kind !== "select" && "[&_[data-word]]:cursor-crosshair",
                       animate && "transition-transform duration-300 motion-reduce:transition-none",
                     )}
                     style={{ transform: `translateX(-${page * stride}px)` }}
@@ -974,6 +997,7 @@ export function PaginatedChapter({
                 each pane edge with a visible arrow — click/tap anywhere on it.
                 At a chapter boundary it names where it goes. */}
             <div className="absolute inset-y-0 left-0 z-20 flex w-12 flex-col">
+              <ToolPalette tool={tool} onChange={setToolPick} />
               <PageTurn
                 dir="prev"
                 target={prevTarget ? refLabel(prevTarget) : null}
@@ -982,6 +1006,7 @@ export function PaginatedChapter({
               />
             </div>
             <div className="absolute inset-y-0 right-0 z-20 flex w-12 flex-col">
+              <div aria-hidden className={cn(PALETTE_BOX, "pointer-events-none")} />
               <PageTurn
                 dir="next"
                 target={nextTarget ? refLabel(nextTarget) : null}
@@ -989,6 +1014,7 @@ export function PaginatedChapter({
                 onClick={goNext}
               />
             </div>
+            <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
           </>
         )}
       </div>
