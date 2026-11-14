@@ -211,6 +211,13 @@ export default {
     continue: "Continue",
     changeLater: "You can change this anytime in settings.",
   },
+  colourKey: {
+    title: "Colour key",
+    showAll: "Show all",
+    count: "{{shown}} of {{all}}",
+    showing: "Showing highlights in {{colors}}",
+    showingAll: "Showing all highlights",
+  },
   colorNames: {
     open: "Name colours…",
     setting: "Highlight colours",
