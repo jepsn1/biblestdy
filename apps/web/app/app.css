@@ -392,7 +392,8 @@
  * ink waits and fades in, as on a page turn. The rest of the page switches
  * at once; clicks go through.
  * `data-chapter-turn` (next|prev) is set by the reader only for this, and
- * never under reduced motion.
+ * never under reduced motion; `--turn-distance` = the page stride (paged),
+ * so old and new pages travel together like an in-chapter turn.
  */
 :root[data-chapter-turn] [data-chapter-sheet] {
   view-transition-name: chapter-sheet;
@@ -438,22 +439,22 @@
 }
 @keyframes sheet-to-left {
   to {
-    transform: translateX(-100%);
+    transform: translateX(calc(-1 * var(--turn-distance, 100%)));
   }
 }
 @keyframes sheet-from-right {
   from {
-    transform: translateX(100%);
+    transform: translateX(var(--turn-distance, 100%));
   }
 }
 @keyframes sheet-to-right {
   to {
-    transform: translateX(100%);
+    transform: translateX(var(--turn-distance, 100%));
   }
 }
 @keyframes sheet-from-left {
   from {
-    transform: translateX(-100%);
+    transform: translateX(calc(-1 * var(--turn-distance, 100%)));
   }
 }
 @media (prefers-reduced-motion: reduce) {

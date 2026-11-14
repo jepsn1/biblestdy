@@ -568,7 +568,11 @@ export function PaginatedChapter({
     const slide =
       typeof document.startViewTransition === "function" &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (slide) document.documentElement.dataset.chapterTurn = dir;
+    const root = document.documentElement;
+    if (slide) root.dataset.chapterTurn = dir;
+    // Paged: travel one page stride, as a page turn does (not the wider pane)
+    if (stride > 0) root.style.setProperty("--turn-distance", `${stride}px`);
+    else root.style.removeProperty("--turn-distance");
     navigate(chapterHref(target, landing), { viewTransition: slide });
   }
 
