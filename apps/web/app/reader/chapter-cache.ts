@@ -17,14 +17,25 @@ import { notesQuery, otherVersionsQuery } from "./use-notes";
  */
 const MAX_KEPT = 30;
 const kept = new Map<string, Promise<Chapter>>();
-/** A refused prefetch (reading quota, #29) stops prefetching for a while —
- * reading ahead must never be what runs a reader into the limit. */
+/** Reading ahead must never be what runs a reader into the reading quota
+ * (#29: 20 at once, then one per 3 s): it only fetches while this tab has
+ * fetched fewer than PREFETCH_BUDGET chapters in the last minute (reading
+ * on costs one — the chapter behind is already here), and a refusal stops
+ * it for a while. */
+const PREFETCH_BUDGET = 6;
+const fetchedAt: number[] = [];
 let limitedUntil = 0;
 const LIMIT_PAUSE_MS = 10 * 60_000;
+
+function budgetLeft(now: number) {
+  while (fetchedAt.length && fetchedAt[0] < now - 60_000) fetchedAt.shift();
+  return fetchedAt.length < PREFETCH_BUDGET;
+}
 
 const keyOf = (translationId: string, ref: ChapterRef) => `${translationId}/${ref.book}/${ref.chapter}`;
 
 async function fetchChapter(translationId: string, ref: ChapterRef): Promise<Chapter> {
+  fetchedAt.push(Date.now());
   const res = await fetchScripture(`/api/passages/${translationId}/${ref.book}/${ref.chapter}`);
   if (res.status === 404 || res.status === 400) {
     throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
@@ -59,9 +70,10 @@ export function loadChapter(translationId: string, ref: ChapterRef): Promise<Cha
  * per-chapter study data the reader draws (marks decide the margin lanes,
  * so they must be in before the first paint for the page count to hold). */
 export function prefetchNeighbours(translationId: string, refs: (ChapterRef | null)[]) {
-  if (Date.now() < limitedUntil) return;
+  const now = Date.now();
+  if (now < limitedUntil) return;
   for (const ref of refs) {
-    if (!ref) continue;
+    if (!ref || (!kept.has(keyOf(translationId, ref)) && !budgetLeft(now))) continue;
     loadChapter(translationId, ref).catch(() => {}); // the real visit reports errors
     const { book, chapter } = ref;
     void queryClient.prefetchQuery(highlightsQuery(translationId, book, chapter));

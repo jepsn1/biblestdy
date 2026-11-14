@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, AnnotationMark, WordPos } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, AnnotationMark, Verse, WordPos } from "@biblestdy/shared";
 import {
   anchorReference,
   buildAnchor,
@@ -781,6 +781,30 @@ export function ChapterText({
   blocks.forEach((b, bi) => b.pieces.forEach((p, pi) => lastPiece.set(p.verse.verse, `${bi}:${pi}`)));
   // The verse's own number is its keyboard stop (#65) — the first one only
   const numbered = new Set<number>();
+  // The chapter's numeral stands in for the first verse's number, like a
+  // printed Bible — and is that verse's keyboard stop, named as the verse
+  const opening = blocks[0]?.pieces[0];
+  if (opening?.showNumber) numbered.add(opening.verse.verse);
+  const chapterNumeral = (v: Verse, set: "float" | "above") => (
+    <span
+      {...{ [VERSE_FOCUS]: v.verse }}
+      data-chapter-numeral
+      role="button"
+      aria-haspopup="menu"
+      aria-label={t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text })}
+      tabIndex={v.verse === tabVerse ? 0 : -1}
+      className={cn(
+        set === "float"
+          ? // Two lines deep, its top on the first line's capitals
+            "float-left mt-[0.06em] mr-[0.14em] -ml-[0.04em]"
+          : "inline-block",
+        "rounded-sm font-serif text-[3.15em] leading-[0.9] font-medium text-foreground tabular-nums lining-nums select-none",
+        focusRing,
+      )}
+    >
+      {chapter.chapter}
+    </span>
+  );
 
   return (
     <div
@@ -845,6 +869,11 @@ export function ChapterText({
               {title}
             </h2>
           ))}
+          {bi === 0 && block.kind === "poetry" && opening?.showNumber && (
+            // Poetry (a psalm) is set line by line — nothing to wrap around
+            // the numeral, so it stands above the first line
+            <p className="mb-[0.15em]">{chapterNumeral(opening.verse, "above")}</p>
+          )}
           <p
             data-block={block.kind}
             className={block.stanza ? "mt-[0.85em]" : undefined}
@@ -865,26 +894,8 @@ export function ChapterText({
                 <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
                   {piece.showNumber &&
                     (bi === 0 && pi === 0 ? (
-                      (numbered.add(v.verse),
-                      (
-                        // The chapter's numeral stands in for verse 1's number,
-                        // dropped two lines deep beside the opening words — and
-                        // is that verse's keyboard stop, named as the verse
-                        <span
-                          {...{ [VERSE_FOCUS]: v.verse }}
-                          data-chapter-numeral
-                          role="button"
-                          aria-haspopup="menu"
-                          aria-label={t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text })}
-                          tabIndex={v.verse === tabVerse ? 0 : -1}
-                          className={cn(
-                            "float-left mt-[0.06em] mr-[0.14em] -ml-[0.04em] rounded-sm font-serif text-[3.15em] leading-[0.9] font-medium text-foreground tabular-nums lining-nums select-none [text-indent:0]",
-                            focusRing,
-                          )}
-                        >
-                          {chapter.chapter}
-                        </span>
-                      ))
+                      // Prose: the numeral drops beside the opening lines
+                      block.kind !== "poetry" && chapterNumeral(v, "float")
                     ) : numbered.has(v.verse) ? (
                       <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
                         {v.label ?? v.verse}
