@@ -10,6 +10,8 @@ import {
 import {
   isReaderStyle,
   isTextSize,
+  parseHighlightLabels,
+  HIGHLIGHT_LABEL_MAX,
   type Preferences,
   type PreferencesPatch,
 } from '@biblestdy/shared';
@@ -53,6 +55,15 @@ export class PreferencesController {
         throw new BadRequestException('supportNoticeDismissed must be true');
       }
       patch.supportNoticeDismissed = true;
+    }
+    if (dto.highlightLabels !== undefined) {
+      const labels = parseHighlightLabels(dto.highlightLabels);
+      if (!labels) {
+        throw new BadRequestException(
+          `highlightLabels must map highlight colours to names of at most ${HIGHLIGHT_LABEL_MAX} characters`,
+        );
+      }
+      patch.highlightLabels = labels;
     }
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException('nothing to update');

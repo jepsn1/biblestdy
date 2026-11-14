@@ -4,7 +4,7 @@ import {
   type ReaderStyle,
   type TextSize,
 } from '@biblestdy/shared';
-import { Equals, IsIn, IsOptional } from 'class-validator';
+import { Equals, IsIn, IsObject, IsOptional } from 'class-validator';
 
 /** Any subset of the preferences; the controller requires at least one. */
 export class UpdatePreferencesDto {
@@ -19,4 +19,9 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @Equals(true)
   supportNoticeDismissed?: true;
+
+  /** Shape/length checked by parseHighlightLabels in the controller. */
+  @IsOptional()
+  @IsObject()
+  highlightLabels?: Record<string, unknown>;
 }

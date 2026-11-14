@@ -1,6 +1,7 @@
 import {
   isReaderStyle,
   isTextSize,
+  parseHighlightLabels,
   type Preferences,
   type PreferencesPatch,
 } from '@biblestdy/shared';
@@ -8,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { userPreference } from '../db/schema';
 
-/** Persistence for per-account preferences (#45, #61). */
+/** Persistence for per-account preferences (#45, #61, colour names). */
 export interface PreferencesStore {
   /** Fields are null when there is no row / never chosen. */
   get(userId: string): Promise<Preferences>;
@@ -23,6 +24,7 @@ export class DrizzlePreferencesStore implements PreferencesStore {
         readerStyle: userPreference.readerStyle,
         textSize: userPreference.textSize,
         supportNoticeDismissedAt: userPreference.supportNoticeDismissedAt,
+        highlightLabels: userPreference.highlightLabels,
       })
       .from(userPreference)
       .where(eq(userPreference.userId, userId))
@@ -31,6 +33,8 @@ export class DrizzlePreferencesStore implements PreferencesStore {
       readerStyle: isReaderStyle(row?.readerStyle) ? row.readerStyle : null,
       textSize: isTextSize(row?.textSize) ? row.textSize : null,
       supportNoticeDismissed: !!row?.supportNoticeDismissedAt,
+      // A stored map that no longer parses (a colour retired) reads as defaults
+      highlightLabels: parseHighlightLabels(row?.highlightLabels ?? {}) ?? {},
     };
   }
 

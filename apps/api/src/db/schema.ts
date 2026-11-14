@@ -3,6 +3,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -196,5 +197,10 @@ export const userPreference = pgTable('user_preference', {
   textSize: smallint('text_size'),
   /** One-time support notice closed; null = not yet. */
   supportNoticeDismissedAt: timestamp('support_notice_dismissed_at'),
+  /** Renamed highlight colours only ({blue: "God speaking"}); {} = defaults. */
+  highlightLabels: jsonb('highlight_labels')
+    .$type<Record<string, string>>()
+    .notNull()
+    .default({}),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
