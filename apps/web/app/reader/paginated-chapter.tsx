@@ -28,7 +28,7 @@ import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
-import { boxesFitLane, LANE, PAD, RAIL, sheetLayout } from "./sheet-layout";
+import { boxesFitLane, crossingSlide, LANE, PAD, RAIL, sheetLayout, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { PageFoot, type FootButton } from "./page-foot";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
@@ -583,6 +583,22 @@ export function PaginatedChapter({
   const [sliding, setSliding] = useState(false);
   const turnSeq = useRef(0);
   const readyWait = useRef<{ key: string; resolve: () => void } | null>(null);
+  const turnFrom = useRef<{ dir: "prev" | "next"; stride: number; box: Span } | null>(null);
+  /** The slide's travel + clip (app.css vars on <html>), from the old text
+   * box and the new one (phones: the whole pane, no vars). */
+  function setTurnGeometry(newBox: Span | undefined) {
+    const root = document.documentElement.style;
+    const from = turnFrom.current;
+    const sheet = regionRef.current?.parentElement?.getBoundingClientRect();
+    if (!from || !newBox || !sheet) {
+      for (const v of ["--turn-distance", "--turn-clip-left", "--turn-clip-right"]) root.removeProperty(v);
+      return;
+    }
+    const { distance, clip } = crossingSlide(from.dir, from.stride, from.box, newBox);
+    root.setProperty("--turn-distance", `${distance}px`);
+    root.setProperty("--turn-clip-left", `${Math.max(0, clip.left - sheet.left)}px`);
+    root.setProperty("--turn-clip-right", `${Math.max(0, sheet.right - clip.right)}px`);
+  }
   async function crossTo(target: ChapterRef, dir: "prev" | "next", landing?: number | "last") {
     const href = chapterHref(target, landing);
     const seq = ++turnSeq.current;
@@ -598,16 +614,12 @@ export function PaginatedChapter({
     }
     const root = document.documentElement;
     root.dataset.chapterTurn = dir;
-    // Paged: travel one page stride, as a page turn does (not the wider
-    // pane) — but far enough that the old page leaves the sheet's clip
-    // (left of it is the tool gutter)
-    const sheet = regionRef.current?.parentElement?.getBoundingClientRect();
+    // Paged: inside the text box, one page stride, like a page turn
+    // (crossingSlide). Set for the old box now; the new one refines it once
+    // laid out (below), before the slide starts.
     const box = contentBoxRef.current?.getBoundingClientRect();
-    if (stride > 0 && sheet && box) {
-      const gutter = (parseFloat(getComputedStyle(root).getPropertyValue("--spacing-reader-gutter")) || 0) * pane.rem;
-      const clear = dir === "next" ? box.right - (sheet.left + gutter) : sheet.right - box.left;
-      root.style.setProperty("--turn-distance", `${Math.ceil(Math.max(stride, clear))}px`);
-    } else root.style.removeProperty("--turn-distance");
+    turnFrom.current = stride > 0 && box ? { dir, stride, box: { left: box.left, right: box.right } } : null;
+    setTurnGeometry(turnFrom.current?.box);
     // Margin ink waits out the slide, as on a page turn (also in the old shot)
     flushSync(() => setSliding(true));
     const key = `${chapter.translationId}/${target.book}.${target.chapter}`;
@@ -636,6 +648,8 @@ export function PaginatedChapter({
     const wanted = readyWait.current;
     if (!wanted || wanted.key !== chapterKey || !loaded) return;
     if (!scrollMode && resolvedKey !== chapterKey) return;
+    const box = contentBoxRef.current?.getBoundingClientRect();
+    if (turnFrom.current && box && !scrollMode) setTurnGeometry({ left: box.left, right: box.right });
     wanted.resolve();
   });
 

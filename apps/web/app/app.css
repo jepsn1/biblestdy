@@ -398,8 +398,9 @@
  * ink waits and fades in, as on a page turn. The rest of the page switches
  * at once; clicks go through.
  * `data-chapter-turn` (next|prev) is set by the reader only for this, and
- * never under reduced motion; `--turn-distance` = the page stride (paged),
- * so old and new pages travel together like an in-chapter turn.
+ * never under reduced motion; `--turn-distance` (about one page stride) and
+ * `--turn-clip-*` (the text box) make it travel and clip like an in-chapter
+ * turn (see crossingSlide).
  */
 :root[data-chapter-turn] [data-chapter-sheet] {
   view-transition-name: chapter-sheet;
@@ -429,11 +430,10 @@
 :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
   overflow: hidden;
 }
-/* Paged: the tool palette's gutter stays clear, as on a page turn */
-@media (min-width: 640px) {
-  :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
-    clip-path: inset(0 0 0 3.75rem); /* --spacing-reader-gutter */
-  }
+/* Paged: clipped to the text box, as on a page turn (the union of the old
+   and new chapters' boxes; the reader sets the insets). Phones: the pane. */
+:root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
+  clip-path: inset(0 var(--turn-clip-right, 0) 0 var(--turn-clip-left, 0));
 }
 :root[data-chapter-turn]::view-transition-old(chapter-sheet),
 :root[data-chapter-turn]::view-transition-new(chapter-sheet) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxesFitLane, GUTTER, LANE, RAIL, sheetLayout } from "./sheet-layout";
+import { boxesFitLane, crossingSlide, GUTTER, LANE, RAIL, sheetLayout } from "./sheet-layout";
 
 /** Everything the layout places must fit the pane: no sideways scroll. */
 function fits(paneRem: number, lane: number) {
@@ -63,5 +63,25 @@ describe("boxesFitLane", () => {
   it("with a note panel open, boxes fit from a 42rem pane at 100% (40rem: inline lines)", () => {
     expect(boxesFitLane(sheetLayout(42, LANE), 16)).toBe(true);
     expect(boxesFitLane(sheetLayout(40, LANE), 16)).toBe(false);
+  });
+});
+
+describe("crossingSlide", () => {
+  it("same box: one page stride, clipped to the box (an in-chapter turn)", () => {
+    const box = { left: 400, right: 1368 };
+    expect(crossingSlide("next", 976, box, box)).toEqual({ distance: 976, clip: box });
+    expect(crossingSlide("prev", 976, box, box)).toEqual({ distance: 976, clip: box });
+  });
+
+  it("boxes differ: union clip, far enough that neither page is left in it", () => {
+    const wide = { left: 400, right: 1368 };
+    const narrow = { left: 600, right: 1160 };
+    const next = crossingSlide("next", 976, wide, narrow);
+    expect(next.clip).toEqual(wide);
+    expect(wide.right - next.distance).toBeLessThanOrEqual(next.clip.left); // old out
+    expect(narrow.left + next.distance).toBeGreaterThanOrEqual(next.clip.right); // new starts out
+    const prev = crossingSlide("prev", 568, narrow, wide);
+    expect(narrow.left + prev.distance).toBeGreaterThanOrEqual(prev.clip.right);
+    expect(wide.right - prev.distance).toBeLessThanOrEqual(prev.clip.left);
   });
 });
