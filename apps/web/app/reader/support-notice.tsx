@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, buttonVariants } from "~/components/ui/button";
@@ -38,7 +38,7 @@ export function SupportLinks({ onFollow, quiet }: { onFollow?: () => void; quiet
 /**
  * One-time support notice: a quiet, non-modal card above the reader footer
  * (clear of the page arrows). Doesn't take focus; announced politely.
- * Close, Esc (inside it) or either link snoozes it for 30 days (this device).
+ * The X, Esc (inside it) or either link snoozes it for 30 days (this device).
  */
 export function SupportNotice({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -65,8 +65,15 @@ export function SupportNotice({ onClose }: { onClose: () => void }) {
         <h2 id={titleId} className="min-w-0 flex-1 text-control font-semibold">
           {t("support.title")}
         </h2>
-        <Button variant="outline" size="sm" className="shrink-0 max-sm:h-11 max-sm:px-3" onClick={onClose}>
-          {t("support.close")}
+        <Button
+          variant="ghost"
+          size="icon-lg"
+          aria-label={t("support.close")}
+          title={t("support.close")}
+          className="shrink-0 self-start max-sm:size-11"
+          onClick={onClose}
+        >
+          <X />
         </Button>
       </div>
       <p className="mt-2 text-list">{t("support.body")}</p>
