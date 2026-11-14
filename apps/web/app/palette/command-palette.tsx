@@ -1,7 +1,21 @@
 import type { Tag, Translation } from "@biblestdy/shared";
 import { TEXT_SIZES, translationInfo } from "@biblestdy/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronRight, CornerDownLeft, Search } from "lucide-react";
+import {
+  BookOpen,
+  BookText,
+  Check,
+  ChevronRight,
+  CornerDownLeft,
+  Hash,
+  Highlighter,
+  History,
+  NotebookText,
+  PenLine,
+  Search,
+  SlidersHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -185,6 +199,21 @@ const GROUP_LABEL: Record<GroupId, string> = {
   colors: "palette.groupColors",
   topics: "palette.groupTopics",
   hint: "",
+};
+
+/** Each kind of row has its icon: on the group heading, and on every row
+ * (a highlight's own colour dot stands in), so a mixed list reads at a glance. */
+const GROUP_ICON: Record<GroupId, LucideIcon | null> = {
+  recent: History,
+  passage: BookOpen,
+  books: BookText,
+  actions: SlidersHorizontal,
+  notes: NotebookText,
+  annotations: PenLine,
+  highlights: Highlighter,
+  colors: Highlighter,
+  topics: Hash,
+  hint: null,
 };
 
 /** Bold where the typed words hit (visual only: a plain <b>, so screen
@@ -432,12 +461,21 @@ export function CommandPalette({
           i === active && "bg-accent text-accent-foreground",
         )}
       >
-        {item.color && (
-          <span
-            className="size-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: HIGHLIGHT_SWATCH[item.color] }}
-            aria-hidden
-          />
+        {item.color ? (
+          <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden>
+            <span className="size-2.5 rounded-full" style={{ backgroundColor: HIGHLIGHT_SWATCH[item.color] }} />
+          </span>
+        ) : (
+          GROUP_ICON[item.group] &&
+          (() => {
+            const Icon = GROUP_ICON[item.group]!;
+            return (
+              <Icon
+                className={cn("size-4 shrink-0 text-muted-foreground", i === active && "text-accent-foreground")}
+                aria-hidden
+              />
+            );
+          })()
         )}
         <span className="min-w-0 flex-1">
           <span className={cn("block text-control max-sm:text-phone", item.group === "books" && "font-serif")}>
@@ -556,15 +594,23 @@ export function CommandPalette({
           {status}
         </div>
         <ScrollArea className="min-h-0 flex-1" viewportClassName={isMobile ? undefined : "max-h-[min(60dvh,28rem)]"}>
-          <ul id={listId} role="listbox" aria-label={t("palette.title")} className="p-1.5">
-            {groups.map(({ group, rows }) => {
+          <ul id={listId} role="listbox" aria-label={t("palette.title")} className="px-1.5 pb-1.5">
+            {groups.map(({ group, rows }, g) => {
               const heading = GROUP_LABEL[group];
               if (!heading) return rows.map(({ item, i }) => row(item, i));
               const hid = `${listId}-g-${group}`;
+              const Icon = GROUP_ICON[group];
               return (
-                <li key={group} role="presentation">
-                  <div id={hid} className="eyebrow px-3 pt-3 pb-1" aria-hidden>
-                    {t(heading)}
+                // A section: a rule above it (not the first), its heading in
+                // full ink with its icon, staying put while its rows scroll
+                <li key={`${group}-${g}`} role="presentation" className={cn(g > 0 && "mt-1.5 border-t border-border")}>
+                  <div
+                    className="sticky top-0 z-10 -mx-1.5 flex items-center gap-2 bg-popover px-4.5 pt-3 pb-1.5 text-meta font-semibold text-foreground"
+                    aria-hidden
+                  >
+                    {Icon && <Icon className="size-3.5 shrink-0 text-primary" strokeWidth={2.25} />}
+                    <span id={hid}>{t(heading)}</span>
+                    <span className="ml-auto font-normal text-muted-foreground tabular-nums">{rows.length}</span>
                   </div>
                   <ul role="group" aria-labelledby={hid}>
                     {rows.map(({ item, i }) => row(item, i))}

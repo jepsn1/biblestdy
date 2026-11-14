@@ -29,10 +29,11 @@ import { BOOKS, DANISH_BOOKS, type Book, type BookId, type BookLocale, type Refe
  *    exact (UI language first: "es" = Esther in English, Esajas in Danish),
  *    a name starting with it ("j", "phil"), an abbreviation starting with it,
  *    a numbered book typed without its number ("cor 13" → 1 and 2
- *    Corinthians), then a typo (≤1 edit for 4–6 letters, ≤2 from 7: "jonh",
- *    "phillipians"). An exact match shows only exact matches; otherwise up
- *    to `limit` rows across tiers, each tier in order of how often the book
- *    is read (`POPULAR`): "j3" = John 3, James 3, Job 3…
+ *    Corinthians), then a typo of a name or a long abbreviation ("psalm";
+ *    ≤1 edit for 4–6 letters, ≤2 from 7: "jonh", "phillipians"). An exact
+ *    match shows only exact matches; otherwise up to `limit` rows across
+ *    tiers, each tier in order of how often the book is read (`POPULAR`):
+ *    "j3" = John 3, James 3, Job 3…
  * 6. Impossible places drop out: a chapter past the book's end, a verse past
  *    a one-chapter book's end. Other verse counts aren't known here (they
  *    vary by translation): the reader handles those. A broken range end
@@ -142,7 +143,7 @@ function tier(e: Entry, ord: number | undefined, text: string, locale: BookLocal
     }
     if (k.text === text) take(k.locale === locale ? 0 : 1);
     else if (k.text.startsWith(text)) take(k.name ? 2 : 3);
-    else if (k.name || k.text.length >= 4) {
+    else if (k.name || k.text.length >= 5) {
       const max = typos(text.length);
       if (max && distance(text, k.text, max) <= max) take(5);
     }
