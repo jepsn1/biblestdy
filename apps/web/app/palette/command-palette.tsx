@@ -291,7 +291,7 @@ export function CommandPalette({
       colorLabel,
       colorWords: (c) => [i18n.t(`menu.colors.${c}`), ...both(`menu.colors.${c}`)],
       labels: {
-        goTo: (ref) => t("palette.goTo", { ref }),
+        closest: t("palette.closest"),
         morePassages: (n) => t("palette.morePassages", { count: n }),
         invalid: t("nav.jumpInvalid"),
         noMatches: (q) => t("palette.noMatches", { q }),
