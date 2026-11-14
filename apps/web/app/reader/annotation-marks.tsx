@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Annotation } from "@biblestdy/shared";
+import type { Annotation, AnnotationMark } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
@@ -14,7 +14,10 @@ import {
   leaderPath,
   SCRIBBLE_PAD_X,
   SCRIBBLE_PAD_Y,
+  contourPath,
+  roundedScribblePath,
   scribblePath,
+  underlinePath,
 } from "./scribble";
 
 /**
@@ -49,11 +52,15 @@ type Box = { x: number; y: number; w: number; h: number };
 type Placement = {
   annotation: Annotation;
   box: Box;
+  /** Column edge on the bracket side (pane space), see Pen.edge. */
+  edge: number;
   lines: number;
   colSide: "left" | "right"; // which column of the spread the span sits in
   laneCenter: { x: number; y: number };
   /** Default box width: LANE, narrower when the pane's lanes shrink (#51). */
   laneWidth: number;
+  /** How these words are marked (stored choice, else by line count). */
+  shape: AnnotationMark;
   /** One placement per text column the span falls in: `annotation id:column`. */
   key: string;
   /** A span split across columns shows its box again beside the rest of
@@ -83,8 +90,41 @@ type Pen = {
   isNote: boolean;
   box: Box;
   lines: number;
+  /** The marked words' line runs (content-box space): contour + underline. */
+  runs: Rect[];
+  /** The text column's edge on the bracket side (clear of indents and verse numbers). */
+  edge: number;
   colSide: "left" | "right";
+  shape: AnnotationMark;
 };
+
+/** Stored choice, else auto: one line circled, several bracketed. */
+const shapeOf = (mark: AnnotationMark | null | undefined, lines: number): AnnotationMark =>
+  mark ?? (lines > 1 ? "bracket" : "circle");
+
+/** One mark's ink: bracket beside the lines, a loop round one line (a
+ * rounded loop round several), a box that follows the words, or an underline. */
+function penPath(
+  shape: AnnotationMark,
+  box: Box,
+  lines: number,
+  runs: Rect[],
+  side: "left" | "right",
+  edge: number,
+  seed: string,
+) {
+  if (shape === "contour") return contourPath(runs, seed);
+  if (shape === "underline") return underlinePath(runs, seed);
+  if (shape === "bracket")
+    return bracketPath(
+      side === "left" ? Math.min(box.x, edge) - BRACKET_GAP : Math.max(box.x + box.w, edge) + BRACKET_GAP,
+      box.y + 2,
+      box.y + box.h - 2,
+      seed,
+      side === "left" ? 1 : -1,
+    );
+  return lines > 1 ? roundedScribblePath(box.x, box.y, box.w, box.h, seed) : scribblePath(box.x, box.y, box.w, box.h, seed);
+}
 
 /** Where the margin rail is (region-local px), measured with the anchors. */
 type RailEdges = { leftEnd: number; rightStart: number; width: number; rem: number };
@@ -122,11 +162,24 @@ function geom(
   const noteEdgeX = side === "left" ? cx + w / 2 : cx - w / 2;
   let anchorX: number;
   let anchorY: number;
-  if (p.lines > 1) {
+  if ((p.shape === "circle" && p.lines > 1) || p.shape === "contour" || p.shape === "underline") {
+    // Rounded loop round a block: land on the edge facing the annotation
+    const l = p.box.x - SCRIBBLE_PAD_X;
+    const r = p.box.x + p.box.w + SCRIBBLE_PAD_X;
+    if (cx < l || cx > r) {
+      anchorX = cx < l ? l - 3 : r + 3;
+      anchorY = Math.min(Math.max(cy, p.box.y + 8), p.box.y + p.box.h - 8);
+    } else {
+      anchorX = cx;
+      anchorY = above ? p.box.y - SCRIBBLE_PAD_Y - 5 : p.box.y + p.box.h + SCRIBBLE_PAD_Y + 5;
+    }
+  } else if (p.shape === "bracket") {
     // Bracketed span: bind to the bracket's spine, at the annotation's height.
     // The bracket lives on the span's outer-margin side (its column side).
     anchorX =
-      p.colSide === "left" ? p.box.x - BRACKET_GAP - 3 : p.box.x + p.box.w + BRACKET_GAP + 3;
+      p.colSide === "left"
+        ? Math.min(p.box.x, p.edge) - BRACKET_GAP - 3
+        : Math.max(p.box.x + p.box.w, p.edge) + BRACKET_GAP + 3;
     anchorY = Math.min(Math.max(cy, p.box.y + 8), p.box.y + p.box.h - 8);
   } else {
     // Circled span: land anywhere along the loop's arc, at the point facing
@@ -215,9 +268,12 @@ export function AnnotationMarks({
    * after the verse number instead (#63). */
   railChips?: boolean;
   onFocus: (id: string | null) => void;
-  onEdit: (id: string, text: string) => void;
+  onEdit: (id: string, text: string | null) => void;
   onRemove: (id: string) => void;
-  onPlace: (id: string, patch: { offsetX?: number; offsetY?: number; width?: number }) => void;
+  onPlace: (
+    id: string,
+    patch: { offsetX?: number; offsetY?: number; width?: number; mark?: AnnotationMark | null },
+  ) => void;
   onOpenNote: (id: string) => void;
 }) {
   const spotlight =
@@ -319,7 +375,8 @@ export function AnnotationMarks({
       const colGap = parseFloat(flowStyle.columnGap) || 0;
       const colStride = (flowEl.clientWidth - colGap * (colCount - 1)) / colCount + colGap;
       const colOfX = (x: number) => (colStride > 0 ? Math.max(0, Math.floor((x - ox + 1) / colStride)) : 0);
-      type Seg = { col: number; page: number; box: Box; lines: number; mid: number; firstLineY: number };
+      const colWidth = colStride - colGap;
+      type Seg = { col: number; page: number; box: Box; lines: number; runs: Rect[]; edgeL: number; edgeR: number; mid: number; firstLineY: number };
       /** An anchor's words, one segment per page (box + line count),
        * measured straight from the [data-verse][data-word] spans —
        * independent of any wrapper, so overlapping/nested marks all measure
@@ -362,6 +419,9 @@ export function AnnotationMarks({
             page: pageOfX(left),
             box: { x: left, y: top, w: right - left, h: bottom - top },
             lines: runs.length,
+            runs,
+            edgeL: ox + n * colStride,
+            edgeR: ox + n * colStride + colWidth,
             mid: (left + right) / 2,
             firstLineY: (runs[0].top + runs[0].bottom) / 2,
           };
@@ -376,6 +436,7 @@ export function AnnotationMarks({
             col: seg.col,
             copy: seg !== segs[0],
             box: { ...seg.box, x: seg.box.x + toRegionX, y: seg.box.y + boxTop },
+            edge: (sideOf(seg) === "left" ? seg.edgeL : seg.edgeR) + toRegionX,
             lines: seg.lines,
             side: sideOf(seg),
             firstLineY: seg.firstLineY + boxTop,
@@ -386,7 +447,9 @@ export function AnnotationMarks({
       for (const annotation of annotations) {
         const segs = measureAnchor(annotation);
         for (const g of segs)
-          penList.push({ key: `${annotation.id}:${g.col}`, markId: annotation.id, isNote: false, box: g.box, lines: g.lines, colSide: sideOf(g) });
+          penList.push({ key: `${annotation.id}:${g.col}`, markId: annotation.id, isNote: false, box: g.box, lines: g.lines, runs: g.runs, edge: sideOf(g) === "left" ? g.edgeL : g.edgeR, colSide: sideOf(g), shape: shapeOf(annotation.mark, g.lines) });
+        // A plain pen mark (no text) has no margin box
+        if (!annotation.text) continue;
         for (const m of onPage(segs)) {
         // One scroll column (phones): brackets always on the left gutter
         const side = m.side;
@@ -400,6 +463,8 @@ export function AnnotationMarks({
           annotation,
           key: `${annotation.id}:${m.col}`,
           copy: m.copy,
+          shape: shapeOf(annotation.mark, m.lines),
+          edge: m.edge,
           box: m.box,
           lines: m.lines,
           colSide: side,
@@ -421,7 +486,7 @@ export function AnnotationMarks({
         const segs = measureAnchor(mark);
         const markId = `note:${mark.noteId}:${mark.id}`;
         for (const g of segs)
-          penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, colSide: sideOf(g) });
+          penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: sideOf(g) === "left" ? g.edgeL : g.edgeR, colSide: sideOf(g), shape: shapeOf(null, g.lines) });
         const m = onPage(segs)[0];
         if (m) tabs.push({ mark, box: m.box, lines: m.lines, colSide: m.side, firstLineY: m.firstLineY });
       }
@@ -492,17 +557,7 @@ export function AnnotationMarks({
               return (
                 <path
                   key={p.key}
-                  d={
-                    p.lines > 1
-                      ? bracketPath(
-                          p.colSide === "left" ? p.box.x - BRACKET_GAP : p.box.x + p.box.w + BRACKET_GAP,
-                          p.box.y + 2,
-                          p.box.y + p.box.h - 2,
-                          p.markId.split(":").at(-1) ?? p.markId,
-                          p.colSide === "left" ? 1 : -1,
-                        )
-                      : scribblePath(p.box.x, p.box.y, p.box.w, p.box.h, p.markId.split(":").at(-1) ?? p.markId)
-                  }
+                  d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId)}
                   fill="none"
                   stroke={NOTE_INK}
                   strokeWidth={active ? 2 : 1.5}
@@ -589,7 +644,7 @@ export function AnnotationMarks({
                 key={p.key}
                 ref={measureBox(p.key)}
                 data-ink-box
-                className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
+                className={cn("pointer-events-auto absolute -translate-y-1/2", dragging && "select-none", isEditing && "z-30")}
                 style={{
                   left: g.boxLeft,
                   top: g.cy,
@@ -602,7 +657,6 @@ export function AnnotationMarks({
                   if (isEditing || p.copy || e.button !== 0) return;
                   dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
                   didDrag.current = false;
-                  e.currentTarget.setPointerCapture(e.pointerId);
                 }}
                 onPointerMove={(e) => {
                   const from = dragFrom.current;
@@ -610,6 +664,9 @@ export function AnnotationMarks({
                   const dx = (e.clientX - from.px) / scaleRef.current;
                   const dy = (e.clientY - from.py) / scaleRef.current;
                   if (!didDrag.current && Math.hypot(dx, dy) < 4) return;
+                  // Capture only once it's a drag: capturing on press would
+                  // retarget the click to this box and the editor never opens
+                  if (!didDrag.current) e.currentTarget.setPointerCapture(e.pointerId);
                   didDrag.current = true;
                   setDrag({
                     id: p.annotation.id,
@@ -684,7 +741,13 @@ export function AnnotationMarks({
                   ))}
                 {isEditing ? (
                   <AnnotationEditor
-                    text={p.annotation.text}
+                    text={p.annotation.text ?? ""}
+                    mark={p.shape}
+                    onMark={(mark) => onPlace(p.annotation.id, { mark })}
+                    onRemoveText={() => {
+                      onEdit(p.annotation.id, null);
+                      setEditingId(null);
+                    }}
                     onSave={(text) => {
                       onEdit(p.annotation.id, text);
                       setEditingId(null);
@@ -699,7 +762,7 @@ export function AnnotationMarks({
                   // A real button (#61): Enter/Space open the editor too
                   <button
                     type="button"
-                    title={p.annotation.text}
+                    title={p.annotation.text ?? undefined}
                     onClick={() => {
                       if (didDrag.current) {
                         didDrag.current = false;

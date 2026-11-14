@@ -1,4 +1,4 @@
-import type { Anchor, Annotation } from "@biblestdy/shared";
+import type { Anchor, Annotation, AnnotationMark } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
@@ -34,20 +34,22 @@ export function useAnnotations(translationId: string, book: string, chapter: num
   const put = (a: Annotation) =>
     qc.setQueryData<Annotation[]>(key, (n = []) => [...n.filter((x) => x.id !== a.id), a]);
 
-  async function add(anchor: Anchor, text: string) {
+  /** text null = a plain pen mark in `mark` style. */
+  async function add(anchor: Anchor, text: string | null, mark?: AnnotationMark) {
     try {
       put(
         await api<Annotation>("/api/annotations", {
           method: "POST",
-          body: JSON.stringify({ ...anchor, text }),
+          body: JSON.stringify({ ...anchor, text, mark }),
         }),
       );
     } catch (e) {
-      notifyError(e, { retry: () => add(anchor, text) });
+      notifyError(e, { retry: () => add(anchor, text, mark) });
     }
   }
 
-  async function edit(id: string, text: string) {
+  /** text null removes the margin text: the mark stays, plain. */
+  async function edit(id: string, text: string | null) {
     try {
       replace(
         await api<Annotation>(`/api/annotations/${id}`, {
@@ -81,7 +83,10 @@ export function useAnnotations(translationId: string, book: string, chapter: num
   /** Persist a dragged position (offset from the anchor's center) and/or a
    * resized width. Optimistic: the annotation was just placed there, so update
    * the cache immediately; a failed save says so (the box stays put locally). */
-  async function place(id: string, patch: { offsetX?: number; offsetY?: number; width?: number }) {
+  async function place(
+    id: string,
+    patch: { offsetX?: number; offsetY?: number; width?: number; mark?: AnnotationMark | null },
+  ) {
     qc.setQueryData<Annotation[]>(key, (n = []) =>
       n.map((x) => (x.id === id ? { ...x, ...patch } : x)),
     );

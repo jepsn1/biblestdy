@@ -31,7 +31,7 @@ import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { boxesFitLane, LANE, RAIL, sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
-import { PALETTE_BOX, ToolPalette, ToolStatus, type ReaderTool, type ToolKind } from "./tool-palette";
+import { PALETTE_BOX, PEN_STYLES, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
@@ -138,12 +138,14 @@ export function PaginatedChapter({
   // reader's own colour until they pick another
   const { data: session } = authClient.useSession();
   const prefColor = session?.user.defaultHighlightColor;
-  const [toolPick, setToolPick] = useState<{ kind: ToolKind; color: HighlightColor | null }>({
+  const [toolPick, setToolPick] = useState<{ kind: ToolKind; color: HighlightColor | null; pen: PenStyle }>({
     kind: "select",
     color: null,
+    pen: "text",
   });
   const tool: ReaderTool = {
     kind: toolPick.kind,
+    pen: toolPick.pen,
     color:
       toolPick.color ??
       (HIGHLIGHT_COLORS.includes(prefColor as HighlightColor) ? (prefColor as HighlightColor) : DEFAULT_HIGHLIGHT_COLOR),
@@ -669,6 +671,11 @@ export function PaginatedChapter({
         setToolPick((p) => ({ ...p, kind: "select" }));
         return;
       }
+      // Pen on: 1–5 pick its style (text, box, underline, circle, bracket)
+      if (tool.kind === "annotate" && /^[1-5]$/.test(event.key)) {
+        setToolPick((p) => ({ ...p, pen: PEN_STYLES[Number(event.key) - 1] }));
+        return;
+      }
       // Chapters (#65): [ / ] — the chapter's start, both ways
       if (event.key === "[" && prevChapter) navigate(chapterHref(prevChapter));
       if (event.key === "]" && nextChapter) navigate(chapterHref(nextChapter));
@@ -828,6 +835,7 @@ export function PaginatedChapter({
       onRemoveHighlight={remove}
       onAddAnnotation={annotationsApi.add}
       onEditAnnotation={annotationsApi.edit}
+      onMarkAnnotation={(id, mark) => void annotationsApi.place(id, { mark })}
       onRemoveAnnotation={annotationsApi.remove}
       onSelectionChange={onSelectionChange}
       rovingVerse={rovingVerse}

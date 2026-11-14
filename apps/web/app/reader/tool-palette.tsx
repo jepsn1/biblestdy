@@ -1,4 +1,4 @@
-import type { HighlightColor } from "@biblestdy/shared";
+import type { AnnotationMark, HighlightColor } from "@biblestdy/shared";
 import { HIGHLIGHT_COLORS } from "@biblestdy/shared";
 import { Eraser, FileText, Highlighter, MousePointer2, PenLine, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -19,7 +19,10 @@ import { HIGHLIGHT_SWATCH } from "./highlight-colors";
  */
 
 export type ToolKind = "select" | "highlight" | "annotate" | "note" | "erase";
-export type ReaderTool = { kind: ToolKind; color: HighlightColor };
+/** The pen writes margin text ("text"), or just marks the words in a style. */
+export type PenStyle = "text" | AnnotationMark;
+export const PEN_STYLES: PenStyle[] = ["text", "contour", "underline", "circle", "bracket"];
+export type ReaderTool = { kind: ToolKind; color: HighlightColor; pen: PenStyle };
 
 /** Palette size + top offset; the right page-turn strip reserves the same,
  * so both page arrows sit at one height. */
@@ -67,6 +70,33 @@ export function ToolPalette({
                 <Icon className="size-4.5" aria-hidden />
               </button>
             </Hint>
+            {/* The pen's styles, while it's the tool: worded, keys 1–5 */}
+            {kind === "annotate" && on && (
+              <div
+                role="radiogroup"
+                aria-label={t("marks.style")}
+                className="absolute top-0 left-full ml-2 flex items-center gap-0.5 rounded-full border border-border bg-background p-0.5 shadow-xs"
+              >
+                {PEN_STYLES.map((m, i) => (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={tool.pen === m}
+                    aria-keyshortcuts={String(i + 1)}
+                    title={`${m === "text" ? t("marks.text") : t(`marks.${m}`)} (${i + 1})`}
+                    onClick={() => onChange({ ...tool, pen: m })}
+                    className={cn(
+                      "h-7 rounded-full px-2.5 text-meta whitespace-nowrap hover:bg-muted",
+                      tool.pen === m && "bg-primary text-primary-foreground hover:bg-primary",
+                      focusRing,
+                    )}
+                  >
+                    {m === "text" ? t("marks.text") : t(`marks.${m}`)}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* The highlighter's colours, while it's the tool: a row beside it
                 (the palette keeps its height, the page arrows stay put) */}
             {kind === "highlight" && on && (
@@ -108,7 +138,11 @@ export function ToolPalette({
 export function ToolStatus({ tool, onDone }: { tool: ReaderTool; onDone: () => void }) {
   const { t } = useTranslation();
   const on = tool.kind !== "select";
-  const text = on ? t(`tools.${tool.kind}Status`, { color: t(`menu.colors.${tool.color}`) }) : "";
+  const text = !on
+    ? ""
+    : tool.kind === "annotate" && tool.pen !== "text"
+      ? t("tools.markStatus", { style: t(`marks.${tool.pen}`) })
+      : t(`tools.${tool.kind}Status`, { color: t(`menu.colors.${tool.color}`) });
   return (
     <>
       {/* Always mounted: a live region born with its text often isn't read */}
