@@ -72,6 +72,7 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
     here: { book: "JHN", chapter: 3 },
     translationId: "web",
     translationAbbr: (id) => id.toUpperCase(),
+    colorLabel: () => undefined,
     labels: {
       goTo: (r) => `Go to ${r}`,
       emptyHint: "type a passage",
@@ -259,6 +260,14 @@ describe("palette results: marked words", () => {
     const row = buildResults("needle", ctx({ highlights: [hl("l", long, "ROM", 1, 1)] })).find((r) => r.id === "highlight:l");
     expect(row?.label.startsWith("…")).toBe(true);
     expect(row?.label.length).toBeLessThan(100);
+  });
+
+  it("a renamed colour: its highlights are found by the name, which the row shows", () => {
+    const named = ctx({ highlights, colorLabel: (c) => (c === "green" ? "God speaking" : undefined) });
+    expect(ids("god speak", named).filter((id) => id.startsWith("highlight"))).toEqual(["highlight:h1", "highlight:h2", "highlight:h3"]);
+    expect(buildResults("shepherd", named).find((r) => r.id === "highlight:h2")?.kind).toBe("God speaking");
+    // Plain colour names never match (every "green" highlight would)
+    expect(ids("green", ctx({ highlights })).filter((id) => id.startsWith("highlight"))).toEqual([]);
   });
 
   it("@ includes highlights", () => {

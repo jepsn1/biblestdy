@@ -23,18 +23,25 @@ describe('Preferences API (#45 reader style)', () => {
       readerStyle: null,
       textSize: null,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
   it('saves the choice and returns it on later reads (any device)', async () => {
     const { controller } = make();
     expect(await controller.update(as('u1'), { readerStyle: 'clean' })).toEqual(
-      { readerStyle: 'clean', textSize: null, supportNoticeDismissed: false },
+      {
+        readerStyle: 'clean',
+        textSize: null,
+        supportNoticeDismissed: false,
+        highlightLabels: {},
+      },
     );
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'clean',
       textSize: null,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -46,6 +53,7 @@ describe('Preferences API (#45 reader style)', () => {
       readerStyle: 'paper',
       textSize: null,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -56,6 +64,7 @@ describe('Preferences API (#45 reader style)', () => {
       readerStyle: null,
       textSize: null,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -70,6 +79,7 @@ describe('Preferences API (#45 reader style)', () => {
       readerStyle: null,
       textSize: null,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -89,11 +99,13 @@ describe('Preferences API (#61 text size)', () => {
       readerStyle: null,
       textSize: 150,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: 150,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -106,6 +118,7 @@ describe('Preferences API (#61 text size)', () => {
       readerStyle: 'paper',
       textSize: 200,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -123,6 +136,7 @@ describe('Preferences API (#61 text size)', () => {
       readerStyle: null,
       textSize: null,
       supportNoticeDismissed: false,
+      highlightLabels: {},
     });
   });
 
@@ -146,6 +160,7 @@ describe('Preferences API (#61 text size)', () => {
       readerStyle: null,
       textSize: 125,
       supportNoticeDismissed: true,
+      highlightLabels: {},
     });
     expect((await controller.get(as('u2'))).supportNoticeDismissed).toBe(false);
   });
@@ -158,7 +173,55 @@ describe('Preferences API (#61 text size)', () => {
     await expect(
       make().controller.update(as('u1'), {
         supportNoticeDismissed: false,
+        highlightLabels: {},
       } as unknown as UpdatePreferencesDto),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('Preferences API (highlight colour names)', () => {
+  it('every colour starts unnamed (= its colour name in the UI language)', async () => {
+    expect((await make().controller.get(as('u1'))).highlightLabels).toEqual({});
+  });
+
+  it('saves renamed colours (cleaned), and a later save replaces the map', async () => {
+    const { controller } = make();
+    const saved = await controller.update(as('u1'), {
+      highlightLabels: { blue: '  God  speaking ', rose: 'Sin', green: '' },
+    });
+    expect(saved.highlightLabels).toEqual({
+      blue: 'God speaking',
+      rose: 'Sin',
+    });
+    await controller.update(as('u1'), { highlightLabels: { blue: 'Jesus' } });
+    expect((await controller.get(as('u1'))).highlightLabels).toEqual({
+      blue: 'Jesus',
+    });
+    // other preferences untouched, other users unaffected
+    expect((await controller.get(as('u1'))).readerStyle).toBeNull();
+    expect((await controller.get(as('u2'))).highlightLabels).toEqual({});
+  });
+
+  it('rejects unknown colours, non-strings and over-long names', async () => {
+    const { controller } = make();
+    for (const highlightLabels of [
+      { teal: 'x' },
+      { blue: 1 },
+      { blue: 'x'.repeat(31) },
+    ]) {
+      await expect(
+        controller.update(as('u1'), {
+          highlightLabels,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    }
+    expect((await controller.get(as('u1'))).highlightLabels).toEqual({});
+  });
+
+  it('DTO validation wants an object', async () => {
+    const errs = async (body: object) =>
+      (await validate(plainToInstance(UpdatePreferencesDto, body))).length;
+    expect(await errs({ highlightLabels: { blue: 'God speaking' } })).toBe(0);
+    expect(await errs({ highlightLabels: 'blue' })).toBeGreaterThan(0);
   });
 });

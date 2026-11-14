@@ -1,3 +1,5 @@
+import { HIGHLIGHT_COLORS, type HighlightColor } from './anchor.js'
+
 /** Reader look (#45): Paper = warm palette + Literata, Clean = neutral + sans.
  * Independent of light/dark. */
 export const READER_STYLES = ['paper', 'clean'] as const
@@ -18,13 +20,38 @@ export function isTextSize(v: unknown): v is TextSize {
   return typeof v === 'number' && (TEXT_SIZES as readonly number[]).includes(v)
 }
 
+/** A reader's own names for the highlight colours ("blue" → "God speaking").
+ * Only renamed colours are present: a missing one is called by its colour
+ * name, in the UI language. */
+export type HighlightLabels = Partial<Record<HighlightColor, string>>
+export const HIGHLIGHT_LABEL_MAX = 30
+
+/** A labels map from the wire, cleaned: whitespace trimmed/collapsed, empty
+ * names dropped (= back to the colour name). null when it isn't a valid map
+ * (not an object, an unknown colour, a non-string, over 30 characters). */
+export function parseHighlightLabels(v: unknown): HighlightLabels | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
+  const out: HighlightLabels = {}
+  for (const [key, raw] of Object.entries(v)) {
+    if (!(HIGHLIGHT_COLORS as readonly string[]).includes(key)) return null
+    if (raw === null) continue
+    if (typeof raw !== 'string') return null
+    const name = raw.replace(/\s+/gu, ' ').trim()
+    if ([...name].length > HIGHLIGHT_LABEL_MAX) return null
+    if (name) out[key as HighlightColor] = name
+  }
+  return out
+}
+
 /** Per-account preferences. null readerStyle = never chosen → onboarding
  * chooser; null textSize = never changed → 100%. supportNoticeDismissed: the
- * one-time "follow on Instagram" notice was closed (once per account). */
+ * one-time "follow on Instagram" notice was closed (once per account).
+ * highlightLabels: renamed colours only ({} = all called by their colour). */
 export interface Preferences {
   readerStyle: ReaderStyle | null
   textSize: TextSize | null
   supportNoticeDismissed: boolean
+  highlightLabels: HighlightLabels
 }
 
 /** PATCH /api/preferences body: any subset, at least one field. */
@@ -33,4 +60,6 @@ export type PreferencesPatch = Partial<{
   textSize: TextSize
   /** One-way: only `true` is accepted. */
   supportNoticeDismissed: true
+  /** Replaces the whole map (an absent colour = its colour name again). */
+  highlightLabels: HighlightLabels
 }>

@@ -46,5 +46,8 @@ export {
   type TextSize,
   type Preferences,
   type PreferencesPatch,
+  type HighlightLabels,
+  HIGHLIGHT_LABEL_MAX,
+  parseHighlightLabels,
 } from './preferences.js'
 export { TRANSLATION_INFO, translationInfo, type TranslationInfo } from './translation-info.js'

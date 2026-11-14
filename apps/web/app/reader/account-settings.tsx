@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
+import { HIGHLIGHT_COLORS, READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
 import { Monitor, Moon, Sun, UserRound } from "lucide-react";
 import { Hint } from "~/components/hint";
 import {
@@ -29,6 +29,8 @@ import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { notifyError } from "~/lib/notify";
 import { api } from "~/lib/query";
+import { openColorNames } from "./color-names-dialog";
+import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
 import { SupportLinks } from "./support-notice";
@@ -55,6 +57,13 @@ export function AccountChip() {
     setDeleteOpen(true);
   }
 
+  /** Colour names: the settings close first, the dialog takes over (focus
+   * comes back to the chip). */
+  function showColorNames() {
+    setOpen(false);
+    openColorNames(chipRef.current);
+  }
+
   /** The `?` list (#65) — the popover closes first, the dialog takes over. */
   function showShortcuts() {
     setOpen(false);
@@ -62,7 +71,12 @@ export function AccountChip() {
   }
 
   const content = (
-    <SettingsContent email={email} onDelete={askDelete} onShortcuts={isMobile ? undefined : showShortcuts} />
+    <SettingsContent
+      email={email}
+      onDelete={askDelete}
+      onColorNames={showColorNames}
+      onShortcuts={isMobile ? undefined : showShortcuts}
+    />
   );
 
   return (
@@ -194,10 +208,12 @@ function saveSize(size: Parameters<typeof saveTextSize>[0]) {
 function SettingsContent({
   email,
   onDelete,
+  onColorNames,
   onShortcuts,
 }: {
   email: string;
   onDelete: () => void;
+  onColorNames: () => void;
   /** Keyboard users only (desktop): opens the shortcuts list. */
   onShortcuts?: () => void;
 }) {
@@ -261,6 +277,29 @@ function SettingsContent({
             { value: "da", label: "Dansk" },
           ]}
         />
+      </SettingRow>
+
+      {/* Highlight colours: the reader's own names ("blue = God speaking") */}
+      <SettingRow label={t("colorNames.setting")} labelId={`${ids}-colors`}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 max-sm:h-9"
+          aria-describedby={`${ids}-colors`}
+          aria-haspopup="dialog"
+          onClick={onColorNames}
+        >
+          <span aria-hidden className="flex -space-x-1">
+            {HIGHLIGHT_COLORS.map((c) => (
+              <span
+                key={c}
+                className="size-3 rounded-full ring-1 ring-popover"
+                style={{ background: HIGHLIGHT_SWATCH[c] }}
+              />
+            ))}
+          </span>
+          {t("colorNames.edit")}
+        </Button>
       </SettingRow>
 
       {onShortcuts && (

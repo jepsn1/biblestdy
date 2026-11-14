@@ -10,6 +10,7 @@ export class InMemoryPreferencesStore implements PreferencesStore {
         readerStyle: null,
         textSize: null,
         supportNoticeDismissed: false,
+        highlightLabels: {},
       },
     );
   }
