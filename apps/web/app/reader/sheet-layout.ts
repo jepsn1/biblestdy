@@ -66,3 +66,28 @@ export function boxesFitLane(layout: SheetLayout, remPx: number): boolean {
   const roomPx = (layout.lane + GUTTER + PAD) * remPx - BOX_CLEARANCE_PX;
   return roomPx >= Math.max(BOX_MIN_PX, BOX_MIN_REM * remPx);
 }
+
+/** A horizontal span on screen (px). */
+export type Span = { left: number; right: number };
+
+/**
+ * A chapter crossing moves like a page turn: the pages slide inside the
+ * text box, clipped to it, the new page following right behind the old one
+ * as the next page does within a chapter. The clip is the NEW chapter's box
+ * — the one the running foot already shows during the slide (boxes differ
+ * when only one chapter has margin lanes). Same boxes: exactly one stride.
+ */
+export function crossingSlide(
+  dir: "prev" | "next",
+  stride: number,
+  oldBox: Span,
+  newBox: Span,
+): { distance: number; clip: Span } {
+  // The gap a page turn leaves between pages (stride − box width)
+  const gap = Math.max(0, stride - (oldBox.right - oldBox.left));
+  const width = newBox.right - newBox.left;
+  // The new page starts against the old box's far edge, and fully outside
+  // the clip; the old page then ends fully outside it too
+  const reach = dir === "next" ? oldBox.right - newBox.left : newBox.right - oldBox.left;
+  return { distance: Math.ceil(Math.max(reach, width) + gap), clip: { ...newBox } };
+}
