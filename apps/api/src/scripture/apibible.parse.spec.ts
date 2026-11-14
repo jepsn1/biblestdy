@@ -1,7 +1,9 @@
 import { words, type TextBlock, type Verse } from '@biblestdy/shared';
 import { describe, expect, it } from 'vitest';
 import { parseChapterContent } from './apibible.provider';
+import bphAct1 from './fixtures/apibible/bph-ACT.1.json';
 import bphJhn3 from './fixtures/apibible/bph-JHN.3.json';
+import bphJob3 from './fixtures/apibible/bph-JOB.3.json';
 import bphPsa23 from './fixtures/apibible/bph-PSA.23.json';
 import nivJhn3 from './fixtures/apibible/niv-JHN.3.json';
 import nivPsa23 from './fixtures/apibible/niv-PSA.23.json';
@@ -9,7 +11,8 @@ import nkjvJhn3 from './fixtures/apibible/nkjv-JHN.3.json';
 import webJhn3 from './fixtures/apibible/web-JHN.3.json';
 import webPsa23 from './fixtures/apibible/web-PSA.23.json';
 
-// Real API.Bible content-type=json chapters (fetched 2026-11-13).
+// Real API.Bible content-type=json chapters (fetched 2026-11-13; BPH JOB.3 +
+// ACT.1 2026-11-15).
 // Only WEB (public domain) is real text. NIV/NKJV/BPH are licensed (no
 // redistribution): exact node structure, spaces and punctuation, but every
 // letter/digit replaced by "x" — word splitting is identical by construction.
@@ -22,6 +25,8 @@ const FIXTURES: Record<string, Content> = {
   'WEB PSA.23': webPsa23.content,
   'BPH JHN.3': bphJhn3.content,
   'BPH PSA.23': bphPsa23.content,
+  'BPH JOB.3': bphJob3.content,
+  'BPH ACT.1': bphAct1.content,
 };
 
 /**
@@ -113,9 +118,13 @@ describe('parseChapterContent on real API.Bible chapters', () => {
     it(`${name}: verse text + word split identical to the pre-#50 parser`, () => {
       const { verses } = parseChapterContent(content);
       const legacy = legacyVerses(content);
-      const isBph = name.startsWith('BPH');
-      // BPH JHN.3's bridge was mis-parsed before (into v13): compare the rest
-      const skip = new Set(isBph && name.endsWith('JHN.3') ? [13, 14] : []);
+      // Bridges were mis-parsed before (appended to the verse before, or
+      // dropped at a chapter's start): compare the rest
+      const skip = new Set(
+        verses.flatMap((v, i) =>
+          v.label ? [v.verse, ...(i > 0 ? [verses[i - 1].verse] : [])] : [],
+        ),
+      );
       const strip = verses
         .filter((v) => !skip.has(v.verse))
         .map((v) => ({ verse: v.verse, text: v.text }));
@@ -159,6 +168,37 @@ describe('parseChapterContent on real API.Bible chapters', () => {
     const v13 = verses.find((v) => v.verse === 13)!;
     const squash = (t: string) => t.replace(/\s+/g, '');
     expect(squash(v13.text + bridge.text)).toBe(squash(legacy13.text));
+  });
+
+  it('BPH JOB.3: opening bridge 1-2 is verse 1, labelled, then 3…26', () => {
+    const { verses, sections, blocks } = parseChapterContent(
+      FIXTURES['BPH JOB.3'],
+    );
+    expect(verses[0]).toMatchObject({ verse: 1, label: '1–2' });
+    expect(verses[0].text.length).toBeGreaterThan(0);
+    expect(verses.map((v) => v.verse)).toEqual([
+      1,
+      ...Array.from({ length: 24 }, (_, i) => i + 3),
+    ]);
+    expect(verses.filter((v) => v.label)).toHaveLength(1);
+    // The heading opens the bridge; prose line, then the poem from verse 3
+    expect(sections.map((s) => s.beforeVerse)).toEqual([1]);
+    expect(blocks[0]).toMatchObject({ verse: 1, word: 0, kind: 'flush' });
+    expect(blocks[1]).toMatchObject({ verse: 3, word: 0, kind: 'poetry' });
+  });
+
+  it('BPH ACT.1: bridges 1-3, 18-20, 21-22 each one unit under the first', () => {
+    const { verses } = parseChapterContent(FIXTURES['BPH ACT.1']);
+    const bridges = verses.filter((v) => v.label);
+    expect(bridges.map((v) => [v.verse, v.label])).toEqual([
+      [1, '1–3'],
+      [18, '18–20'],
+      [21, '21–22'],
+    ]);
+    const numbers = verses.map((v) => v.verse);
+    for (const hidden of [2, 3, 19, 20, 22])
+      expect(numbers).not.toContain(hidden);
+    expect(numbers[1]).toBe(4);
   });
 
   it('NIV PSA.23: poetry lines, levels and the stanza break', () => {

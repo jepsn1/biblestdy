@@ -32,7 +32,7 @@ import {
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
 import { NOTE_OPENER } from "./note-panel";
-import { layoutChapter, type WordPiece } from "./chapter-layout";
+import { layoutChapter, openingLabel, type WordPiece } from "./chapter-layout";
 import {
   extendByVerse,
   extendByWord,
@@ -880,8 +880,11 @@ export function ChapterText({
             style={
               block.kind === "poetry"
                 ? // Hanging indent: q1 at 1em, q2 at 2em…; a wrapped line sits
-                  // 2em deeper so it never reads as the next poetry line
-                  { paddingLeft: `${block.level + 2}em`, textIndent: "-2em" }
+                  // 2em deeper so it never reads as the next poetry line.
+                  // Clears the drop numeral: a one-line prose opening (BPH
+                  // Job 3) leaves it overhanging, and the hanging indent
+                  // would slide the next verse number under it.
+                  { paddingLeft: `${block.level + 2}em`, textIndent: "-2em", clear: "left" }
                 : block.kind === "paragraph" && !block.opening
                   ? { textIndent: "1em" }
                   : undefined
@@ -894,8 +897,22 @@ export function ChapterText({
                 <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
                   {piece.showNumber &&
                     (bi === 0 && pi === 0 ? (
-                      // Prose: the numeral drops beside the opening lines
-                      block.kind !== "poetry" && chapterNumeral(v, "float")
+                      <>
+                        {/* Prose: the numeral drops beside the opening lines */}
+                        {block.kind !== "poetry" && chapterNumeral(v, "float")}
+                        {openingLabel(v) && (
+                          // A bridge ("1–2") or late start keeps its printed
+                          // number; the numeral already names it to screen
+                          // readers and is the verse's keyboard stop
+                          <sup
+                            data-opening-label
+                            aria-hidden
+                            className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none"
+                          >
+                            {openingLabel(v)}
+                          </sup>
+                        )}
+                      </>
                     ) : numbered.has(v.verse) ? (
                       <sup className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none">
                         {v.label ?? v.verse}

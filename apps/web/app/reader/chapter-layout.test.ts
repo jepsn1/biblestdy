@@ -1,7 +1,7 @@
 import type { Chapter } from "@biblestdy/shared";
 import { words } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { layoutChapter, type LaidBlock } from "./chapter-layout";
+import { layoutChapter, openingLabel, type LaidBlock } from "./chapter-layout";
 
 const base = { translationId: "T", book: "PSA", chapter: 23 };
 
@@ -125,5 +125,21 @@ describe("layoutChapter", () => {
     const out = layoutChapter(chapter);
     expect(renderedWords(out)).toEqual(allWords(chapter));
     expect(lines(out)).toEqual(["a", "b"]);
+  });
+});
+
+describe("openingLabel", () => {
+  it("verse 1: the drop numeral alone stands in for it", () => {
+    expect(openingLabel({ verse: 1, text: "a" })).toBeNull();
+  });
+
+  it("an opening bridge keeps its label beside the numeral (BPH Job 3, Acts 1)", () => {
+    expect(openingLabel({ verse: 1, label: "1–2", text: "a" })).toBe("1–2");
+    expect(openingLabel({ verse: 1, label: "1–3", text: "a" })).toBe("1–3");
+  });
+
+  it("a chapter starting past verse 1 keeps its number", () => {
+    expect(openingLabel({ verse: 2, text: "a" })).toBe("2");
+    expect(openingLabel({ verse: 2, label: "2–4", text: "a" })).toBe("2–4");
   });
 });
