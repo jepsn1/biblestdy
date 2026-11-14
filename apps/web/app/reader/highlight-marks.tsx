@@ -20,8 +20,7 @@ const RADIUS = 3;
 export function HighlightMarks({
   highlights,
   selection,
-  regionRef,
-  contentRef,
+  boxRef,
   flowRef,
   layoutKey,
   hidden = false,
@@ -29,13 +28,12 @@ export function HighlightMarks({
   highlights: Highlight[];
   /** The selection being made — painted like a highlight, in --selection. */
   selection: Anchor | null;
-  regionRef: RefObject<HTMLDivElement | null>;
-  /** The content box: words outside it are on another page. */
-  contentRef: RefObject<HTMLElement | null>;
+  /** The content box: the layer's coordinate space (it renders inside it). */
+  boxRef: RefObject<HTMLElement | null>;
   /** The (multi-)column text flow: washes clamp to its columns. */
   flowRef: RefObject<HTMLElement | null>;
-  /** Anything that moves the words without resizing the boxes (page,
-   * stride, column count, text size) — re-measure on change. */
+  /** Anything that moves the words without resizing the boxes (stride,
+   * column count, text size) — re-measure on change. */
   layoutKey: string;
   /** Spotlight active — the marker layer disappears with the other ink. */
   hidden?: boolean;
@@ -43,25 +41,26 @@ export function HighlightMarks({
   const [rects, setRects] = useState<MarkRect[]>([]);
 
   useLayoutEffect(() => {
-    const region = regionRef.current;
-    const content = contentRef.current;
+    const box = boxRef.current;
     const flowEl = flowRef.current;
-    if (!region || !content || !flowEl) return;
+    if (!box || !flowEl) return;
 
     const measure = () => {
-      const regionRect = region.getBoundingClientRect();
-      const contentRect = content.getBoundingClientRect();
-      // Mobile sheet-scale (#13): rects come back in visual (scaled) px, the
-      // overlay paints in the region's local space — divide the scale out.
-      const s = regionRect.width / region.offsetWidth || 1;
-      const contentLeft = (contentRect.left - regionRect.left) / s;
-      const contentRight = (contentRect.right - regionRect.left) / s;
+      // Page-independent (#ink slides): word rects relative to the flow
+      // (its page-turn transform cancels out), placed at the flow's
+      // untransformed spot in the box. The caller's layer carries the same
+      // transform as the text, so every page's ink slides with its words.
+      // Mobile sheet-scale (#13): rects are visual (scaled) px — divide out.
+      const s = box.getBoundingClientRect().width / box.offsetWidth || 1;
+      const flowRect = flowEl.getBoundingClientRect();
+      const ox = flowEl.offsetLeft;
+      const oy = flowEl.offsetTop;
       const style = getComputedStyle(flowEl);
       const count = Number(style.columnCount) || 1; // "auto" -> 1
       // Overflow columns (= later pages) keep the gap even at column-count 1
       const gap = parseFloat(style.columnGap) || 0;
       const flow: ColumnFlow = {
-        x: (flowEl.getBoundingClientRect().left - regionRect.left) / s,
+        x: ox,
         colWidth: (flowEl.clientWidth - gap * (count - 1)) / count,
         gap,
       };
@@ -72,22 +71,20 @@ export function HighlightMarks({
         const words: Rect[] = [];
         let lineH = 36;
         for (let v = a.startVerse; v <= a.endVerse; v++) {
-          const els = region.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
+          const els = flowEl.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
           for (const el of els) {
             const w = Number(el.dataset.word);
             if (v === a.startVerse && w < a.startWord) continue;
             if (v === a.endVerse && w > a.endWord) continue;
             const vr = el.getBoundingClientRect();
             if (vr.width === 0) continue;
-            const r = {
-              left: (vr.left - regionRect.left) / s,
-              top: (vr.top - regionRect.top) / s,
-              right: (vr.right - regionRect.left) / s,
-              bottom: (vr.bottom - regionRect.top) / s,
-            };
-            if (r.right < contentLeft + 1 || r.left > contentRight - 1) continue;
             lineH = parseFloat(getComputedStyle(el).lineHeight) || 36;
-            words.push(r);
+            words.push({
+              left: (vr.left - flowRect.left) / s + ox,
+              top: (vr.top - flowRect.top) / s + oy,
+              right: (vr.right - flowRect.left) / s + ox,
+              bottom: (vr.bottom - flowRect.top) / s + oy,
+            });
           }
         }
         lineRuns(words).forEach((line, i) => {
@@ -115,21 +112,17 @@ export function HighlightMarks({
     };
 
     measure();
-    // Re-measure after the page-flip transform settles, and once webfonts
-    // land (Literata swaps in -> lines rewrap under fixed-size boxes).
-    const t = setTimeout(measure, 340);
+    // Once webfonts land (Literata swaps in -> lines rewrap under fixed-size boxes)
     let alive = true;
     void document.fonts?.ready.then(() => alive && measure());
     const ro = new ResizeObserver(measure);
-    ro.observe(region);
-    ro.observe(content);
+    ro.observe(box);
     ro.observe(flowEl);
     return () => {
       alive = false;
-      clearTimeout(t);
       ro.disconnect();
     };
-  }, [highlights, selection, layoutKey, regionRef, contentRef, flowRef]);
+  }, [highlights, selection, layoutKey, boxRef, flowRef]);
 
   return (
     <svg
