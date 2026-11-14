@@ -18,6 +18,7 @@ export {
   buildAnchor,
   wordRangeInVerse,
   sameAnchor,
+  payloadAnchor,
   anchorReference,
   HIGHLIGHT_COLORS,
   DEFAULT_HIGHLIGHT_COLOR,

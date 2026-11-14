@@ -12,7 +12,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Note } from '@biblestdy/shared';
+import { payloadAnchor, type Note } from '@biblestdy/shared';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import { AnchorDto, CreateNoteDto, UpdateNoteDto } from './note.dto';
 import { NotesService } from './notes.service';
@@ -70,8 +70,16 @@ export class NotesController {
     );
   }
 
+  /** With an anchor (made from a selection) or without (a draft written on
+   * the Notes page) — never half an anchor. */
   @Post()
   create(@Req() req: AuthedRequest, @Body() dto: CreateNoteDto): Promise<Note> {
+    const anchor = payloadAnchor(dto);
+    if (anchor === 'partial') {
+      throw new BadRequestException(
+        'an anchor needs all seven fields, or none',
+      );
+    }
     return this.notes.create(req.user.id, dto);
   }
 
@@ -128,12 +136,7 @@ export class NotesController {
     @Param('anchorId') anchorId: string,
   ): Promise<Note> {
     const result = await this.notes.removeAnchor(req.user.id, id, anchorId);
-    if (result === 'not-found') throw new NotFoundException();
-    if (result === 'last-anchor') {
-      throw new BadRequestException(
-        'a note keeps at least one anchor — delete the note instead',
-      );
-    }
+    if (!result) throw new NotFoundException();
     return result;
   }
 }

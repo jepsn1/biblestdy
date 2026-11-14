@@ -127,16 +127,22 @@ export interface NoteAnchor extends Anchor {
   id: string
 }
 
-/** A note: standalone markdown document anchored to one or more spans. */
+/** A note: standalone markdown document referencing zero or more spans —
+ * a draft can exist before any passage is linked (notes plan, Phase 1). */
 export interface Note {
   id: string
   title: string
   body: string
   anchors: NoteAnchor[]
+  /** Last edit (ISO time): the Notes page sorts by it. */
+  updatedAt: string
+  /** The note's topics — only on the all-notes list (GET /api/notes). */
+  tags?: { id: string; name: string }[]
 }
 
-/** Create payload for a note: its first anchor plus optional content. */
-export interface NewNote extends Anchor {
+/** Create payload for a note: optional content, plus its first anchor when
+ * made from a selection (all seven anchor fields, or none). */
+export interface NewNote extends Partial<Anchor> {
   title?: string
   body?: string
 }
@@ -159,4 +165,15 @@ export function sameAnchor(a: Anchor, b: Anchor): boolean {
     a.endVerse === b.endVerse &&
     a.endWord === b.endWord
   )
+}
+
+/** The anchor in a create payload: all seven fields → the anchor, none →
+ * null, some → 'partial' (a client bug, refused). */
+export function payloadAnchor(p: Partial<Anchor>): Anchor | null | 'partial' {
+  const { translationId, book, chapter, startVerse, startWord, endVerse, endWord } = p
+  const fields = [translationId, book, chapter, startVerse, startWord, endVerse, endWord]
+  const given = fields.filter((f) => f !== undefined && f !== null).length
+  if (given === 0) return null
+  if (given < fields.length) return 'partial'
+  return { translationId, book, chapter, startVerse, startWord, endVerse, endWord } as Anchor
 }

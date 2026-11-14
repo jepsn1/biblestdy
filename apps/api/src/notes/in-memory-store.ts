@@ -4,17 +4,22 @@ import type { AnchorRow, NoteRow, NoteStore } from './notes.store';
 /** In-memory NoteStore: graph rules and panel assembly (NotesService,
  * ConnectionsService) get behavior-tested without a DB. */
 export class InMemoryNoteStore implements NoteStore {
-  private notes: (NoteRow & { updatedAt: number; deleted?: boolean })[] = [];
+  private notes: (NoteRow & { deleted?: boolean })[] = [];
   private anchors: AnchorRow[] = [];
   private seq = 0;
   private tick = 0;
+
+  /** Strictly increasing edit times — list order is deterministic. */
+  private stamp() {
+    return new Date(Date.UTC(2026, 0, 1) + ++this.tick * 1000);
+  }
 
   private nextId() {
     return `id-${++this.seq}`;
   }
 
   insertNote(userId: string, data: { title: string; body: string }) {
-    const row = { id: this.nextId(), userId, ...data, updatedAt: ++this.tick };
+    const row = { id: this.nextId(), userId, ...data, updatedAt: this.stamp() };
     this.notes.push(row);
     return Promise.resolve(row);
   }
@@ -39,7 +44,7 @@ export class InMemoryNoteStore implements NoteStore {
   ) {
     const row = await this.getNote(userId, id);
     if (!row) return null;
-    Object.assign(row, patch, { updatedAt: ++this.tick });
+    Object.assign(row, patch, { updatedAt: this.stamp() });
     return row;
   }
 
@@ -76,7 +81,7 @@ export class InMemoryNoteStore implements NoteStore {
     return Promise.resolve(
       this.live()
         .filter((n) => n.userId === userId)
-        .sort((a, b) => b.updatedAt - a.updatedAt),
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
     );
   }
 

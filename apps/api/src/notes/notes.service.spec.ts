@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Anchor } from '@biblestdy/shared';
 import { NotesService } from './notes.service';
 import { InMemoryNoteStore } from './in-memory-store';
+import { InMemoryTagStore } from '../tags/in-memory-store';
+import { TagsService } from '../tags/tags.service';
 
 const jhn3: Anchor = {
   translationId: 'WEB',
@@ -76,28 +78,58 @@ describe('NotesService (note↔anchor graph)', () => {
     expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(1);
   });
 
-  it('refuses to remove the last anchor', async () => {
+  it('removes the last anchor too; the note lives on without passages', async () => {
     const svc = make();
     const note = await svc.create('u1', jhn3);
-    expect(await svc.removeAnchor('u1', note.id, note.anchors[0].id)).toBe(
-      'last-anchor',
-    );
+    const after = await svc.removeAnchor('u1', note.id, note.anchors[0].id);
+    expect(after && after.anchors).toEqual([]);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(0);
+    expect((await svc.listAll('u1')).map((n) => n.id)).toEqual([note.id]);
+  });
+
+  it('creates a draft with no passage: on the Notes list, in no chapter', async () => {
+    const svc = make();
+    const note = await svc.create('u1', { title: 'Sermon', body: '# Outline' });
+    expect(note.anchors).toEqual([]);
+    expect(note.title).toBe('Sermon');
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(0);
+    const later = await svc.addAnchor('u1', note.id, jhn3);
+    expect(later?.anchors).toHaveLength(1);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(1);
+  });
+
+  it('adding or removing a reference counts as an edit (list order)', async () => {
+    const svc = make();
+    const a = await svc.create('u1', jhn3);
+    const b = await svc.create('u1', gen1);
+    expect((await svc.listAll('u1')).map((n) => n.id)).toEqual([b.id, a.id]);
+    await svc.addAnchor('u1', a.id, psa23);
+    expect((await svc.listAll('u1')).map((n) => n.id)).toEqual([a.id, b.id]);
+    // The same span again changes nothing
+    await svc.addAnchor('u1', b.id, gen1);
+    expect((await svc.listAll('u1'))[0].id).toBe(a.id);
+  });
+
+  it('a note carries its last-edit time', async () => {
+    const svc = make();
+    const note = await svc.create('u1', jhn3);
+    expect(Date.parse(note.updatedAt)).not.toBeNaN();
   });
 
   it('anchor ops are scoped to the owner', async () => {
     const svc = make();
     const note = await svc.create('u1', jhn3);
     expect(await svc.addAnchor('u2', note.id, gen1)).toBeNull();
-    expect(await svc.removeAnchor('u2', note.id, note.anchors[0].id)).toBe(
-      'not-found',
-    );
+    expect(
+      await svc.removeAnchor('u2', note.id, note.anchors[0].id),
+    ).toBeNull();
   });
 
   it('removing an unknown anchor id is not-found', async () => {
     const svc = make();
     const note = await svc.create('u1', jhn3);
     await svc.addAnchor('u1', note.id, gen1);
-    expect(await svc.removeAnchor('u1', note.id, 'nope')).toBe('not-found');
+    expect(await svc.removeAnchor('u1', note.id, 'nope')).toBeNull();
   });
 
   it('deleting a note removes it from every chapter', async () => {
@@ -161,6 +193,23 @@ describe('NotesService (note↔anchor graph)', () => {
     const all = await svc.listAll('u1');
     expect(all).toHaveLength(2);
     expect(all.every((n) => n.anchors.length === 1)).toBe(true);
+  });
+
+  it("listAll carries each note's topics when a tag store is given", async () => {
+    const notes = new InMemoryNoteStore();
+    const tagStore = new InMemoryTagStore();
+    const svc = new NotesService(notes, tagStore);
+    const tags = new TagsService(tagStore, notes);
+    const a = await svc.create('u1', jhn3);
+    const b = await svc.create('u1', gen1);
+    await tags.tagNote('u1', a.id, 'Grace');
+    await tags.tagNote('u1', a.id, 'preaching');
+    const all = await svc.listAll('u1');
+    expect(all.find((n) => n.id === a.id)?.tags?.map((t) => t.name)).toEqual([
+      'grace',
+      'preaching',
+    ]);
+    expect(all.find((n) => n.id === b.id)?.tags).toEqual([]);
   });
 });
 

@@ -32,7 +32,42 @@ export class AnchorDto {
   endWord!: number;
 }
 
-export class CreateNoteDto extends AnchorDto {
+/** A note made from a selection carries its first anchor; one written on the
+ * Notes page carries none. All seven or none — the controller refuses half. */
+export class CreateNoteDto {
+  @IsOptional()
+  @IsString()
+  translationId?: string;
+
+  @IsOptional()
+  @IsString()
+  book?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  chapter?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  startVerse?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  startWord?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  endVerse?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  endWord?: number;
+
   @IsOptional()
   @IsString()
   @MaxLength(MAX_TITLE)

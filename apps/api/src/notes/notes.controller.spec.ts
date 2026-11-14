@@ -74,6 +74,28 @@ describe('NotesController', () => {
     expect(service.create).toHaveBeenCalledWith('user-1', dto);
   });
 
+  it('creates a note with no passage (Notes page draft)', async () => {
+    const created = {
+      id: 'f2',
+      title: 'Draft',
+      body: '',
+      anchors: [],
+    } as unknown as Note;
+    const { service, controller } = make({
+      create: vi.fn().mockResolvedValue(created),
+    });
+    expect(await controller.create(req, { title: 'Draft' })).toBe(created);
+    expect(service.create).toHaveBeenCalledWith('user-1', { title: 'Draft' });
+  });
+
+  it('400s half an anchor', () => {
+    const { service, controller } = make({ create: vi.fn() });
+    expect(() =>
+      controller.create(req, { book: 'JHN', chapter: 3, title: 'x' }),
+    ).toThrow(BadRequestException);
+    expect(service.create).not.toHaveBeenCalled();
+  });
+
   it('updates title and body', async () => {
     const updated = { id: 'f1', title: 'Grace', body: '# Grace' } as Note;
     const { service, controller } = make({
@@ -141,18 +163,9 @@ describe('NotesController', () => {
     expect(service.removeAnchor).toHaveBeenCalledWith('user-1', 'f1', 'a1');
   });
 
-  it('400s removing the last anchor', async () => {
-    const { controller } = make({
-      removeAnchor: vi.fn().mockResolvedValue('last-anchor'),
-    });
-    await expect(controller.removeAnchor(req, 'f1', 'a1')).rejects.toThrow(
-      BadRequestException,
-    );
-  });
-
   it('404s removing an unknown anchor', async () => {
     const { controller } = make({
-      removeAnchor: vi.fn().mockResolvedValue('not-found'),
+      removeAnchor: vi.fn().mockResolvedValue(null),
     });
     await expect(controller.removeAnchor(req, 'f1', 'nope')).rejects.toThrow(
       NotFoundException,
