@@ -49,6 +49,8 @@ const da: typeof en = {
     openNoteNamed: "Åbn note: {{title}}",
     editAnnotation: "Redigér annotation: {{text}}",
     skipToText: "Spring til teksten",
+    continued: "↩ forts.",
+    annotationContinued: "Randnote, fortsat: {{text}}",
     prevPage: "Forrige side",
     nextPage: "Næste side",
     prevChapter: "Forrige kapitel",
