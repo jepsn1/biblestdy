@@ -110,7 +110,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
     <section
       aria-labelledby={listHeadingId}
       className={cn(
-        "flex min-h-0 flex-col border-border md:w-[22rem] md:shrink-0 md:border-r",
+        "flex min-h-0 min-w-0 flex-col border-border md:w-[22rem] md:shrink-0 md:border-r",
         params.id ? "max-md:hidden" : "flex-1",
       )}
     >
@@ -213,13 +213,13 @@ export default function NotesPage({ params }: Route.ComponentProps) {
                       <span className="min-w-0 flex-1 truncate font-serif text-control font-medium">
                         {noteTitle(n, t("note.untitled"))}
                       </span>
-                      <span className="shrink-0 text-meta text-muted-foreground tabular-nums">{editedOn(n.updatedAt, i18n.language)}</span>
+                      <span className={cn("shrink-0 text-meta tabular-nums", current ? "text-foreground/80" : "text-muted-foreground")}>{editedOn(n.updatedAt, i18n.language)}</span>
                     </span>
-                    <span className={cn("block truncate font-mono text-meta", refs.length ? "text-primary" : "text-muted-foreground italic")}>
+                    <span className={cn("block truncate font-mono text-meta", refs.length ? (current ? "text-foreground" : "text-primary") : current ? "text-foreground/80 italic" : "text-muted-foreground italic")}>
                       {refs.length ? refs.map((a) => anchorLabel(a, nameOf, locale)).join(" · ") : t("notes.noPassages")}
                     </span>
                     {(n.tags?.length ?? 0) > 0 && (
-                      <span className="block truncate text-meta text-muted-foreground">
+                      <span className={cn("block truncate text-meta", current ? "text-foreground/80" : "text-muted-foreground")}>
                         {n.tags?.map((tg) => tg.name).join(", ")}
                       </span>
                     )}
@@ -242,6 +242,8 @@ export default function NotesPage({ params }: Route.ComponentProps) {
       className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !params.id && "max-md:hidden")}
     >
       {open ? (
+        // A readable measure on wide screens, not a 1000px line
+        <div className="flex min-h-0 w-full max-w-[52rem] flex-1 flex-col md:border-r md:border-border">
         <NotePanel
           key={open.id}
           note={open}
@@ -255,6 +257,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           selectedAnchorId={null}
           onClose={() => navigate(hrefOf())}
         />
+        </div>
       ) : params.id ? (
         <ListSkeleton sections={[1]} className="p-4" />
       ) : (
