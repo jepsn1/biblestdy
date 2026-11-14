@@ -153,9 +153,9 @@
   --sidebar-ring: oklch(0.5 0.11 80 / 50%);
 
   /* Pen: dark ballpoint blue, pressed into the page */
-  --note-ink: oklch(0.42 0.17 262 / 0.9);
-  --note-ink-text: oklch(0.44 0.14 258 / 0.92);
-  --note-ink-text-active: oklch(0.34 0.16 260);
+  --note-ink: oklch(0.38 0.2 264);
+  --note-ink-text: oklch(0.38 0.18 264);
+  --note-ink-text-active: oklch(0.3 0.2 264);
   --note-ink-wash: oklch(0.5 0.15 255 / 8%);
   /* Marker: translucent highlighter over dark text */
   --hl-gold: oklch(0.89 0.17 95 / 55%);
@@ -202,9 +202,9 @@
   --sidebar-ring: oklch(0.83 0.1 85 / 50%);
 
   /* Pen ink lightened for the dark page (additive screen physics) */
-  --note-ink: oklch(0.62 0.17 255 / 95%);
-  --note-ink-text: oklch(0.66 0.11 252 / 90%);
-  --note-ink-text-active: oklch(0.76 0.12 252);
+  --note-ink: oklch(0.74 0.16 255);
+  --note-ink-text: oklch(0.76 0.13 255);
+  --note-ink-text-active: oklch(0.86 0.1 255);
   --note-ink-wash: oklch(0.72 0.1 245 / 10%);
   --hl-gold: oklch(0.83 0.1 85 / 28%);
   --hl-amber: oklch(0.76 0.13 60 / 28%);
