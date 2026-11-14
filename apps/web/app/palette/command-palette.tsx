@@ -1,7 +1,7 @@
 import type { Tag, Translation } from "@biblestdy/shared";
 import { TEXT_SIZES, translationInfo } from "@biblestdy/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CornerDownLeft, Search } from "lucide-react";
+import { Check, ChevronRight, CornerDownLeft, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useSidebar } from "~/components/ui/sidebar";
 import { useIsMobile } from "~/hooks/use-mobile";
+import { setHighlightFilter, useHighlightFilter } from "~/lib/highlight-filter";
 import { useColorName } from "~/lib/highlight-labels";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n, { setUiLanguage } from "~/lib/i18n";
@@ -27,7 +28,7 @@ import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-choos
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllHighlightsQuery } from "../reader/use-highlights";
 import { useAllNotesQuery } from "../reader/use-notes";
-import { buildResults, type GroupId, type PaletteAction, type PaletteItem } from "./palette-results";
+import { buildResults, matchRanges, type GroupId, type PaletteAction, type PaletteItem } from "./palette-results";
 
 /** Event name: the nav's search button opens the palette. */
 export const OPEN_PALETTE = "biblestdy:palette";
@@ -181,17 +182,43 @@ const GROUP_LABEL: Record<GroupId, string> = {
   notes: "palette.groupNotes",
   annotations: "palette.groupAnnotations",
   highlights: "palette.groupHighlights",
+  colors: "palette.groupColors",
   topics: "palette.groupTopics",
   hint: "",
 };
 
+/** Bold where the typed words hit (visual only: a plain <b>, so screen
+ * readers read the row's name in one piece, without "highlighted" noise). */
+function Marked({ text, match }: { text: string; match?: string }) {
+  const ranges = match ? matchRanges(text, match) : [];
+  if (!ranges.length) return text;
+  const out: React.ReactNode[] = [];
+  let at = 0;
+  for (const [a, b] of ranges) {
+    if (a > at) out.push(text.slice(at, a));
+    out.push(
+      <b key={a} className="font-semibold text-foreground">
+        {text.slice(a, b)}
+      </b>,
+    );
+    at = b;
+  }
+  if (at < text.length) out.push(text.slice(at));
+  return out;
+}
+
+/** Search tips (folded away under the list): what you can type. */
+const TIPS = ["passage", "words", "color", "prefix"] as const;
+
 /**
  * Command palette + omni search (⌘K / Ctrl+K anywhere, `/` when not typing):
- * one field → passages, books, your notes, margin notes and highlights (by
- * passage or words, marks also by their marked words), topics and
- * reader actions. Keyboard-first (↑/↓, Enter, ⌘/Ctrl+Enter = new tab, Tab
- * completes a book, Esc closes); every row is clickable. Full screen on
- * phones with a worded way back. Never fetches scripture.
+ * empty, a few commands and recently read; typed, one search over passages,
+ * books, your highlight colours, notes, margin notes and highlights (by
+ * passage or words, marks also by their marked words), topics and commands,
+ * the typed words in bold. Keyboard-first (↑/↓, Enter, ⌘/Ctrl+Enter = new
+ * tab, Tab completes a book, Esc closes); every row is clickable. How to
+ * search sits folded under the list ("Search tips"), not in a footer. Full
+ * screen on phones with a worded way back. Never fetches scripture.
  */
 export function CommandPalette({
   open,
@@ -243,7 +270,9 @@ export function CommandPalette({
     enabled: open,
   });
   const actions = useActions(reader);
-  const { name: colorNameOf, custom: colorLabel } = useColorName();
+  const { name: colorNameOf, title: colorTitle, custom: colorLabel } = useColorName();
+  const filter = useHighlightFilter();
+  const [tipsOpen, setTipsOpen] = useState(false);
 
   const items = useMemo(() => {
     if (!open) return [];
@@ -260,12 +289,15 @@ export function CommandPalette({
       translationId: reader.translationId,
       translationAbbr: (id) => reader.translations.find((tr) => tr.id === id)?.abbreviation ?? id,
       colorLabel,
+      colorWords: (c) => [i18n.t(`menu.colors.${c}`), ...both(`menu.colors.${c}`)],
       labels: {
         goTo: (ref) => t("palette.goTo", { ref }),
-        emptyHint: t("palette.emptyHint"),
         morePassages: (n) => t("palette.morePassages", { count: n }),
         invalid: t("nav.jumpInvalid"),
+        noMatches: (q) => t("palette.noMatches", { q }),
         noTextSearch: t("palette.noTextSearch"),
+        focusColor: (name) => t("palette.focusColor", { name }),
+        colorDetail: (n) => t("palette.colorDetail", { count: n }),
         untitled: t("palette.untitled"),
         mark: t("palette.kindMark"),
       },
@@ -278,7 +310,10 @@ export function CommandPalette({
   // The first selectable row is highlighted while typing (Enter = top row)
   useEffect(() => setActive(selectable[0] ?? -1), [query, open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!open) setQuery("");
+    if (!open) {
+      setQuery("");
+      setTipsOpen(false);
+    }
   }, [open]);
 
   // Keep the highlighted row in view
@@ -288,6 +323,18 @@ export function CommandPalette({
 
   function run(item: PaletteItem, newTab = false) {
     if (item.disabled) return;
+    if (item.filterColor) {
+      // As the colour key: this colour in full, the others faded; undoable
+      const prev = filter;
+      setHighlightFilter(new Set([item.filterColor]));
+      toast(t("colourKey.showing", { colors: colorTitle(item.filterColor) }), {
+        duration: 8000,
+        action: { label: t("toast.undo"), onClick: () => setHighlightFilter(prev) },
+      });
+      nextFocus.current = "text";
+      onOpenChange(false);
+      return;
+    }
     if (item.action) {
       const a = actions.find((x) => x.id === item.action);
       if (!a) return;
@@ -394,14 +441,20 @@ export function CommandPalette({
         )}
         <span className="min-w-0 flex-1">
           <span className={cn("block text-control max-sm:text-phone", item.group === "books" && "font-serif")}>
-            {item.label}
-            {item.color && !colorLabel(item.color) && <span className="sr-only">{` (${colorNameOf(item.color)})`}</span>}
+            <Marked text={item.label} match={item.match} />
+            {item.color && !item.filterColor && !colorLabel(item.color) && (
+              <span className="sr-only">{` (${colorNameOf(item.color)})`}</span>
+            )}
           </span>
-          {item.detail && <span className="block truncate text-meta text-muted-foreground">{item.detail}</span>}
+          {item.detail && (
+            <span className="block truncate text-meta text-muted-foreground">
+              <Marked text={item.detail} match={item.match} />
+            </span>
+          )}
         </span>
         {item.kind && (
           <span className="shrink-0 rounded border border-border px-1.5 text-meta leading-5 text-muted-foreground">
-            {item.kind}
+            <Marked text={item.kind} match={item.match} />
           </span>
         )}
         {item.checked && <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden />}
@@ -468,7 +521,6 @@ export function CommandPalette({
             aria-autocomplete="list"
             aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
             aria-label={t("palette.title")}
-            aria-describedby={`${listId}-hint`}
             placeholder={t("palette.placeholder")}
             autoComplete="off"
             autoCapitalize="off"
@@ -510,12 +562,36 @@ export function CommandPalette({
             })}
           </ul>
         </ScrollArea>
-        <p
-          id={`${listId}-hint`}
-          className="border-t border-border px-3 py-2 text-meta text-muted-foreground pointer-coarse:hidden"
-        >
-          {t("palette.footer", { mod: modKey() })}
-        </p>
+        {/* How to search: folded, and only before typing or when nothing's
+            found (outside the listbox: a listbox holds only options) */}
+        {(!query.trim() || count === 0) && (
+          <div className="border-t border-border px-1.5 py-1">
+            <button
+              type="button"
+              aria-expanded={tipsOpen}
+              aria-controls={`${listId}-tips`}
+              onClick={() => setTipsOpen((o) => !o)}
+              className="flex min-h-8 items-center gap-1 rounded-md px-1.5 text-meta text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:min-h-11"
+            >
+              <ChevronRight className={cn("size-3.5 transition-transform motion-reduce:transition-none", tipsOpen && "rotate-90")} aria-hidden />
+              {t("palette.tips")}
+            </button>
+            {tipsOpen && (
+              <dl id={`${listId}-tips`} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 px-1.5 pt-1 pb-2 text-meta">
+                {TIPS.map((k) => (
+                  <div key={k} className="contents">
+                    <dt className="font-mono text-foreground">{t(`palette.tip.${k}`)}</dt>
+                    <dd className="text-muted-foreground">{t(`palette.tip.${k}Says`)}</dd>
+                  </div>
+                ))}
+                <div className="contents pointer-coarse:hidden">
+                  <dt className="font-mono text-foreground">↑ ↓ ↵</dt>
+                  <dd className="text-muted-foreground">{t("palette.tip.keysSays", { mod: modKey() })}</dd>
+                </div>
+              </dl>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

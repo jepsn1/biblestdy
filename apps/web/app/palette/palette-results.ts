@@ -1,4 +1,5 @@
 import {
+  HIGHLIGHT_COLORS,
   parseReference,
   suggestBooks,
   type Annotation,
@@ -13,12 +14,15 @@ import { referenceHref } from "../reader/chapter-nav";
 
 /**
  * Command palette results (one pure function, so the ranking is testable):
- * the typed text → fixed, grouped rows. Order never changes while typing,
- * and a parsed reference is always the first row, so "rom 8:28 ⏎" is one
- * step. Prefixes narrow to one group: `>` actions, `#` topics, `@` notes
- * (and margin notes, highlights). Marks (highlights, margin notes) also match
- * on their marked words (`quote`); highlights also on the reader's own name
- * for their colour ("God speaking" — not plain "gold", too noisy).
+ * the typed text → fixed, grouped rows. Empty, it's a launcher: a few
+ * commands, then recently read. Typed, it's a search: a parsed reference is
+ * always the first row ("rom 8:28 ⏎" is one step), then books, your study
+ * (colours, notes, margin notes, highlights), topics, and commands last.
+ * Order never changes while typing. Prefixes narrow to one group: `>`
+ * commands, `#` topics, `@` notes (and margin notes, highlights). Marks also
+ * match on their marked words (`quote`); highlights also on the reader's own
+ * name for their colour ("God speaking" — not plain "gold", too noisy; that
+ * finds the colour itself). Rows carry the words to bold (`match`).
  * Never touches scripture (reading quota): rows are references and titles.
  */
 
@@ -30,6 +34,7 @@ export type GroupId =
   | "notes"
   | "annotations"
   | "highlights"
+  | "colors"
   | "topics"
   | "hint";
 
@@ -54,6 +59,10 @@ export type PaletteItem = {
   color?: HighlightColor;
   /** Small kind hint after the label ("Mark": a margin note without words). */
   kind?: string;
+  /** The typed words, to bold where they hit label, detail and kind. */
+  match?: string;
+  /** A colour row: brings this colour out in the reader (colour key filter). */
+  filterColor?: HighlightColor;
 };
 
 export type PaletteAction = {
@@ -87,20 +96,26 @@ export type PaletteContext = {
   translationAbbr: (id: string) => string;
   /** The reader's own name for a highlight colour ("God speaking"), if any. */
   colorLabel: (c: HighlightColor) => string | undefined;
+  /** A colour's plain names, both UI languages ("blue", "blå"): find its row. */
+  colorWords: (c: HighlightColor) => string[];
   labels: {
     goTo: (ref: string) => string;
-    /** Empty palette with no history: what to type. */
-    emptyHint: string;
     morePassages: (n: number) => string;
     invalid: string;
+    /** Nothing found: says so, with the typed text… */
+    noMatches: (q: string) => string;
+    /** …and that the Bible text itself isn't searchable yet. */
     noTextSearch: string;
+    /** A colour row: "Focus on God speaking" + "Colour · 2 highlights". */
+    focusColor: (name: string) => string;
+    colorDetail: (n: number) => string;
     untitled: string;
     /** Kind hint of a margin note that's only a pen mark (no words). */
     mark: string;
   };
 };
 
-export const LIMITS = { books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4 };
+export const LIMITS = { books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4, colorHits: 20 };
 
 /** Lowercase, accents folded (é → e), so matching ignores both. */
 export function fold(s: string): string {
@@ -114,6 +129,38 @@ export function wordPrefixMatch(text: string, query: string): boolean {
     .split(/\s+/)
     .filter(Boolean)
     .every((q) => words.some((w) => w.startsWith(q)));
+}
+
+/**
+ * Where the typed words hit `text`, as [start, end) ranges into it (for
+ * bold): the start of every word that a query word starts, as
+ * `wordPrefixMatch` matches — case- and accent-insensitive ("guds" in
+ * "Guds", "anden" in "Ånden"), all hits, merged and in order.
+ */
+export function matchRanges(text: string, query: string): [number, number][] {
+  const words = fold(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (!words.length || !text) return [];
+  // The folded text, each folded char mapped back to its original char
+  let folded = "";
+  const from: number[] = [];
+  const to: number[] = [];
+  for (let i = 0; i < text.length; ) {
+    const ch = String.fromCodePoint(text.codePointAt(i)!);
+    const f = fold(ch);
+    for (let k = 0; k < f.length; k++) {
+      from.push(i);
+      to.push(i + ch.length);
+    }
+    folded += f;
+    i += ch.length;
+  }
+  const hits: [number, number][] = [];
+  for (const m of folded.matchAll(/[\p{L}\p{N}]+/gu)) {
+    // The longest query word that starts this word
+    const len = Math.max(0, ...words.filter((w) => m[0].startsWith(w)).map((w) => w.length));
+    if (len) hits.push([from[m.index], to[m.index + len - 1]]);
+  }
+  return hits;
 }
 
 /** Markdown → plain text, enough for matching and snippets. */
@@ -140,7 +187,7 @@ function refLabel(ctx: PaletteContext, ref: Reference): string {
 
 /** The anchor a row shows and opens: the one that matched the typed passage,
  * else the one in the reading translation, else the first. */
-function noteItem(ctx: PaletteContext, note: Note, snippet?: string, matched?: Note["anchors"][number]): PaletteItem {
+function noteItem(ctx: PaletteContext, note: Note, q: string, snippet?: string, matched?: Note["anchors"][number]): PaletteItem {
   const a = matched ?? note.anchors.find((x) => x.translationId === ctx.translationId) ?? note.anchors[0];
   const more = new Set(note.anchors.map((x) => `${x.book}${x.chapter}${x.startVerse}`)).size - 1;
   const ref = a && refLabel(ctx, { book: a.book, chapter: a.chapter, verse: a.startVerse });
@@ -151,6 +198,7 @@ function noteItem(ctx: PaletteContext, note: Note, snippet?: string, matched?: N
     label: title,
     detail: [ref, more > 0 && ctx.labels.morePassages(more), snippet].filter(Boolean).join(" · ") || undefined,
     href: a ? `/read/${a.book}/${a.chapter}?note=${note.id}` : undefined,
+    match: q || undefined,
   };
 }
 
@@ -203,6 +251,7 @@ function annotationItem(ctx: PaletteContext, a: Annotation, q: string): PaletteI
     label: text ? excerpt(text, q) : quote ? excerpt(quote, q) : ref,
     detail: text && inQuote ? `${detail} · ${excerpt(quote, q)}` : detail,
     kind: text ? undefined : ctx.labels.mark,
+    match: q || undefined,
     ...open,
   };
 }
@@ -219,25 +268,27 @@ function highlightItem(ctx: PaletteContext, h: Highlight, q: string): PaletteIte
     color: h.color,
     // A renamed colour says what it means ("God speaking")
     kind: ctx.colorLabel(h.color),
+    match: q || undefined,
     ...open,
   };
 }
 
-const actionItem = (a: PaletteAction): PaletteItem => ({
+const actionItem = (a: PaletteAction, q = ""): PaletteItem => ({
   id: `action:${a.id}`,
   group: "actions",
   label: a.label,
   action: a.id,
   shortcut: a.shortcut,
   checked: a.checked,
+  match: q || undefined,
 });
 
 export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] {
   const raw = input.trim();
 
   if (!raw) {
-    // Recently read first (where you were), then a few actions
-    const out: PaletteItem[] = [];
+    // A launcher: a few commands first, then recently read (where you were)
+    const out: PaletteItem[] = ctx.actions.filter((a) => a.common).slice(0, LIMITS.common).map((a) => actionItem(a));
     const seen = new Set([`${ctx.here.book}/${ctx.here.chapter}`]);
     for (const r of ctx.recent) {
       const key = `${r.book}/${r.chapter}`;
@@ -246,8 +297,6 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
       out.push({ id: `recent:${key}`, group: "recent", label: refLabel(ctx, r), href: `/read/${key}` });
       if (out.filter((i) => i.group === "recent").length >= LIMITS.recent) break;
     }
-    if (out.length === 0) out.push({ id: "empty-hint", group: "hint", label: ctx.labels.emptyHint, disabled: true });
-    out.push(...ctx.actions.filter((a) => a.common).slice(0, LIMITS.common).map(actionItem));
     return out;
   }
 
@@ -267,7 +316,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     const bookPart = /^\s*(\d?\.?\s*\p{L}[\p{L}\s.']*)$/u.exec(q)?.[1];
     if (bookPart) {
       for (const s of suggestBooks(bookPart, ctx.locale, LIMITS.books)) {
-        out.push({ id: `book:${s.id}`, group: "books", label: s.name, detail: s.alt, href: `/read/${s.id}/1`, complete: `${s.name} ` });
+        out.push({ id: `book:${s.id}`, group: "books", label: s.name, detail: s.alt, href: `/read/${s.id}/1`, complete: `${s.name} `, match: bookPart });
       }
     } else if (/\d/.test(q) && /\p{L}/u.test(q)) {
       // Looks like a reference but isn't one ("rom 99")
@@ -275,10 +324,28 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     }
   }
 
-  // 3. Actions
-  if (!only || only === "actions") {
-    const hits = q ? ctx.actions.filter((a) => wordPrefixMatch([a.label, ...a.keywords].join(" "), q)) : ctx.actions;
-    out.push(...hits.slice(0, only ? hits.length : LIMITS.actions).map(actionItem));
+  // 3. Highlight colours, by the reader's name or the plain one ("God
+  // speaking", "blue", "blå"): one row each, that brings the colour out
+  const colorHit = (c: HighlightColor) =>
+    !!q && [ctx.colorLabel(c) ?? "", ...ctx.colorWords(c)].some((w) => w && wordPrefixMatch(w, q));
+  if (!only && !(ref && ref.chapter !== undefined)) {
+    const counts = new Map<HighlightColor, number>();
+    for (const h of ctx.highlights) counts.set(h.color, (counts.get(h.color) ?? 0) + 1);
+    for (const c of HIGHLIGHT_COLORS) {
+      const n = counts.get(c);
+      if (!n || !colorHit(c)) continue;
+      const own = ctx.colorLabel(c);
+      out.push({
+        id: `color:${c}`,
+        group: "colors",
+        label: ctx.labels.focusColor(own ?? ctx.colorWords(c)[0]),
+        // A renamed colour also says its plain name (found by either)
+        detail: `${ctx.labels.colorDetail(n)}${own ? ` · ${ctx.colorWords(c)[0]}` : ""}`,
+        color: c,
+        filterColor: c,
+        match: q,
+      });
+    }
   }
 
   // A span on the typed passage (chapter, or verses overlapping the range)
@@ -299,7 +366,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
       const hits = (n: Note) => n.anchors.filter(onPassage);
       notes = ctx.notes.flatMap((n) => {
         const h = hits(n);
-        return h.length ? [noteItem(ctx, n, undefined, h.find((a) => a.translationId === ctx.translationId) ?? h[0])] : [];
+        return h.length ? [noteItem(ctx, n, "", undefined, h.find((a) => a.translationId === ctx.translationId) ?? h[0])] : [];
       });
     } else if (q) {
       const scored: { n: Note; score: number; body: string }[] = [];
@@ -309,7 +376,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
         else if (wordPrefixMatch(body, q)) scored.push({ n, score: 1, body });
       }
       scored.sort((a, b) => a.score - b.score);
-      notes = scored.map(({ n, score, body }) => noteItem(ctx, n, score === 1 ? snippet(body, q) : undefined));
+      notes = scored.map(({ n, score, body }) => noteItem(ctx, n, q, score === 1 ? snippet(body, q) : undefined));
     }
     out.push(...notes.slice(0, only ? 50 : LIMITS.notes));
   }
@@ -329,17 +396,19 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   }
 
   // 6. Highlights: on the typed passage (as margin notes), else by the
-  // marked words
+  // marked words or their colour's own name (then all of that colour)
   if (!only || only === "notes") {
     const elsewhere = (h: Highlight) => Number(h.translationId !== ctx.translationId);
+    const byName = (h: Highlight) => wordPrefixMatch(ctx.colorLabel(h.color) ?? "", q);
     const hits = onPassage
       ? ctx.highlights
           .filter(onPassage)
           .sort((a, b) => elsewhere(a) - elsewhere(b) || a.startVerse - b.startVerse || a.startWord - b.startWord)
       : q
-        ? ctx.highlights.filter((h) => wordPrefixMatch(quoteOf(h), q) || wordPrefixMatch(ctx.colorLabel(h.color) ?? "", q))
+        ? ctx.highlights.filter((h) => wordPrefixMatch(quoteOf(h), q) || byName(h))
         : [];
-    out.push(...hits.slice(0, only ? 50 : LIMITS.highlights).map((h) => highlightItem(ctx, h, onPassage ? "" : q)));
+    const limit = only ? 50 : hits.some(byName) ? LIMITS.colorHits : LIMITS.highlights;
+    out.push(...hits.slice(0, limit).map((h) => highlightItem(ctx, h, onPassage ? "" : q)));
   }
 
   // 7. Topics
@@ -351,10 +420,19 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
         group: "topics" as const,
         label: `#${t.name}`,
         href: `/topic/${encodeURIComponent(t.name)}`,
+        match: q || undefined,
       })),
     );
   }
 
-  if (out.length === 0) out.push({ id: "none", group: "hint", label: ctx.labels.noTextSearch, disabled: true });
+  // 8. Commands last while searching (still found by name, both languages)
+  if (!only || only === "actions") {
+    const hits = q ? ctx.actions.filter((a) => wordPrefixMatch([a.label, ...a.keywords].join(" "), q)) : ctx.actions;
+    out.push(...hits.slice(0, only ? hits.length : LIMITS.actions).map((a) => actionItem(a, q)));
+  }
+
+  if (out.length === 0) {
+    out.push({ id: "none", group: "hint", label: ctx.labels.noMatches(raw), detail: ctx.labels.noTextSearch, disabled: true });
+  }
   return out;
 }
