@@ -167,13 +167,10 @@ export function PaginatedChapter({
     chapter.chapter,
     chapter,
   );
-  // The colour key's filter: hidden colours are out of the reader's view
-  // (wash, clicks, eraser) — still saved. Marking in a hidden colour shows it.
+  // The colour key's filter: other colours turn see-through (still there,
+  // still clickable). Marking in a faded colour brings it back.
   const highlightFilter = useHighlightFilter();
-  const highlights = useMemo(
-    () => (highlightFilter ? allHighlights.filter((h) => highlightFilter.has(h.color)) : allHighlights),
-    [allHighlights, highlightFilter],
-  );
+  const highlights = allHighlights;
   const add: typeof addHighlight = (anchor, color) => {
     setHighlightFilter(revealColor(highlightFilter, color));
     return addHighlight(anchor, color);
@@ -953,6 +950,7 @@ export function PaginatedChapter({
         <div {...slide}>
           <HighlightMarks
             highlights={highlights}
+            shown={highlightFilter}
             selection={selection}
             boxRef={contentBoxRef}
             flowRef={contentRef}
