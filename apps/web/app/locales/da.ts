@@ -340,7 +340,7 @@ const da: typeof en = {
   },
   support: {
     title: "biblestdy er gratis",
-    body: "Hej, jeg hedder Marcus og bygger biblestdy selv, uden reklamer. Jeg tager ikke imod donationer endnu, men kan du lide appen, så følg med på Instagram.",
+    body: "Hej, mit navn er Marcus. Jeg har lavet biblestdy selv, uden reklamer og uden indtægt. Hvis du kan lide appen, så følg med på Instagram.",
     follow: "Følg @{{handle}}",
     chat: "Gå med i gruppechatten",
     chatHint: "Åbner Instagram. Din side bliver her. I gruppechatten kan andre se dit Instagram-navn.",

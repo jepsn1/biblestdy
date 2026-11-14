@@ -338,7 +338,7 @@ export default {
   },
   support: {
     title: "biblestdy is free",
-    body: "Hi, I'm Marcus. I build biblestdy on my own, with no ads. I don't take donations yet, but if you like it, follow along on Instagram.",
+    body: "Hi, my name is Marcus. I made biblestdy myself, with no ads and no income. If you like the app, follow along on Instagram.",
     follow: "Follow @{{handle}}",
     chat: "Join the group chat",
     chatHint: "Opens Instagram. Your page stays here. In the group chat, others can see your Instagram name.",
