@@ -11,7 +11,7 @@ import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
-import { cn } from "~/lib/utils";
+import { cn, focusRing } from "~/lib/utils";
 import {
   type ChapterRef,
   chapterHref,
@@ -601,6 +601,44 @@ export function PaginatedChapter({
     (verse ?? contentRef.current)?.focus({ preventScroll: true });
   }
 
+  // Touch swipe turns the page (tablets in the paged layout). Touch events:
+  // nothing scrolls sideways here, so a horizontal flick is ours alone.
+  const turnRef = useRef({ goPrev, goNext });
+  turnRef.current = { goPrev, goNext };
+  useEffect(() => {
+    const el = paneRef.current;
+    if (!el || scrollMode) return;
+    let start: { x: number; y: number; at: number } | null = null;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      const target = e.target as HTMLElement;
+      // Not from a box/chip/editor/button — those own their touches
+      start =
+        e.touches.length === 1 && !target.closest("[data-ink-box], button, a, input, textarea, [contenteditable]")
+          ? { x: t.clientX, y: t.clientY, at: Date.now() }
+          : null;
+    };
+    const onEnd = (e: TouchEvent) => {
+      const s = start;
+      start = null;
+      const t = e.changedTouches[0];
+      if (!s || !t) return;
+      const dx = t.clientX - s.x;
+      const dy = t.clientY - s.y;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < 1.5 * Math.abs(dy) || Date.now() - s.at > 800) return;
+      // A selection being made (its menu is up) is a drag, not a flick
+      if (document.querySelector("[role='menu'][data-open]")) return;
+      if (dx < 0) turnRef.current.goNext();
+      else turnRef.current.goPrev();
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, [scrollMode]);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "F6" && !event.altKey && !event.ctrlKey && !event.metaKey && !sideInDrawer) {
@@ -932,6 +970,25 @@ export function PaginatedChapter({
               </div>
             </div>
 
+            {/* Page turns on the page (not the footer): a full-height strip at
+                each pane edge with a visible arrow — click/tap anywhere on it.
+                At a chapter boundary it names where it goes. */}
+            <div className="absolute inset-y-0 left-0 z-20 flex w-12 flex-col">
+              <PageTurn
+                dir="prev"
+                target={prevTarget ? refLabel(prevTarget) : null}
+                hidden={onFirstPage && !prevChapter}
+                onClick={goPrev}
+              />
+            </div>
+            <div className="absolute inset-y-0 right-0 z-20 flex w-12 flex-col">
+              <PageTurn
+                dir="next"
+                target={nextTarget ? refLabel(nextTarget) : null}
+                hidden={onLastPage && !nextChapter}
+                onClick={goNext}
+              />
+            </div>
           </>
         )}
       </div>
@@ -945,31 +1002,31 @@ export function PaginatedChapter({
         style={scrollMode ? undefined : { maxWidth: `${Math.max(layout.contentWidth, 30)}rem` }}
       >
         {!scrollMode && <span className="min-w-0 flex-1 truncate">{attribution}</span>}
-        <span className="flex shrink-0 items-center gap-1 tabular-nums">
-        <NavButton
-          dir="prev"
-          target={prevTarget ? refLabel(prevTarget) : null}
-          disabled={onFirstPage && !prevChapter}
-          onClick={goPrev}
-        />
-        {!scrollMode && (
-          <span aria-hidden className="flex items-center gap-1.5 whitespace-nowrap">
-            {prevTarget && <span>·</span>}
+        {scrollMode ? (
+          // Phones scroll the chapter: these step chapters, not pages
+          <span className="flex shrink-0 items-center gap-1">
+            <NavButton
+              dir="prev"
+              target={prevChapter ? refLabel(prevChapter) : null}
+              disabled={!prevChapter}
+              onClick={goPrev}
+            />
+            <NavButton
+              dir="next"
+              target={nextChapter ? refLabel(nextChapter) : null}
+              disabled={!nextChapter}
+              onClick={goNext}
+            />
+          </span>
+        ) : (
+          <span aria-hidden className="flex shrink-0 items-center gap-1.5 whitespace-nowrap tabular-nums">
             <span>{rangeLabel}</span>
             <span>·</span>
             <span>
               {page + 1}/{pageCount}
             </span>
-            {nextTarget && <span>·</span>}
           </span>
         )}
-        <NavButton
-          dir="next"
-          target={nextTarget ? refLabel(nextTarget) : null}
-          disabled={onLastPage && !nextChapter}
-          onClick={goNext}
-        />
-        </span>
         {!scrollMode && (
           <p aria-live="polite" className="sr-only">
             {t("reader.announce", { ref: rangeLabel, page: page + 1, count: pageCount })}
@@ -1063,7 +1120,61 @@ export function PaginatedChapter({
   );
 }
 
-/** Footer arrow: icon-only page turn (tooltip names the key), or labelled
+/** Page-turn strip (desktop/tablet): the whole strip is the button; the
+ * arrow sits in a visible circle. Crossing into another chapter, the strip
+ * also prints it ("John 4", set vertically like a book's running head). */
+function PageTurn({
+  dir,
+  target,
+  hidden,
+  onClick,
+}: {
+  dir: "prev" | "next";
+  /** "John 4" when this press changes chapter; null = page turn. */
+  target: string | null;
+  /** Nothing that way (Genesis 1's first page, Revelation 22's last). */
+  hidden: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  if (hidden) return null;
+  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
+  const label = target
+    ? t(dir === "prev" ? "reader.prevChapterTo" : "reader.nextChapterTo", { ref: target })
+    : t(dir === "prev" ? "reader.prevPage" : "reader.nextPage");
+  const shortcut = target ? (dir === "prev" ? "[" : "]") : dir === "prev" ? "←" : "→";
+  return (
+    <Hint label={label} shortcut={shortcut} side={dir === "prev" ? "right" : "left"}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={cn(
+          "group flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center gap-2 text-muted-foreground transition-colors hover:bg-foreground/[0.03] hover:text-foreground",
+          focusRing,
+          "focus-visible:ring-inset",
+        )}
+      >
+        <span className="flex size-9 items-center justify-center rounded-full border border-border bg-background shadow-xs transition-colors group-hover:border-foreground/25 group-active:scale-95">
+          <Icon className="size-5" aria-hidden />
+        </span>
+        {target && (
+          <span
+            aria-hidden
+            className={cn(
+              "max-h-40 truncate text-meta font-medium [writing-mode:vertical-rl]",
+              dir === "prev" && "rotate-180",
+            )}
+          >
+            {target}
+          </span>
+        )}
+      </button>
+    </Hint>
+  );
+}
+
+/** Footer arrow (phones): icon-only page turn (tooltip names the key), or labelled
  * with the chapter it opens when it crosses one. */
 function NavButton({
   dir,

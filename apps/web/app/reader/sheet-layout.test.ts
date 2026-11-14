@@ -34,7 +34,7 @@ describe("sheetLayout", () => {
     const l = sheetLayout(40, LANE);
     expect(l.columns).toBe(1);
     expect(l.contentWidth).toBe(25);
-    expect(l.lane).toBeCloseTo(5.5);
+    expect(l.lane).toBeCloseTo(4.5);
   });
 
   it("notes only: a narrower chip rail keeps the spread", () => {
@@ -60,7 +60,8 @@ describe("boxesFitLane", () => {
     expect(boxesFitLane(sheetLayout(29, LANE), 32)).toBe(false);
   });
 
-  it("the same pane at 100% with a note panel open (40rem) still fits", () => {
-    expect(boxesFitLane(sheetLayout(40, LANE), 16)).toBe(true);
+  it("with a note panel open, boxes fit from a 42rem pane at 100% (40rem: inline lines)", () => {
+    expect(boxesFitLane(sheetLayout(42, LANE), 16)).toBe(true);
+    expect(boxesFitLane(sheetLayout(40, LANE), 16)).toBe(false);
   });
 });
