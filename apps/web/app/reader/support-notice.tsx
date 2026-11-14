@@ -55,7 +55,7 @@ export function SupportNotice({ onClose }: { onClose: () => void }) {
     <section
       ref={ref}
       aria-labelledby={titleId}
-      className="fixed inset-x-4 bottom-16 z-40 mx-auto max-w-md animate-in fade-in rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg duration-150 xl:inset-x-auto xl:right-4 xl:bottom-20 xl:w-90"
+      className="fixed inset-x-4 bottom-20 z-40 mx-auto max-w-md animate-in fade-in rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg duration-150 xl:inset-x-auto xl:right-4 xl:bottom-24 xl:w-90"
     >
       <div role="status" className="sr-only">
         {t("support.title")}

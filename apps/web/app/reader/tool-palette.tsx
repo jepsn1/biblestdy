@@ -13,7 +13,7 @@ import { HIGHLIGHT_SWATCH } from "./highlight-colors";
  * - A tool: pick it here, then every selection (drag, or a click on one
  *   word) gets it straight away — highlight in the tool's colour, annotate,
  *   start a note, or erase highlights/annotations.
- * Lives in the left page-turn gutter, mouse/trackpad only (touch swipes
+ * Lives in the reader's left gutter, mouse/trackpad only (touch swipes
  * and selects with the menu); never persisted (a reload is back to
  * Select, so nobody is surprised by a mode they forgot).
  */
@@ -23,10 +23,6 @@ export type ToolKind = "select" | "highlight" | "annotate" | "note" | "erase";
 export type PenStyle = "text" | AnnotationMark;
 export const PEN_STYLES: PenStyle[] = ["text", "contour", "underline", "circle", "bracket"];
 export type ReaderTool = { kind: ToolKind; color: HighlightColor; pen: PenStyle };
-
-/** Palette size + top offset; the right page-turn strip reserves the same,
- * so both page arrows sit at one height. */
-export const PALETTE_BOX = "mt-3 h-48.5 shrink-0";
 
 const TOOLS: { kind: ToolKind; icon: LucideIcon; key: string }[] = [
   { kind: "select", icon: MousePointer2, key: "V" },
@@ -52,7 +48,7 @@ export function ToolPalette({
       role="toolbar"
       aria-orientation="vertical"
       aria-label={t("tools.label")}
-      className={cn(PALETTE_BOX, "mx-auto flex pointer-coarse:hidden w-10 flex-col items-center gap-0.5 rounded-xl border border-border bg-background p-0.5 shadow-xs")}
+      className="mx-auto mt-3 flex w-10 flex-col items-center gap-0.5 rounded-xl border border-border bg-background p-0.5 shadow-xs pointer-coarse:hidden"
     >
       {TOOLS.map(({ kind, icon: Icon, key }) => {
         const on = tool.kind === kind;
@@ -102,7 +98,7 @@ export function ToolPalette({
               </div>
             )}
             {/* The highlighter's colours, while it's the tool: a row beside it
-                (the palette keeps its height, the page arrows stay put) */}
+                (the palette keeps its height) */}
             {kind === "highlight" && on && (
               <div
                 role="radiogroup"
