@@ -598,9 +598,16 @@ export function PaginatedChapter({
     }
     const root = document.documentElement;
     root.dataset.chapterTurn = dir;
-    // Paged: travel one page stride, as a page turn does (not the wider pane)
-    if (stride > 0) root.style.setProperty("--turn-distance", `${stride}px`);
-    else root.style.removeProperty("--turn-distance");
+    // Paged: travel one page stride, as a page turn does (not the wider
+    // pane) — but far enough that the old page leaves the sheet's clip
+    // (left of it is the tool gutter)
+    const sheet = regionRef.current?.parentElement?.getBoundingClientRect();
+    const box = contentBoxRef.current?.getBoundingClientRect();
+    if (stride > 0 && sheet && box) {
+      const gutter = (parseFloat(getComputedStyle(root).getPropertyValue("--spacing-reader-gutter")) || 0) * pane.rem;
+      const clear = dir === "next" ? box.right - (sheet.left + gutter) : sheet.right - box.left;
+      root.style.setProperty("--turn-distance", `${Math.ceil(Math.max(stride, clear))}px`);
+    } else root.style.removeProperty("--turn-distance");
     // Margin ink waits out the slide, as on a page turn (also in the old shot)
     flushSync(() => setSliding(true));
     const key = `${chapter.translationId}/${target.book}.${target.chapter}`;
