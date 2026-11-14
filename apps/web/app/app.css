@@ -430,8 +430,9 @@
 :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
   overflow: hidden;
 }
-/* Paged: clipped to the text box, as on a page turn (the union of the old
-   and new chapters' boxes; the reader sets the insets). Phones: the pane. */
+/* Paged: clipped to the text box, as on a page turn (the new chapter's box,
+   which the running foot shows; the reader sets the insets). Phones: the
+   pane. */
 :root[data-chapter-turn]::view-transition-image-pair(chapter-sheet) {
   clip-path: inset(0 var(--turn-clip-right, 0) 0 var(--turn-clip-left, 0));
 }

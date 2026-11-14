@@ -73,14 +73,27 @@ describe("crossingSlide", () => {
     expect(crossingSlide("prev", 976, box, box)).toEqual({ distance: 976, clip: box });
   });
 
-  it("boxes differ: union clip, far enough that neither page is left in it", () => {
+  it("boxes differ: the new page follows right behind the old one", () => {
+    const wide = { left: 400, right: 1368 };
+    const narrow = { left: 600, right: 1160 };
+    // next: the new page starts at the old box's right edge (+ the turn's gap)
+    const next = crossingSlide("next", 976, wide, narrow);
+    expect(narrow.left + next.distance).toBe(wide.right + 8);
+    // prev into a wider box: it must start outside its own clip
+    const prev = crossingSlide("prev", 568, narrow, wide);
+    expect(wide.right - prev.distance).toBeLessThanOrEqual(prev.clip.left);
+    expect(narrow.left + prev.distance).toBeGreaterThanOrEqual(prev.clip.right);
+  });
+
+  it("boxes differ: the new box clips (as the foot shows); neither page is left in it", () => {
     const wide = { left: 400, right: 1368 };
     const narrow = { left: 600, right: 1160 };
     const next = crossingSlide("next", 976, wide, narrow);
-    expect(next.clip).toEqual(wide);
+    expect(next.clip).toEqual(narrow);
     expect(wide.right - next.distance).toBeLessThanOrEqual(next.clip.left); // old out
     expect(narrow.left + next.distance).toBeGreaterThanOrEqual(next.clip.right); // new starts out
     const prev = crossingSlide("prev", 568, narrow, wide);
+    expect(prev.clip).toEqual(wide);
     expect(narrow.left + prev.distance).toBeGreaterThanOrEqual(prev.clip.right);
     expect(wide.right - prev.distance).toBeLessThanOrEqual(prev.clip.left);
   });
