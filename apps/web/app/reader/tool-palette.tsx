@@ -1,12 +1,12 @@
 import type { AnnotationMark, HighlightColor } from "@biblestdy/shared";
 import { HIGHLIGHT_COLORS } from "@biblestdy/shared";
-import { Eraser, FileText, MousePointer2, PenLine, Tag, type LucideIcon } from "lucide-react";
+import { Eraser, FileText, Highlighter, MousePointer2, PenLine, type LucideIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Hint } from "~/components/hint";
 import { useColorName } from "~/lib/highlight-labels";
 import { cn, focusRing } from "~/lib/utils";
-import { openColorNames } from "./color-names-dialog";
+import { COLOUR_KEY_ATTR } from "./colour-key";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
 /**
@@ -16,7 +16,9 @@ import { HIGHLIGHT_SWATCH } from "./highlight-colors";
  * - A tool: pick it here, then every selection (drag, or a click on one
  *   word) gets it straight away — highlight in the tool's colour, annotate,
  *   start a note, or erase highlights/annotations.
- * Lives in the reader's left gutter, mouse/trackpad only (touch swipes
+ * Lives in the reader's left gutter, on the same inset as the colour key
+ * under it (the key names and filters colours; the palette only applies
+ * them). Mouse/trackpad only (touch swipes
  * and selects with the menu); never persisted (a reload is back to
  * Select, so nobody is surprised by a mode they forgot).
  */
@@ -47,8 +49,9 @@ const buttonClass =
   "flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 const onClass = "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground";
 
-/** Does the full colour column fit under the tools in the pane? Its height
- * follows from a tool button's (all rem: text size scales it). */
+/** Does the full colour column fit between the tools and the colour key in
+ * the pane? Its height follows from a tool button's (all rem: text size
+ * scales it). */
 function useCompact() {
   const ref = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
@@ -59,15 +62,19 @@ function useCompact() {
     const host = gutter?.offsetParent;
     const tools = toolsRef.current;
     if (!host || !tools) return;
+    const observer = new ResizeObserver(() => measure());
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
       const button = tools.querySelector("button")?.offsetHeight ?? 2.25 * rem;
-      // 6 colours + name button, gaps, separator, padding, border; margins
-      const colors = 7 * button + 1.5 * rem + 3;
-      setOn(0.75 * rem + tools.offsetHeight + 0.5 * rem + colors + 0.75 * rem > host.clientHeight);
+      // 6 colours, the highlighter mark, gaps, padding, border
+      const colors = 6 * button + 1.75 * rem + 1.125 * rem + 2;
+      // The key below (in the margin or the gutter), and the gap to it
+      const key = host.querySelector<HTMLElement>(`[${COLOUR_KEY_ATTR}]`);
+      if (key) observer.observe(key); // it grows when opened or named
+      const below = key ? key.offsetHeight + 0.75 * rem : 0;
+      setOn(0.75 * rem + tools.offsetHeight + 0.5 * rem + colors + 0.75 * rem + below > host.clientHeight);
     };
     measure();
-    const observer = new ResizeObserver(measure);
     observer.observe(host);
     observer.observe(tools);
     return () => observer.disconnect();
@@ -87,7 +94,7 @@ export function ToolPalette({
   const highlighting = tool.kind === "highlight";
   const compact = useCompact();
   return (
-    <div ref={compact.ref} className="mx-auto mt-3 flex w-fit flex-col items-center gap-2 pointer-coarse:hidden">
+    <div ref={compact.ref} className="mt-reader-inset ml-reader-inset flex w-fit flex-col items-center gap-2 pointer-coarse:hidden">
       <div ref={compact.toolsRef} role="toolbar" aria-orientation="vertical" aria-label={t("tools.label")} className={groupClass}>
         {TOOLS.map(({ kind, icon: Icon, key }) => {
           const on = tool.kind === kind;
@@ -138,11 +145,16 @@ export function ToolPalette({
       </div>
 
       {/* The highlighter, as its colours: each one a tool of its own (click
-          blue = highlight in blue). Named by the reader's own colour names. */}
+          blue = highlight in blue), under the highlighter's mark so they
+          read as pens, not the key's filter. Named by the reader's own
+          colour names (tooltips); naming them is the key's. */}
       {compact.on ? (
         <CompactColors tool={tool} onChange={onChange} />
       ) : (
         <div role="toolbar" aria-orientation="vertical" aria-label={t("tools.highlight")} className={groupClass}>
+          <span aria-hidden className="flex h-7 items-center text-muted-foreground">
+            <Highlighter className="size-4" />
+          </span>
           {HIGHLIGHT_COLORS.map((c, i) => {
             const on = highlighting && tool.color === c;
             // Keys: 1–6 while highlighting; else Shift+H picks the last colour
@@ -163,8 +175,6 @@ export function ToolPalette({
               </Hint>
             );
           })}
-          <div role="separator" className="my-0.5 h-px w-6 bg-border" />
-          <NameColorsButton />
         </div>
       )}
     </div>
@@ -181,23 +191,6 @@ function Swatch({ color, on }: { color: HighlightColor; on: boolean }) {
       )}
       style={{ background: HIGHLIGHT_SWATCH[color] }}
     />
-  );
-}
-
-function NameColorsButton({ className }: { className?: string }) {
-  const { t } = useTranslation();
-  return (
-    <Hint label={t("colorNames.open")} side="right">
-      <button
-        type="button"
-        aria-label={t("colorNames.open")}
-        aria-haspopup="dialog"
-        onClick={(e) => openColorNames(e.currentTarget)}
-        className={cn(buttonClass, className, focusRing)}
-      >
-        <Tag className="size-4.5" aria-hidden />
-      </button>
-    </Hint>
   );
 }
 
@@ -242,7 +235,6 @@ function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: 
               </Hint>
             ))}
           </div>
-          <NameColorsButton className="size-8 rounded-full" />
         </div>
       )}
     </div>

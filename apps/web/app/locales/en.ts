@@ -217,6 +217,12 @@ export default {
     count: "{{shown}} of {{all}}",
     showing: "{{colors}} in full; other colours faded",
     showingAll: "Showing all highlights",
+    focusOne: "Bring forward; fade the other colours",
+    fade: "Fade these highlights",
+    bringBack: "Bring these highlights forward",
+    nameHint: "Say blue = “God speaking”. Left empty, a colour keeps its own name.",
+    nameFor: "Name for {{color}}",
+    saved: "Colour names saved",
   },
   colorNames: {
     open: "Name colours…",

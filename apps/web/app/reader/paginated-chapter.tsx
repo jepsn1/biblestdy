@@ -1118,7 +1118,7 @@ export function PaginatedChapter({
             </div>
 
             {/* Tool palette in the left gutter (mouse/trackpad only) */}
-            <div className="absolute top-0 left-0 z-20 w-12">
+            <div className="absolute top-0 left-0 z-20 w-reader-gutter">
               <ToolPalette tool={tool} onChange={setToolPick} />
             </div>
             <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
