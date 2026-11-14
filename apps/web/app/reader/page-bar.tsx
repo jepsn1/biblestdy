@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
@@ -39,8 +40,9 @@ export function PageBar({
 }: {
   /** Landmark name: "Pages" / "Chapters". */
   label: string;
-  /** Centre line, visual only (the live region announces turns). */
-  position: string;
+  /** Centre line, visual only (the live region announces turns): parts
+   * joined by " · ", each kept whole when the line wraps. */
+  position: string[];
   credit?: string;
   prev: BarButton;
   next: BarButton;
@@ -54,13 +56,25 @@ export function PageBar({
       className="shrink-0 border-t border-border px-4 py-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] sm:px-6"
     >
       <div
-        className="mx-auto grid w-full grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-3"
+        // Equal side tracks keep the centre centred. Desktop sides never go
+        // below their button's full label; phones let the label truncate
+        className={cn(
+          "mx-auto grid w-full items-center gap-3",
+          phone
+            ? "grid-cols-[1fr_minmax(0,auto)_1fr]"
+            : "grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)]",
+        )}
         style={maxWidth ? { maxWidth: `${maxWidth}rem` } : undefined}
       >
         <BarEnd button={prev} dir="prev" phone={phone} />
         <div className="min-w-0 text-center">
           <p aria-hidden className="text-control text-foreground tabular-nums text-balance">
-            {position}
+            {position.map((part, i) => (
+              <Fragment key={i}>
+                {i > 0 && " · "}
+                <span className={cn(!phone && "whitespace-nowrap")}>{part}</span>
+              </Fragment>
+            ))}
           </p>
           {credit && <p className="mt-0.5 text-meta text-muted-foreground text-balance">{credit}</p>}
         </div>
@@ -84,17 +98,20 @@ function BarEnd({ button, dir, phone }: { button: BarButton; dir: "prev" | "next
         aria-keyshortcuts={button.keys}
         onClick={button.onClick}
         className={cn(
-          "min-w-28 max-w-full gap-1.5 px-3 text-control",
-          phone ? "min-h-12" : "min-h-11",
+          "min-w-28 gap-1.5 px-3 text-control",
+          phone ? "min-h-12 max-w-full" : "min-h-11",
           dir === "prev" ? "justify-self-start" : "justify-self-end",
           !button.primary &&
-            "border-foreground/40 text-foreground dark:border-foreground/40 dark:bg-background dark:hover:bg-muted",
+            // /55: ≥3:1 against the page in every reader style
+            "border-foreground/55 text-foreground dark:border-foreground/55 dark:bg-background dark:hover:bg-muted",
           "aria-disabled:pointer-events-none aria-disabled:opacity-50",
           focusRing,
         )}
       >
         {dir === "prev" && <Icon aria-hidden data-icon="inline-start" />}
-        <span className="min-w-0 truncate">{button.label}</span>
+        {/* Desktop labels never clip (the centre wraps instead); phones
+            truncate a long book name rather than crowd out the centre */}
+        <span className={cn(phone && "min-w-0 truncate")}>{button.label}</span>
         {dir === "next" && <Icon aria-hidden data-icon="inline-end" />}
       </Button>
     </Hint>

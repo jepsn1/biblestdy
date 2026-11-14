@@ -43,6 +43,10 @@ export const CHAPTER_TEXT_ID = "chapter-text";
  * minimum (35rem) + a ~20rem reading column. ~880px at 100%. */
 const SIDE_BY_SIDE_MIN = 55;
 
+/** Page bar width (rem): the text column's, but never so narrow that
+ * "Continue to …" squeezes the position line into a stack. */
+const BAR_MIN = 36;
+
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
 
@@ -1074,12 +1078,12 @@ export function PaginatedChapter({
 
       <PageBar
         label={t(scrollMode ? "reader.chaptersNav" : "reader.pagesNav")}
-        position={scrollMode ? hereLabel : `${rangeLabel} · ${t("reader.pageOf", { page: page + 1, count: pageCount })}`}
+        position={scrollMode ? [hereLabel] : [rangeLabel, t("reader.pageOf", { page: page + 1, count: pageCount })]}
         credit={scrollMode ? undefined : attribution}
         prev={prevButton}
         next={nextButton}
         phone={scrollMode}
-        maxWidth={scrollMode ? undefined : Math.max(layout.contentWidth, 30)}
+        maxWidth={scrollMode ? undefined : Math.max(layout.contentWidth, BAR_MIN)}
       />
       {!scrollMode && (
         <p aria-live="polite" className="sr-only">
