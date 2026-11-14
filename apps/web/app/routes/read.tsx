@@ -8,6 +8,7 @@ import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
 import { loadTextSize } from "~/lib/text-size";
+import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
@@ -17,6 +18,7 @@ import { PaginatedChapter } from "../reader/paginated-chapter";
 import { loadChapter, prefetchNeighbours } from "../reader/chapter-cache";
 import { ReaderNav } from "../reader/reader-nav";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
+import { ColorNamesDialog, OPEN_COLOR_NAMES } from "../reader/color-names-dialog";
 import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
 import { SupportNotice } from "../reader/support-notice";
@@ -74,10 +76,12 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const session = await requireAuth({ cached: true });
   // Account reader style (#45) applies before render; null = never chosen
   // Text size (#61) too — same single preferences fetch
+  // …and the reader's own highlight colour names
   const [translations, readerStyle] = await Promise.all([
     loadTranslations(),
     loadReaderStyle(session.user.id),
     loadTextSize(session.user.id),
+    loadHighlightLabels(session.user.id),
   ]);
   const translation = pickTranslation(translations);
   // From memory when already read or prefetched (chapter-cache.ts)
@@ -170,6 +174,8 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   // Reader-wide keys (#65): `?` lists every shortcut; ⌘. / Ctrl+. toggles
   // Notes & topics (from anywhere, the note editor included).
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [colorNamesOpen, setColorNamesOpen] = useState(false);
+  const colorNamesReturn = useRef<HTMLElement | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     const open = () => setPaletteOpen(true);
@@ -189,11 +195,17 @@ export default function Read({ loaderData }: Route.ComponentProps) {
       }
     }
     const open = () => setShortcutsOpen(true);
+    const openNames = (e: Event) => {
+      colorNamesReturn.current = (e as CustomEvent<HTMLElement | null>).detail;
+      setColorNamesOpen(true);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener(OPEN_SHORTCUTS, open);
+    window.addEventListener(OPEN_COLOR_NAMES, openNames);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener(OPEN_SHORTCUTS, open);
+      window.removeEventListener(OPEN_COLOR_NAMES, openNames);
     };
   }, []);
 
@@ -261,6 +273,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
         />
       </SidebarInset>
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ColorNamesDialog open={colorNamesOpen} onOpenChange={setColorNamesOpen} returnTo={colorNamesReturn} />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}

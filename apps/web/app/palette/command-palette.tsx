@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useSidebar } from "~/components/ui/sidebar";
 import { useIsMobile } from "~/hooks/use-mobile";
+import { useColorName } from "~/lib/highlight-labels";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n, { setUiLanguage } from "~/lib/i18n";
 import { api } from "~/lib/query";
@@ -242,6 +243,7 @@ export function CommandPalette({
     enabled: open,
   });
   const actions = useActions(reader);
+  const { name: colorNameOf, custom: colorLabel } = useColorName();
 
   const items = useMemo(() => {
     if (!open) return [];
@@ -257,6 +259,7 @@ export function CommandPalette({
       here: { book: reader.book, chapter: reader.chapter },
       translationId: reader.translationId,
       translationAbbr: (id) => reader.translations.find((tr) => tr.id === id)?.abbreviation ?? id,
+      colorLabel,
       labels: {
         goTo: (ref) => t("palette.goTo", { ref }),
         emptyHint: t("palette.emptyHint"),
@@ -269,7 +272,7 @@ export function CommandPalette({
     });
     // actions is rebuilt each render; its labels follow the state it reads
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, query, notes, annotations, highlights, tags, locale, reader, t, nameOf, actions.map((a) => a.label + a.checked).join()]);
+  }, [open, query, notes, annotations, highlights, tags, locale, reader, t, nameOf, colorLabel, actions.map((a) => a.label + a.checked).join()]);
 
   const selectable = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
   // The first selectable row is highlighted while typing (Enter = top row)
@@ -392,7 +395,7 @@ export function CommandPalette({
         <span className="min-w-0 flex-1">
           <span className={cn("block text-control max-sm:text-phone", item.group === "books" && "font-serif")}>
             {item.label}
-            {item.color && <span className="sr-only">{` (${t(`menu.colors.${item.color}`)})`}</span>}
+            {item.color && !colorLabel(item.color) && <span className="sr-only">{` (${colorNameOf(item.color)})`}</span>}
           </span>
           {item.detail && <span className="block truncate text-meta text-muted-foreground">{item.detail}</span>}
         </span>

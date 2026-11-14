@@ -728,6 +728,11 @@ export function PaginatedChapter({
         setToolPick((p) => ({ ...p, pen: PEN_STYLES[Number(event.key) - 1] }));
         return;
       }
+      // Highlighter on: 1–6 pick its colour (the palette's order)
+      if (tool.kind === "highlight" && /^[1-6]$/.test(event.key)) {
+        setToolPick((p) => ({ ...p, color: HIGHLIGHT_COLORS[Number(event.key) - 1] }));
+        return;
+      }
       // Chapters (#65): [ / ] — the chapter's start, both ways
       if (event.key === "[" && prevChapter) crossTo(prevChapter, "prev");
       if (event.key === "]" && nextChapter) crossTo(nextChapter, "next");

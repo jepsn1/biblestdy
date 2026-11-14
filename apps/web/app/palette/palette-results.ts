@@ -17,7 +17,8 @@ import { referenceHref } from "../reader/chapter-nav";
  * and a parsed reference is always the first row, so "rom 8:28 ⏎" is one
  * step. Prefixes narrow to one group: `>` actions, `#` topics, `@` notes
  * (and margin notes, highlights). Marks (highlights, margin notes) also match
- * on their marked words (`quote`).
+ * on their marked words (`quote`); highlights also on the reader's own name
+ * for their colour ("God speaking" — not plain "gold", too noisy).
  * Never touches scripture (reading quota): rows are references and titles.
  */
 
@@ -84,6 +85,8 @@ export type PaletteContext = {
   translationId: string;
   /** A translation's abbreviation ("KJV"), shown on other-version rows. */
   translationAbbr: (id: string) => string;
+  /** The reader's own name for a highlight colour ("God speaking"), if any. */
+  colorLabel: (c: HighlightColor) => string | undefined;
   labels: {
     goTo: (ref: string) => string;
     /** Empty palette with no history: what to type. */
@@ -214,6 +217,8 @@ function highlightItem(ctx: PaletteContext, h: Highlight, q: string): PaletteIte
     label: quote ? excerpt(quote, q) : ref,
     detail,
     color: h.color,
+    // A renamed colour says what it means ("God speaking")
+    kind: ctx.colorLabel(h.color),
     ...open,
   };
 }
@@ -332,7 +337,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
           .filter(onPassage)
           .sort((a, b) => elsewhere(a) - elsewhere(b) || a.startVerse - b.startVerse || a.startWord - b.startWord)
       : q
-        ? ctx.highlights.filter((h) => wordPrefixMatch(quoteOf(h), q))
+        ? ctx.highlights.filter((h) => wordPrefixMatch(quoteOf(h), q) || wordPrefixMatch(ctx.colorLabel(h.color) ?? "", q))
         : [];
     out.push(...hits.slice(0, only ? 50 : LIMITS.highlights).map((h) => highlightItem(ctx, h, onPassage ? "" : q)));
   }

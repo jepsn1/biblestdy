@@ -15,6 +15,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
 import { Popover, PopoverContent } from "~/components/ui/popover";
+import { useColorName } from "~/lib/highlight-labels";
 import { cn, focusRing } from "~/lib/utils";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
@@ -207,7 +208,8 @@ export function ActionMenuColors({
 }) {
   const { mobile, close } = useContext(MenuCtx);
   const { t } = useTranslation();
-  const name = (c: HighlightColor) => t("menu.highlight", { color: t(`menu.colors.${c}`) });
+  const colorName = useColorName().name;
+  const name = (c: HighlightColor) => t("menu.highlight", { color: colorName(c) });
   const swatch = (c: HighlightColor, big: boolean) => (
     <span
       aria-hidden
