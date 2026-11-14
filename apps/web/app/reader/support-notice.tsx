@@ -31,7 +31,6 @@ export function SupportLinks({ onFollow, quiet }: { onFollow?: () => void; quiet
         {t("support.chat")}
         <ExternalLink aria-hidden />
       </a>
-      <p className="basis-full text-meta text-muted-foreground">{t("support.chatHint")}</p>
     </div>
   );
 }
