@@ -349,9 +349,21 @@ export function ChapterText({
         return;
       }
     }
-    const sel = verseSel(verseIdx, cursor);
+    selectVerse(cursor, false);
+  }
+
+  /** The whole verse, exactly as if its words were dragged over: the wash +
+   * the selection menu — or, with a palette tool on, that tool applied to it
+   * (tool-first, like a drag). Verse number click/tap, and Enter. */
+  function selectVerse(verse: number, withTool = true) {
+    const sel = verseSel(verseIdx, verse);
+    const anchor = buildAnchor(passage, sel.a, sel.b);
+    if (withTool && activeTool) {
+      applyTool(activeTool, anchor);
+      return;
+    }
     setTouchSel(sel);
-    setMenu({ kind: "selection", anchor: buildAnchor(passage, sel.a, sel.b) });
+    setMenu({ kind: "selection", anchor });
   }
 
   /** h / n / m / c on an anchor — from a focused verse or its open menu. */
@@ -785,20 +797,31 @@ export function ChapterText({
   // printed Bible — and is that verse's keyboard stop, named as the verse
   const opening = blocks[0]?.pieces[0];
   if (opening?.showNumber) numbered.add(opening.verse.verse);
+  // A verse number is a control: click/tap selects the whole verse (menu or
+  // active tool), Enter does the same (#65 roving focus, onTextKey)
+  const verseClick = (v: Verse) => (e: React.MouseEvent) => {
+    e.stopPropagation(); // not an outside press for the menu it opens
+    selectVerse(v.verse);
+  };
+  const verseControl = (v: Verse) => ({
+    [VERSE_FOCUS]: v.verse,
+    role: "button",
+    "aria-haspopup": "menu" as const,
+    "aria-label": t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text }),
+    title: t("reader.selectVerse", { n: v.label ?? v.verse }),
+    tabIndex: v.verse === tabVerse ? 0 : -1,
+    onClick: verseClick(v),
+  });
   const chapterNumeral = (v: Verse, set: "float" | "above") => (
     <span
-      {...{ [VERSE_FOCUS]: v.verse }}
+      {...verseControl(v)}
       data-chapter-numeral
-      role="button"
-      aria-haspopup="menu"
-      aria-label={t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text })}
-      tabIndex={v.verse === tabVerse ? 0 : -1}
       className={cn(
         set === "float"
           ? // Two lines deep, its top on the first line's capitals
             "float-left mt-[0.06em] mr-[0.14em] -ml-[0.04em]"
           : "inline-block",
-        "rounded-sm font-serif text-[3.15em] leading-[0.9] font-medium text-foreground tabular-nums lining-nums select-none",
+        "cursor-pointer rounded-sm font-serif text-[3.15em] leading-[0.9] font-medium text-foreground tabular-nums lining-nums select-none hover:text-passage",
         focusRing,
       )}
     >
@@ -907,7 +930,9 @@ export function ChapterText({
                           <sup
                             data-opening-label
                             aria-hidden
-                            className="mr-1 align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none"
+                            title={t("reader.selectVerse", { n: v.label })}
+                            onClick={verseClick(v)}
+                            className="mr-1 cursor-pointer align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none hover:text-foreground"
                           >
                             {openingLabel(v)}
                           </sup>
@@ -923,16 +948,12 @@ export function ChapterText({
                         // Small, muted verse number; zero line-height so it never
                         // opens a gap in the leading. Bridges print "14–15".
                         // Also the verse's keyboard stop (#65): roving tabindex,
-                        // Enter opens its menu, ↑/↓ move between verses. A span
+                        // Enter/click selects the verse, ↑/↓ move between verses. A span
                         // styled as the <sup> (a sup can't take a button role).
                         <span
-                          {...{ [VERSE_FOCUS]: v.verse }}
-                          role="button"
-                          aria-haspopup="menu"
-                          aria-label={t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text })}
-                          tabIndex={v.verse === tabVerse ? 0 : -1}
+                          {...verseControl(v)}
                           className={cn(
-                            "mr-1 rounded-sm align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none",
+                            "mr-1 cursor-pointer rounded-sm align-[0.5em] font-sans text-[0.58em] leading-[0] font-medium text-muted-foreground tabular-nums select-none hover:text-foreground",
                             focusRing,
                           )}
                         >

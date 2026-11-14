@@ -40,7 +40,8 @@ export default {
     noMatch: "No books match",
   },
   reader: {
-    verseLabel: "Verse {{n}}: {{text}}",
+    verseLabel: "Verse {{n}}, select: {{text}}",
+    selectVerse: "Select verse {{n}}",
     firstUseHint: "Select words to highlight or add a note",
     firstUseHintPhone: "Tap a word to highlight it or add a note",
     dismissHint: "Dismiss hint",

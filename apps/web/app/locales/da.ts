@@ -42,7 +42,8 @@ const da: typeof en = {
     noMatch: "Ingen bøger passer",
   },
   reader: {
-    verseLabel: "Vers {{n}}: {{text}}",
+    verseLabel: "Vers {{n}}, markér: {{text}}",
+    selectVerse: "Markér vers {{n}}",
     firstUseHint: "Markér ord for at fremhæve dem eller tilføje en note",
     firstUseHintPhone: "Tryk på et ord for at fremhæve det eller tilføje en note",
     dismissHint: "Luk tip",
