@@ -32,7 +32,7 @@ import {
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
 import { NOTE_OPENER } from "./note-panel";
-import { layoutChapter, openingLabel, type WordPiece } from "./chapter-layout";
+import { layoutChapter, openingLabel, sliceBlocks, type VerseSpan, type WordPiece } from "./chapter-layout";
 import {
   extendByVerse,
   extendByWord,
@@ -139,6 +139,7 @@ export function ChapterText({
   firstUseHint = false,
   onDismissHint,
   mobile = false,
+  verses: span,
 }: {
   chapter: Chapter;
   /** Shown in the reference line of copied text, e.g. "(NIV)". */
@@ -190,6 +191,10 @@ export function ChapterText({
    * the menu opens immediately, and two drag handles stretch the span. Note
    * marks show as a small marker after the verse number (#63). */
   mobile?: boolean;
+  /** Only these verses: chapters run on across pages — the end of one page
+   * carries the next chapter's opening, and that chapter then goes on from
+   * where it left off (sliceBlocks). Absent = the whole chapter. */
+  verses?: VerseSpan;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<MenuState>(null);
@@ -236,13 +241,18 @@ export function ChapterText({
   useEffect(() => onSelectionChange(selAnchor), [selAnchor, onSelectionChange]);
 
   // Keyboard study (#65): verse cursor + word-snapped selection (touchSel)
-  const verseIdx = useMemo<VerseIndex>(
-    () => ({
-      order: chapter.verses.map((v) => v.verse),
-      words: new Map(chapter.verses.map((v) => [v.verse, words(v.text).length])),
-    }),
-    [chapter],
-  );
+  const spanFrom = span?.from ?? null;
+  const spanTo = span?.to ?? null;
+  const verseIdx = useMemo<VerseIndex>(() => {
+    // Only the verses shown here: ↑/↓ never step onto one that isn't
+    const shown = chapter.verses.filter(
+      (v) => (spanFrom === null || v.verse >= spanFrom) && (spanTo === null || v.verse <= spanTo),
+    );
+    return {
+      order: shown.map((v) => v.verse),
+      words: new Map(shown.map((v) => [v.verse, words(v.text).length])),
+    };
+  }, [chapter, spanFrom, spanTo]);
   const tabVerse =
     rovingVerse !== null && verseIdx.words.has(rovingVerse) ? rovingVerse : verseIdx.order[0];
   /** Verse whose number has keyboard focus (focus-visible): its words get a
@@ -787,7 +797,8 @@ export function ChapterText({
   const markersByVerse = new Map<number, NoteMark[]>();
   if (mobile)
     for (const m of noteMarks) markersByVerse.set(m.startVerse, [...(markersByVerse.get(m.startVerse) ?? []), m]);
-  const blocks = layoutChapter(chapter);
+  const laid = layoutChapter(chapter);
+  const blocks = span ? sliceBlocks(laid, span) : laid;
   // Last piece of each verse (a verse can run over several poetry lines)
   const lastPiece = new Map<number, string>();
   blocks.forEach((b, bi) => b.pieces.forEach((p, pi) => lastPiece.set(p.verse.verse, `${bi}:${pi}`)));
@@ -795,7 +806,8 @@ export function ChapterText({
   const numbered = new Set<number>();
   // The chapter's numeral stands in for the first verse's number, like a
   // printed Bible — and is that verse's keyboard stop, named as the verse
-  const opening = blocks[0]?.pieces[0];
+  // (Only where the chapter really begins — not on a page it runs on to)
+  const opening = blocks[0]?.pieces[0] === laid[0]?.pieces[0] ? blocks[0]?.pieces[0] : undefined;
   if (opening?.showNumber) numbered.add(opening.verse.verse);
   // A verse number is a control: click/tap selects the whole verse (menu or
   // active tool), Enter does the same (#65 roving focus, onTextKey)
@@ -849,7 +861,7 @@ export function ChapterText({
       {/* Like a printed Bible: the book's name only where the book begins,
           and each chapter opens on its big numeral (below) — the top bar
           names the place. Screen readers still get "John 3" as the h1. */}
-      {chapter.chapter === 1 ? (
+      {chapter.chapter === 1 && opening ? (
         <h1 className="mb-6 font-serif text-display font-medium tracking-tight">
           <span aria-hidden>{bookName}</span>
           <span className="sr-only">{heading}</span>
@@ -919,7 +931,7 @@ export function ChapterText({
               return (
                 <span key={`${v.verse}:${piece.words[0]?.i ?? 0}`}>
                   {piece.showNumber &&
-                    (bi === 0 && pi === 0 ? (
+                    (bi === 0 && pi === 0 && opening ? (
                       <>
                         {/* Prose: the numeral drops beside the opening lines */}
                         {block.kind !== "poetry" && chapterNumeral(v, "float")}

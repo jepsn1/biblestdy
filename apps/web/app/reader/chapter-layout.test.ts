@@ -1,7 +1,7 @@
 import type { Chapter } from "@biblestdy/shared";
 import { words } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { layoutChapter, openingLabel, type LaidBlock } from "./chapter-layout";
+import { layoutChapter, openingLabel, sliceBlocks, type LaidBlock } from "./chapter-layout";
 
 const base = { translationId: "T", book: "PSA", chapter: 23 };
 
@@ -141,5 +141,41 @@ describe("openingLabel", () => {
   it("a chapter starting past verse 1 keeps its number", () => {
     expect(openingLabel({ verse: 2, text: "a" })).toBe("2");
     expect(openingLabel({ verse: 2, label: "2–4", text: "a" })).toBe("2–4");
+  });
+});
+
+describe("sliceBlocks", () => {
+  const chapter: Chapter = {
+    ...base,
+    verses: [
+      { verse: 1, text: "a b" },
+      { verse: 2, text: "c d" },
+      { verse: 3, text: "e f" },
+      { verse: 4, text: "g" },
+    ],
+    sections: [{ beforeVerse: 3, title: "Head" }],
+    blocks: [
+      { verse: 1, word: 0, kind: "poetry", level: 1 },
+      { verse: 2, word: 0, kind: "poetry", level: 2 },
+      { verse: 3, word: 0, kind: "paragraph", level: 1 },
+    ],
+  };
+  const blocks = layoutChapter(chapter);
+
+  it("keeps only the span's verses, every word once", () => {
+    const sliced = sliceBlocks(blocks, { from: 2, to: 3 });
+    expect(renderedWords(sliced).map((w) => w.text)).toEqual(["c", "d", "e", "f"]);
+  });
+
+  it("a block entered part-way is a continuation: kind kept, no headings or indent", () => {
+    const sliced = sliceBlocks(blocks, { from: 4, to: 4 });
+    expect(sliced).toHaveLength(1);
+    expect(sliced[0]).toMatchObject({ kind: "paragraph", headings: [], opening: true });
+  });
+
+  it("a block starting inside the span is untouched (its heading stays)", () => {
+    const sliced = sliceBlocks(blocks, { from: 3, to: 4 });
+    expect(sliced[0].headings).toEqual(["Head"]);
+    expect(sliceBlocks(blocks, { from: 2, to: 2 })[0]).toMatchObject({ kind: "poetry", level: 2 });
   });
 });

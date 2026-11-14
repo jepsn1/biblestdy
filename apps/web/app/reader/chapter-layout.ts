@@ -129,3 +129,25 @@ export function openingLabel(verse: Verse): string | null {
   if (verse.verse === 1 && !verse.label) return null;
   return verse.label ?? String(verse.verse);
 }
+
+/** The verses a section of the flow shows (inclusive verse numbers). */
+export type VerseSpan = { from: number; to: number };
+
+/**
+ * Part of a laid-out chapter, for a chapter that runs on across pages (a
+ * page's foot carries the next chapter's opening; that chapter then goes on
+ * from where it left off). Blocks keep their kind and level — a psalm cut
+ * mid-stanza stays poetry — but a block entered part-way is a continuation:
+ * no headings (they stood before its start) and no first-line indent, like
+ * a paragraph running over onto a new page.
+ */
+export function sliceBlocks(blocks: LaidBlock[], span: VerseSpan): LaidBlock[] {
+  const out: LaidBlock[] = [];
+  for (const block of blocks) {
+    const pieces = block.pieces.filter((p) => p.verse.verse >= span.from && p.verse.verse <= span.to);
+    if (pieces.length === 0) continue;
+    const entered = pieces[0] !== block.pieces[0];
+    out.push(entered ? { ...block, headings: [], opening: true, stanza: false, pieces } : { ...block, pieces });
+  }
+  return out;
+}
