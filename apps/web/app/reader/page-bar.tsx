@@ -40,7 +40,7 @@ export function PageBar({
 }: {
   /** Landmark name: "Pages" / "Chapters". */
   label: string;
-  /** Centre line, visual only (the live region announces turns): parts
+  /** Centre line (paged: visual only, the live region announces turns): parts
    * joined by " · ", each kept whole when the line wraps. */
   position: string[];
   credit?: string;
@@ -68,7 +68,7 @@ export function PageBar({
       >
         <BarEnd button={prev} dir="prev" phone={phone} />
         <div className="min-w-0 text-center">
-          <p aria-hidden className="text-control text-foreground tabular-nums text-balance">
+          <p aria-hidden={!phone} className="text-control text-foreground tabular-nums text-balance">
             {position.map((part, i) => (
               <Fragment key={i}>
                 {i > 0 && " · "}
