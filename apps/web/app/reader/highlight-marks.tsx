@@ -26,6 +26,7 @@ export function HighlightMarks({
   selection,
   boxRef,
   flowRef,
+  scopeRef,
   layoutKey,
   hidden = false,
   shown = null,
@@ -37,6 +38,9 @@ export function HighlightMarks({
   boxRef: RefObject<HTMLElement | null>;
   /** The (multi-)column text flow: washes clamp to its columns. */
   flowRef: RefObject<HTMLElement | null>;
+  /** The chapter's own part of the flow, where its words are looked up — a
+   * page can carry two chapters (verse numbers repeat). Default: the flow. */
+  scopeRef?: RefObject<HTMLElement | null>;
   /** Anything that moves the words without resizing the boxes (stride,
    * column count, text size) — re-measure on change. */
   layoutKey: string;
@@ -78,7 +82,7 @@ export function HighlightMarks({
         const words: Rect[] = [];
         let lineH = 36;
         for (let v = a.startVerse; v <= a.endVerse; v++) {
-          const els = flowEl.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
+          const els = (scopeRef?.current ?? flowEl).querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
           for (const el of els) {
             const w = Number(el.dataset.word);
             if (v === a.startVerse && w < a.startWord) continue;
@@ -132,7 +136,7 @@ export function HighlightMarks({
       alive = false;
       ro.disconnect();
     };
-  }, [highlights, selection, layoutKey, boxRef, flowRef, shown]);
+  }, [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown]);
 
   return (
     <svg

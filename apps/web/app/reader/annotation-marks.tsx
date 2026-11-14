@@ -220,6 +220,7 @@ export function AnnotationMarks({
   regionRef,
   contentRef,
   flowRef,
+  scopeRef,
   page = 0,
   stride = 0,
   penHost,
@@ -242,6 +243,9 @@ export function AnnotationMarks({
   contentRef: RefObject<HTMLElement | null>;
   /** The text flow (carries the page-turn transform). */
   flowRef: RefObject<HTMLElement | null>;
+  /** The chapter's own part of the flow, where its words are looked up — a
+   * page can carry two chapters (verse numbers repeat). Default: the flow. */
+  scopeRef?: RefObject<HTMLElement | null>;
   /** Desktop paging: current page and its width in px (0 = one scroll column). */
   page?: number;
   stride?: number;
@@ -389,7 +393,7 @@ export function AnnotationMarks({
       }): Seg[] => {
         const byPage = new Map<number, Rect[]>();
         for (let v = a.startVerse; v <= a.endVerse; v++) {
-          const els = flowEl.querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
+          const els = (scopeRef?.current ?? flowEl).querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
           for (const el of els) {
             const w = Number(el.dataset.word);
             if (v === a.startVerse && w < a.startWord) continue;
@@ -506,7 +510,7 @@ export function AnnotationMarks({
       alive = false;
       ro.disconnect();
     };
-  }, [annotations, noteMarks, layoutKey, regionRef, contentRef, flowRef, compact, page, stride]);
+  }, [annotations, noteMarks, layoutKey, regionRef, contentRef, flowRef, scopeRef, compact, page, stride]);
 
   // Note chips in the margin rail (#63): beside the mark's first line,
   // stacked clear of each other and of default-placed annotation boxes.

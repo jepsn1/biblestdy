@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
@@ -12,6 +12,7 @@ import { useTextSize } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import {
+  adjacentChapter,
   type ChapterRef,
   chapterHref,
   lastReadValue,
@@ -22,7 +23,8 @@ import {
   type VerseRange,
   type WantedPage,
 } from "./chapter-nav";
-import { warmChapter } from "./chapter-cache";
+import { chapterArriving, prefetchNeighbours, useLoadedChapter, warmChapter } from "./chapter-cache";
+import { ChapterSpill, type RunOn } from "./chapter-spill";
 import { ChapterText } from "./chapter-text";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
@@ -50,6 +52,15 @@ const SIDE_BY_SIDE_MIN = 55;
  * before going ahead anyway. */
 const CROSS_WAIT_MS = 600;
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+/** Chapters run on (#flow): a page turn into a chapter whose opening the
+ * page before already showed carries on from `flowFrom` (history state, so
+ * reload and Back lay out the same pages; any other way in = whole chapter). */
+type FlowState = { flowFrom: number };
+/** Where each chapter last started (by translation/book.chapter): turning
+ * back into it lays it out the same way, so its last page is the page the
+ * reader just came from. */
+const flowStarts = new Map<string, number | null>();
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
@@ -232,6 +243,29 @@ export function PaginatedChapter({
     null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollMode = useScrollMode();
+  // Chapters run on (#flow). Where this one starts: after the verses the
+  // page before already carried (a page turn), else at its first verse.
+  // Phones scroll the whole chapter.
+  const location = useLocation();
+  const carried = (location.state as Partial<FlowState> | null)?.flowFrom;
+  const flowFrom =
+    !scrollMode &&
+    typeof carried === "number" &&
+    carried > (chapter.verses[0]?.verse ?? 0) &&
+    chapter.verses.some((v) => v.verse === carried)
+      ? carried
+      : null;
+  /** Kept on every URL write of ours (?p, ?v, ?note, ?mark). */
+  const flowState: FlowState | null = flowFrom !== null ? { flowFrom } : null;
+  /** The chapter's own text (the flow may also carry the next one's opening). */
+  const mainRef = useRef<HTMLDivElement>(null);
+  /** The next chapter's opening, on this chapter's last page (ChapterSpill). */
+  const spillBoxRef = useRef<HTMLDivElement>(null);
+  const runOnTarget = !scrollMode && nextChapter?.book === chapter.book ? nextChapter : null;
+  const runOnText = useLoadedChapter(chapter.translationId, runOnTarget);
+  const [runOn, setRunOn] = useState<RunOn | null>(null);
+  const [washHost, setWashHost] = useState<HTMLDivElement | null>(null);
+  const [marginHost, setMarginHost] = useState<HTMLDivElement | null>(null);
   // Split width is a per-device ergonomic preference -> localStorage, not DB
   const [noteSize, setNoteSize] = useState(() => {
     if (typeof localStorage === "undefined") return 50;
@@ -369,7 +403,7 @@ export function PaginatedChapter({
 
   /** First word of a stored verse. */
   const verseEl = (verse: number) =>
-    contentRef.current?.querySelector(`[data-verse="${verse}"][data-word]`) ?? null;
+    mainRef.current?.querySelector(`[data-verse="${verse}"][data-word]`) ?? null;
 
   /** References-table click: select the reference (click again to deselect).
    * Same chapter jumps in place, another chapter navigates with the note kept
@@ -385,7 +419,9 @@ export function PaginatedChapter({
       a.translationId === chapter.translationId &&
       a.book === chapter.book &&
       a.chapter === chapter.chapter;
-    if (here) jumpToMark(markId);
+    // A mark in the verses the page before carried (#flow): open the
+    // chapter whole, where it is
+    if (here && (flowFrom === null || a.startVerse >= flowFrom)) jumpToMark(markId);
     else navigate(`/read/${a.book}/${a.chapter}?note=${openNoteId}&mark=${markId}`);
   }
 
@@ -403,7 +439,7 @@ export function PaginatedChapter({
         params.delete("mark");
         return params;
       },
-      { replace: true },
+      { replace: true, state: flowState },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantedMark, stride, scrollMode, noteMarks.length]);
@@ -423,7 +459,7 @@ export function PaginatedChapter({
           params.delete("note");
           return params;
         },
-        { replace: true },
+        { replace: true, state: flowState },
       );
     }
   }
@@ -464,7 +500,13 @@ export function PaginatedChapter({
       if (width === 0) return;
       const nextStride = width + gap;
       setStride(nextStride);
-      setPageCount(Math.max(1, Math.ceil((content.scrollWidth + gap) / nextStride)));
+      // The chapter's own pages: the next chapter's opening (#flow) only
+      // fills the last one, so it is left out of the count
+      const spill = spillBoxRef.current;
+      if (spill) spill.style.display = "none";
+      const scrollWidth = content.scrollWidth;
+      if (spill) spill.style.display = "";
+      setPageCount(Math.max(1, Math.ceil((scrollWidth + gap) / nextStride)));
     };
     measure();
     // Webfont swap rewraps the text -> page count changes
@@ -481,7 +523,7 @@ export function PaginatedChapter({
       alive = false;
       observer.disconnect();
     };
-  }, [chapterKey, scrollMode, layout.columns, textSize]);
+  }, [chapterKey, scrollMode, layout.columns, textSize, flowFrom]);
 
   // Verse jump (#53): `?v=` (link, or the jump box — same chapter too).
   // After the chapterKey effect above, which clears any previous target.
@@ -502,7 +544,7 @@ export function PaginatedChapter({
           params.delete("v");
           return params;
         },
-        { replace: true },
+        { replace: true, state: flowState },
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -523,7 +565,7 @@ export function PaginatedChapter({
   // The verse's words glow briefly (CSS .verse-flash). Applied to the DOM:
   // a transient effect, no reason to re-render the chapter text for it.
   useEffect(() => {
-    const content = contentRef.current;
+    const content = mainRef.current;
     if (!flash || !content) return;
     const words = [...content.querySelectorAll<HTMLElement>("[data-verse][data-word]")].filter(
       (el) => {
@@ -559,7 +601,7 @@ export function PaginatedChapter({
       if (want) params.set("p", want);
       else params.delete("p");
       params.delete("v");
-      setSearchParams(params, { replace: true });
+      setSearchParams(params, { replace: true, state: flowState });
     }
     try {
       localStorage.setItem("lastRead", lastReadValue(chapter, page));
@@ -599,17 +641,26 @@ export function PaginatedChapter({
     root.setProperty("--turn-clip-left", `${Math.max(0, clip.left - sheet.left)}px`);
     root.setProperty("--turn-clip-right", `${Math.max(0, sheet.right - clip.right)}px`);
   }
-  async function crossTo(target: ChapterRef, dir: "prev" | "next", landing?: number | "last") {
+  async function crossTo(target: ChapterRef, dir: "prev" | "next", landing?: number | "last", state?: FlowState | null) {
     const href = chapterHref(target, landing);
     const seq = ++turnSeq.current;
+    // Going on: the chapter after the target runs on to its last page (#flow)
+    // — a short one (a psalm) is all last page, so read it ahead now
+    const after = dir === "next" && !scrollMode ? adjacentChapter(target, 1) : null;
+    const runsOnTo = after?.book === target.book ? after : null;
+    prefetchNeighbours(chapter.translationId, [runsOnTo]);
     // Normally read ahead already; else fetched now, while the page stays live
-    await Promise.race([warmChapter(chapter.translationId, target), wait(CROSS_WAIT_MS)]);
+    await Promise.race([
+      Promise.allSettled([warmChapter(chapter.translationId, target), chapterArriving(chapter.translationId, runsOnTo)]),
+      wait(CROSS_WAIT_MS),
+    ]);
     if (seq !== turnSeq.current) return; // the reader went on meanwhile
+    const go = () => navigate(href, { state: state ?? null });
     const slide =
       typeof document.startViewTransition === "function" &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!slide) {
-      navigate(href);
+      go();
       return;
     }
     const root = document.documentElement;
@@ -633,7 +684,7 @@ export function PaginatedChapter({
           };
           const timer = window.setTimeout(done, CROSS_WAIT_MS);
           readyWait.current = { key, resolve: done };
-          navigate(href);
+          go();
         }),
     );
     void turn.finished.finally(() => {
@@ -660,7 +711,11 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page - 1);
-    } else if (prevChapter) void crossTo(prevChapter, "prev", scrollMode ? 0 : "last");
+    } else if (prevChapter) {
+      // Back onto the page we came from: laid out as it was (#flow)
+      const from = flowStarts.get(`${chapter.translationId}/${prevChapter.book}.${prevChapter.chapter}`);
+      void crossTo(prevChapter, "prev", scrollMode ? 0 : "last", from ? { flowFrom: from } : null);
+    }
   }
 
   function goNext() {
@@ -670,13 +725,20 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page + 1);
-    } else if (nextChapter) void crossTo(nextChapter, "next");
+    } else if (nextChapter) {
+      // On from the verses this page already carried (#flow)
+      const carry = runOn && runOnTarget === nextChapter ? { flowFrom: runOn.nextFrom } : null;
+      void crossTo(nextChapter, "next", undefined, carry);
+    }
   }
+
+  useEffect(() => {
+    flowStarts.set(chapterKey, flowFrom);
+  }, [chapterKey, flowFrom]);
 
   /** "John 4" — localized book names where the UI has them (#52). */
   const refLabel = (r: ChapterRef) =>
     `${nameOf(r.book)} ${r.chapter}`;
-  const hereLabel = refLabel(chapter);
   const onFirstPage = scrollMode || page === 0;
   const onLastPage = scrollMode || page >= pageCount - 1;
   /** At a boundary the control says where it goes; inside, it's a page turn. */
@@ -693,10 +755,16 @@ export function PaginatedChapter({
   const verseSpan = pageVerses
     ? `:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
     : "";
+  /** The last page also carries the next chapter's opening (#flow): the
+   * range runs on into it, "2:23–3:4", like a printed running head. */
+  const runsOn = !scrollMode && runOn && runOnTarget && pageVerses && page >= pageCount - 1 ? runOn : null;
   /** "John 3:1–11" (announced), and the bar's bookless "3:1–11" — the book
    * is in the top bar already, like a printed Bible's running head. */
-  const rangeLabel = `${hereLabel}${verseSpan}`;
-  const shortRange = `${chapter.chapter}${verseSpan}`;
+  const shortRange =
+    runsOn && runOnTarget && pageVerses
+      ? `${chapter.chapter}:${pageVerses.first}–${runOnTarget.chapter}:${runsOn.toLabel}`
+      : `${chapter.chapter}${verseSpan}`;
+  const rangeLabel = `${nameOf(chapter.book)} ${shortRange}`;
 
   // Running foot ends: always just "‹ Previous" / "Next ›" — crossing into the
   // next chapter is one more page turn. The accessible name says where a
@@ -917,7 +985,7 @@ export function PaginatedChapter({
     }
     let first: number | null = null;
     let last: number | null = null;
-    for (const el of content.querySelectorAll<HTMLElement>("[data-verse][data-word]")) {
+    for (const el of mainRef.current?.querySelectorAll<HTMLElement>("[data-verse][data-word]") ?? []) {
       if (pageOf(el, stride) !== page) continue;
       const v = Number(el.dataset.verse);
       if (first === null) first = v;
@@ -951,7 +1019,7 @@ export function PaginatedChapter({
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content || scrollMode || stride === 0) return;
-    const verses = [...content.querySelectorAll<HTMLElement>(`[${VERSE_FOCUS}]`)];
+    const verses = [...(mainRef.current?.querySelectorAll<HTMLElement>(`[${VERSE_FOCUS}]`) ?? [])];
     const onPage = (el: HTMLElement) => pageOf(el, stride) === page;
     const byUser = userTurn.current;
     userTurn.current = false;
@@ -1010,6 +1078,7 @@ export function PaginatedChapter({
       onOpenNote={setOpenNoteId}
       onFocusAnnotation={setActiveAnnotationId}
       tool={scrollMode ? undefined : tool}
+      verses={flowFrom !== null ? { from: flowFrom, to: Number.MAX_SAFE_INTEGER } : undefined}
     />
   );
 
@@ -1034,13 +1103,14 @@ export function PaginatedChapter({
   const wordInk = (
     <>
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div {...slide}>
+        <div ref={setWashHost} {...slide}>
           <HighlightMarks
             highlights={highlights}
             shown={highlightFilter}
             selection={selection}
             boxRef={contentBoxRef}
             flowRef={contentRef}
+            scopeRef={mainRef}
             layoutKey={layoutKey}
             hidden={
               selectedMarkId != null &&
@@ -1057,11 +1127,12 @@ export function PaginatedChapter({
 
   /** Margin ink (boxes, arrows, note chips) shares the region's box (inset-0). */
   const inkLayers = (
-    <div className="pointer-events-none absolute inset-0">
+    <div ref={setMarginHost} className="pointer-events-none absolute inset-0">
       <AnnotationMarks
         annotations={annotationsApi.annotations}
         noteMarks={noteMarks}
         flowRef={contentRef}
+        scopeRef={mainRef}
         page={scrollMode ? 0 : page}
         stride={scrollMode ? 0 : stride}
         penHost={penHost}
@@ -1166,7 +1237,43 @@ export function PaginatedChapter({
                     )}
                     style={{ transform: `translateX(-${page * stride}px)` }}
                   >
-                    {chapterText}
+                    <div ref={mainRef}>{chapterText}</div>
+                    {/* The next chapter's opening fills this chapter's last
+                        page (#flow) — off it (inert) on every other page */}
+                    {runOnTarget && runOnText && stride > 0 && (
+                      <div ref={spillBoxRef} className="mt-[1.6em]" inert={page < pageCount - 1}>
+                        <ChapterSpill
+                          key={`${runOnText.translationId}/${runOnText.book}.${runOnText.chapter}`}
+                          chapter={runOnText}
+                          translationAbbreviation={translation.abbreviation}
+                          heading={refLabel(runOnTarget)}
+                          bookName={nameOf(runOnText.book)}
+                          boxRef={spillBoxRef}
+                          lastPage={pageCount - 1}
+                          stride={stride}
+                          pageOf={(el) => pageOf(el, stride)}
+                          layoutKey={layoutKey}
+                          inlineAnnotations={inlineAnnotations}
+                          marginBoxes={marginBoxes}
+                          tool={tool}
+                          shown={highlightFilter}
+                          allNotes={allNotes}
+                          activeAnnotationId={activeAnnotationId}
+                          selectedMarkId={selectedMarkId}
+                          onFocusAnnotation={setActiveAnnotationId}
+                          onOpenNote={setOpenNoteId}
+                          onRunOn={setRunOn}
+                          washHost={washHost}
+                          marginHost={marginHost}
+                          penHost={penHost}
+                          regionRef={regionRef}
+                          contentBoxRef={contentBoxRef}
+                          flowRef={contentRef}
+                          page={page}
+                          marginHidden={turning || sliding}
+                        />
+                      </div>
+                    )}
                   </div>
                   <PageFoot
                     label={t("reader.pagesNav")}

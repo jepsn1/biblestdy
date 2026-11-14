@@ -1,4 +1,5 @@
 import type { Chapter } from "@biblestdy/shared";
+import { useSyncExternalStore } from "react";
 import { data } from "react-router";
 import i18n from "~/lib/i18n";
 import { queryClient } from "~/lib/query";
@@ -17,6 +18,9 @@ import { notesQuery, otherVersionsQuery } from "./use-notes";
  */
 const MAX_KEPT = 30;
 const kept = new Map<string, Promise<Chapter>>();
+/** Loaded texts, readable without waiting (the run-on page draws from it). */
+const settled = new WeakMap<Promise<Chapter>, Chapter>();
+const listeners = new Set<() => void>();
 /** Reading ahead must never be what runs a reader into the reading quota
  * (#29: 20 at once, then one per 3 s): it only fetches while this tab has
  * fetched fewer than PREFETCH_BUDGET chapters in the last minute (reading
@@ -57,13 +61,40 @@ export function loadChapter(translationId: string, ref: ChapterRef): Promise<Cha
   else {
     entry = fetchChapter(translationId, ref);
     const mine = entry;
-    entry.catch(() => {
-      if (kept.get(key) === mine) kept.delete(key);
-    });
+    entry.then(
+      (chapter) => {
+        settled.set(mine, chapter);
+        for (const listener of listeners) listener();
+      },
+      () => {
+        if (kept.get(key) === mine) kept.delete(key);
+      },
+    );
   }
   kept.set(key, entry);
   while (kept.size > MAX_KEPT) kept.delete(kept.keys().next().value!);
   return entry;
+}
+
+/** A chapter's text if it is already here (read or read ahead), else null —
+ * never fetches. Re-renders when it arrives. */
+export function useLoadedChapter(translationId: string, ref: ChapterRef | null): Chapter | null {
+  return useSyncExternalStore(
+    (onChange) => {
+      listeners.add(onChange);
+      return () => listeners.delete(onChange);
+    },
+    () => {
+      const entry = ref && kept.get(keyOf(translationId, ref));
+      return (entry && settled.get(entry)) ?? null;
+    },
+    () => null,
+  );
+}
+
+/** Wait (briefly) for a chapter that is already on its way; never fetches. */
+export function chapterArriving(translationId: string, ref: ChapterRef | null): Promise<unknown> {
+  return (ref && kept.get(keyOf(translationId, ref))) ?? Promise.resolve();
 }
 
 /** One chapter ready to draw: its text and the study data the reader lays
