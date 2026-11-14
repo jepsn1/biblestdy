@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
-import type { Annotation, AnnotationMark, NewAnnotation } from '@biblestdy/shared';
+import type {
+  Annotation,
+  AnnotationMark,
+  NewAnnotation,
+} from '@biblestdy/shared';
 import { db } from '../db';
 import { annotation } from '../db/schema';
 
-const MARKS = new Set<AnnotationMark>(['contour', 'underline', 'circle', 'bracket']);
+const MARKS = new Set<AnnotationMark>([
+  'contour',
+  'underline',
+  'circle',
+  'bracket',
+]);
 
 /** Persistence for inline annotations. All queries are scoped to a single user. */
 @Injectable()
@@ -62,8 +71,9 @@ export class AnnotationsService {
     },
   ): Promise<Annotation | null> {
     // Storing the quote (backfill) isn't an edit: keep "recently edited" order
-    const { quote: _quote, ...edit } = patch;
-    const edited = Object.values(edit).some((v) => v !== undefined);
+    const edited = Object.entries(patch).some(
+      ([k, v]) => k !== 'quote' && v !== undefined,
+    );
     const [row] = await db
       .update(annotation)
       .set(edited ? { ...patch, updatedAt: new Date() } : patch)
@@ -126,6 +136,8 @@ function toAnnotation(row: typeof annotation.$inferSelect): Annotation {
     offsetX: row.offsetX,
     offsetY: row.offsetY,
     width: row.width,
-    mark: MARKS.has(row.mark as AnnotationMark) ? (row.mark as AnnotationMark) : null,
+    mark: MARKS.has(row.mark as AnnotationMark)
+      ? (row.mark as AnnotationMark)
+      : null,
   };
 }
