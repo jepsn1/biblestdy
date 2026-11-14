@@ -43,6 +43,24 @@ function make() {
 }
 
 describe('ConnectionsService (panel assembly)', () => {
+  it('a note here carries ALL its anchors (rows name its other passages)', async () => {
+    const { notes, connections } = make();
+    const note = await notes.create('u1', { ...jhn3, title: 'Grace' });
+    await notes.addAnchor('u1', note.id, gen1);
+    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
+    expect(panel.notesHere[0].anchors.map((a) => a.book)).toEqual([
+      'JHN',
+      'GEN',
+    ]);
+  });
+
+  it('a chapter with no notes has none, whatever else exists', async () => {
+    const { notes, connections } = make();
+    await notes.create('u1', { ...psa23, title: 'Shepherd' });
+    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
+    expect(panel.notesHere).toEqual([]);
+  });
+
   it('shows every note anchored in the chapter, in text order', async () => {
     const { notes, connections } = make();
     const later = await notes.create('u1', {
@@ -56,86 +74,6 @@ describe('ConnectionsService (panel assembly)', () => {
 
     const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
     expect(panel.notesHere.map((n) => n.id)).toEqual([earlier.id, later.id]);
-  });
-
-  it('lists other passages of shared notes; the current chapter is not a connection', async () => {
-    const { notes, connections } = make();
-    const note = await notes.create('u1', { ...jhn3, title: 'Grace' });
-    await notes.addAnchor('u1', note.id, gen1);
-    await notes.addAnchor('u1', note.id, psa23);
-
-    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
-    expect(panel.alsoAppearsIn.map((p) => `${p.book}.${p.chapter}`)).toEqual([
-      'GEN.1',
-      'PSA.23',
-    ]); // canonical order
-    expect(panel.alsoAppearsIn[0].notes).toEqual([
-      { id: note.id, title: 'Grace' },
-    ]);
-  });
-
-  it('merges two notes pointing at the same passage into one link', async () => {
-    const { notes, connections } = make();
-    const a = await notes.create('u1', { ...jhn3, title: 'A' });
-    const b = await notes.create('u1', {
-      ...jhn3,
-      startVerse: 18,
-      endVerse: 18,
-      title: 'B',
-    });
-    await notes.addAnchor('u1', a.id, gen1);
-    await notes.addAnchor('u1', b.id, { ...gen1, startVerse: 3, endVerse: 3 });
-
-    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
-    expect(panel.alsoAppearsIn).toHaveLength(1);
-    expect(panel.alsoAppearsIn[0].notes.map((n) => n.title).sort()).toEqual([
-      'A',
-      'B',
-    ]);
-  });
-
-  it('a note anchored twice in the same other chapter links it once', async () => {
-    const { notes, connections } = make();
-    const note = await notes.create('u1', jhn3);
-    await notes.addAnchor('u1', note.id, gen1);
-    await notes.addAnchor('u1', note.id, {
-      ...gen1,
-      startVerse: 5,
-      endVerse: 5,
-    });
-
-    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
-    expect(panel.alsoAppearsIn).toHaveLength(1);
-    expect(panel.alsoAppearsIn[0].notes).toHaveLength(1);
-  });
-
-  it('recent notes come newest-touched first, capped, with their anchors', async () => {
-    const { notes, connections } = make();
-    const first = await notes.create('u1', { ...jhn3, title: 'first' });
-    for (let i = 0; i < 6; i++) {
-      await notes.create('u1', {
-        ...psa23,
-        startVerse: i + 1,
-        endVerse: i + 1,
-      });
-    }
-    // Touching the oldest note bubbles it back to the top
-    await notes.update('u1', first.id, { body: 'again' });
-
-    const panel = await connections.forChapter('u1', 'WEB', 'GEN', 1);
-    expect(panel.recent).toHaveLength(5);
-    expect(panel.recent[0].id).toBe(first.id);
-    expect(panel.recent[0].anchors).toHaveLength(1);
-  });
-
-  it('an empty chapter still offers recent notes as re-entry', async () => {
-    const { notes, connections } = make();
-    await notes.create('u1', { ...psa23, title: 'Shepherd' });
-
-    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
-    expect(panel.notesHere).toEqual([]);
-    expect(panel.alsoAppearsIn).toEqual([]);
-    expect(panel.recent.map((n) => n.title)).toEqual(['Shepherd']);
   });
 
   it('topics union the chapter tags and the tags of notes anchored here', async () => {
@@ -169,13 +107,11 @@ describe('ConnectionsService (panel assembly)', () => {
 
     const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
     expect(panel.notesHere).toEqual([]);
-    expect(panel.alsoAppearsIn).toEqual([]);
-    expect(panel.recent).toEqual([]);
 
     await notes.restore('u1', note.id);
     const back = await connections.forChapter('u1', 'WEB', 'JHN', 3);
     expect(back.notesHere.map((n) => n.id)).toEqual([note.id]);
-    expect(back.alsoAppearsIn).toHaveLength(1);
+    expect(back.notesHere[0].anchors).toHaveLength(2); // all its anchors
   });
 
   it('assembles only the requesting user own graph', async () => {
@@ -186,7 +122,5 @@ describe('ConnectionsService (panel assembly)', () => {
 
     const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
     expect(panel.notesHere.map((n) => n.title)).toEqual(['mine']);
-    expect(panel.alsoAppearsIn).toEqual([]);
-    expect(panel.recent.map((n) => n.title)).toEqual(['mine']);
   });
 });

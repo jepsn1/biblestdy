@@ -1413,6 +1413,8 @@ export function PaginatedChapter({
               onEdit={notesApi.edit}
               onRemove={notesApi.remove}
               onDetach={notesApi.detach}
+              onAttach={notesApi.attach}
+              onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
               onShowAnchor={showAnchor}
               selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
               onClose={closeNote}
@@ -1456,6 +1458,8 @@ export function PaginatedChapter({
                   onEdit={notesApi.edit}
                   onRemove={notesApi.remove}
                   onDetach={notesApi.detach}
+                  onAttach={notesApi.attach}
+                  onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
                   onShowAnchor={showAnchor}
                   selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
                   onClose={closeNote}

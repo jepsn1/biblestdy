@@ -81,6 +81,7 @@ function useActions(r: ReaderActions) {
   const style = useReaderStyle();
   const size = useTextSize();
   const sidebar = useSidebar();
+  const navigate = useNavigate();
   const lang = i18n.language.startsWith("da") ? "da" : "en";
   const sizeIdx = TEXT_SIZES.indexOf(size);
 
@@ -109,6 +110,14 @@ function useActions(r: ReaderActions) {
       shortcut: `${modKey()}.`,
       common: true,
       run: r.toggleConnections,
+    },
+    {
+      id: "all-notes",
+      label: t("palette.allNotes"),
+      keywords: [...both("palette.allNotes"), ...both("palette.notesWord")],
+      common: true,
+      opensDialog: true, // leaves the reader: focus goes with the page
+      run: () => navigate("/notes"),
     },
     {
       id: "sidebar",

@@ -206,7 +206,7 @@ function noteItem(ctx: PaletteContext, note: Note, q: string, snippet?: string, 
     group: "notes",
     label: title,
     detail: [ref, more > 0 && ctx.labels.morePassages(more), snippet].filter(Boolean).join(" · ") || undefined,
-    href: a ? `/read/${a.book}/${a.chapter}?note=${note.id}` : undefined,
+    href: a ? `/read/${a.book}/${a.chapter}?note=${note.id}` : `/notes/${note.id}`,
     match: q || undefined,
   };
 }
@@ -444,7 +444,7 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
         id: `topic:${t.id}`,
         group: "topics" as const,
         label: `#${t.name}`,
-        href: `/topic/${encodeURIComponent(t.name)}`,
+        href: `/notes?topic=${encodeURIComponent(t.name)}`,
         match: q || undefined,
       })),
     );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anchorReference, buildAnchor, sameAnchor, wordRangeInVerse, words, type Anchor } from './anchor.js'
+import { anchorReference, buildAnchor, payloadAnchor, sameAnchor, wordRangeInVerse, words, type Anchor } from './anchor.js'
 
 const meta = { translationId: 'WEB', book: 'JHN', chapter: 3 }
 
@@ -87,5 +87,21 @@ describe('anchorReference', () => {
   it('keeps a multi-verse span as a range', () => {
     const a: Anchor = { ...meta, startVerse: 16, startWord: 2, endVerse: 18, endWord: 1 }
     expect(anchorReference(a)).toEqual({ book: 'JHN', chapter: 3, verse: 16, endVerse: 18 })
+  })
+})
+
+describe('payloadAnchor', () => {
+  const full = { ...meta, startVerse: 16, startWord: 0, endVerse: 16, endWord: 4 }
+  it('takes all seven fields as the anchor', () => {
+    expect(payloadAnchor({ ...full, title: 'x' } as never)).toEqual(full)
+  })
+  it('is null when no anchor field is given', () => {
+    expect(payloadAnchor({})).toBeNull()
+  })
+  it('refuses a partial anchor', () => {
+    expect(payloadAnchor({ book: 'JHN', chapter: 3 })).toBe('partial')
+  })
+  it('word 0 counts as given', () => {
+    expect(payloadAnchor({ ...full, startWord: 0, endWord: 0 })).toEqual({ ...full, endWord: 0 })
   })
 })

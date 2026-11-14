@@ -18,6 +18,7 @@ export {
   buildAnchor,
   wordRangeInVerse,
   sameAnchor,
+  payloadAnchor,
   anchorReference,
   HIGHLIGHT_COLORS,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -34,7 +35,7 @@ export {
   type NoteAnchor,
   type NewNote,
 } from './anchor.js'
-export type { ChapterConnections, PassageLink } from './connections.js'
+export type { ChapterConnections } from './connections.js'
 export type { Tag } from './tags.js'
 export {
   READER_STYLES,

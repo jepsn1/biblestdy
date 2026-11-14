@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { NotesController } from './notes.controller';
 import { NotesService } from './notes.service';
+import { DrizzleTagStore } from '../tags/tags.store';
 import { DrizzleNoteStore } from './notes.store';
 
 @Module({
@@ -8,7 +9,8 @@ import { DrizzleNoteStore } from './notes.store';
   providers: [
     {
       provide: NotesService,
-      useFactory: () => new NotesService(new DrizzleNoteStore()),
+      useFactory: () =>
+        new NotesService(new DrizzleNoteStore(), new DrizzleTagStore()),
     },
   ],
 })

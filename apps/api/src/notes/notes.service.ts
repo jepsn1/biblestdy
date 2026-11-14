@@ -1,20 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import {
+  payloadAnchor,
   sameAnchor,
   type Anchor,
-  type Note,
   type NewNote,
+  type Note,
+  type Tag,
 } from '@biblestdy/shared';
+import type { TagStore } from '../tags/tags.store';
 import type { AnchorRow, NoteRow, NoteStore } from './notes.store';
 
 /**
- * The note↔anchor graph (issue #8): a note is a markdown document anchored to
- * one or more passages, M:N via anchors. Rules live here, persistence in the
+ * The note↔anchor graph (issue #8): a note is a markdown document referencing
+ * passages, M:N via anchors. Since the notes rework a note may have none yet
+ * (a draft written on the Notes page). Rules live here, persistence in the
  * NoteStore — behavior-tested against the in-memory store.
  */
 @Injectable()
 export class NotesService {
-  constructor(private readonly store: NoteStore) {}
+  constructor(
+    private readonly store: NoteStore,
+    /** Topics for the all-notes list; absent in tests that don't need them. */
+    private readonly tags?: TagStore,
+  ) {}
 
   /** Notes with at least one anchor in the chapter — each with ALL its anchors. */
   async listForChapter(
@@ -32,15 +40,29 @@ export class NotesService {
     return this.withAnchors(rows);
   }
 
-  /** All the user's notes (for the attach-picker), most recently updated first. */
+  /** All the user's notes (Notes page, attach-picker), most recently updated
+   * first — each with its anchors and topics. */
   async listAll(userId: string): Promise<Note[]> {
-    return this.withAnchors(await this.store.listNotes(userId));
+    const rows = await this.store.listNotes(userId);
+    const notes = await this.withAnchors(rows);
+    if (!this.tags) return notes;
+    const tags = await this.tags.tagsForNotes(rows.map((r) => r.id));
+    return notes.map((n) => ({
+      ...n,
+      tags: tags
+        .filter((t) => t.noteId === n.id)
+        .map((t): Tag => ({ id: t.id, name: t.name })),
+    }));
   }
 
-  /** Creates a note on its first anchor. */
+  /** Creates a note — on its first anchor when made from a selection, with
+   * no passage yet when written on the Notes page. */
   async create(userId: string, data: NewNote): Promise<Note> {
-    const { title = '', body = '', ...anchor } = data;
+    const { title = '', body = '', ...rest } = data;
+    const anchor = payloadAnchor(rest);
+    if (anchor === 'partial') throw new Error('partial anchor'); // the controller refuses these
     const row = await this.store.insertNote(userId, { title, body });
+    if (!anchor) return toNote(row, []);
     const a = await this.store.insertAnchor(row.id, anchor);
     return toNote(row, [a]);
   }
@@ -80,27 +102,29 @@ export class NotesService {
     const row = await this.store.getNote(userId, id);
     if (!row) return null;
     const anchors = await this.store.anchorsFor([id]);
-    if (!anchors.some((a) => sameAnchor(a, anchor))) {
-      anchors.push(await this.store.insertAnchor(id, anchor));
-    }
-    return toNote(row, anchors);
+    if (anchors.some((a) => sameAnchor(a, anchor))) return toNote(row, anchors);
+    anchors.push(await this.store.insertAnchor(id, anchor));
+    // A new reference is an edit: the note rises in the Notes list
+    return toNote(
+      (await this.store.updateNote(userId, id, {})) ?? row,
+      anchors,
+    );
   }
 
-  /** Removes one anchor. A note is always reachable from Scripture, so the
-   * last anchor can't be removed — delete the note instead. */
+  /** Removes one anchor. The last one may go too: the note stays on the Notes
+   * page, without passages, until linked again. */
   async removeAnchor(
     userId: string,
     id: string,
     anchorId: string,
-  ): Promise<Note | 'not-found' | 'last-anchor'> {
+  ): Promise<Note | null> {
     const row = await this.store.getNote(userId, id);
-    if (!row) return 'not-found';
+    if (!row) return null;
     const anchors = await this.store.anchorsFor([id]);
-    if (!anchors.some((a) => a.id === anchorId)) return 'not-found';
-    if (anchors.length <= 1) return 'last-anchor';
+    if (!anchors.some((a) => a.id === anchorId)) return null;
     await this.store.deleteAnchor(id, anchorId);
     return toNote(
-      row,
+      (await this.store.updateNote(userId, id, {})) ?? row,
       anchors.filter((a) => a.id !== anchorId),
     );
   }
@@ -147,6 +171,7 @@ export function toNote(row: NoteRow, anchors: AnchorRow[]): Note {
     id: row.id,
     title: row.title,
     body: row.body,
+    updatedAt: row.updatedAt.toISOString(),
     anchors: anchors.map((a) => ({
       id: a.id,
       translationId: a.translationId,

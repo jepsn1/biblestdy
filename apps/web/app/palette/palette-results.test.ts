@@ -12,10 +12,11 @@ const anchor = (book: string, chapter: number, startVerse: number, endVerse = st
   endVerse,
   endWord: 3,
 });
+const T = "2026-11-01T00:00:00.000Z";
 const notes: Note[] = [
-  { id: "n1", title: "Adoption", body: "We are **children** of God.", anchors: [anchor("ROM", 8, 14, 17)] },
-  { id: "n2", title: "Bronze serpent", body: "Compare Numbers 21 — looking up is believing in adoption.", anchors: [anchor("JHN", 3, 14)] },
-  { id: "n3", title: "", body: "Untitled thought about grace", anchors: [anchor("ROM", 8, 28)] },
+  { id: "n1", title: "Adoption", body: "We are **children** of God.", anchors: [anchor("ROM", 8, 14, 17)], updatedAt: T },
+  { id: "n2", title: "Bronze serpent", body: "Compare Numbers 21 — looking up is believing in adoption.", anchors: [anchor("JHN", 3, 14)], updatedAt: T },
+  { id: "n3", title: "", body: "Untitled thought about grace", anchors: [anchor("ROM", 8, 28)], updatedAt: T },
 ];
 
 const ann = (id: string, text: string, book: string, chapter: number, startVerse: number, translationId = "web"): Annotation => ({
@@ -136,8 +137,13 @@ describe("palette results", () => {
     expect(ids("@grace")).toEqual(["note:n3"]);
   });
 
-  it("topics link to their page", () => {
-    expect(buildResults("new", ctx()).find((r) => r.id === "topic:t1")?.href).toBe("/topic/new-birth");
+  it("topics open the Notes page filtered by them", () => {
+    expect(buildResults("new", ctx()).find((r) => r.id === "topic:t1")?.href).toBe("/notes?topic=new-birth");
+  });
+
+  it("a note without passages opens on the Notes page", () => {
+    const draft: Note = { id: "d", title: "Sermon draft", body: "", anchors: [], updatedAt: T };
+    expect(buildResults("sermon draft", ctx({ notes: [draft] })).find((r) => r.id === "note:d")?.href).toBe("/notes/d");
   });
 
   it("nothing found: says so, and that Bible text search isn't there yet", () => {
@@ -155,7 +161,7 @@ describe("palette results", () => {
   });
 
   it("searching: commands come after your study", () => {
-    const c = ctx({ notes: [{ id: "d", title: "Darkness and light", body: "", anchors: [anchor("JHN", 1, 5)] }] });
+    const c = ctx({ notes: [{ id: "d", title: "Darkness and light", body: "", anchors: [anchor("JHN", 1, 5)], updatedAt: T }] });
     expect(ids("dark", c)).toEqual(["note:d", "action:dark"]);
   });
 
@@ -169,7 +175,7 @@ describe("palette results", () => {
   });
 
   it("a note on several passages shows and opens the one that matched", () => {
-    const multi: Note = { id: "m", title: "Adoption", body: "", anchors: [anchor("ROM", 8, 15), anchor("GAL", 4, 5)] };
+    const multi: Note = { id: "m", title: "Adoption", body: "", anchors: [anchor("ROM", 8, 15), anchor("GAL", 4, 5)], updatedAt: T };
     const row = buildResults("gal 4", ctx({ notes: [multi] })).find((r) => r.id === "note:m");
     expect(row).toMatchObject({ href: "/read/GAL/4?note=m", detail: "Galatians 4:5 · +1 more" });
   });
@@ -222,7 +228,7 @@ describe("palette results: passages", () => {
   });
 
   it("a typo: the guess says so, and your words are still searched", () => {
-    const c = ctx({ notes: [{ id: "j", title: "jonh 3 notes", body: "", anchors: [anchor("ROM", 1, 1)] }] });
+    const c = ctx({ notes: [{ id: "j", title: "jonh 3 notes", body: "", anchors: [anchor("ROM", 1, 1)], updatedAt: T }] });
     const rows = buildResults("jonh 3", c);
     expect(rows[0]).toMatchObject({ label: "John 3", detail: "Closest match" });
     expect(rows.map((r) => r.id)).toContain("note:j");

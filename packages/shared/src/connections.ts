@@ -1,29 +1,15 @@
 import type { Note } from './anchor.js'
 import type { Tag } from './tags.js'
 
-/** A passage connected to the current chapter through shared notes. */
-export interface PassageLink {
-  translationId: string
-  book: string
-  chapter: number
-  /** The notes creating the link (id + title, title may be ''). */
-  notes: { id: string; title: string }[]
-}
-
 /**
- * What the connections panel shows for one chapter (issue #9): the notes
- * anchored here, the passages those notes also anchor to, and the most
- * recently touched notes as re-entry points into study.
+ * What the reader's Notes panel shows for one chapter (issue #9, simplified
+ * in the notes plan): the notes anchored here — each with ALL its anchors, so
+ * a row can name its other passages — and the topics they touch.
  */
 export interface ChapterConnections {
   /** Notes with an anchor in this chapter, in text order of their first anchor here. */
   notesHere: Note[]
-  /** Other passages sharing a note with this chapter, in canonical order. */
-  alsoAppearsIn: PassageLink[]
-  /** Most recently updated notes, newest first. */
-  recent: Note[]
   /** Topics this chapter touches (its own tags + tags of notes anchored here),
-   * by name. onPassage marks tags sitting on the chapter itself — those are
-   * removable from the panel. */
+   * by name. onPassage marks older chapter tags (passage_tag). */
   topics: (Tag & { onPassage: boolean })[]
 }

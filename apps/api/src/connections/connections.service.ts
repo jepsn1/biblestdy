@@ -1,21 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import {
-  compareReferences,
-  type ChapterConnections,
-  type PassageLink,
-} from '@biblestdy/shared';
+import type { ChapterConnections } from '@biblestdy/shared';
 import { toNote } from '../notes/notes.service';
 import type { AnchorRow, NoteStore } from '../notes/notes.store';
 import type { TagStore } from '../tags/tags.store';
 
-/** Recent notes shown as re-entry points — enough to resume, not a library. */
-const RECENT_LIMIT = 5;
-
 /**
- * The connections panel (issue #9): assembles, for one chapter, everything the
- * annotation graph knows around it — notes anchored here, passages connected
- * through those shared notes ("also appears in"), and the user's most recent
- * notes. Pure assembly over the NoteStore; behavior-tested in-memory.
+ * The reader's Notes panel (issue #9, simplified in the notes plan): for one
+ * chapter, the notes anchored here (each with ALL its anchors — the row names
+ * its other passages) and the topics they touch. Recent notes and "also
+ * appears in" moved to the Notes page. Pure assembly over the NoteStore;
+ * behavior-tested in-memory.
  */
 @Injectable()
 export class ConnectionsService {
@@ -36,12 +30,7 @@ export class ConnectionsService {
       book,
       chapter,
     );
-    const recentRows = (await this.store.listNotes(userId)).slice(
-      0,
-      RECENT_LIMIT,
-    );
-
-    const ids = [...new Set([...hereRows, ...recentRows].map((r) => r.id))];
+    const ids = hereRows.map((r) => r.id);
     const anchors = await this.store.anchorsFor(ids);
     const anchorsOf = (noteId: string) =>
       anchors.filter((a) => a.noteId === noteId);
@@ -68,31 +57,6 @@ export class ConnectionsService {
       )
       .map((x) => x.note);
 
-    // Other passages the chapter's notes also anchor to, grouped per passage
-    const links = new Map<string, PassageLink>();
-    for (const row of hereRows) {
-      for (const a of anchorsOf(row.id)) {
-        if (inChapter(a)) continue;
-        const key = `${a.translationId}/${a.book}.${a.chapter}`;
-        const link = links.get(key) ?? {
-          translationId: a.translationId,
-          book: a.book,
-          chapter: a.chapter,
-          notes: [],
-        };
-        if (!link.notes.some((n) => n.id === row.id)) {
-          link.notes.push({ id: row.id, title: row.title });
-        }
-        links.set(key, link);
-      }
-    }
-    const alsoAppearsIn = [...links.values()].sort((a, b) =>
-      compareReferences(
-        { book: a.book, chapter: a.chapter },
-        { book: b.book, chapter: b.chapter },
-      ),
-    );
-
     // Topics the chapter touches: its own tags plus tags of notes anchored here
     const passage = { translationId, book, chapter };
     const passageTags = await this.tags.tagsForPassage(userId, passage);
@@ -108,8 +72,6 @@ export class ConnectionsService {
 
     return {
       notesHere,
-      alsoAppearsIn,
-      recent: recentRows.map((row) => toNote(row, anchorsOf(row.id))),
       topics: [...topics.values()].sort((a, b) => a.name.localeCompare(b.name)),
     };
   }

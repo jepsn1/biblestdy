@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import type { Chapter, Note, NoteAnchor } from "@biblestdy/shared";
-import { anchorReference, formatReference, words, wordRangeInVerse } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, NoteAnchor } from "@biblestdy/shared";
+import { words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
 import { api } from "~/lib/query";
 import { cn, focusRing } from "~/lib/utils";
@@ -33,10 +33,14 @@ import {
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
-import { Check, Trash2, X } from "lucide-react";
+import { Check, Maximize2, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import { Hint } from "~/components/hint";
+import { bookLocale, useBookName } from "~/lib/book-name";
+import { AddReference } from "../notes/add-reference";
+import { anchorLabel } from "../notes/note-list";
 import { notifyError } from "~/lib/notify";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
@@ -82,15 +86,19 @@ function ReferencesTable({
   selectedAnchorId,
   onShowAnchor,
   onDetach,
+  onAttach,
   mobile = false,
 }: {
   note: Note;
   selectedAnchorId: string | null;
   onShowAnchor: (anchor: NoteAnchor) => void;
   onDetach: (id: string, anchorId: string) => void;
+  onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
   mobile?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const nameOf = useBookName();
+  const locale = bookLocale(i18n.language);
   const chapterKeys = [
     ...new Map(
       note.anchors.map((a) => [`${a.translationId}/${a.book}/${a.chapter}`, a]),
@@ -113,6 +121,11 @@ function ReferencesTable({
       </h3>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col">
+        {note.anchors.length === 0 && (
+          <p className="px-1.5 py-1 font-serif text-meta text-muted-foreground italic">
+            {t("note.noReferences")}
+          </p>
+        )}
         {note.anchors.map((a) => {
           const isSelected = a.id === selectedAnchorId;
           return (
@@ -127,6 +140,7 @@ function ReferencesTable({
             <button
               type="button"
               title={isSelected ? t("note.deselect") : t("note.readPassage")}
+              aria-label={`${anchorLabel(a, nameOf, locale)}: ${isSelected ? t("note.deselect") : t("note.readPassage")}`}
               aria-pressed={isSelected}
               onClick={() => onShowAnchor(a)}
               className={cn(
@@ -135,17 +149,17 @@ function ReferencesTable({
                 focusRing,
               )}
             >
-              <span className="font-mono text-meta whitespace-nowrap text-primary">
-                {formatReference(anchorReference(a))}
+              <span className="text-meta tabular-nums whitespace-nowrap text-primary">
+                {anchorLabel(a, nameOf, locale)}
               </span>
               <span className="truncate font-serif text-meta text-muted-foreground italic">
                 {snippetOf(chapterOf.get(`${a.translationId}/${a.book}/${a.chapter}`), a)}
               </span>
             </button>
-            {note.anchors.length > 1 ? (
-              <button
+            {/* The last reference may go too: the note stays on the Notes page */}
+            <button
                 type="button"
-                aria-label={t("note.removeReference")}
+                aria-label={t("note.removeReferenceNamed", { ref: anchorLabel(a, nameOf, locale) })}
                 title={t("note.removeReference")}
                 onClick={() => onDetach(note.id, a.id)}
                 className={cn(
@@ -156,14 +170,16 @@ function ReferencesTable({
               >
                 <X className="size-3" />
               </button>
-            ) : (
-              <span />
-            )}
           </div>
           );
         })}
         </div>
       </ScrollArea>
+      {onAttach && (
+        <div className="shrink-0 pt-1.5">
+          <AddReference onAdd={(anchor) => onAttach(note.id, anchor)} mobile={mobile} />
+        </div>
+      )}
     </section>
   );
 }
@@ -186,9 +202,12 @@ export function NotePanel({
   onEdit,
   onRemove,
   onDetach,
+  onAttach,
   onShowAnchor,
   selectedAnchorId,
   onClose,
+  onOpenInNotes,
+  page = false,
   mobile = false,
 }: {
   note: Note;
@@ -196,10 +215,16 @@ export function NotePanel({
   onEdit: (id: string, patch: { title?: string; body?: string }) => Promise<unknown>;
   onRemove: (id: string) => void;
   onDetach: (id: string, anchorId: string) => void;
+  /** Adds a typed passage as a reference ("Add passage"). */
+  onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
   onShowAnchor: (anchor: NoteAnchor) => void;
   /** Anchor id of the selected reference (spotlit in the reader). */
   selectedAnchorId: string | null;
   onClose: () => void;
+  /** Reader panel: opens this note on the Notes page. */
+  onOpenInNotes?: () => void;
+  /** On the Notes page (not beside the text): Esc doesn't close it. */
+  page?: boolean;
   /** Drawer build (#13): stacked layout, touch targets, slim toolbar —
    * feature parity with the desktop split, not a squeezed clone of it. */
   mobile?: boolean;
@@ -227,9 +252,13 @@ export function NotePanel({
     if (chip) openerSel.current = `[${NOTE_OPENER}="${CSS.escape(chip.getAttribute(NOTE_OPENER) ?? "")}"]`;
     else if (verse) openerSel.current = `[${VERSE_FOCUS}="${verse.getAttribute(VERSE_FOCUS)}"]`;
     const aside = titleRef.current?.closest("aside");
+    // A blank note starts at its title; one with words, at the end of them
+    const blank = !note.title && !note.body;
     if (!aside?.contains(document.activeElement))
       requestAnimationFrame(() =>
-        editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true }),
+        blank
+          ? titleRef.current?.focus({ preventScroll: true })
+          : editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true }),
       );
     if (!openerSel.current) return;
     const sel = openerSel.current;
@@ -245,6 +274,7 @@ export function NotePanel({
       requestAnimationFrame(refocus);
       window.setTimeout(refocus, 450);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opened note
   }, [mobile, note.id]);
 
   /** In-flight PATCHes, and whether the last one failed. */
@@ -317,7 +347,7 @@ export function NotePanel({
   });
   useEffect(() => {
     const aside = asideRef.current;
-    if (mobile || !aside) return;
+    if (mobile || page || !aside) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
       const closeKey =
@@ -329,7 +359,7 @@ export function NotePanel({
     };
     aside.addEventListener("keydown", onKey);
     return () => aside.removeEventListener("keydown", onKey);
-  }, [mobile]);
+  }, [mobile, page]);
 
   const status = failed ? "failed" : dirty || inFlight > 0 ? "saving" : "saved";
 
@@ -355,6 +385,19 @@ export function NotePanel({
             focusRing,
           )}
         />
+        {onOpenInNotes && (
+          <Hint label={t("note.openInNotes")}>
+            <Button
+              variant="ghost"
+              size={mobile ? "icon" : "icon-sm"}
+              aria-label={t("note.openInNotes")}
+              onClick={onOpenInNotes}
+              className="ml-1 text-muted-foreground"
+            >
+              <Maximize2 />
+            </Button>
+          </Hint>
+        )}
       </PanelHeader>
 
       {/* Tags group study across the graph (issue #10) — chips open topic pages */}
@@ -414,6 +457,7 @@ export function NotePanel({
             selectedAnchorId={selectedAnchorId}
             onShowAnchor={onShowAnchor}
             onDetach={onDetach}
+            onAttach={onAttach}
             mobile={mobile}
           />
         );
@@ -421,7 +465,7 @@ export function NotePanel({
           // Stacked: editor breathes, references capped below it
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex min-h-0 flex-1 flex-col">{editor}</div>
-            <div className="max-h-[30%] shrink-0 border-t border-border">{references}</div>
+            <div className="max-h-[40%] shrink-0 border-t border-border">{references}</div>
           </div>
         ) : (
           <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
@@ -434,7 +478,7 @@ export function NotePanel({
               {editor}
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel id="references" defaultSize="28%" minSize="10%" maxSize="60%">
+            <ResizablePanel id="references" defaultSize="32%" minSize="18%" maxSize="60%">
               {references}
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -481,7 +525,7 @@ export function NotePanel({
               {t("note.retry")}
             </Button>
           )}
-          {!mobile && <span className="pointer-coarse:hidden">· {t("note.escCloses")}</span>}
+          {!mobile && !page && <span className="pointer-coarse:hidden">· {t("note.escCloses")}</span>}
         </span>
       </footer>
     </aside>

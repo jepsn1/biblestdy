@@ -9,6 +9,7 @@ export interface NoteRow {
   userId: string;
   title: string;
   body: string;
+  updatedAt: Date;
 }
 
 /** One anchor row of a note. */
@@ -22,7 +23,7 @@ const live = isNull(note.deletedAt);
 
 /**
  * Persistence primitives for the note↔anchor graph. The M:N rules (first
- * anchor on create, dedupe, last-anchor guard) live in NotesService — tests
+ * anchor on create, dedupe) live in NotesService — tests
  * run it against an in-memory store, production against Drizzle/Postgres.
  */
 export interface NoteStore {
@@ -159,6 +160,7 @@ export class DrizzleNoteStore implements NoteStore {
         userId: note.userId,
         title: note.title,
         body: note.body,
+        updatedAt: note.updatedAt,
       })
       .from(note)
       .innerJoin(noteAnchor, eq(noteAnchor.noteId, note.id))

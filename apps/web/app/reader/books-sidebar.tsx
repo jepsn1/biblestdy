@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { BOOKS, findBook, suggestBooks } from "@biblestdy/shared";
-import { LogOut } from "lucide-react";
+import { LogOut, NotebookText } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -31,6 +31,7 @@ import {
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { notifyError } from "~/lib/notify";
+import { cn, focusRing } from "~/lib/utils";
 
 const OLD_TESTAMENT = BOOKS.slice(0, 39);
 const NEW_TESTAMENT = BOOKS.slice(39);
@@ -85,6 +86,17 @@ export function BooksSidebar({ book }: { book: string }) {
           <span className="font-mono text-control font-semibold tracking-tight text-primary">
             biblestdy
           </span>
+        </Link>
+        {/* The other place study lives: every note (notes plan, Phase 1) */}
+        <Link
+          to="/notes"
+          className={cn(
+            "-mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-control text-foreground hover:bg-sidebar-accent max-sm:py-2.5",
+            focusRing,
+          )}
+        >
+          <NotebookText className="size-4 text-muted-foreground" aria-hidden />
+          {t("sidebar.notes")}
         </Link>
         <SidebarInput
           placeholder={t("sidebar.filterBooks")}
