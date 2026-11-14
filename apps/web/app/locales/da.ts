@@ -209,9 +209,9 @@ const da: typeof en = {
     heroTitleB: "Dine noter ved siden af.",
     heroBody:
       "biblestdy er et stille sted at læse Bibelen, markere det du lægger mærke til, og gemme dine tanker ved de tekster de hører til \u2014 så du kan finde dem igen.",
-    ctaStart: "Begynd at læse",
+    ctaStart: "Begynd at læse gratis",
     ctaHow: "Se hvordan det virker",
-    ctaNote: "Gratis. Du logger ind med din e-mail \u2014 vi sender dig en kode. Ingen adgangskode, ingen reklamer, ingen sporing.",
+    ctaNote: "Du logger ind med din e-mail \u2014 vi sender dig en kode. Ingen adgangskode, ingen reklamer, ingen sporing.",
     whyVerse:
       "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
     whyVerseRef: "John 5:39\u201340 \u00b7 WEB",
