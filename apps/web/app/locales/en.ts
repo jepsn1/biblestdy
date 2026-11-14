@@ -273,13 +273,13 @@ export default {
       "Your notes are yours. No tracking, no ads, and we never sell your data. Delete everything whenever you want.",
     promiseFreeTitle: "Free",
     promiseFreeBody:
-      "Reading, highlights, margin notes, notes and topics are free, and will stay free. biblestdy is a non-commercial project.",
+      "Reading, highlights, margin notes, notes and topics are free to use, with no ads.",
     faqTitle: "Questions",
     madeBy: "Made by Marcus",
     faq: {
       who: {
         q: "Who is behind biblestdy?",
-        a: "Hi, I\u2019m Marcus. I build biblestdy on my own, in Denmark, as a non-commercial project \u2014 run through my small company MJK Holding ApS, so there is someone accountable behind it. Follow along on Instagram, or write to marcus@jepsn.com.",
+        a: "Hi, I\u2019m Marcus. I build biblestdy on my own, in Denmark \u2014 run through my small company MJK Holding ApS, so there is someone accountable behind it. Follow along on Instagram, or write to marcus@jepsn.com.",
       },
       new: {
         q: "I\u2019m new to the Bible (or haven\u2019t read it in years). Is this for me?",
@@ -287,7 +287,7 @@ export default {
       },
       free: {
         q: "Does it cost anything?",
-        a: "No. Reading, marking, notes and topics are free, and will stay free. There are no ads and no subscription. biblestdy is run as a non-commercial project by a small Danish company.",
+        a: "No. Reading, marking, notes and topics are free to use, with no ads. biblestdy is built by one person in Denmark.",
       },
       translations: {
         q: "Which Bible translations can I read?",
@@ -351,7 +351,7 @@ export default {
       "You can delete your account at any time from the settings inside the app. Deletion is immediate and removes everything you ever stored.",
     operatorTitle: "Who runs biblestdy",
     operatorBody:
-      "biblestdy is run by {{name}} (CVR {{cvr}}), {{country}}, which is responsible for your data (the data controller). It is a free, non-commercial project.",
+      "biblestdy is run by {{name}} (CVR {{cvr}}), {{country}}, which is responsible for your data (the data controller).",
     contactTitle: "Questions or help",
     contactBody: "Write us — support and privacy questions alike:",
     backToApp: "back to biblestdy",

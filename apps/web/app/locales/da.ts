@@ -275,13 +275,13 @@ const da: typeof en = {
       "Dine noter er dine. Ingen sporing, ingen reklamer, og vi sælger aldrig dine data. Slet det hele når du vil.",
     promiseFreeTitle: "Gratis",
     promiseFreeBody:
-      "Læsning, markeringer, margennoter, noter og emner er gratis, og det bliver de ved med at være. biblestdy er et ikke-kommercielt projekt.",
+      "Læsning, markeringer, margennoter, noter og emner er gratis at bruge, uden reklamer.",
     faqTitle: "Spørgsmål",
     madeBy: "Lavet af Marcus",
     faq: {
       who: {
         q: "Hvem står bag biblestdy?",
-        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark, som et ikke-kommercielt projekt \u2014 drevet gennem mit lille selskab MJK Holding ApS, så der er en ansvarlig bag. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
+        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark \u2014 drevet gennem mit lille selskab MJK Holding ApS, så der er en ansvarlig bag. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
       },
       new: {
         q: "Jeg er ny i Bibelen (eller har ikke læst i den siden konfirmationen). Er det her for mig?",
@@ -289,7 +289,7 @@ const da: typeof en = {
       },
       free: {
         q: "Koster det noget?",
-        a: "Nej. Læsning, markeringer, noter og emner er gratis, og det bliver de ved med at være. Ingen reklamer, intet abonnement. biblestdy drives som et ikke-kommercielt projekt af et lille dansk selskab.",
+        a: "Nej. Læsning, markeringer, noter og emner er gratis at bruge, uden reklamer. biblestdy er bygget af én person i Danmark.",
       },
       translations: {
         q: "Hvilke bibeloversættelser kan jeg læse?",
@@ -353,7 +353,7 @@ const da: typeof en = {
       "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt, du nogensinde har gemt.",
     operatorTitle: "Hvem står bag biblestdy",
     operatorBody:
-      "biblestdy drives af {{name}} (CVR {{cvr}}), Danmark, som er dataansvarlig for dine data. Det er et gratis, ikke-kommercielt projekt.",
+      "biblestdy drives af {{name}} (CVR {{cvr}}), Danmark, som er dataansvarlig for dine data.",
     contactTitle: "Spørgsmål eller hjælp",
     contactBody: "Skriv til os — support- og privatlivsspørgsmål i samme indbakke:",
     backToApp: "tilbage til biblestdy",
