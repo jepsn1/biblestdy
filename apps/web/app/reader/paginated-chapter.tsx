@@ -31,7 +31,7 @@ import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
 import { boxesFitLane, LANE, RAIL, sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
-import { PALETTE_BOX, PEN_STYLES, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
+import { PALETTE_BOX, PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { useAnnotations } from "./use-annotations";
@@ -681,6 +681,14 @@ export function PaginatedChapter({
       if (event.key === "[" && prevChapter) navigate(chapterHref(prevChapter));
       if (event.key === "]" && nextChapter) navigate(chapterHref(nextChapter));
       if (scrollMode) return; // no pages to turn; arrows stay native
+      // Palette tools: V puts down; Shift + the menu's own letter picks one
+      // (Shift so a stray key never drops the reader into a mode)
+      const pick = event.key === "v" && !event.shiftKey ? "select" : TOOL_KEYS[event.key];
+      if (pick) {
+        event.preventDefault();
+        setToolPick((p) => ({ ...p, kind: pick }));
+        return;
+      }
       if (event.key === "ArrowLeft") goPrev();
       if (event.key === "ArrowRight") goNext();
       if (event.key === "Home" || event.key === "End") {

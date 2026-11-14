@@ -71,6 +71,17 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
       ],
     },
     {
+      title: t("tools.label"),
+      rows: [
+        { keys: [["V"], ["Esc"]], label: t("tools.select") },
+        { keys: [["Shift", "H"]], label: t("tools.highlight") },
+        { keys: [["Shift", "M"]], label: t("tools.annotate") },
+        { keys: [["1–5"]], label: t("shortcuts.penStyle") },
+        { keys: [["Shift", "N"]], label: t("tools.note") },
+        { keys: [["Shift", "E"]], label: t("tools.erase") },
+      ],
+    },
+    {
       title: t("shortcuts.panels"),
       rows: [
         { keys: [["mod", "."]], label: t("shortcuts.connections") },

@@ -28,13 +28,16 @@ export type ReaderTool = { kind: ToolKind; color: HighlightColor; pen: PenStyle 
  * so both page arrows sit at one height. */
 export const PALETTE_BOX = "mt-3 h-48.5 shrink-0";
 
-const TOOLS: { kind: ToolKind; icon: LucideIcon }[] = [
-  { kind: "select", icon: MousePointer2 },
-  { kind: "highlight", icon: Highlighter },
-  { kind: "annotate", icon: PenLine },
-  { kind: "note", icon: FileText },
-  { kind: "erase", icon: Eraser },
+const TOOLS: { kind: ToolKind; icon: LucideIcon; key: string }[] = [
+  { kind: "select", icon: MousePointer2, key: "V" },
+  { kind: "highlight", icon: Highlighter, key: "Shift+H" },
+  { kind: "annotate", icon: PenLine, key: "Shift+M" },
+  { kind: "note", icon: FileText, key: "Shift+N" },
+  { kind: "erase", icon: Eraser, key: "Shift+E" },
 ];
+
+/** Shift + the action menu's letter (h, m, n) picks a tool; V = Select. */
+export const TOOL_KEYS: Record<string, ToolKind> = { H: "highlight", M: "annotate", N: "note", E: "erase" };
 
 export function ToolPalette({
   tool,
@@ -51,15 +54,16 @@ export function ToolPalette({
       aria-label={t("tools.label")}
       className={cn(PALETTE_BOX, "mx-auto flex pointer-coarse:hidden w-10 flex-col items-center gap-0.5 rounded-xl border border-border bg-background p-0.5 shadow-xs")}
     >
-      {TOOLS.map(({ kind, icon: Icon }) => {
+      {TOOLS.map(({ kind, icon: Icon, key }) => {
         const on = tool.kind === kind;
         return (
           <div key={kind} className="relative">
-            <Hint label={`${t(`tools.${kind}`)} — ${t(`tools.${kind}Hint`)}`} side="right">
+            <Hint label={`${t(`tools.${kind}`)} — ${t(`tools.${kind}Hint`)}`} shortcut={key} side="right">
               <button
                 type="button"
                 aria-pressed={on}
                 aria-label={t(`tools.${kind}`)}
+                aria-keyshortcuts={key}
                 onClick={() => onChange({ ...tool, kind })}
                 className={cn(
                   "flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
