@@ -132,6 +132,10 @@ export function PaginatedChapter({
   const [resolvedKey, setResolvedKey] = useState<string | null>(null);
   /** Slide only for the reader's own page turns, never on arrival. */
   const [animate, setAnimate] = useState(false);
+  /** Mid-slide: pane-fixed margin ink waits (see AnnotationMarks). */
+  const [turning, setTurning] = useState(false);
+  /** Inside the content box, sliding with the text: circles/brackets. */
+  const [penHost, setPenHost] = useState<HTMLDivElement | null>(null);
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   // The reference selected in the note panel — only its mark stays drawn
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
@@ -779,28 +783,57 @@ export function PaginatedChapter({
   );
 
   /** Anything that moves the words without resizing a box: ink re-measures. */
-  const layoutKey = `${page}:${stride}:${layout.columns}:${textSize}:${inlineAnnotations}`;
+  const layoutKey = `${stride}:${layout.columns}:${textSize}:${inlineAnnotations}`;
 
-  /** Ink layers share the region's box (inset-0); measured from word spans. */
+  // A turn hides the pane-fixed margin ink until the slide lands
+  useEffect(() => {
+    if (!animate) return;
+    setTurning(true);
+    const timer = window.setTimeout(() => setTurning(false), 300);
+    return () => window.clearTimeout(timer);
+  }, [page, animate]);
+
+  /** Ink on the words lives in the content box and carries the text's own
+   * transform, so a page turn slides every page's ink with its words
+   * (marker behind the text, pen in front). Overflow-clipped like the text. */
+  const slide = {
+    className: cn("absolute inset-0", animate && "transition-transform duration-300 motion-reduce:transition-none"),
+    style: { transform: `translateX(-${page * stride}px)` },
+  };
+  const wordInk = (
+    <>
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div {...slide}>
+          <HighlightMarks
+            highlights={highlights}
+            selection={selection}
+            boxRef={contentBoxRef}
+            flowRef={contentRef}
+            layoutKey={layoutKey}
+            hidden={
+              selectedMarkId != null &&
+              noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
+            }
+          />
+        </div>
+      </div>
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
+        <div ref={setPenHost} {...slide} />
+      </div>
+    </>
+  );
+
+  /** Margin ink (boxes, arrows, note chips) shares the region's box (inset-0). */
   const inkLayers = (
     <div className="pointer-events-none absolute inset-0">
-      <HighlightMarks
-        highlights={highlights}
-        selection={selection}
-        regionRef={regionRef}
-        contentRef={contentBoxRef}
-        flowRef={contentRef}
-        layoutKey={layoutKey}
-        hidden={
-          selectedMarkId != null &&
-          noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
-        }
-      />
-
-      {/* After HighlightMarks: same underlay stratum, so pen arrows paint over marker */}
       <AnnotationMarks
         annotations={annotationsApi.annotations}
         noteMarks={noteMarks}
+        flowRef={contentRef}
+        page={scrollMode ? 0 : page}
+        stride={scrollMode ? 0 : stride}
+        penHost={penHost}
+        marginHidden={turning}
         compact={scrollMode}
         marginBoxes={marginBoxes}
         railChips={!scrollMode}
@@ -856,6 +889,7 @@ export function PaginatedChapter({
                   {chapterText}
                   {chapterEnd}
                 </div>
+                {wordInk}
               </div>
               {inkLayers}
             </div>
@@ -892,6 +926,7 @@ export function PaginatedChapter({
                     {chapterText}
                     {chapterEnd}
                   </div>
+                  {wordInk}
                 </div>
                 {inkLayers}
               </div>
