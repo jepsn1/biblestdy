@@ -12,8 +12,8 @@
  */
 
 /** Edge gutter each side: the tool palette's column on the left, mirrored
- * on the right so the sheet stays centred (page turns live in the page bar
- * under the pane, clear of every lane). */
+ * on the right so the sheet stays centred (page turns live in the running
+ * foot under the text block, inside the content box: clear of every lane). */
 export const GUTTER = 3;
 export const PAD = 1.5; // content box inline padding (px-6), each side
 export const COL_GAP = 3.5; // gap-x-14

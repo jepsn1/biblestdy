@@ -26,9 +26,10 @@ import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
-import { boxesFitLane, LANE, RAIL, sheetLayout } from "./sheet-layout";
+import { boxesFitLane, LANE, PAD, RAIL, sheetLayout } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
-import { PageBar, type BarButton } from "./page-bar";
+import { PageFoot, type FootButton } from "./page-foot";
+import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
@@ -42,10 +43,6 @@ export const CHAPTER_TEXT_ID = "chapter-text";
 /** Reader area (rem) below which side panels open as drawers: note panel
  * minimum (35rem) + a ~20rem reading column. ~880px at 100%. */
 const SIDE_BY_SIDE_MIN = 55;
-
-/** Page bar width (rem): the text column's, but never so narrow that the
- * position line is squeezed into a stack. */
-const BAR_MIN = 36;
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
@@ -187,7 +184,7 @@ export function PaginatedChapter({
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   /** The verse Tab lands on (#65) — kept on the current page. */
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);
-  /** Verses with words on the current page (footer range, #66). */
+  /** Verses with words on the current page (folio range, #66). */
   const [pageVerses, setPageVerses] = useState<{ first: number; last: number } | null>(null);
   /** Reading place across reflows (#66): see the effect near the keys. */
   const readingVerse = useRef<number | null>(null);
@@ -624,7 +621,8 @@ export function PaginatedChapter({
   const copyright = chapter.copyright && /^public domain$/i.test(chapter.copyright.trim())
     ? t("reader.publicDomain")
     : chapter.copyright;
-  const attribution = [translation.name, copyright].filter(Boolean).join(" · ");
+  const credit = [translation.name, copyright].filter((part): part is string => !!part);
+  const attribution = credit.join(" · ");
   /** ":1–11" — the verses on this page (one verse: ":16"). */
   const verseSpan = pageVerses
     ? `:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
@@ -634,13 +632,13 @@ export function PaginatedChapter({
   const rangeLabel = `${hereLabel}${verseSpan}`;
   const shortRange = `${chapter.chapter}${verseSpan}`;
 
-  // Page bar ends: always just "‹ Previous" / "Next ›" — crossing into the
+  // Running foot ends: always just "‹ Previous" / "Next ›" — crossing into the
   // next chapter is one more page turn. The accessible name says where a
-  // crossing lands. Phones: always chapters.
+  // crossing lands. Phones: always chapters, named ("‹ John 2" · "John 4 ›").
   const crossName = (dir: "prev" | "next", target: ChapterRef) =>
     t(scrollMode ? `reader.${dir}ChapterTo` : `reader.${dir}Into`, { ref: refLabel(target) });
-  const prevButton: BarButton = {
-    label: t("reader.prev"),
+  const prevButton: FootButton = {
+    label: scrollMode && prevChapter ? refLabel(prevChapter) : t("reader.prev"),
     name: prevTarget
       ? crossName("prev", prevTarget)
       : t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
@@ -649,8 +647,8 @@ export function PaginatedChapter({
     disabled: onFirstPage && !prevTarget,
     onClick: goPrev,
   };
-  const nextButton: BarButton = {
-    label: t("reader.next"),
+  const nextButton: FootButton = {
+    label: scrollMode && nextChapter ? refLabel(nextChapter) : t("reader.next"),
     name: nextTarget
       ? crossName("next", nextTarget)
       : t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
@@ -722,6 +720,29 @@ export function PaginatedChapter({
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchend", onEnd);
     };
+  }, [scrollMode]);
+
+  // Wheel and trackpad read on (see wheel-turn.ts): one page per gesture,
+  // down/right = next. Nothing in the paged sheet scrolls, so the wheel is
+  // free — except over something that scrolls itself (a long margin note),
+  // zoom (Ctrl/⌘+wheel), or mid-drag (a selection or a tool's stroke).
+  // Not passive: a sideways swipe would otherwise go back in history.
+  useEffect(() => {
+    const el = paneRef.current;
+    if (!el || scrollMode) return;
+    const feed = wheelTurner();
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey || e.buttons !== 0) return;
+      if (scrollsItself(e.target as Element, el, e.deltaX, e.deltaY)) return;
+      // An open menu or popover keeps the page still under it
+      if (document.querySelector("[role='menu'][data-open]")) return;
+      e.preventDefault();
+      const turn = feed(e);
+      if (turn === "next") turnRef.current.goNext();
+      else if (turn === "prev") turnRef.current.goPrev();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, [scrollMode]);
 
   useEffect(() => {
@@ -806,7 +827,7 @@ export function PaginatedChapter({
   // Reading place (#66): the first verse on the page the reader chose. A
   // reflow (panel opened/closed, pane resized, text size, annotations laid
   // in) turns to the page that now holds it instead of keeping the page
-  // number. A focused verse wins (#65, below). Also feeds the footer range.
+  // number. A focused verse wins (#65, below). Also feeds the folio range.
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content || scrollMode || stride === 0 || resolvedKey !== chapterKey) return;
@@ -888,7 +909,7 @@ export function PaginatedChapter({
   }, [page, stride, pageCount, scrollMode, chapterKey, layout.columns, textSize]);
 
   /** End of chapter, phones: the attribution right after the last verse
-   * (their bar has no credit line). The bar's Next goes on. */
+   * (their foot has no credit line). The foot's Next goes on. */
   const chapterEnd = <p className="mt-10 font-sans text-meta text-muted-foreground">{attribution}</p>;
 
   const chapterText = (
@@ -1034,6 +1055,15 @@ export function PaginatedChapter({
                   {chapterText}
                   {chapterEnd}
                 </div>
+                {/* The chapter ends with its own foot: on to the next one */}
+                <PageFoot
+                  label={t("reader.chaptersNav")}
+                  position={[]}
+                  prev={prevButton}
+                  next={nextButton}
+                  phone
+                  className="mx-auto mt-6 max-w-[65ch]"
+                />
                 {wordInk}
               </div>
               {inkLayers}
@@ -1051,7 +1081,8 @@ export function PaginatedChapter({
             <div data-chapter-sheet className="h-full overflow-hidden">
               <div ref={regionRef} className="relative isolate h-full w-full">
                 {/* Content box: capped height (34em at body size) centered in
-                    the pane, so columns never run tall on big screens */}
+                    the pane, so columns never run tall on big screens. The
+                    running foot sits under the text block, as wide as it */}
                 <div
                   ref={contentBoxRef}
                   className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-6 pb-6"
@@ -1062,7 +1093,7 @@ export function PaginatedChapter({
                     id={CHAPTER_TEXT_ID}
                     tabIndex={-1}
                     className={cn(
-                      "h-full max-h-[34em] touch-manipulation text-left font-serif text-reading leading-[1.55] text-foreground outline-none [column-fill:auto] gap-x-14 [.style-clean_&]:leading-[1.6]",
+                      "max-h-[34em] min-h-0 flex-1 touch-manipulation text-left font-serif text-reading leading-[1.55] text-foreground outline-none [column-fill:auto] gap-x-14 [.style-clean_&]:leading-[1.6]",
                       layout.columns === 2 ? "columns-2" : "columns-1",
                       tool.kind !== "select" && "[&_[data-word]]:cursor-crosshair",
                       animate && "transition-transform duration-300 motion-reduce:transition-none",
@@ -1071,6 +1102,15 @@ export function PaginatedChapter({
                   >
                     {chapterText}
                   </div>
+                  <PageFoot
+                    label={t("reader.pagesNav")}
+                    position={[shortRange, t("reader.pageOf", { page: page + 1, count: pageCount })]}
+                    credit={credit}
+                    prev={prevButton}
+                    next={nextButton}
+                    phone={false}
+                    className="mt-1 shrink-0"
+                  />
                   {wordInk}
                 </div>
                 {inkLayers}
@@ -1082,20 +1122,13 @@ export function PaginatedChapter({
               <ToolPalette tool={tool} onChange={setToolPick} />
             </div>
             <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
-            <ColourKey />
+            {/* Room left of the text (px) for the key: never over the
+                words or the foot's Previous (it spills 0.5rem left) */}
+            <ColourKey room={pane.width ? (pane.width - layout.contentWidth * pane.rem) / 2 + PAD * pane.rem - 0.5 * pane.rem - 20 : undefined} />
           </>
         )}
       </div>
 
-      <PageBar
-        label={t(scrollMode ? "reader.chaptersNav" : "reader.pagesNav")}
-        position={scrollMode ? [] : [shortRange, t("reader.pageOf", { page: page + 1, count: pageCount })]}
-        credit={scrollMode ? undefined : attribution}
-        prev={prevButton}
-        next={nextButton}
-        phone={scrollMode}
-        maxWidth={scrollMode ? undefined : Math.max(layout.contentWidth, BAR_MIN)}
-      />
       {!scrollMode && (
         <p aria-live="polite" className="sr-only">
           {t("reader.announce", { ref: rangeLabel, page: page + 1, count: pageCount })}
