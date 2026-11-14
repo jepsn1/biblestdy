@@ -560,9 +560,8 @@ export function AnnotationMarks({
                   d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId)}
                   fill="none"
                   stroke={NOTE_INK}
-                  strokeWidth={active ? 2 : 1.5}
+                  strokeWidth={active ? 2.2 : 1.7}
                   strokeLinecap="round"
-                  opacity={active ? 1 : 0.75}
                 />
               );
             })}
@@ -585,9 +584,8 @@ export function AnnotationMarks({
                 d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
                 fill="none"
                 stroke={NOTE_INK}
-                strokeWidth={active ? 1.8 : 1.4}
+                strokeWidth={active ? 2 : 1.6}
                 strokeLinecap="round"
-                opacity={active ? 1 : 0.75}
               />
             );
           })}
