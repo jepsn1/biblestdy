@@ -54,6 +54,12 @@ type Placement = {
   laneCenter: { x: number; y: number };
   /** Default box width: LANE, narrower when the pane's lanes shrink (#51). */
   laneWidth: number;
+  /** One placement per text column the span falls in: `annotation id:column`. */
+  key: string;
+  /** A span split across columns shows its box again beside the rest of
+   * its words — layout only, never stored. A copy sits at its lane spot
+   * (no drag/resize); the original (first column) keeps the stored place. */
+  copy: boolean;
 };
 /** A note anchor's mark: same circle/bracket by geometry, plus a static chip
  * beside it that opens the document panel. One tab per anchor — a multi-anchor
@@ -95,16 +101,16 @@ function geom(
   const aCY = p.box.y + p.box.h / 2;
   let cx: number;
   let cy: number;
-  if (drag && drag.id === p.annotation.id) {
+  if (!p.copy && drag && drag.id === p.annotation.id) {
     ({ x: cx, y: cy } = drag);
-  } else if (p.annotation.offsetX != null && p.annotation.offsetY != null) {
+  } else if (!p.copy && p.annotation.offsetX != null && p.annotation.offsetY != null) {
     cx = aCX + p.annotation.offsetX;
     cy = aCY + p.annotation.offsetY;
   } else {
     ({ x: cx, y: cy } = p.laneCenter);
   }
   let w = p.annotation.width ?? p.laneWidth;
-  if (resize && resize.id === p.annotation.id) {
+  if (!p.copy && resize && resize.id === p.annotation.id) {
     cx = resize.cx;
     w = resize.w;
   }
@@ -306,7 +312,14 @@ export function AnnotationMarks({
       /** Content-box center of page n — which column a span sits in. */
       const midOf = (n: number) => n * stride + content.offsetWidth / 2;
 
-      type Seg = { page: number; box: Box; lines: number; mid: number; firstLineY: number };
+      // Text columns repeat every colStride (spread: 2 per page); a span
+      // split across columns gets one segment per column
+      const flowStyle = getComputedStyle(flowEl);
+      const colCount = Number(flowStyle.columnCount) || 1;
+      const colGap = parseFloat(flowStyle.columnGap) || 0;
+      const colStride = (flowEl.clientWidth - colGap * (colCount - 1)) / colCount + colGap;
+      const colOfX = (x: number) => (colStride > 0 ? Math.max(0, Math.floor((x - ox + 1) / colStride)) : 0);
+      type Seg = { col: number; page: number; box: Box; lines: number; mid: number; firstLineY: number };
       /** An anchor's words, one segment per page (box + line count),
        * measured straight from the [data-verse][data-word] spans —
        * independent of any wrapper, so overlapping/nested marks all measure
@@ -332,11 +345,11 @@ export function AnnotationMarks({
               right: (vr.right - flowRect.left) / s + ox,
               bottom: (vr.bottom - flowRect.top) / s + oy,
             };
-            const n = pageOfX(r.left);
+            const n = colOfX(r.left);
             byPage.set(n, [...(byPage.get(n) ?? []), r]);
           }
         }
-        return [...byPage].map(([n, rects]) => {
+        return [...byPage].sort((x, y) => x[0] - y[0]).map(([n, rects]) => {
           const left = Math.min(...rects.map((r) => r.left));
           const right = Math.max(...rects.map((r) => r.right));
           const top = Math.min(...rects.map((r) => r.top));
@@ -345,7 +358,8 @@ export function AnnotationMarks({
           // the spread is a different line
           const runs = lineRuns(rects);
           return {
-            page: n,
+            col: n,
+            page: pageOfX(left),
             box: { x: left, y: top, w: right - left, h: bottom - top },
             lines: runs.length,
             mid: (left + right) / 2,
@@ -354,26 +368,26 @@ export function AnnotationMarks({
         });
       };
       const sideOf = (seg: Seg): "left" | "right" => (compact || seg.mid < midOf(seg.page) ? "left" : "right");
-      /** The current page's segment, in pane (region) coordinates. */
-      const onPage = (segs: Seg[]) => {
-        const seg = segs.find((g) => g.page === page);
-        if (!seg) return null;
-        return {
-          box: { ...seg.box, x: seg.box.x + toRegionX, y: seg.box.y + boxTop },
-          lines: seg.lines,
-          side: sideOf(seg),
-          firstLineY: seg.firstLineY + boxTop,
-        };
-      };
+      /** The current page's segments (one per column), in pane (region) coordinates. */
+      const onPage = (segs: Seg[]) =>
+        segs
+          .filter((g) => g.page === page)
+          .map((seg) => ({
+            col: seg.col,
+            copy: seg !== segs[0],
+            box: { ...seg.box, x: seg.box.x + toRegionX, y: seg.box.y + boxTop },
+            lines: seg.lines,
+            side: sideOf(seg),
+            firstLineY: seg.firstLineY + boxTop,
+          }));
       const penList: Pen[] = [];
 
       const items: Placement[] = [];
       for (const annotation of annotations) {
         const segs = measureAnchor(annotation);
         for (const g of segs)
-          penList.push({ key: `${annotation.id}:${g.page}`, markId: annotation.id, isNote: false, box: g.box, lines: g.lines, colSide: sideOf(g) });
-        const m = onPage(segs);
-        if (!m) continue;
+          penList.push({ key: `${annotation.id}:${g.col}`, markId: annotation.id, isNote: false, box: g.box, lines: g.lines, colSide: sideOf(g) });
+        for (const m of onPage(segs)) {
         // One scroll column (phones): brackets always on the left gutter
         const side = m.side;
         // Narrow pane (#51): lanes shrink — the default box narrows to the
@@ -384,6 +398,8 @@ export function AnnotationMarks({
         const laneWidth = Math.min(LANE, Math.max(MIN_W, room));
         items.push({
           annotation,
+          key: `${annotation.id}:${m.col}`,
+          copy: m.copy,
           box: m.box,
           lines: m.lines,
           colSide: side,
@@ -396,6 +412,7 @@ export function AnnotationMarks({
             y: m.box.y + m.box.h / 2,
           },
         });
+        }
       }
       setPlacements(items);
 
@@ -404,8 +421,8 @@ export function AnnotationMarks({
         const segs = measureAnchor(mark);
         const markId = `note:${mark.noteId}:${mark.id}`;
         for (const g of segs)
-          penList.push({ key: `${markId}:${g.page}`, markId, isNote: true, box: g.box, lines: g.lines, colSide: sideOf(g) });
-        const m = onPage(segs);
+          penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, colSide: sideOf(g) });
+        const m = onPage(segs)[0];
         if (m) tabs.push({ mark, box: m.box, lines: m.lines, colSide: m.side, firstLineY: m.firstLineY });
       }
       setNoteTabs(tabs);
@@ -448,7 +465,7 @@ export function AnnotationMarks({
               ? shownPlacements
                   .filter((p) => p.annotation.offsetX == null)
                   .map((p) => {
-                    const h = boxHeights.current.get(p.annotation.id) ?? 22;
+                    const h = boxHeights.current.get(p.key) ?? 22;
                     return { side: p.colSide, top: p.laneCenter.y - h / 2, bottom: p.laneCenter.y + h / 2 };
                   })
               : [],
@@ -504,12 +521,12 @@ export function AnnotationMarks({
       >
         {marginBoxes &&
           shownPlacements.map((p) => {
-            const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id));
+            const g = geom(p, drag, resize, boxHeights.current.get(p.key));
             if (!g.showArrow) return null;
             const active = p.annotation.id === activeAnnotationId;
             return (
               <path
-                key={p.annotation.id}
+                key={p.key}
                 d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
                 fill="none"
                 stroke={NOTE_INK}
@@ -564,13 +581,13 @@ export function AnnotationMarks({
         {marginBoxes &&
           shownPlacements.map((p) => {
             const active = p.annotation.id === activeAnnotationId;
-            const isEditing = editingId === p.annotation.id;
-            const g = geom(p, drag, resize, boxHeights.current.get(p.annotation.id));
-            const dragging = drag?.id === p.annotation.id;
+            const isEditing = editingId === p.key;
+            const g = geom(p, drag, resize, boxHeights.current.get(p.key));
+            const dragging = !p.copy && drag?.id === p.annotation.id;
             return (
               <div
-                key={p.annotation.id}
-                ref={measureBox(p.annotation.id)}
+                key={p.key}
+                ref={measureBox(p.key)}
                 data-ink-box
                 className={`pointer-events-auto absolute -translate-y-1/2 ${dragging ? "select-none" : ""}`}
                 style={{
@@ -582,7 +599,7 @@ export function AnnotationMarks({
                 onPointerEnter={() => onFocus(p.annotation.id)}
                 onPointerLeave={() => !isEditing && onFocus(null)}
                 onPointerDown={(e) => {
-                  if (isEditing || e.button !== 0) return;
+                  if (isEditing || p.copy || e.button !== 0) return;
                   dragFrom.current = { cx: g.cx, cy: g.cy, px: e.clientX, py: e.clientY };
                   didDrag.current = false;
                   e.currentTarget.setPointerCapture(e.pointerId);
@@ -613,6 +630,7 @@ export function AnnotationMarks({
                 }}
               >
                 {!isEditing &&
+                  !p.copy &&
                   (["left", "right"] as const).map((edge) => (
                     <div
                       key={edge}
@@ -687,11 +705,11 @@ export function AnnotationMarks({
                         didDrag.current = false;
                         return; // a drag, not a click
                       }
-                      setEditingId(p.annotation.id);
+                      setEditingId(p.key);
                     }}
                     className={cn(
                       "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-list leading-snug italic transition-colors hover:bg-accent/50",
-                      dragging ? "cursor-grabbing" : "cursor-grab",
+                      p.copy ? "cursor-pointer" : dragging ? "cursor-grabbing" : "cursor-grab",
                       focusRing,
                     )}
                     style={{
