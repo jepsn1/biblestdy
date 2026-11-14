@@ -14,17 +14,20 @@ import { noteMarksInChapter, useNotes, useOtherVersionCounts } from "./use-notes
 /** Most verses ever tried on one page (the rest can't fit anyway). */
 const MAX_TRY = 60;
 
-/** What the run-on carries: the next chapter's verses up to `to`; that
- * chapter goes on from `nextFrom` when the reader turns the page. */
-export type RunOn = { to: number; toLabel: string; nextFrom: number };
+/** What one run-on section carries: its chapter's verses up to `to`; that
+ * chapter goes on from `nextFrom` when the reader turns the page — null =
+ * the whole chapter fit, and the one after may run on below it. */
+export type RunOn = { to: number; toLabel: string; nextFrom: number | null };
 
 /**
  * Chapters run on, like a printed Bible: when a chapter ends part-way down
  * its last page, the next chapter's opening (numeral, passage heading,
  * verses) fills the rest of that page instead of leaving it nearly empty.
- * Whole verses only — as many as fit under the chapter's end — and never
- * the whole chapter (it keeps a page of its own to go on to). Turning the
- * page goes on into that chapter from the first verse not shown here.
+ * Whole verses only (one may break across the page's columns), as many as
+ * fit under the chapter's end. A short chapter that fits whole lets the
+ * next one run on below it (a chain; the reader caps it). Turning the page
+ * goes on into the first chapter not wholly shown, from its first verse
+ * not shown here.
  *
  * Fully live, not a preview: its own highlights, pen marks, notes and
  * selections, anchored to its own chapter as always (a selection never
@@ -103,8 +106,8 @@ export function ChapterSpill({
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);
 
-  // Candidates: every verse but the last (MAX_TRY at most)
-  const candidates = chapter.verses.slice(0, Math.min(MAX_TRY, chapter.verses.length - 1));
+  // Candidates: every verse (MAX_TRY at most)
+  const candidates = chapter.verses.slice(0, MAX_TRY);
   // Fitted for one layout: anything that moves words re-fits (fonts too)
   const [fontTick, setFontTick] = useState(0);
   useEffect(() => {
@@ -144,7 +147,9 @@ export function ChapterSpill({
 
   const shownTo = n === null ? candidates.at(-1) : n > 0 ? candidates[n - 1] : undefined;
   const runOn: RunOn | null =
-    n && shownTo ? { to: shownTo.verse, toLabel: shownTo.label ?? String(shownTo.verse), nextFrom: chapter.verses[n].verse } : null;
+    n && shownTo
+      ? { to: shownTo.verse, toLabel: shownTo.label ?? String(shownTo.verse), nextFrom: chapter.verses[n]?.verse ?? null }
+      : null;
   const runOnKey = runOn ? `${runOn.to}/${runOn.nextFrom}` : "";
   useEffect(() => {
     // Only once measured (a fit in progress says nothing yet)

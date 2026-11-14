@@ -55,12 +55,17 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
 
 /** Chapters run on (#flow): a page turn into a chapter whose opening the
  * page before already showed carries on from `flowFrom` (history state, so
- * reload and Back lay out the same pages; any other way in = whole chapter). */
-type FlowState = { flowFrom: number };
+ * reload and Back lay out the same pages; any other way in = whole chapter).
+ * `from`: the chapter whose last page that was, when it also carried whole
+ * chapters in between (short psalms) — turning back goes there. */
+type FlowState = { flowFrom?: number; from?: ChapterRef };
+/** Most chapters one last page carries (a whole short one lets the next run
+ * on below it). */
+const MAX_RUN_ON = 3;
 /** Where each chapter last started (by translation/book.chapter): turning
  * back into it lays it out the same way, so its last page is the page the
  * reader just came from. */
-const flowStarts = new Map<string, number | null>();
+const flowStarts = new Map<string, FlowState | null>();
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
@@ -250,7 +255,8 @@ export function PaginatedChapter({
   // page before already carried (a page turn), else at its first verse.
   // Phones scroll the whole chapter.
   const location = useLocation();
-  const carried = (location.state as Partial<FlowState> | null)?.flowFrom;
+  const flow = location.state as FlowState | null;
+  const carried = flow?.flowFrom;
   const flowFrom =
     !scrollMode &&
     typeof carried === "number" &&
@@ -258,15 +264,70 @@ export function PaginatedChapter({
     chapter.verses.some((v) => v.verse === carried)
       ? carried
       : null;
+  /** Back over chapters the page before carried whole (#flow). */
+  const backTo =
+    !scrollMode && typeof flow?.from?.book === "string" && typeof flow.from.chapter === "number"
+      ? { book: flow.from.book, chapter: flow.from.chapter }
+      : null;
   /** Kept on every URL write of ours (?p, ?v, ?note, ?mark). */
-  const flowState: FlowState | null = flowFrom !== null ? { flowFrom } : null;
+  const flowState: FlowState | null =
+    flowFrom !== null || backTo ? { ...(flowFrom !== null && { flowFrom }), ...(backTo && { from: backTo }) } : null;
   /** The chapter's own text (the flow may also carry the next one's opening). */
   const mainRef = useRef<HTMLDivElement>(null);
-  /** The next chapter's opening, on this chapter's last page (ChapterSpill). */
+  /** What runs on below this chapter's end, on its last page (ChapterSpill):
+   * the next chapter's opening — or, when it fits whole, it and the next
+   * one's opening (a chain, same book, MAX_RUN_ON at most). */
   const spillBoxRef = useRef<HTMLDivElement>(null);
-  const runOnTarget = !scrollMode && nextChapter?.book === chapter.book ? nextChapter : null;
-  const runOnText = useLoadedChapter(chapter.translationId, runOnTarget);
-  const [runOn, setRunOn] = useState<RunOn | null>(null);
+  const section0 = useRef<HTMLDivElement>(null);
+  const section1 = useRef<HTMLDivElement>(null);
+  const section2 = useRef<HTMLDivElement>(null);
+  const sectionRefs = [section0, section1, section2];
+  const chain: (ChapterRef | null)[] = [];
+  for (let i = 0; i < MAX_RUN_ON; i++) {
+    const ref = i === 0 ? (scrollMode ? null : nextChapter) : chain[i - 1] && adjacentChapter(chain[i - 1]!, 1);
+    chain.push(ref?.book === chapter.book ? ref : null);
+  }
+  const chainTexts = [
+    useLoadedChapter(chapter.translationId, chain[0]),
+    useLoadedChapter(chapter.translationId, chain[1]),
+    useLoadedChapter(chapter.translationId, chain[2]),
+  ];
+  const [runOns, setRunOns] = useState<(RunOn | null)[]>(() => Array(MAX_RUN_ON).fill(null));
+  const reportRunOn = useMemo(
+    () =>
+      Array.from({ length: MAX_RUN_ON }, (_, i) => (runOn: RunOn | null) =>
+        setRunOns((list) => (list[i] === runOn ? list : list.map((x, j) => (j === i ? runOn : x))))),
+    [],
+  );
+  /** A section runs on once the one above it fit whole. */
+  const sectionShown = (i: number): boolean =>
+    !!chain[i] && !!chainTexts[i] && (i === 0 || (sectionShown(i - 1) && runOns[i - 1]?.nextFrom === null));
+  // Where Next goes from the last page: the first chapter not wholly shown,
+  // on from its first verse not shown (else from its start)
+  let onward: ChapterRef | null = nextChapter;
+  let onwardState: FlowState | null = null;
+  let lastRunOn: { ref: ChapterRef; runOn: RunOn } | null = null;
+  for (let i = 0; i < MAX_RUN_ON && sectionShown(i) && runOns[i]; i++) {
+    const ref = chain[i]!;
+    const runOn = runOns[i]!;
+    lastRunOn = { ref, runOn };
+    if (runOn.nextFrom !== null) {
+      onward = ref;
+      onwardState = { flowFrom: runOn.nextFrom };
+      break;
+    }
+    onward = adjacentChapter(ref, 1);
+    onwardState = null;
+  }
+  // Skipping chapters carried whole: turning back returns to this page
+  if (onward && nextChapter && (onward.book !== nextChapter.book || onward.chapter !== nextChapter.chapter))
+    onwardState = { ...onwardState, from: { book: chapter.book, chapter: chapter.chapter } };
+  // A whole chapter carried: read the one after ahead (budgeted)
+  const wantAhead = chain.findIndex((ref, i) => i > 0 && ref && !chainTexts[i] && sectionShown(i - 1) && runOns[i - 1]?.nextFrom === null);
+  useEffect(() => {
+    if (wantAhead > 0) prefetchNeighbours(chapter.translationId, [chain[wantAhead]]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chain[wantAhead] follows from these
+  }, [wantAhead, chapter.translationId, chapter.book, chapter.chapter]);
   const [washHost, setWashHost] = useState<HTMLDivElement | null>(null);
   const [marginHost, setMarginHost] = useState<HTMLDivElement | null>(null);
   // Split width is a per-device ergonomic preference -> localStorage, not DB
@@ -718,10 +779,10 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page - 1);
-    } else if (prevChapter) {
+    } else if (backTo ?? prevChapter) {
       // Back onto the page we came from: laid out as it was (#flow)
-      const from = flowStarts.get(`${chapter.translationId}/${prevChapter.book}.${prevChapter.chapter}`);
-      void crossTo(prevChapter, "prev", scrollMode ? 0 : "last", from ? { flowFrom: from } : null);
+      const back = (backTo ?? prevChapter)!;
+      void crossTo(back, "prev", scrollMode ? 0 : "last", flowStarts.get(`${chapter.translationId}/${back.book}.${back.chapter}`) ?? null);
     }
   }
 
@@ -732,16 +793,17 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page + 1);
-    } else if (nextChapter) {
+    } else if (onward) {
       // On from the verses this page already carried (#flow)
-      const carry = runOn && runOnTarget === nextChapter ? { flowFrom: runOn.nextFrom } : null;
-      void crossTo(nextChapter, "next", undefined, carry);
+      void crossTo(onward, "next", undefined, onwardState);
     }
   }
 
+  const flowKey = JSON.stringify(flowState);
   useEffect(() => {
-    flowStarts.set(chapterKey, flowFrom);
-  }, [chapterKey, flowFrom]);
+    flowStarts.set(chapterKey, flowState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flowKey stands for flowState
+  }, [chapterKey, flowKey]);
 
   /** "John 4" — localized book names where the UI has them (#52). */
   const refLabel = (r: ChapterRef) =>
@@ -749,8 +811,8 @@ export function PaginatedChapter({
   const onFirstPage = scrollMode || page === 0;
   const onLastPage = scrollMode || page >= pageCount - 1;
   /** At a boundary the control says where it goes; inside, it's a page turn. */
-  const prevTarget = onFirstPage ? prevChapter : null;
-  const nextTarget = onLastPage ? nextChapter : null;
+  const prevTarget = onFirstPage ? (backTo ?? prevChapter) : null;
+  const nextTarget = onLastPage ? onward : null;
   // "World English Bible · Public domain" (#66) — the API's PUBLIC DOMAIN in
   // the UI language; other copyright lines are the publisher's own words
   const copyright = chapter.copyright && /^public domain$/i.test(chapter.copyright.trim())
@@ -764,12 +826,12 @@ export function PaginatedChapter({
     : "";
   /** The last page also carries the next chapter's opening (#flow): the
    * range runs on into it, "2:23–3:4", like a printed running head. */
-  const runsOn = !scrollMode && runOn && runOnTarget && pageVerses && page >= pageCount - 1 ? runOn : null;
+  const runsOn = !scrollMode && pageVerses && page >= pageCount - 1 ? lastRunOn : null;
   /** "John 3:1–11" (announced), and the bar's bookless "3:1–11" — the book
    * is in the top bar already, like a printed Bible's running head. */
   const shortRange =
-    runsOn && runOnTarget && pageVerses
-      ? `${chapter.chapter}:${pageVerses.first}–${runOnTarget.chapter}:${runsOn.toLabel}`
+    runsOn && pageVerses
+      ? `${chapter.chapter}:${pageVerses.first}–${runsOn.ref.chapter}:${runsOn.runOn.toLabel}`
       : `${chapter.chapter}${verseSpan}`;
   const rangeLabel = `${nameOf(chapter.book)} ${shortRange}`;
 
@@ -1247,38 +1309,45 @@ export function PaginatedChapter({
                     <div ref={mainRef}>{chapterText}</div>
                     {/* The next chapter's opening fills this chapter's last
                         page (#flow) — off it (inert) on every other page */}
-                    {runOnTarget && runOnText && stride > 0 && (
-                      <div ref={spillBoxRef} data-spill className="mt-[1.6em]" inert={page < pageCount - 1}>
-                        <ChapterSpill
-                          key={`${runOnText.translationId}/${runOnText.book}.${runOnText.chapter}`}
-                          chapter={runOnText}
-                          translationAbbreviation={translation.abbreviation}
-                          heading={refLabel(runOnTarget)}
-                          bookName={nameOf(runOnText.book)}
-                          boxRef={spillBoxRef}
-                          lastPage={pageCount - 1}
-                          stride={stride}
-                          pageOf={(el) => pageOf(el, stride)}
-                          layoutKey={layoutKey}
-                          inlineAnnotations={inlineAnnotations}
-                          marginBoxes={marginBoxes}
-                          tool={tool}
-                          shown={highlightFilter}
-                          allNotes={allNotes}
-                          activeAnnotationId={activeAnnotationId}
-                          selectedMarkId={selectedMarkId}
-                          onFocusAnnotation={setActiveAnnotationId}
-                          onOpenNote={setOpenNoteId}
-                          onRunOn={setRunOn}
-                          washHost={washHost}
-                          marginHost={marginHost}
-                          penHost={penHost}
-                          regionRef={regionRef}
-                          contentBoxRef={contentBoxRef}
-                          flowRef={contentRef}
-                          page={page}
-                          marginHidden={turning || sliding}
-                        />
+                    {chainTexts[0] && sectionShown(0) && stride > 0 && (
+                      <div ref={spillBoxRef} data-spill inert={page < pageCount - 1}>
+                        {chainTexts.map(
+                          (text, i) =>
+                            text &&
+                            sectionShown(i) && (
+                              <div key={`${text.translationId}/${text.book}.${text.chapter}`} ref={sectionRefs[i]} className="mt-[1.6em]">
+                                <ChapterSpill
+                                  chapter={text}
+                                  translationAbbreviation={translation.abbreviation}
+                                  heading={refLabel(text)}
+                                  bookName={nameOf(text.book)}
+                                  boxRef={sectionRefs[i]}
+                                  lastPage={pageCount - 1}
+                                  stride={stride}
+                                  pageOf={(el) => pageOf(el, stride)}
+                                  layoutKey={layoutKey}
+                                  inlineAnnotations={inlineAnnotations}
+                                  marginBoxes={marginBoxes}
+                                  tool={tool}
+                                  shown={highlightFilter}
+                                  allNotes={allNotes}
+                                  activeAnnotationId={activeAnnotationId}
+                                  selectedMarkId={selectedMarkId}
+                                  onFocusAnnotation={setActiveAnnotationId}
+                                  onOpenNote={setOpenNoteId}
+                                  onRunOn={reportRunOn[i]}
+                                  washHost={washHost}
+                                  marginHost={marginHost}
+                                  penHost={penHost}
+                                  regionRef={regionRef}
+                                  contentBoxRef={contentBoxRef}
+                                  flowRef={contentRef}
+                                  page={page}
+                                  marginHidden={turning || sliding}
+                                />
+                              </div>
+                            ),
+                        )}
                       </div>
                     )}
                   </div>
