@@ -3,6 +3,8 @@ import {
   suggestBooks,
   type Annotation,
   type BookLocale,
+  type Highlight,
+  type HighlightColor,
   type Note,
   type Reference,
   type Tag,
@@ -14,11 +16,21 @@ import { referenceHref } from "../reader/chapter-nav";
  * the typed text → fixed, grouped rows. Order never changes while typing,
  * and a parsed reference is always the first row, so "rom 8:28 ⏎" is one
  * step. Prefixes narrow to one group: `>` actions, `#` topics, `@` notes
- * (and margin notes).
+ * (and margin notes, highlights). Marks (highlights, margin notes) also match
+ * on their marked words (`quote`).
  * Never touches scripture (reading quota): rows are references and titles.
  */
 
-export type GroupId = "recent" | "passage" | "books" | "actions" | "notes" | "annotations" | "topics" | "hint";
+export type GroupId =
+  | "recent"
+  | "passage"
+  | "books"
+  | "actions"
+  | "notes"
+  | "annotations"
+  | "highlights"
+  | "topics"
+  | "hint";
 
 export type PaletteItem = {
   id: string;
@@ -37,6 +49,10 @@ export type PaletteItem = {
   disabled?: boolean;
   /** Opens in this translation (a margin note lives in one). */
   translationId?: string;
+  /** A highlight row's colour (dot). */
+  color?: HighlightColor;
+  /** Small kind hint after the label ("Mark": a margin note without words). */
+  kind?: string;
 };
 
 export type PaletteAction = {
@@ -58,6 +74,8 @@ export type PaletteContext = {
   notes: Note[];
   /** Margin notes (inline annotations), most recent first. */
   annotations: Annotation[];
+  /** Highlights, newest first. */
+  highlights: Highlight[];
   tags: Tag[];
   actions: PaletteAction[];
   recent: RecentPassage[];
@@ -74,10 +92,12 @@ export type PaletteContext = {
     invalid: string;
     noTextSearch: string;
     untitled: string;
+    /** Kind hint of a margin note that's only a pen mark (no words). */
+    mark: string;
   };
 };
 
-export const LIMITS = { books: 6, actions: 6, notes: 5, annotations: 5, topics: 5, recent: 5, common: 4 };
+export const LIMITS = { books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4 };
 
 /** Lowercase, accents folded (é → e), so matching ignores both. */
 export function fold(s: string): string {
@@ -141,19 +161,60 @@ function snippet(text: string, query: string): string | undefined {
   return `${start > 0 ? "…" : ""}${text.slice(start, i + q.length + 40).trim()}${i + q.length + 40 < text.length ? "…" : ""}`;
 }
 
-/** A margin note: its words, where it sits, and the version if not this one. */
-function annotationItem(ctx: PaletteContext, a: Annotation, q: string): PaletteItem {
+/** ~80 characters: around the match, else the start. */
+function excerpt(text: string, q: string): string {
+  return snippet(text, q) ?? (text.length > 80 ? `${text.slice(0, 80).trim()}…` : text);
+}
+
+type Mark = Pick<Annotation, "book" | "chapter" | "startVerse" | "endVerse" | "translationId"> & { quote?: string | null };
+
+/** Where a mark sits ("John 3:16"), plus the version if not this one, and
+ * how to open it there. */
+function markPlace(ctx: PaletteContext, a: Mark) {
   const end = a.endVerse !== a.startVerse ? a.endVerse : undefined;
   const ref = refLabel(ctx, { book: a.book, chapter: a.chapter, verse: a.startVerse, endVerse: end });
   const other = a.translationId !== ctx.translationId;
-  const text = a.text ?? ""; // plain pen marks have none
   return {
-    id: `annotation:${a.id}`,
-    group: "annotations",
-    label: snippet(text, q) ?? (text.length > 80 ? `${text.slice(0, 80).trim()}…` : text),
+    ref,
     detail: other ? `${ref} · ${ctx.translationAbbr(a.translationId)}` : ref,
     href: referenceHref({ book: a.book, chapter: a.chapter, verse: a.startVerse }),
     translationId: other ? a.translationId : undefined,
+  };
+}
+
+/** A margin note's own words (none for a pen mark without text). */
+const noteText = (a: { text?: string | null }) => a.text?.trim() ?? "";
+const quoteOf = (a: Mark) => a.quote?.trim() ?? "";
+
+/** A margin note: its words, where it sits, and the version if not this one.
+ * A pen mark without words shows the marked words instead ("Mark"); a match
+ * only in the marked words shows them after the place. */
+function annotationItem(ctx: PaletteContext, a: Annotation, q: string): PaletteItem {
+  const { ref, detail, ...open } = markPlace(ctx, a);
+  const text = noteText(a);
+  const quote = quoteOf(a);
+  const inQuote = !!q && !!quote && !(text && wordPrefixMatch(text, q));
+  return {
+    id: `annotation:${a.id}`,
+    group: "annotations",
+    label: text ? excerpt(text, q) : quote ? excerpt(quote, q) : ref,
+    detail: text && inQuote ? `${detail} · ${excerpt(quote, q)}` : detail,
+    kind: text ? undefined : ctx.labels.mark,
+    ...open,
+  };
+}
+
+/** A highlight: the marked words (around the match), its colour, where. */
+function highlightItem(ctx: PaletteContext, h: Highlight, q: string): PaletteItem {
+  const { ref, detail, ...open } = markPlace(ctx, h);
+  const quote = quoteOf(h);
+  return {
+    id: `highlight:${h.id}`,
+    group: "highlights",
+    label: quote ? excerpt(quote, q) : ref,
+    detail,
+    color: h.color,
+    ...open,
   };
 }
 
@@ -254,15 +315,29 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     const elsewhere = (a: Annotation) => Number(a.translationId !== ctx.translationId);
     const hits = onPassage
       ? ctx.annotations
-          .filter((a) => a.text && onPassage(a))
+          .filter(onPassage)
           .sort((a, b) => elsewhere(a) - elsewhere(b) || a.startVerse - b.startVerse || a.startWord - b.startWord)
       : q
-        ? ctx.annotations.filter((a) => a.text && wordPrefixMatch(a.text, q))
+        ? ctx.annotations.filter((a) => wordPrefixMatch(noteText(a), q) || wordPrefixMatch(quoteOf(a), q))
         : [];
     out.push(...hits.slice(0, only ? 50 : LIMITS.annotations).map((a) => annotationItem(ctx, a, onPassage ? "" : q)));
   }
 
-  // 6. Topics
+  // 6. Highlights: on the typed passage (as margin notes), else by the
+  // marked words
+  if (!only || only === "notes") {
+    const elsewhere = (h: Highlight) => Number(h.translationId !== ctx.translationId);
+    const hits = onPassage
+      ? ctx.highlights
+          .filter(onPassage)
+          .sort((a, b) => elsewhere(a) - elsewhere(b) || a.startVerse - b.startVerse || a.startWord - b.startWord)
+      : q
+        ? ctx.highlights.filter((h) => wordPrefixMatch(quoteOf(h), q))
+        : [];
+    out.push(...hits.slice(0, only ? 50 : LIMITS.highlights).map((h) => highlightItem(ctx, h, onPassage ? "" : q)));
+  }
+
+  // 7. Topics
   if ((!only && !(ref && ref.chapter !== undefined)) || only === "topics") {
     const hits = q ? ctx.tags.filter((t) => wordPrefixMatch(t.name, q)) : ctx.tags;
     out.push(

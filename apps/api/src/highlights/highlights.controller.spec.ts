@@ -12,10 +12,11 @@ const req = {
 function make(overrides: Partial<HighlightsService> = {}) {
   const service = {
     listForChapter: vi.fn(),
+    listAll: vi.fn(),
     create: vi.fn(),
     remove: vi.fn(),
     restore: vi.fn(),
-    recolor: vi.fn(),
+    update: vi.fn(),
     ...overrides,
   };
   return { service, controller: new HighlightsController(service) };
@@ -33,6 +34,16 @@ describe('HighlightsController', () => {
       'JHN',
       3,
     );
+  });
+
+  it('lists all with no params (palette search)', async () => {
+    const all = [{ id: 'h1' }] as Highlight[];
+    const { service, controller } = make({
+      listAll: vi.fn().mockResolvedValue(all),
+    });
+    expect(await controller.list(req)).toBe(all);
+    expect(service.listAll).toHaveBeenCalledWith('user-1');
+    expect(service.listForChapter).not.toHaveBeenCalled();
   });
 
   it('rejects a list request missing params', async () => {
@@ -59,6 +70,7 @@ describe('HighlightsController', () => {
       startWord: 0,
       endVerse: 16,
       endWord: 2,
+      quote: 'For God so',
     };
     const result = await controller.create(req, dto);
     expect(result).toBe(created);
@@ -99,16 +111,38 @@ describe('HighlightsController', () => {
   it('recolors an owned highlight', async () => {
     const updated = { id: 'h1', color: 'blue' } as Highlight;
     const { service, controller } = make({
-      recolor: vi.fn().mockResolvedValue(updated),
+      update: vi.fn().mockResolvedValue(updated),
     });
     await expect(controller.update(req, 'h1', { color: 'blue' })).resolves.toBe(
       updated,
     );
-    expect(service.recolor).toHaveBeenCalledWith('user-1', 'h1', 'blue');
+    expect(service.update).toHaveBeenCalledWith('user-1', 'h1', {
+      color: 'blue',
+    });
+  });
+
+  it('stores the marked words (quote backfill)', async () => {
+    const updated = { id: 'h1', quote: 'For God so' } as Highlight;
+    const { service, controller } = make({
+      update: vi.fn().mockResolvedValue(updated),
+    });
+    await expect(
+      controller.update(req, 'h1', { quote: 'For God so' }),
+    ).resolves.toBe(updated);
+    expect(service.update).toHaveBeenCalledWith('user-1', 'h1', {
+      quote: 'For God so',
+    });
+  });
+
+  it('rejects an empty update', async () => {
+    const { controller } = make();
+    await expect(controller.update(req, 'h1', {})).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('404s when recoloring a highlight the user does not own', async () => {
-    const { controller } = make({ recolor: vi.fn().mockResolvedValue(null) });
+    const { controller } = make({ update: vi.fn().mockResolvedValue(null) });
     await expect(
       controller.update(req, 'nope', { color: 'blue' }),
     ).rejects.toThrow(NotFoundException);

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type {
   HighlightColor,
   Highlight,
@@ -32,6 +32,16 @@ export class HighlightsService {
     return rows.map(toHighlight);
   }
 
+  /** Every live highlight of the user's, newest first (palette search). */
+  async listAll(userId: string): Promise<Highlight[]> {
+    const rows = await db
+      .select()
+      .from(highlight)
+      .where(and(eq(highlight.userId, userId), isNull(highlight.deletedAt)))
+      .orderBy(desc(highlight.createdAt));
+    return rows.map(toHighlight);
+  }
+
   async create(userId: string, data: NewHighlight): Promise<Highlight> {
     const [row] = await db
       .insert(highlight)
@@ -40,15 +50,16 @@ export class HighlightsService {
     return toHighlight(row);
   }
 
-  /** Changes an owned highlight's color; null if missing or not the user's. */
-  async recolor(
+  /** Changes an owned highlight's color and/or stored quote; null if missing
+   * or not the user's. */
+  async update(
     userId: string,
     id: string,
-    color: HighlightColor,
+    patch: { color?: HighlightColor; quote?: string },
   ): Promise<Highlight | null> {
     const [row] = await db
       .update(highlight)
-      .set({ color })
+      .set(patch)
       .where(
         and(
           eq(highlight.id, id),
@@ -104,5 +115,6 @@ function toHighlight(row: typeof highlight.$inferSelect): Highlight {
     startWord: row.startWord,
     endVerse: row.endVerse,
     endWord: row.endWord,
+    quote: row.quote,
   };
 }

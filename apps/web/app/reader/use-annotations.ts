@@ -1,8 +1,10 @@
-import type { Anchor, Annotation, AnnotationMark } from "@biblestdy/shared";
+import type { Anchor, Annotation, AnnotationMark, Chapter } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api } from "~/lib/query";
+import { anchorQuote } from "./copy-attribution";
+import { useQuoteBackfill } from "./quote-backfill";
 
 /** All the user's annotations (palette search). Writes only touch chapter
  * caches, so it refetches each time it's enabled (palette opened). */
@@ -17,8 +19,10 @@ export function useAllAnnotationsQuery(enabled: boolean) {
 }
 
 /** Loads + mutates the current chapter's inline annotations for the signed-in
- * user. Failed writes surface a toast with Retry; removal offers Undo (#64). */
-export function useAnnotations(translationId: string, book: string, chapter: number) {
+ * user. Failed writes surface a toast with Retry; removal offers Undo (#64).
+ * With the loaded `text`, new annotations carry their marked words (`quote`)
+ * and older ones without get them backfilled. */
+export function useAnnotations(translationId: string, book: string, chapter: number, text?: Chapter) {
   const qc = useQueryClient();
   const key = ["annotations", translationId, book, chapter];
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
@@ -27,6 +31,7 @@ export function useAnnotations(translationId: string, book: string, chapter: num
     queryKey: key,
     queryFn: () => api<Annotation[]>(`/api/annotations?${params}`).catch(() => []),
   });
+  useQuoteBackfill("annotations", annotations, text, key);
 
   const replace = (updated: Annotation) =>
     qc.setQueryData<Annotation[]>(key, (n = []) => n.map((x) => (x.id === updated.id ? updated : x)));
@@ -34,17 +39,17 @@ export function useAnnotations(translationId: string, book: string, chapter: num
   const put = (a: Annotation) =>
     qc.setQueryData<Annotation[]>(key, (n = []) => [...n.filter((x) => x.id !== a.id), a]);
 
-  /** text null = a plain pen mark in `mark` style. */
-  async function add(anchor: Anchor, text: string | null, mark?: AnnotationMark) {
+  /** body null = a plain pen mark in `mark` style. */
+  async function add(anchor: Anchor, body: string | null, mark?: AnnotationMark) {
     try {
       put(
         await api<Annotation>("/api/annotations", {
           method: "POST",
-          body: JSON.stringify({ ...anchor, text, mark }),
+          body: JSON.stringify({ ...anchor, text: body, mark, quote: (text && anchorQuote(text, anchor)) || undefined }),
         }),
       );
     } catch (e) {
-      notifyError(e, { retry: () => add(anchor, text, mark) });
+      notifyError(e, { retry: () => add(anchor, body, mark) });
     }
   }
 

@@ -16,6 +16,18 @@ function selectedText(chapter: Chapter, anchor: Anchor): string {
   return parts.join(" ");
 }
 
+/** Longest quote the API stores (MAX_QUOTE there). */
+export const MAX_QUOTE = 2000;
+
+/**
+ * The marked words of an anchor as stored on a highlight/annotation (palette
+ * search): plain text, no verse numbers, words joined by spaces. Clipped to
+ * what the API accepts; "" when the anchor isn't in this chapter.
+ */
+export function anchorQuote(chapter: Chapter, anchor: Anchor): string {
+  return selectedText(chapter, anchor).slice(0, MAX_QUOTE).trim();
+}
+
 /**
  * Clipboard payload for copying a selection out of the reader: the selected
  * words, then a reference line ("John 3:16-18 (NIV)"), then the chapter's

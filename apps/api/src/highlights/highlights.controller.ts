@@ -22,13 +22,18 @@ import { HighlightsService } from './highlights.service';
 export class HighlightsController {
   constructor(private readonly highlights: HighlightsService) {}
 
+  /** No query params: ALL the user's highlights (palette search). With
+   * translation+book+chapter: that chapter's highlights. */
   @Get()
   async list(
     @Req() req: AuthedRequest,
-    @Query('translation') translationId: string,
-    @Query('book') book: string,
-    @Query('chapter') chapter: string,
+    @Query('translation') translationId?: string,
+    @Query('book') book?: string,
+    @Query('chapter') chapter?: string,
   ): Promise<Highlight[]> {
+    if (!translationId && !book && !chapter) {
+      return this.highlights.listAll(req.user.id);
+    }
     const chapterNum = Number(chapter);
     if (!translationId || !book || !Number.isInteger(chapterNum)) {
       throw new BadRequestException(
@@ -68,7 +73,10 @@ export class HighlightsController {
     @Param('id') id: string,
     @Body() dto: UpdateHighlightDto,
   ): Promise<Highlight> {
-    const updated = await this.highlights.recolor(req.user.id, id, dto.color);
+    if (dto.color === undefined && dto.quote === undefined) {
+      throw new BadRequestException('nothing to update');
+    }
+    const updated = await this.highlights.update(req.user.id, id, dto);
     if (!updated) throw new NotFoundException();
     return updated;
   }
