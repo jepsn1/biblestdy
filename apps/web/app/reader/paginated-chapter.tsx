@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, useViewTransitionState } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -32,6 +32,8 @@ import { PageBar, type BarButton } from "./page-bar";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
+import { ColourKey } from "./colour-key";
+import { revealColor, setHighlightFilter, useHighlightFilter } from "~/lib/highlight-filter";
 import { useAnnotations } from "./use-annotations";
 
 /** The chapter text container: target of the "Skip to text" link (#61). */
@@ -159,12 +161,27 @@ export function PaginatedChapter({
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   // The reference selected in the note panel — only its mark stays drawn
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
-  const { highlights, loaded: highlightsLoaded, add, remove, recolor } = useHighlights(
+  const { highlights: allHighlights, loaded: highlightsLoaded, add: addHighlight, remove, recolor: recolorHighlight } = useHighlights(
     chapter.translationId,
     chapter.book,
     chapter.chapter,
     chapter,
   );
+  // The colour key's filter: hidden colours are out of the reader's view
+  // (wash, clicks, eraser) — still saved. Marking in a hidden colour shows it.
+  const highlightFilter = useHighlightFilter();
+  const highlights = useMemo(
+    () => (highlightFilter ? allHighlights.filter((h) => highlightFilter.has(h.color)) : allHighlights),
+    [allHighlights, highlightFilter],
+  );
+  const add: typeof addHighlight = (anchor, color) => {
+    setHighlightFilter(revealColor(highlightFilter, color));
+    return addHighlight(anchor, color);
+  };
+  const recolor: typeof recolorHighlight = (id, color) => {
+    setHighlightFilter(revealColor(highlightFilter, color));
+    return recolorHighlight(id, color);
+  };
   const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter, chapter);
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
   const { notes: allNotes, loaded: allNotesLoaded } = useAllNotesQuery(true);
@@ -1067,6 +1084,7 @@ export function PaginatedChapter({
               <ToolPalette tool={tool} onChange={setToolPick} />
             </div>
             <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
+            <ColourKey />
           </>
         )}
       </div>

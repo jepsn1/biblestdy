@@ -213,6 +213,13 @@ const da: typeof en = {
     continue: "Fortsæt",
     changeLater: "Du kan altid ændre det i indstillingerne.",
   },
+  colourKey: {
+    title: "Farvekode",
+    showAll: "Vis alle",
+    count: "{{shown}} af {{all}}",
+    showing: "Viser markeringer i {{colors}}",
+    showingAll: "Viser alle markeringer",
+  },
   colorNames: {
     open: "Navngiv farver…",
     setting: "Overstregningsfarver",
