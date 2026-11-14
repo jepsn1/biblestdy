@@ -66,6 +66,20 @@ export function loadChapter(translationId: string, ref: ChapterRef): Promise<Cha
   return entry;
 }
 
+/** One chapter ready to draw: its text and the study data the reader lays
+ * out with it — from memory when read ahead, else fetched now (that fetch is
+ * the visit itself: the route's loader then reuses it). Never rejects; the
+ * real visit reports errors. */
+export function warmChapter(translationId: string, ref: ChapterRef): Promise<unknown> {
+  const { book, chapter } = ref;
+  return Promise.allSettled([
+    loadChapter(translationId, ref),
+    queryClient.ensureQueryData(highlightsQuery(translationId, book, chapter)),
+    queryClient.ensureQueryData(annotationsQuery(translationId, book, chapter)),
+    queryClient.ensureQueryData(notesQuery(translationId, book, chapter)),
+  ]);
+}
+
 /** Fetch the chapters either side ahead of the reader: text plus the
  * per-chapter study data the reader draws (marks decide the margin lanes,
  * so they must be in before the first paint for the page count to hold). */

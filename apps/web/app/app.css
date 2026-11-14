@@ -404,6 +404,18 @@
 :root[data-chapter-turn] [data-chapter-sheet] {
   view-transition-name: chapter-sheet;
 }
+/* The running foot stays put (as on a page turn): its own layer, updated
+   in place rather than sliding with the sheet */
+:root[data-chapter-turn] .chapter-foot {
+  view-transition-name: chapter-foot;
+}
+:root[data-chapter-turn]::view-transition-group(chapter-foot),
+:root[data-chapter-turn]::view-transition-new(chapter-foot) {
+  animation: none;
+}
+:root[data-chapter-turn]::view-transition-old(chapter-foot) {
+  display: none;
+}
 :root[data-chapter-turn]::view-transition {
   pointer-events: none;
 }

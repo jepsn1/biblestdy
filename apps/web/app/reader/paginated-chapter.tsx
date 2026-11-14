@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams, useViewTransitionState } from "react-router";
+import { flushSync } from "react-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
@@ -21,6 +22,7 @@ import {
   type VerseRange,
   type WantedPage,
 } from "./chapter-nav";
+import { warmChapter } from "./chapter-cache";
 import { ChapterText } from "./chapter-text";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
@@ -43,6 +45,11 @@ export const CHAPTER_TEXT_ID = "chapter-text";
 /** Reader area (rem) below which side panels open as drawers: note panel
  * minimum (35rem) + a ~20rem reading column. ~880px at 100%. */
 const SIDE_BY_SIDE_MIN = 55;
+
+/** Longest a chapter crossing waits for the next chapter (fetch, layout)
+ * before going ahead anyway. */
+const CROSS_WAIT_MS = 600;
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 /** Phones (< sm) read in one scrolling column; wider screens page a spread. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
@@ -568,24 +575,69 @@ export function PaginatedChapter({
    * the new page. Any other page change (reflow) turns to the focus instead. */
   const userTurn = useRef(false);
 
-  // Crossing into a chapter is one more page turn: the sheet slides
-  // the same way (a view transition, app.css), unless motion is reduced
-  const { pathname } = useLocation();
-  const sliding = useViewTransitionState(pathname);
-  useEffect(() => {
-    if (!sliding) delete document.documentElement.dataset.chapterTurn;
-  }, [sliding]);
-  function crossTo(target: ChapterRef, dir: "prev" | "next", landing?: number | "last") {
+  // Crossing into a chapter is one more page turn: the sheet slides the
+  // same way (a view transition, app.css), unless motion is reduced. Driven
+  // here, not by the router's viewTransition: the new sheet is captured only
+  // once it is laid out on its landing page with its ink (chapterReady
+  // below), so it never blinks in after the slide.
+  const [sliding, setSliding] = useState(false);
+  const turnSeq = useRef(0);
+  const readyWait = useRef<{ key: string; resolve: () => void } | null>(null);
+  async function crossTo(target: ChapterRef, dir: "prev" | "next", landing?: number | "last") {
+    const href = chapterHref(target, landing);
+    const seq = ++turnSeq.current;
+    // Normally read ahead already; else fetched now, while the page stays live
+    await Promise.race([warmChapter(chapter.translationId, target), wait(CROSS_WAIT_MS)]);
+    if (seq !== turnSeq.current) return; // the reader went on meanwhile
     const slide =
       typeof document.startViewTransition === "function" &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!slide) {
+      navigate(href);
+      return;
+    }
     const root = document.documentElement;
-    if (slide) root.dataset.chapterTurn = dir;
-    // Paged: travel one page stride, as a page turn does (not the wider pane)
-    if (stride > 0) root.style.setProperty("--turn-distance", `${stride}px`);
-    else root.style.removeProperty("--turn-distance");
-    navigate(chapterHref(target, landing), { viewTransition: slide });
+    root.dataset.chapterTurn = dir;
+    // Paged: travel one page stride, as a page turn does (not the wider
+    // pane) — but far enough that the old page leaves the sheet's clip
+    // (left of it is the tool gutter)
+    const sheet = regionRef.current?.parentElement?.getBoundingClientRect();
+    const box = contentBoxRef.current?.getBoundingClientRect();
+    if (stride > 0 && sheet && box) {
+      const gutter = (parseFloat(getComputedStyle(root).getPropertyValue("--spacing-reader-gutter")) || 0) * pane.rem;
+      const clear = dir === "next" ? box.right - (sheet.left + gutter) : sheet.right - box.left;
+      root.style.setProperty("--turn-distance", `${Math.ceil(Math.max(stride, clear))}px`);
+    } else root.style.removeProperty("--turn-distance");
+    // Margin ink waits out the slide, as on a page turn (also in the old shot)
+    flushSync(() => setSliding(true));
+    const key = `${chapter.translationId}/${target.book}.${target.chapter}`;
+    const turn = document.startViewTransition(
+      () =>
+        new Promise<void>((resolve) => {
+          const done = () => {
+            window.clearTimeout(timer);
+            if (readyWait.current?.resolve === done) readyWait.current = null;
+            resolve();
+          };
+          const timer = window.setTimeout(done, CROSS_WAIT_MS);
+          readyWait.current = { key, resolve: done };
+          navigate(href);
+        }),
+    );
+    void turn.finished.finally(() => {
+      if (seq !== turnSeq.current) return;
+      delete root.dataset.chapterTurn;
+      setSliding(false);
+    });
   }
+  // The crossing's new sheet is ready: on its landing page, marks loaded
+  // and measured (all in layout effects, so before this one)
+  useLayoutEffect(() => {
+    const wanted = readyWait.current;
+    if (!wanted || wanted.key !== chapterKey || !loaded) return;
+    if (!scrollMode && resolvedKey !== chapterKey) return;
+    wanted.resolve();
+  });
 
   function goPrev() {
     userTurn.current = true;
@@ -594,7 +646,7 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page - 1);
-    } else if (prevChapter) crossTo(prevChapter, "prev", scrollMode ? 0 : "last");
+    } else if (prevChapter) void crossTo(prevChapter, "prev", scrollMode ? 0 : "last");
   }
 
   function goNext() {
@@ -604,7 +656,7 @@ export function PaginatedChapter({
       wantedVerse.current = null;
       setAnimate(true);
       setPage(page + 1);
-    } else if (nextChapter) crossTo(nextChapter, "next");
+    } else if (nextChapter) void crossTo(nextChapter, "next");
   }
 
   /** "John 4" — localized book names where the UI has them (#52). */
@@ -769,8 +821,8 @@ export function PaginatedChapter({
         return;
       }
       // Chapters (#65): [ / ] — the chapter's start, both ways
-      if (event.key === "[" && prevChapter) crossTo(prevChapter, "prev");
-      if (event.key === "]" && nextChapter) crossTo(nextChapter, "next");
+      if (event.key === "[" && prevChapter) void crossTo(prevChapter, "prev");
+      if (event.key === "]" && nextChapter) void crossTo(nextChapter, "next");
       if (scrollMode) return; // no pages to turn; arrows stay native
       // Palette tools: V puts down; Shift + the menu's own letter picks one
       // (Shift so a stray key never drops the reader into a mode)
@@ -1109,7 +1161,7 @@ export function PaginatedChapter({
                     prev={prevButton}
                     next={nextButton}
                     phone={false}
-                    className="mt-1 shrink-0"
+                    className="chapter-foot mt-1 shrink-0"
                   />
                   {wordInk}
                 </div>
