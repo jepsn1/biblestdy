@@ -8,6 +8,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
 } from "~/components/ui/dropdown-menu";
@@ -132,7 +134,7 @@ export function ActionMenu({
 }
 
 const mobileItem =
-  "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-phone hover:bg-accent";
+  "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-phone hover:bg-accent [&_svg]:size-5 [&_svg]:shrink-0";
 
 export function ActionMenuItem({
   onSelect,
@@ -324,8 +326,51 @@ export function AnchoredPanel({
   );
 }
 
-/** Pen styles as one row of worded choices ("Box · Underline · Circle ·
- * Bracket"): a mark without text. `value` = an existing mark's style. */
+/** A pen mark's shape in miniature: the style's icon in menus. */
+export function MarkIcon({ mark, className }: { mark: AnnotationMark; className?: string }) {
+  // Faint "text" lines, the mark itself at full stroke (lucide's 24 grid)
+  const lines = (x: number) => <path d={`M${x} 9h${17 - x}M${x} 12h${17 - x}M${x} 15h${13 - x}`} strokeOpacity=".5" />;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={cn("size-4 shrink-0", className)}
+    >
+      {mark === "contour" && (
+        <>
+          {lines(7)}
+          <rect x="3" y="5" width="18" height="14" rx="3" />
+        </>
+      )}
+      {mark === "underline" && (
+        <>
+          <path d="M4 8h16M4 12h16" strokeOpacity=".5" />
+          <path d="M3 17.5q3-2.5 6 0t6 0t6 0" />
+        </>
+      )}
+      {mark === "circle" && (
+        <>
+          {lines(7)}
+          <ellipse cx="12" cy="12" rx="10" ry="7.5" />
+        </>
+      )}
+      {mark === "bracket" && (
+        <>
+          <path d="M10 9h10M10 12h10M10 15h7" strokeOpacity=".5" />
+          <path d="M7 4H4v16h3" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** Pen styles as list items (icon + word), like the menu's other actions:
+ * a mark without text. `value` = an existing mark's style (checked). */
 export function ActionMenuMarks({
   value,
   onPick,
@@ -338,49 +383,41 @@ export function ActionMenuMarks({
   const styles = ["contour", "underline", "circle", "bracket"] as const;
   if (mobile) {
     return (
-      <div role="group" aria-label={t("marks.style")} className="grid grid-cols-4 gap-1 px-1 py-1">
+      <div role="group" aria-label={t("marks.style")} className="flex flex-col">
         {styles.map((m) => (
           <button
             key={m}
             type="button"
-            aria-pressed={m === value}
+            aria-pressed={value ? m === value : undefined}
             onClick={() => {
               onPick(m);
               close();
             }}
-            className={cn(
-              "min-h-11 rounded-md px-1 text-list hover:bg-accent",
-              m === value && "bg-accent font-medium",
-              focusRing,
-            )}
+            className={cn(mobileItem, focusRing)}
           >
-            {t(`marks.${m}`)}
+            <MarkIcon mark={m} className="size-5" />
+            <span className="flex-1">{t(`marks.${m}`)}</span>
+            {m === value && <Check className="size-4" aria-hidden />}
           </button>
         ))}
       </div>
     );
   }
+  if (!value) {
+    return styles.map((m) => (
+      <ActionMenuItem key={m} icon={<MarkIcon mark={m} />} onSelect={() => onPick(m)}>
+        {t(`marks.${m}`)}
+      </ActionMenuItem>
+    ));
+  }
   return (
-    <MenuPrimitive.RadioGroup
-      value={value}
-      aria-label={t("marks.style")}
-      className="flex items-center gap-0.5 px-1 py-0.5"
-    >
+    <DropdownMenuRadioGroup value={value} aria-label={t("marks.style")}>
       {styles.map((m) => (
-        <MenuPrimitive.RadioItem
-          key={m}
-          value={m}
-          label={t(`marks.${m}`)}
-          closeOnClick
-          onClick={() => onPick(m)}
-          className={cn(
-            "flex-1 cursor-default rounded-md px-1.5 py-1 text-center text-meta outline-none data-highlighted:bg-accent",
-            m === value && "font-semibold",
-          )}
-        >
+        <DropdownMenuRadioItem key={m} value={m} closeOnClick onClick={() => onPick(m)} className="min-h-8 px-2">
+          <MarkIcon mark={m} />
           {t(`marks.${m}`)}
-        </MenuPrimitive.RadioItem>
+        </DropdownMenuRadioItem>
       ))}
-    </MenuPrimitive.RadioGroup>
+    </DropdownMenuRadioGroup>
   );
 }
