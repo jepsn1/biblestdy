@@ -48,6 +48,8 @@ export default {
     editAnnotation: "Edit annotation: {{text}}",
     skipToText: "Skip to text",
     prevPage: "Previous page",
+    continued: "↩ cont.",
+    annotationContinued: "Margin note, continued: {{text}}",
     nextPage: "Next page",
     prevChapter: "Previous chapter",
     nextChapter: "Next chapter",

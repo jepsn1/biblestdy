@@ -528,6 +528,8 @@ export function AnnotationMarks({
               <path
                 key={p.key}
                 d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
+                // A continuation's leader is dotted: the same note, a second place
+                strokeDasharray={p.copy ? "2 4" : undefined}
                 fill="none"
                 stroke={NOTE_INK}
                 strokeWidth={active ? 1.8 : 1.4}
@@ -705,18 +707,28 @@ export function AnnotationMarks({
                         didDrag.current = false;
                         return; // a drag, not a click
                       }
-                      setEditingId(p.key);
+                      // One note, one place to edit: a continuation hands over to the
+                      // original when it's on this page
+                      const original = p.copy && shownPlacements.find((o) => !o.copy && o.annotation.id === p.annotation.id);
+                      setEditingId(original ? original.key : p.key);
                     }}
                     className={cn(
                       "-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 font-serif text-list leading-snug italic transition-colors hover:bg-accent/50",
                       p.copy ? "cursor-pointer" : dragging ? "cursor-grabbing" : "cursor-grab",
                       focusRing,
                     )}
+                    aria-label={p.copy ? t("reader.annotationContinued", { text: p.annotation.text }) : undefined}
                     style={{
                       color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT,
                       textAlign: "inherit",
+                      opacity: p.copy && !active ? 0.6 : undefined,
                     }}
                   >
+                    {/* Continuation of a span split across columns/pages: marked
+                        as such, so it never reads as a second annotation */}
+                    {p.copy && (
+                      <span className="mr-1 font-sans text-meta not-italic">{t("reader.continued")}</span>
+                    )}
                     {p.annotation.text}
                   </button>
                 )}
