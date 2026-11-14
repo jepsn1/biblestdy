@@ -161,8 +161,9 @@ export function PaginatedChapter({
     chapter.translationId,
     chapter.book,
     chapter.chapter,
+    chapter,
   );
-  const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter);
+  const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter, chapter);
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
   const { notes: allNotes, loaded: allNotesLoaded } = useAllNotesQuery(true);
   // The selection being made — its wash is painted with the highlights

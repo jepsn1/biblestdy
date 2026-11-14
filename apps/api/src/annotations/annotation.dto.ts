@@ -12,6 +12,8 @@ import {
 
 /** Inline annotations are short — cap the length so full annotations (#7) stay the home for long-form. */
 const MAX_INLINE = 500;
+/** The marked words, plain text — long spans are clipped by the client. */
+const MAX_QUOTE = 2000;
 
 const MARKS = ['contour', 'underline', 'circle', 'bracket'] as const;
 type AnnotationMarkValue = (typeof MARKS)[number];
@@ -55,6 +57,12 @@ export class CreateAnnotationDto {
   @IsInt()
   @Min(0)
   endWord!: number;
+
+  /** The marked words (palette search). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_QUOTE)
+  quote?: string;
 }
 
 export class UpdateAnnotationDto {
@@ -64,6 +72,12 @@ export class UpdateAnnotationDto {
   @MinLength(1)
   @MaxLength(MAX_INLINE)
   text?: string | null;
+
+  /** The marked words (lazy backfill for rows created before quotes). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_QUOTE)
+  quote?: string;
 
   /** Dragged position, offset from the anchored words' center (px). */
   @IsOptional()

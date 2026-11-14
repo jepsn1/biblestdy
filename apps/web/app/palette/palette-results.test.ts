@@ -1,4 +1,4 @@
-import { bookName, type Annotation, type Note } from "@biblestdy/shared";
+import { bookName, type Annotation, type Highlight, type Note } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
 import { buildResults, plainText, wordPrefixMatch, type PaletteContext } from "./palette-results";
 
@@ -29,6 +29,18 @@ const ann = (id: string, text: string, book: string, chapter: number, startVerse
   endVerse: startVerse,
   endWord: 2,
 });
+const hl = (id: string, quote: string | null, book: string, chapter: number, startVerse: number, translationId = "web"): Highlight => ({
+  id,
+  quote,
+  color: "green",
+  translationId,
+  book,
+  chapter,
+  startVerse,
+  startWord: 0,
+  endVerse: startVerse,
+  endWord: 4,
+});
 const annotations: Annotation[] = [
   ann("x1", "Born of water — baptism?", "JHN", 3, 5),
   ann("x2", "The Shepherd provides", "PSA", 23, 1, "kjv"),
@@ -42,6 +54,7 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
     bookName: (id) => bookName(id, locale),
     notes,
     annotations,
+    highlights: [],
     tags: [
       { id: "t1", name: "new-birth" },
       { id: "t2", name: "grace" },
@@ -66,6 +79,7 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
       invalid: "invalid",
       noTextSearch: "no text search",
       untitled: "Untitled",
+      mark: "Mark",
     },
     ...over,
   };
@@ -196,6 +210,81 @@ describe("palette results: margin notes", () => {
     const row = buildResults("needle", ctx({ annotations: [ann("l", long, "ROM", 1, 1)] })).find((r) => r.id === "annotation:l");
     expect(row?.label.startsWith("…")).toBe(true);
     expect(row?.label.length).toBeLessThan(100);
+  });
+});
+
+describe("palette results: marked words", () => {
+  const highlights = [
+    hl("h1", "For God so loved the world", "JHN", 3, 16),
+    hl("h2", "The Lord is my shepherd", "PSA", 23, 1, "kjv"),
+    hl("h3", null, "JHN", 3, 3),
+  ];
+
+  it("a highlight is found by its marked words: quote, colour, place, opening there", () => {
+    const row = buildResults("loved world", ctx({ highlights })).find((r) => r.group === "highlights");
+    expect(row).toMatchObject({
+      id: "highlight:h1",
+      label: "For God so loved the world",
+      color: "green",
+      detail: "John 3:16",
+      href: "/read/JHN/3?v=16",
+    });
+    expect(row?.translationId).toBeUndefined();
+  });
+
+  it("a highlight in another version: names it and opens in it", () => {
+    const row = buildResults("lord shep", ctx({ highlights })).find((r) => r.id === "highlight:h2");
+    expect(row).toMatchObject({ detail: "Psalms 23:1 · KJV", translationId: "kjv" });
+  });
+
+  it("highlights come after margin notes; a typed passage lists the ones on it", () => {
+    expect(ids("john 3:16", ctx({ highlights }))).toEqual(["passage", "highlight:h1"]);
+    expect(ids("john 3", ctx({ highlights }))).toEqual([
+      "passage",
+      "note:n2",
+      "annotation:x1",
+      "annotation:x3",
+      "highlight:h3",
+      "highlight:h1",
+    ]);
+  });
+
+  it("a highlight without a quote yet: not found by words, labelled by its place on a passage", () => {
+    expect(ids("born", ctx({ highlights })).filter((id) => id.startsWith("highlight"))).toEqual([]);
+    expect(buildResults("john 3:3", ctx({ highlights })).find((r) => r.id === "highlight:h3")?.label).toBe("John 3:3");
+  });
+
+  it("a long quote is clipped around the match", () => {
+    const long = `${"word ".repeat(30)}needle ${"tail ".repeat(30)}`.trim();
+    const row = buildResults("needle", ctx({ highlights: [hl("l", long, "ROM", 1, 1)] })).find((r) => r.id === "highlight:l");
+    expect(row?.label.startsWith("…")).toBe(true);
+    expect(row?.label.length).toBeLessThan(100);
+  });
+
+  it("@ includes highlights", () => {
+    expect(ids("@shepherd", ctx({ highlights }))).toEqual(["annotation:x2", "highlight:h2"]);
+  });
+
+  it("a margin note is found by its marked words too, shown after its place", () => {
+    const a = { ...ann("q", "Love!", "JHN", 3, 16), quote: "For God so loved the world" };
+    const row = buildResults("world", ctx({ annotations: [a] })).find((r) => r.id === "annotation:q");
+    expect(row).toMatchObject({ label: "Love!", detail: "John 3:16 · For God so loved the world" });
+    expect(row?.kind).toBeUndefined();
+  });
+
+  it("a pen mark without words: the quote is its label, with a Mark hint", () => {
+    const mark = { ...ann("m", "", "JHN", 3, 16), quote: "God so loved" };
+    const nullText = { ...ann("n", "", "JHN", 3, 17), text: null as unknown as string, quote: "not to judge" };
+    const c = ctx({ annotations: [mark, nullText] });
+    expect(buildResults("loved", c).find((r) => r.id === "annotation:m")).toMatchObject({
+      label: "God so loved",
+      detail: "John 3:16",
+      kind: "Mark",
+    });
+    expect(buildResults("judge", c).find((r) => r.id === "annotation:n")).toMatchObject({ label: "not to judge", kind: "Mark" });
+    // Neither words nor quote: labelled by its place
+    const bare = ctx({ annotations: [{ ...ann("b", "", "JHN", 3, 2), text: null as unknown as string }] });
+    expect(buildResults("john 3:2", bare).find((r) => r.id === "annotation:b")?.label).toBe("John 3:2");
   });
 });
 

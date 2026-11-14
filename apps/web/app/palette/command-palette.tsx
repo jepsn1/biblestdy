@@ -21,8 +21,10 @@ import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { cn } from "~/lib/utils";
 import { OPEN_SHORTCUTS } from "../reader/shortcuts-dialog";
+import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
+import { useAllHighlightsQuery } from "../reader/use-highlights";
 import { useAllNotesQuery } from "../reader/use-notes";
 import { buildResults, type GroupId, type PaletteAction, type PaletteItem } from "./palette-results";
 
@@ -177,14 +179,15 @@ const GROUP_LABEL: Record<GroupId, string> = {
   actions: "palette.groupActions",
   notes: "palette.groupNotes",
   annotations: "palette.groupAnnotations",
+  highlights: "palette.groupHighlights",
   topics: "palette.groupTopics",
   hint: "",
 };
 
 /**
  * Command palette + omni search (⌘K / Ctrl+K anywhere, `/` when not typing):
- * one field → passages, books, your notes and margin notes (by passage or
- * words), topics and
+ * one field → passages, books, your notes, margin notes and highlights (by
+ * passage or words, marks also by their marked words), topics and
  * reader actions. Keyboard-first (↑/↓, Enter, ⌘/Ctrl+Enter = new tab, Tab
  * completes a book, Esc closes); every row is clickable. Full screen on
  * phones with a worded way back. Never fetches scripture.
@@ -232,6 +235,7 @@ export function CommandPalette({
 
   const { notes } = useAllNotesQuery(open);
   const annotations = useAllAnnotationsQuery(open);
+  const highlights = useAllHighlightsQuery(open);
   const { data: tags = [] } = useQuery({
     queryKey: ["tags", "all"],
     queryFn: () => api<Tag[]>("/api/tags").catch(() => []),
@@ -246,6 +250,7 @@ export function CommandPalette({
       bookName: nameOf,
       notes,
       annotations,
+      highlights,
       tags,
       actions,
       recent: readRecent(),
@@ -259,11 +264,12 @@ export function CommandPalette({
         invalid: t("nav.jumpInvalid"),
         noTextSearch: t("palette.noTextSearch"),
         untitled: t("palette.untitled"),
+        mark: t("palette.kindMark"),
       },
     });
     // actions is rebuilt each render; its labels follow the state it reads
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, query, notes, annotations, tags, locale, reader, t, nameOf, actions.map((a) => a.label + a.checked).join()]);
+  }, [open, query, notes, annotations, highlights, tags, locale, reader, t, nameOf, actions.map((a) => a.label + a.checked).join()]);
 
   const selectable = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
   // The first selectable row is highlighted while typing (Enter = top row)
@@ -376,12 +382,25 @@ export function CommandPalette({
           i === active && "bg-accent text-accent-foreground",
         )}
       >
+        {item.color && (
+          <span
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: HIGHLIGHT_SWATCH[item.color] }}
+            aria-hidden
+          />
+        )}
         <span className="min-w-0 flex-1">
           <span className={cn("block text-control max-sm:text-phone", item.group === "books" && "font-serif")}>
             {item.label}
+            {item.color && <span className="sr-only">{` (${t(`menu.colors.${item.color}`)})`}</span>}
           </span>
           {item.detail && <span className="block truncate text-meta text-muted-foreground">{item.detail}</span>}
         </span>
+        {item.kind && (
+          <span className="shrink-0 rounded border border-border px-1.5 text-meta leading-5 text-muted-foreground">
+            {item.kind}
+          </span>
+        )}
         {item.checked && <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden />}
         {item.shortcut && (
           <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 font-mono text-meta leading-5 text-muted-foreground pointer-coarse:hidden">

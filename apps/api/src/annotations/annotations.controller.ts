@@ -64,6 +64,7 @@ export class AnnotationsController {
   ): Promise<Annotation> {
     if (
       dto.text === undefined &&
+      dto.quote === undefined &&
       dto.offsetX === undefined &&
       dto.offsetY === undefined &&
       dto.width === undefined &&

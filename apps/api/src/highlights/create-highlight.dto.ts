@@ -1,5 +1,16 @@
-import { IsIn, IsInt, IsString, Min, MinLength } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { HIGHLIGHT_COLORS, type HighlightColor } from '@biblestdy/shared';
+
+/** The marked words, plain text — long spans are clipped by the client. */
+export const MAX_QUOTE = 2000;
 
 /** Request body for creating a highlight — a word-span anchor + color. */
 export class CreateHighlightDto {
@@ -33,10 +44,23 @@ export class CreateHighlightDto {
   @IsInt()
   @Min(0)
   endWord!: number;
+
+  /** The marked words (palette search). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_QUOTE)
+  quote?: string;
 }
 
-/** Request body for changing a highlight's color (the span never moves). */
+/** Request body for changing a highlight's color and/or storing its marked
+ * words (lazy backfill). The span never moves. */
 export class UpdateHighlightDto {
+  @IsOptional()
   @IsIn(HIGHLIGHT_COLORS)
-  color!: HighlightColor;
+  color?: HighlightColor;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_QUOTE)
+  quote?: string;
 }

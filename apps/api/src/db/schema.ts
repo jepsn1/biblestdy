@@ -31,6 +31,8 @@ export const highlight = pgTable('highlight', {
   startWord: integer('start_word').notNull(),
   endVerse: integer('end_verse').notNull(),
   endWord: integer('end_word').notNull(),
+  /** The marked words, plain text (palette search); null until backfilled. */
+  quote: text('quote'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   /** Soft delete (#64): set on DELETE, cleared by restore (undo); purged after an hour. */
   deletedAt: timestamp('deleted_at'),
@@ -58,6 +60,8 @@ export const annotation = pgTable('annotation', {
   width: real('width'),
   // Pen style: 'contour' | 'underline' | 'circle' | 'bracket'; null = auto by line count
   mark: text('mark'),
+  /** The marked words, plain text (palette search); null until backfilled. */
+  quote: text('quote'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   /** Soft delete (#64), see highlight.deletedAt. */

@@ -95,6 +95,16 @@ describe('AnnotationsController', () => {
     expect(service.update).toHaveBeenCalledWith('user-1', 'n1', dto);
   });
 
+  it('stores the marked words (quote backfill)', async () => {
+    const updated = { id: 'n1', quote: 'God so loved' } as Annotation;
+    const { service, controller } = make({
+      update: vi.fn().mockResolvedValue(updated),
+    });
+    const dto = { quote: 'God so loved' };
+    expect(await controller.update(req, 'n1', dto)).toBe(updated);
+    expect(service.update).toHaveBeenCalledWith('user-1', 'n1', dto);
+  });
+
   it('rejects an empty update', async () => {
     const { controller } = make();
     await expect(controller.update(req, 'n1', {})).rejects.toThrow(

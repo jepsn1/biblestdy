@@ -83,11 +83,14 @@ export function isHighlightColor(value: unknown): value is HighlightColor {
 export interface Highlight extends Anchor {
   id: string
   color: HighlightColor
+  /** The marked words as plain text (no verse numbers); null until backfilled. */
+  quote?: string | null
 }
 
-/** Create payload: an anchor plus a chosen color. */
+/** Create payload: an anchor plus a chosen color (and the marked words). */
 export interface NewHighlight extends Anchor {
   color: HighlightColor
+  quote?: string | null
 }
 
 /** A short inline annotation: handwritten scribble anchored to a span. */
@@ -95,6 +98,8 @@ export interface Annotation extends Anchor {
   id: string
   /** Margin text; null = a plain pen mark (no text). */
   text: string | null
+  /** The marked words as plain text (no verse numbers); null until backfilled. */
+  quote?: string | null
   /** Where the user dragged the annotation box, as an offset from the anchored words'
    * center (px). Null/absent = automatic placement. Anchor-relative so the
    * box travels with its verse across reflow/pagination. */
@@ -114,6 +119,7 @@ export interface NewAnnotation extends Anchor {
   /** Absent/null = a plain pen mark. */
   text?: string | null
   mark?: AnnotationMark | null
+  quote?: string | null
 }
 
 /** One of a note's anchors: an addressable span with its own id (issue #8). */

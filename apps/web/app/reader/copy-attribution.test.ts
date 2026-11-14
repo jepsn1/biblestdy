@@ -1,6 +1,6 @@
 import type { Anchor, Chapter } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { formatCopy } from "./copy-attribution";
+import { anchorQuote, formatCopy, MAX_QUOTE } from "./copy-attribution";
 
 const john3: Chapter = {
   translationId: "web",
@@ -50,5 +50,20 @@ describe("formatCopy", () => {
     expect(html).toBe(
       "For God<br>John 3:16 (NIV)<br>© 2011 Biblica &lt;www.biblica.com&gt; &amp; co",
     );
+  });
+});
+
+describe("anchorQuote", () => {
+  it("the marked words across verses, no verse numbers, space-joined", () => {
+    expect(anchorQuote(john3, anchor(16, 3, 17, 1))).toBe("loved the world, For God");
+  });
+
+  it("empty when the anchor isn't in the loaded chapter", () => {
+    expect(anchorQuote(john3, anchor(40, 0, 40, 2))).toBe("");
+  });
+
+  it("clipped to what the API stores", () => {
+    const long: Chapter = { ...john3, verses: [{ verse: 1, text: "word ".repeat(1000) }] };
+    expect(anchorQuote(long, anchor(1, 0, 1, 999)).length).toBeLessThanOrEqual(MAX_QUOTE);
   });
 });
