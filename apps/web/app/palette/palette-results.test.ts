@@ -137,8 +137,13 @@ describe("palette results", () => {
     expect(ids("@grace")).toEqual(["note:n3"]);
   });
 
-  it("topics link to their page", () => {
-    expect(buildResults("new", ctx()).find((r) => r.id === "topic:t1")?.href).toBe("/topic/new-birth");
+  it("topics open the Notes page filtered by them", () => {
+    expect(buildResults("new", ctx()).find((r) => r.id === "topic:t1")?.href).toBe("/notes?topic=new-birth");
+  });
+
+  it("a note without passages opens on the Notes page", () => {
+    const draft: Note = { id: "d", title: "Sermon draft", body: "", anchors: [], updatedAt: T };
+    expect(buildResults("sermon draft", ctx({ notes: [draft] })).find((r) => r.id === "note:d")?.href).toBe("/notes/d");
   });
 
   it("nothing found: says so, and that Bible text search isn't there yet", () => {

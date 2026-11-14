@@ -1,8 +1,9 @@
-import type { Anchor, Note, NoteAnchor } from "@biblestdy/shared";
+import type { Anchor, NewNote, Note, NoteAnchor } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api } from "~/lib/query";
+import { noteTitle } from "../notes/note-list";
 
 /** Mutations must not fail silently (#64) — toast, return null, let callers
  * no-op. */
@@ -25,7 +26,8 @@ export function noteMarksInChapter(
   return notes.flatMap((n) =>
     n.anchors
       .filter((a) => a.translationId === translationId && a.book === book && a.chapter === chapter)
-      .map((a) => ({ ...a, noteId: n.id, title: n.title })),
+      // Untitled notes go by their first line, as everywhere else
+      .map((a) => ({ ...a, noteId: n.id, title: noteTitle(n, "") })),
   );
 }
 
@@ -34,14 +36,15 @@ export function useAllNotes(enabled: boolean) {
   return useAllNotesQuery(enabled).notes;
 }
 
-/** All notes + whether they have loaded (first-use hint, #63). */
+/** All notes + whether they have loaded (first-use hint, #63) or failed
+ * (the Notes page says so rather than showing an empty library). */
 export function useAllNotesQuery(enabled: boolean) {
-  const { data: notes = [], isFetched } = useQuery({
+  const { data: notes = [], isFetched, isError, refetch } = useQuery({
     queryKey: ["notes", "all"],
-    queryFn: () => api<Note[]>("/api/notes").catch(() => []),
+    queryFn: () => api<Note[]>("/api/notes"),
     enabled,
   });
-  return { notes, loaded: isFetched };
+  return { notes, loaded: isFetched, failed: isError, retry: refetch };
 }
 
 /** One chapter's notes — shared with the neighbour prefetch. */
@@ -187,4 +190,96 @@ export function useOtherVersionCounts(
 ): Map<number, number> {
   const { data = [] } = useQuery(otherVersionsQuery(translationId, book, chapter));
   return new Map(data.map((c) => [c.verse, c.count]));
+}
+
+/**
+ * Note mutations outside one chapter — the Notes page and its editor. Write
+ * through to the all-notes list (instant), then refetch every note view
+ * (chapters, connections) since a note reaches into each chapter it cites.
+ */
+export function useNoteActions() {
+  const qc = useQueryClient();
+  const allKey = ["notes", "all"];
+
+  function put(note: Note) {
+    qc.setQueryData<Note[]>(allKey, (n = []) =>
+      n.some((x) => x.id === note.id)
+        ? n.map((x) => (x.id === note.id ? { ...note, tags: note.tags ?? x.tags } : x))
+        : [note, ...n],
+    );
+  }
+  function invalidateAll() {
+    void qc.invalidateQueries({ queryKey: ["notes"] });
+    void qc.invalidateQueries({ queryKey: ["connections"] });
+  }
+
+  /** A note with no passage yet (or on `anchor`); null after a toast. */
+  async function create(content: NewNote = {}): Promise<Note | null> {
+    const created = await api<Note>("/api/notes", {
+      method: "POST",
+      body: JSON.stringify(content),
+    }).catch(toastFail);
+    if (created) {
+      put({ ...created, tags: [] });
+      invalidateAll();
+    }
+    return created;
+  }
+
+  /** Saves title/body; rejects on failure (the editor's save state). */
+  async function edit(id: string, patch: { title?: string; body?: string }): Promise<Note> {
+    const updated = await api<Note>(`/api/notes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    put(updated);
+    invalidateAll();
+    return updated;
+  }
+
+  async function restore(id: string): Promise<Note> {
+    const note = await api<Note>(`/api/notes/${id}/restore`, { method: "POST" });
+    invalidateAll();
+    return note;
+  }
+
+  /** Deletes at once, then "Note deleted · Undo" (soft delete, #64). */
+  async function remove(id: string) {
+    const removed = qc.getQueryData<Note[]>(allKey)?.find((x) => x.id === id);
+    const deleted = await removeWithUndo({
+      hide: () => qc.setQueryData<Note[]>(allKey, (n = []) => n.filter((x) => x.id !== id)),
+      unhide: () => removed && qc.setQueryData<Note[]>(allKey, (n = []) => [removed, ...n]),
+      remove: () => api(`/api/notes/${id}`, { method: "DELETE" }),
+      restore: () => restore(id),
+      message: i18n.t("toast.noteDeleted"),
+      retry: () => remove(id),
+    });
+    if (deleted) invalidateAll();
+  }
+
+  /** References the note to one more passage. */
+  async function attach(noteId: string, anchor: Anchor): Promise<Note | null> {
+    const updated = await api<Note>(`/api/notes/${noteId}/anchors`, {
+      method: "POST",
+      body: JSON.stringify(anchor),
+    }).catch(toastFail);
+    if (updated) {
+      put(updated);
+      invalidateAll();
+    }
+    return updated;
+  }
+
+  /** Drops one reference — the last one too (the note stays, unlinked). */
+  async function detach(noteId: string, anchorId: string) {
+    const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
+      method: "DELETE",
+    }).catch(toastFail);
+    if (updated) {
+      put(updated);
+      invalidateAll();
+    }
+  }
+
+  return { create, edit, remove, restore, attach, detach };
 }

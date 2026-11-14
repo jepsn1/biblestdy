@@ -1,19 +1,26 @@
 import { useTranslation } from "react-i18next";
 import type { Note } from "@biblestdy/shared";
-import { anchorReference, formatReference } from "@biblestdy/shared";
+import { ArrowRight, Plus } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Button, buttonVariants } from "~/components/ui/button";
 import { ListSkeleton } from "~/components/list-skeleton";
+import { bookLocale, useBookName } from "~/lib/book-name";
+import { cn, focusRing } from "~/lib/utils";
+import { anchorLabel, compareAnchors, noteTitle } from "../notes/note-list";
 import { PanelHeader, panelTitleClass } from "./panel-header";
-import { TagChips } from "./tag-chips";
 import { useConnections } from "./use-connections";
-import { usePassageTags } from "./use-tags";
+import { useNoteActions } from "./use-notes";
 
 /**
- * The connections panel (issue #9) — resurfacing at the point of reading:
- * notes anchored in this chapter, the passages they also anchor to
- * ("also appears in"), and the most recent notes as re-entry into study.
+ * The reader's Notes panel (#9, reworked in the notes plan, Phase 1): one
+ * question — "what have I written about this chapter?". The chapter's notes
+ * in text order, each with where it sits here and where else it points; the
+ * topics those notes carry; a way to start a note and a way to the Notes
+ * page, where every note lives. (Recent notes and the "also points to" list
+ * moved out: the Notes page sorts by last edit, and each row names its
+ * other passages.)
  */
 /** Marks the nav button that opens a side panel, so focus can return to it. */
 export const PANEL_TOGGLE = "data-panel-toggle";
@@ -34,11 +41,12 @@ export function ConnectionsPanel({
   /** Drawer build (#13): touch-sized rows; the drawer owns focus. */
   mobile?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const headingId = useId();
-  const navigate = useNavigate();
+  const nameOf = useBookName();
+  const locale = bookLocale(i18n.language);
   const connections = useConnections(translationId, book, chapter, true);
-  const passageTags = usePassageTags(translationId, book, chapter);
+  const { create } = useNoteActions();
   const asideRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const onCloseRef = useRef(onClose);
@@ -67,43 +75,15 @@ export function ConnectionsPanel({
     };
   }, [mobile]);
 
-  /** A note anchored here opens in place; one from elsewhere is read there,
-   * arriving with its panel open (?note= survives navigation). */
-  function openNote(note: Note) {
-    const here = note.anchors.some(
-      (a) => a.translationId === translationId && a.book === book && a.chapter === chapter,
-    );
-    if (here) {
-      onOpenNote(note.id);
-      return;
-    }
-    const a = note.anchors[0];
-    if (a) navigate(`/read/${a.book}/${a.chapter}?note=${note.id}`);
-  }
+  const inChapter = (a: Note["anchors"][number]) =>
+    a.translationId === translationId && a.book === book && a.chapter === chapter;
+  const here = `${nameOf(book)} ${chapter}`;
 
-  function NoteRow({ note }: { note: Note }) {
-    return (
-      <button
-        type="button"
-        onClick={() => openNote(note)}
-        className={`w-full rounded px-2 text-left hover:bg-accent ${mobile ? "py-2.5" : "py-1.5"}`}
-      >
-        <span className="block truncate font-serif text-control">
-          {note.title || t("note.untitled")}
-        </span>
-        <span className="block truncate font-mono text-meta text-muted-foreground">
-          {note.anchors.map((a) => formatReference(anchorReference(a))).join(" · ")}
-        </span>
-      </button>
-    );
-  }
-
-  function SectionTitle({ children }: { children: string }) {
-    return (
-      <h3 className="eyebrow px-2 pb-1">
-        {children}
-      </h3>
-    );
+  /** A blank note beside the text — passages are added by typing them in
+   * its references, or by selecting words. */
+  async function newNote() {
+    const created = await create();
+    if (created) onOpenNote(created.id);
   }
 
   return (
@@ -119,94 +99,86 @@ export function ConnectionsPanel({
       </PanelHeader>
 
       <ScrollArea className="min-h-0 flex-1">
-        {!connections && <ListSkeleton className="p-2 pt-3" />}
+        {!connections && <ListSkeleton sections={[3]} className="p-2 pt-3" />}
         {connections && (
           <div className="flex flex-col gap-5 p-2 pt-3">
-            <section>
-              <SectionTitle>{t("connections.topics")}</SectionTitle>
-              {/* Union of this chapter's tags and its notes' tags; only tags
-                  ON the passage are removable here — note tags live with the
-                  note. Adding always tags the passage. */}
-              <div className="px-2">
-                <TagChips
-                  tags={connections.topics.filter((tp) => tp.onPassage)}
-                  onAdd={(name) => void passageTags.add(name)}
-                  onRemove={(tp) => void passageTags.remove(tp)}
-                  addLabel={t("connections.tagPassage")}
-                />
-                {connections.topics.some((tp) => !tp.onPassage) && (
-                  <div className="mt-1.5">
-                    <span className="text-meta text-muted-foreground">
-                      {t("connections.viaNotes")}{" "}
-                    </span>
-                    {connections.topics
-                      .filter((tp) => !tp.onPassage)
-                      .map((tp, i, arr) => (
-                        <button
-                          key={tp.id}
-                          type="button"
-                          onClick={() => navigate(`/topic/${encodeURIComponent(tp.name)}`)}
-                          className="text-meta text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                        >
-                          {tp.name}
-                          {i < arr.length - 1 ? ", " : ""}
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section>
-              <SectionTitle>{t("connections.anchoredHere")}</SectionTitle>
+            <section aria-labelledby={`${headingId}-here`}>
+              <h3 id={`${headingId}-here`} className="eyebrow px-2 pb-1">
+                {t("connections.inChapter", { ref: here })}
+              </h3>
               {connections.notesHere.length === 0 && (
-                <p className="px-2 font-serif text-meta text-muted-foreground italic">
-                  {t("connections.emptyAnchored")}
+                <p className="px-2 font-serif text-control text-muted-foreground italic">
+                  {t("connections.emptyHere")}
                 </p>
               )}
-              {connections.notesHere.map((n) => (
-                <NoteRow key={n.id} note={n} />
-              ))}
+              <ul className="flex flex-col">
+                {connections.notesHere.map((n) => {
+                  const own = [...n.anchors].sort(compareAnchors);
+                  const mine = own.filter(inChapter);
+                  const elsewhere = own.filter((a) => !inChapter(a));
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpenNote(n.id)}
+                        className={cn("w-full rounded px-2 text-left hover:bg-accent", mobile ? "py-2.5" : "py-1.5", focusRing)}
+                      >
+                        <span className="block truncate font-serif text-control">{noteTitle(n, t("note.untitled"))}</span>
+                        <span className="block truncate font-mono text-meta text-primary">
+                          {mine.map((a) => anchorLabel(a, nameOf, locale)).join(" · ")}
+                        </span>
+                        {elsewhere.length > 0 && (
+                          <span className="block truncate text-meta text-muted-foreground">
+                            {t("connections.alsoIn")}{" "}
+                            {elsewhere.map((a) => anchorLabel(a, nameOf, locale)).join(" · ")}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
 
-            <section>
-              <SectionTitle>{t("connections.alsoAppearsIn")}</SectionTitle>
-              {connections.alsoAppearsIn.length === 0 && (
-                <p className="px-2 font-serif text-meta text-muted-foreground italic">
-                  {t("connections.emptyShared")}
-                </p>
-              )}
-              {connections.alsoAppearsIn.map((p) => (
-                <button
-                  key={`${p.translationId}/${p.book}.${p.chapter}`}
-                  type="button"
-                  onClick={() => navigate(`/read/${p.book}/${p.chapter}`)}
-                  className={`w-full rounded px-2 text-left hover:bg-accent ${mobile ? "py-2.5" : "py-1.5"}`}
-                >
-                  <span className="block font-serif text-control">
-                    {formatReference({ book: p.book, chapter: p.chapter })}
-                  </span>
-                  <span className="block truncate text-meta text-muted-foreground">
-                    {t("connections.via")} {p.notes.map((n) => n.title || t("note.untitled")).join(", ")}
-                  </span>
-                </button>
-              ))}
-            </section>
-
-            <section>
-              <SectionTitle>{t("connections.recent")}</SectionTitle>
-              {connections.recent.length === 0 && (
-                <p className="px-2 font-serif text-meta text-muted-foreground italic">
-                  {t("connections.emptyRecent")}
-                </p>
-              )}
-              {connections.recent.map((n) => (
-                <NoteRow key={n.id} note={n} />
-              ))}
-            </section>
+            {connections.topics.length > 0 && (
+              <section aria-labelledby={`${headingId}-topics`}>
+                <h3 id={`${headingId}-topics`} className="eyebrow px-2 pb-1">
+                  {t("connections.topics")}
+                </h3>
+                {/* Topics of the notes here (and older chapter topics), as
+                    links to the Notes page filtered by each */}
+                <ul className="flex flex-wrap gap-1.5 px-2">
+                  {connections.topics.map((tp) => (
+                    <li key={tp.id}>
+                      <Link
+                        to={`/notes?topic=${encodeURIComponent(tp.name)}`}
+                        className={cn(
+                          "inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 text-meta text-muted-foreground hover:text-primary",
+                          mobile ? "py-1.5" : "py-0.5",
+                          focusRing,
+                        )}
+                      >
+                        {tp.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
         )}
       </ScrollArea>
+
+      <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-border px-2 py-1.5">
+        <Button variant="ghost" size="sm" className="max-sm:h-10" onClick={() => void newNote()}>
+          <Plus aria-hidden />
+          {t("connections.newNote")}
+        </Button>
+        <Link to="/notes" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-muted-foreground max-sm:h-10")}>
+          {t("connections.allNotes")}
+          <ArrowRight aria-hidden />
+        </Link>
+      </footer>
     </aside>
   );
 }

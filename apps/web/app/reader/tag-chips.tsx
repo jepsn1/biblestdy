@@ -40,7 +40,7 @@ export function TagChips({
           className="flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pr-1.5 pl-2 text-meta text-muted-foreground"
         >
           <Link
-            to={`/topic/${encodeURIComponent(tg.name)}`}
+            to={`/notes?topic=${encodeURIComponent(tg.name)}`}
             title={t("tags.openTopic")}
             className="hover:text-primary"
           >

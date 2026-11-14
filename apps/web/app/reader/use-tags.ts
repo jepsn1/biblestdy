@@ -1,4 +1,4 @@
-import type { Tag } from "@biblestdy/shared";
+import type { Note, Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
 import { notifyError, notifyUndo } from "~/lib/notify";
@@ -24,7 +24,10 @@ export function useNoteTags(noteId: string) {
   function settle(updated: Tag[] | null) {
     if (!updated) return;
     qc.setQueryData<Tag[]>(key, updated);
+    // The Notes list shows and filters by topics
+    qc.setQueryData<Note[]>(["notes", "all"], (n) => n?.map((x) => (x.id === noteId ? { ...x, tags: updated } : x)));
     void qc.invalidateQueries({ queryKey: ["connections"] });
+    void qc.invalidateQueries({ queryKey: ["topic"] });
   }
 
   async function add(name: string) {
@@ -58,6 +61,7 @@ export function usePassageTags(translationId: string, book: string, chapter: num
 
   function settle() {
     void qc.invalidateQueries({ queryKey: ["connections"] });
+    void qc.invalidateQueries({ queryKey: ["topic"] });
   }
 
   async function add(name: string) {
