@@ -619,8 +619,8 @@ export function PaginatedChapter({
 
   // Touch swipe turns the page (tablets in the paged layout). Touch events:
   // nothing scrolls sideways here, so a horizontal flick is ours alone.
-  const turnRef = useRef({ goPrev, goNext });
-  turnRef.current = { goPrev, goNext };
+  const turnRef = useRef({ goPrev, goNext, toolOn: false });
+  turnRef.current = { goPrev, goNext, toolOn: tool.kind !== "select" };
   useEffect(() => {
     const el = paneRef.current;
     if (!el || scrollMode) return;
@@ -638,7 +638,8 @@ export function PaginatedChapter({
       const s = start;
       start = null;
       const t = e.changedTouches[0];
-      if (!s || !t) return;
+      // A tool's stroke is a drag over words, never a page turn
+      if (!s || !t || turnRef.current.toolOn) return;
       const dx = t.clientX - s.x;
       const dy = t.clientY - s.y;
       if (Math.abs(dx) < 50 || Math.abs(dx) < 1.5 * Math.abs(dy) || Date.now() - s.at > 800) return;
@@ -1006,7 +1007,7 @@ export function PaginatedChapter({
               />
             </div>
             <div className="absolute inset-y-0 right-0 z-20 flex w-12 flex-col">
-              <div aria-hidden className={cn(PALETTE_BOX, "pointer-events-none")} />
+              <div aria-hidden className={cn(PALETTE_BOX, "pointer-events-none pointer-coarse:hidden")} />
               <PageTurn
                 dir="next"
                 target={nextTarget ? refLabel(nextTarget) : null}
@@ -1176,21 +1177,20 @@ function PageTurn({
         aria-label={label}
         onClick={onClick}
         className={cn(
-          "group flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center gap-2 text-muted-foreground transition-colors hover:bg-foreground/[0.03] hover:text-foreground",
-          focusRing,
-          "focus-visible:ring-inset",
+          "group relative flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center text-muted-foreground transition-colors hover:bg-foreground/[0.03] hover:text-foreground",
+          "outline-none",
         )}
       >
-        <span className="flex size-9 items-center justify-center rounded-full border border-border bg-background shadow-xs transition-colors group-hover:border-foreground/25 group-active:scale-95">
+        {/* Focus shows on the circle, not as a full-height frame */}
+        <span className="flex size-9 items-center justify-center rounded-full border border-border bg-background shadow-xs transition-colors group-hover:border-foreground/25 group-focus-visible:ring-3 group-focus-visible:ring-ring/50 group-active:scale-95">
           <Icon className="size-5" aria-hidden />
         </span>
         {target && (
+          // Under the arrow (absolute: the arrow stays level with the other
+          // strip's), horizontal and wrapping — "John 4" reads without a head tilt
           <span
             aria-hidden
-            className={cn(
-              "max-h-40 truncate text-meta font-medium [writing-mode:vertical-rl]",
-              dir === "prev" && "rotate-180",
-            )}
+            className="absolute top-[calc(50%+1.5rem)] inset-x-0.5 text-center text-list leading-tight font-medium break-words"
           >
             {target}
           </span>

@@ -13,7 +13,8 @@ import { HIGHLIGHT_SWATCH } from "./highlight-colors";
  * - A tool: pick it here, then every selection (drag, or a click on one
  *   word) gets it straight away — highlight in the tool's colour, annotate,
  *   start a note, or erase highlights/annotations.
- * Lives in the left page-turn gutter; never persisted (a reload is back to
+ * Lives in the left page-turn gutter, mouse/trackpad only (touch swipes
+ * and selects with the menu); never persisted (a reload is back to
  * Select, so nobody is surprised by a mode they forgot).
  */
 
@@ -45,7 +46,7 @@ export function ToolPalette({
       role="toolbar"
       aria-orientation="vertical"
       aria-label={t("tools.label")}
-      className={cn(PALETTE_BOX, "mx-auto flex w-10 flex-col items-center gap-0.5 rounded-xl border border-border bg-background p-0.5 shadow-xs")}
+      className={cn(PALETTE_BOX, "mx-auto flex pointer-coarse:hidden w-10 flex-col items-center gap-0.5 rounded-xl border border-border bg-background p-0.5 shadow-xs")}
     >
       {TOOLS.map(({ kind, icon: Icon }) => {
         const on = tool.kind === kind;
@@ -106,21 +107,32 @@ export function ToolPalette({
 /** Top of the sheet while a tool is on: what it does and how to stop. */
 export function ToolStatus({ tool, onDone }: { tool: ReaderTool; onDone: () => void }) {
   const { t } = useTranslation();
-  if (tool.kind === "select") return null;
+  const on = tool.kind !== "select";
+  const text = on ? t(`tools.${tool.kind}Status`, { color: t(`menu.colors.${tool.color}`) }) : "";
   return (
-    <div className="pointer-events-auto absolute top-2 left-1/2 z-20 flex max-w-[calc(100%-7rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background py-1 pr-1 pl-3 text-list shadow-xs">
-      {tool.kind === "highlight" && (
-        <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: HIGHLIGHT_SWATCH[tool.color] }} />
+    <>
+      {/* Always mounted: a live region born with its text often isn't read */}
+      <span role="status" className="sr-only">
+        {text}
+      </span>
+      {on && (
+        <div className="pointer-events-auto absolute top-2 left-1/2 z-20 flex max-w-[calc(100%-7rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background py-1 pr-1 pl-3 text-list shadow-xs">
+          {tool.kind === "highlight" && (
+            <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: HIGHLIGHT_SWATCH[tool.color] }} />
+          )}
+          <span aria-hidden className="min-w-0 truncate">
+            {text}
+          </span>
+          <button
+            type="button"
+            onClick={onDone}
+            className={cn("shrink-0 rounded-full px-2.5 py-0.5 font-medium hover:bg-muted", focusRing)}
+          >
+            {t("tools.done")}
+            <kbd className="ml-1.5 font-mono text-meta text-muted-foreground pointer-coarse:hidden">Esc</kbd>
+          </button>
+        </div>
       )}
-      <span role="status" className="min-w-0 truncate">{t(`tools.${tool.kind}Status`, { color: t(`menu.colors.${tool.color}`) })}</span>
-      <button
-        type="button"
-        onClick={onDone}
-        className={cn("shrink-0 rounded-full px-2.5 py-0.5 font-medium hover:bg-muted", focusRing)}
-      >
-        {t("tools.done")}
-        <kbd className="ml-1.5 font-mono text-meta text-muted-foreground pointer-coarse:hidden">Esc</kbd>
-      </button>
-    </div>
+    </>
   );
 }

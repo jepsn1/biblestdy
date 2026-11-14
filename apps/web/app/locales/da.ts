@@ -73,11 +73,11 @@ const da: typeof en = {
     note: "Note",
     noteHint: "vælg ord for at starte en note",
     erase: "Viskelæder",
-    eraseHint: "klik på en markering eller randnote for at fjerne den",
+    eraseHint: "vælg en markering eller randnote for at fjerne den",
     highlightStatus: "Overstregningspen ({{color}}): vælg ord for at markere",
     annotateStatus: "Pen: vælg ord for at skrive en randnote",
     noteStatus: "Note: vælg ord for at starte en note",
-    eraseStatus: "Viskelæder: klik på en markering eller randnote",
+    eraseStatus: "Viskelæder: vælg en markering eller randnote for at fjerne den",
     done: "Færdig",
   },
   menu: {

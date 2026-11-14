@@ -259,7 +259,8 @@ export function ChapterText({
     selectedMarkId != null &&
     noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
 
-  const dragSel = useRef<{ start: WordPos; moved: boolean } | null>(null);
+  /** Desktop drag: start word, last word reached (pointer events can outrun renders), touch origin. */
+  const dragSel = useRef<{ start: WordPos; last: WordPos; moved: boolean; x: number; y: number } | null>(null);
 
   /** Where focus was when a menu opened (inside the text, e.g. #65's verse
    * focus) — a keyboard close returns there, else to the text itself. */
@@ -579,8 +580,6 @@ export function ChapterText({
 
   /** A tool from the palette is on: selections get it straight away. */
   const activeTool = !mobile && tool && tool.kind !== "select" ? tool : null;
-  const touchSelNow = useRef(touchSel);
-  touchSelNow.current = touchSel;
 
   function applyTool(t: ReaderTool, anchor: Anchor) {
     const at = (v: number, w: number) => v * 100000 + w;
@@ -619,7 +618,7 @@ export function ChapterText({
     if (mobile || event.button !== 0) return;
     const pos = wordPosOf(event.target);
     if (!pos) return;
-    dragSel.current = { start: pos, moved: false };
+    dragSel.current = { start: pos, last: pos, moved: false, x: event.clientX, y: event.clientY };
     // Instant feedback: the pressed word washes immediately. A no-drag
     // release discards it (see onPointerUp) — click semantics stay intact.
     if (!menuRef.current) setTouchSel({ a: pos, b: pos });
@@ -631,6 +630,13 @@ export function ChapterText({
     const pos = wordPosOf(event.target);
     if (!pos) return;
     if (!drag.moved && pos.verse === drag.start.verse && pos.word === drag.start.word) return;
+    // Touch (tablets, paged): a sideways flick is the page swipe's, not a selection
+    if (!drag.moved && event.pointerType === "touch" && Math.abs(event.clientX - drag.x) > 1.5 * Math.abs(event.clientY - drag.y)) {
+      dragSel.current = null;
+      setTouchSel(null);
+      return;
+    }
+    drag.last = pos;
     if (!drag.moved) setMenu(null); // a new selection replaces whatever was open
     drag.moved = true;
     setTouchSel({ a: drag.start, b: pos });
@@ -643,8 +649,7 @@ export function ChapterText({
     const drag = dragSel.current;
     dragSel.current = null;
     if (drag?.moved && activeTool) {
-      const sel = touchSelNow.current;
-      if (sel) applyTool(activeTool, buildAnchor(passage, sel.a, sel.b));
+      applyTool(activeTool, buildAnchor(passage, drag.start, drag.last));
       return;
     }
     if (drag?.moved) {
@@ -754,6 +759,12 @@ export function ChapterText({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={() => {
+        // The browser took the pointer (pan, palm): no half-made selection left behind
+        if (!dragSel.current) return;
+        dragSel.current = null;
+        if (!menuRef.current) setTouchSel(null);
+      }}
       data-spotlight={spotlight || undefined}
       // Native selection is off for everyone — selections are word-snapped by
       // construction (drag wash on desktop, tap + handles on phones)

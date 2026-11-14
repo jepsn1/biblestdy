@@ -71,11 +71,11 @@ export default {
     note: "Note",
     noteHint: "select words to start a note on them",
     erase: "Eraser",
-    eraseHint: "click a highlight or annotation to remove it",
+    eraseHint: "select a highlight or annotation to remove it",
     highlightStatus: "Highlighter ({{color}}): select words to highlight",
     annotateStatus: "Pen: select words to annotate",
     noteStatus: "Note: select words to start a note",
-    eraseStatus: "Eraser: click a highlight or annotation",
+    eraseStatus: "Eraser: select a highlight or annotation to remove",
     done: "Done",
   },
   menu: {
