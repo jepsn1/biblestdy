@@ -38,7 +38,7 @@ export function SupportLinks({ onFollow, quiet }: { onFollow?: () => void; quiet
 /**
  * One-time support notice: a quiet, non-modal card above the reader footer
  * (clear of the page arrows). Doesn't take focus; announced politely.
- * Close, Esc (inside it) or either link dismisses it for the account.
+ * Close, Esc (inside it) or either link snoozes it for 30 days (this device).
  */
 export function SupportNotice({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();

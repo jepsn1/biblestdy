@@ -1,8 +1,8 @@
 /**
  * One-time support notice: after 10 minutes of active reading on an account,
  * at a chapter change, a quiet card says biblestdy is free and points to
- * Instagram. Shown once per account (dismissal saved in /api/preferences);
- * active time is counted on this device (localStorage), no network.
+ * Instagram. Closing it snoozes it for 30 days on this device; active time
+ * is counted on this device too (localStorage), no network.
  */
 
 export const INSTAGRAM_HANDLE = "marcusjepsn";
@@ -16,6 +16,26 @@ const TICK_SECONDS = 15;
 const IDLE_MS = 2 * 60 * 1000;
 
 const key = (userId: string) => `activeSeconds:${userId}`;
+const snoozeKey = (userId: string) => `supportSnoozeUntil:${userId}`;
+export const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Closed within the last 30 days (this device)? Unreadable storage = snoozed. */
+export function supportSnoozed(userId: string, now = Date.now()): boolean {
+  try {
+    return now < (Number(localStorage.getItem(snoozeKey(userId))) || 0);
+  } catch {
+    return true;
+  }
+}
+
+/** Close = come back in 30 days. */
+export function snoozeSupport(userId: string, now = Date.now()): void {
+  try {
+    localStorage.setItem(snoozeKey(userId), String(now + SNOOZE_MS));
+  } catch {
+    // storage blocked: it just won't come back this session
+  }
+}
 
 export function activeSeconds(userId: string): number {
   try {
@@ -56,10 +76,10 @@ export function readerBusy(doc: Document = document): boolean {
 }
 
 export function shouldShowSupport(opts: {
-  dismissed: boolean;
+  snoozed: boolean;
   seconds: number;
   noteOpen: boolean;
   busy: boolean;
 }): boolean {
-  return !opts.dismissed && opts.seconds >= SUPPORT_AFTER_SECONDS && !opts.noteOpen && !opts.busy;
+  return !opts.snoozed && opts.seconds >= SUPPORT_AFTER_SECONDS && !opts.noteOpen && !opts.busy;
 }

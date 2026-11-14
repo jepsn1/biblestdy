@@ -5,9 +5,8 @@ import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParam
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
-import { loadPreferences, savePreferences } from "~/lib/preferences";
 import { loadReaderStyle } from "~/lib/reader-style";
-import { activeSeconds, readerBusy, shouldShowSupport, startActiveClock } from "~/lib/support";
+import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
 import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
@@ -72,11 +71,10 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const session = await requireAuth();
   // Account reader style (#45) applies before render; null = never chosen
   // Text size (#61) too — same single preferences fetch
-  const [translations, readerStyle, , prefs] = await Promise.all([
+  const [translations, readerStyle] = await Promise.all([
     loadTranslations(),
     loadReaderStyle(session.user.id),
     loadTextSize(session.user.id),
-    loadPreferences(session.user.id),
   ]);
   const translation = pickTranslation(translations);
   const res = await fetchScripture(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
@@ -100,13 +98,11 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
     translations,
     needsStyleChoice: readerStyle === null,
     userId: session.user.id,
-    // Unknown (prefs failed to load) counts as dismissed: never show twice
-    supportDismissed: prefs?.supportNoticeDismissed ?? true,
   };
 }
 
 export default function Read({ loaderData }: Route.ComponentProps) {
-  const { chapter, translation, translations, needsStyleChoice, userId, supportDismissed } = loaderData;
+  const { chapter, translation, translations, needsStyleChoice, userId } = loaderData;
   const [styleChosen, setStyleChosen] = useState(false);
   const revalidator = useRevalidator();
   // The verse the reader is at: a switch lands on it in the new version
@@ -188,11 +184,11 @@ export default function Read({ loaderData }: Route.ComponentProps) {
     };
   }, []);
 
-  // One-time support notice: counts active reading; at a chapter change
+  // Support notice: counts active reading; at a chapter change
   // (never mid-chapter, never on open) once 10 min are reached and the
   // reader isn't busy, shows after the new chapter has settled.
   const [supportOpen, setSupportOpen] = useState(false);
-  const [supportClosed, setSupportClosed] = useState(supportDismissed);
+  const [supportClosed, setSupportClosed] = useState(false);
   useEffect(() => startActiveClock(userId), [userId]);
   const here = `${chapter.book}/${chapter.chapter}`;
   const lastChapter = useRef(here);
@@ -206,7 +202,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
       const view = sideViewRef.current;
       if (
         shouldShowSupport({
-          dismissed: supportClosed,
+          snoozed: supportClosed || supportSnoozed(userId),
           seconds: activeSeconds(userId),
           noteOpen: view !== null && view !== "connections",
           busy: readerBusy(),
@@ -220,7 +216,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   function closeSupport() {
     setSupportOpen(false);
     setSupportClosed(true);
-    void savePreferences({ supportNoticeDismissed: true }).catch(() => {});
+    snoozeSupport(userId); // back in 30 days (this device)
   }
 
   return (
