@@ -71,7 +71,7 @@ export function shouldRevalidate({
 }
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const session = await requireAuth();
+  const session = await requireAuth({ cached: true });
   // Account reader style (#45) applies before render; null = never chosen
   // Text size (#61) too — same single preferences fetch
   const [translations, readerStyle] = await Promise.all([
