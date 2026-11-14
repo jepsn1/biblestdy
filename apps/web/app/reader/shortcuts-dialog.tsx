@@ -52,7 +52,8 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         { keys: [["←"], ["→"]], label: t("shortcuts.pageTurn") },
         { keys: [["Home"], ["End"]], label: t("shortcuts.firstLast") },
         { keys: [["["], ["]"]], label: t("shortcuts.chapter") },
-        { keys: [["/"]], label: t("shortcuts.jump") },
+        { keys: [["mod", "K"], ["/"]], label: t("shortcuts.jump") },
+        { keys: [["t"]], label: t("shortcuts.translation") },
       ],
     },
     {

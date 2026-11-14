@@ -1,11 +1,13 @@
 import type { Chapter, Translation } from "@biblestdy/shared";
 import { formatReference } from "@biblestdy/shared";
-import { useEffect, useState } from "react";
-import { data, type ShouldRevalidateFunctionArgs, useRevalidator } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
+import { loadPreferences, savePreferences } from "~/lib/preferences";
 import { loadReaderStyle } from "~/lib/reader-style";
+import { activeSeconds, readerBusy, shouldShowSupport, startActiveClock } from "~/lib/support";
 import { loadTextSize } from "~/lib/text-size";
 import { requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
@@ -18,6 +20,10 @@ import { ReaderNav } from "../reader/reader-nav";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
 import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
+import { SupportNotice } from "../reader/support-notice";
+import { CommandPalette, OPEN_PALETTE } from "../palette/command-palette";
+import { pushRecent } from "~/lib/recent-passages";
+import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
 
 let translationsCache: Translation[] | undefined;
@@ -66,10 +72,11 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const session = await requireAuth();
   // Account reader style (#45) applies before render; null = never chosen
   // Text size (#61) too — same single preferences fetch
-  const [translations, readerStyle] = await Promise.all([
+  const [translations, readerStyle, , prefs] = await Promise.all([
     loadTranslations(),
     loadReaderStyle(session.user.id),
     loadTextSize(session.user.id),
+    loadPreferences(session.user.id),
   ]);
   const translation = pickTranslation(translations);
   const res = await fetchScripture(`/api/passages/${translation.id}/${params.book}/${params.chapter}`);
@@ -86,17 +93,46 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const here = `${chapter.book}/${chapter.chapter}`;
   const stored = localStorage.getItem("lastRead");
   if (stored !== here && !stored?.startsWith(`${here}?`)) localStorage.setItem("lastRead", here);
-  return { chapter, translation, translations, needsStyleChoice: readerStyle === null };
+  pushRecent({ book: chapter.book, chapter: chapter.chapter });
+  return {
+    chapter,
+    translation,
+    translations,
+    needsStyleChoice: readerStyle === null,
+    userId: session.user.id,
+    // Unknown (prefs failed to load) counts as dismissed: never show twice
+    supportDismissed: prefs?.supportNoticeDismissed ?? true,
+  };
 }
 
 export default function Read({ loaderData }: Route.ComponentProps) {
-  const { chapter, translation, translations, needsStyleChoice } = loaderData;
+  const { chapter, translation, translations, needsStyleChoice, userId, supportDismissed } = loaderData;
   const [styleChosen, setStyleChosen] = useState(false);
   const revalidator = useRevalidator();
+  // The verse the reader is at: a switch lands on it in the new version
+  // (page numbers differ between translations)
+  const placeRef = useRef<number | null>(null);
+  const [, setSearchParams] = useSearchParams();
+  const switchVerse = useRef<number | null>(null);
   function switchTranslation(id: string) {
     localStorage.setItem("translationId", id);
+    switchVerse.current = placeRef.current;
     void revalidator.revalidate(); // reloads the chapter in the new version
   }
+  // …then lands on the same verse there (?v= picks its page)
+  useEffect(() => {
+    const verse = switchVerse.current;
+    if (verse === null) return;
+    switchVerse.current = null;
+    setSearchParams(
+      (params) => {
+        params.delete("p");
+        params.set("v", String(verse));
+        return params;
+      },
+      { replace: true },
+    );
+  }, [translation.id, setSearchParams]);
   const nameOf = useBookName();
   const heading = `${nameOf(chapter.book)} ${chapter.chapter}`; // UI-language name (#53)
   // Prev/next continue across books (#52): John 21 → Acts 1
@@ -125,6 +161,12 @@ export default function Read({ loaderData }: Route.ComponentProps) {
   // Reader-wide keys (#65): `?` lists every shortcut; ⌘. / Ctrl+. toggles
   // Notes & topics (from anywhere, the note editor included).
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setPaletteOpen(true);
+    window.addEventListener(OPEN_PALETTE, open);
+    return () => window.removeEventListener(OPEN_PALETTE, open);
+  }, []);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === ".") {
@@ -145,6 +187,41 @@ export default function Read({ loaderData }: Route.ComponentProps) {
       window.removeEventListener(OPEN_SHORTCUTS, open);
     };
   }, []);
+
+  // One-time support notice: counts active reading; at a chapter change
+  // (never mid-chapter, never on open) once 10 min are reached and the
+  // reader isn't busy, shows after the new chapter has settled.
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportClosed, setSupportClosed] = useState(supportDismissed);
+  useEffect(() => startActiveClock(userId), [userId]);
+  const here = `${chapter.book}/${chapter.chapter}`;
+  const lastChapter = useRef(here);
+  const sideViewRef = useRef(sideView);
+  sideViewRef.current = sideView;
+  useEffect(() => {
+    if (lastChapter.current === here) return;
+    lastChapter.current = here;
+    if (supportClosed || needsStyleChoice) return;
+    const timer = window.setTimeout(() => {
+      const view = sideViewRef.current;
+      if (
+        shouldShowSupport({
+          dismissed: supportClosed,
+          seconds: activeSeconds(userId),
+          noteOpen: view !== null && view !== "connections",
+          busy: readerBusy(),
+        })
+      ) {
+        setSupportOpen(true);
+      }
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [here, supportClosed, needsStyleChoice, userId]);
+  function closeSupport() {
+    setSupportOpen(false);
+    setSupportClosed(true);
+    void savePreferences({ supportNoticeDismissed: true }).catch(() => {});
+  }
 
   return (
     <SidebarProvider className="h-dvh overflow-hidden">
@@ -171,9 +248,28 @@ export default function Read({ loaderData }: Route.ComponentProps) {
           sideView={sideView}
           onSideViewChange={setSideView}
           annotationBoxesOpen={annotationBoxesOpen}
+          placeRef={placeRef}
         />
       </SidebarInset>
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        reader={{
+          book: chapter.book,
+          chapter: chapter.chapter,
+          translations,
+          translationId: translation.id,
+          switchTranslation,
+          toggleConnections,
+          connectionsOpen: sideView === "connections",
+          toggleMarginNotes: () => setAnnotationBoxesOpen((v) => !v),
+          marginNotesOpen: annotationBoxesOpen,
+          prevHref: prevChapter ? chapterHref(prevChapter) : null,
+          nextHref: nextChapter ? chapterHref(nextChapter) : null,
+        }}
+      />
+      {supportOpen && <SupportNotice onClose={closeSupport} />}
       {needsStyleChoice && !styleChosen && (
         <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
       )}

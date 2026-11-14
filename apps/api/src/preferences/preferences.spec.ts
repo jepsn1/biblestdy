@@ -22,17 +22,19 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: null,
+      supportNoticeDismissed: false,
     });
   });
 
   it('saves the choice and returns it on later reads (any device)', async () => {
     const { controller } = make();
     expect(await controller.update(as('u1'), { readerStyle: 'clean' })).toEqual(
-      { readerStyle: 'clean', textSize: null },
+      { readerStyle: 'clean', textSize: null, supportNoticeDismissed: false },
     );
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'clean',
       textSize: null,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -43,6 +45,7 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'paper',
       textSize: null,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -52,6 +55,7 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u2'))).toEqual({
       readerStyle: null,
       textSize: null,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -65,6 +69,7 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: null,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -83,10 +88,12 @@ describe('Preferences API (#61 text size)', () => {
     expect(await controller.update(as('u1'), { textSize: 150 })).toEqual({
       readerStyle: null,
       textSize: 150,
+      supportNoticeDismissed: false,
     });
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: 150,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -98,6 +105,7 @@ describe('Preferences API (#61 text size)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'paper',
       textSize: 200,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -114,6 +122,7 @@ describe('Preferences API (#61 text size)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: null,
+      supportNoticeDismissed: false,
     });
   });
 
@@ -126,5 +135,30 @@ describe('Preferences API (#61 text size)', () => {
     expect(await errs({ textSize: 110 })).toBeGreaterThan(0);
     expect(await errs({ textSize: '150' })).toBeGreaterThan(0);
     expect(await errs({ readerStyle: 'clean', textSize: 125 })).toBe(0);
+  });
+
+  it('support notice: dismissal is saved once and kept (one-way)', async () => {
+    const { controller } = make();
+    await controller.update(as('u1'), { textSize: 125 });
+    expect(
+      await controller.update(as('u1'), { supportNoticeDismissed: true }),
+    ).toEqual({
+      readerStyle: null,
+      textSize: 125,
+      supportNoticeDismissed: true,
+    });
+    expect((await controller.get(as('u2'))).supportNoticeDismissed).toBe(false);
+  });
+
+  it('support notice: only `true` validates', async () => {
+    const errs = async (body: object) =>
+      (await validate(plainToInstance(UpdatePreferencesDto, body))).length;
+    expect(await errs({ supportNoticeDismissed: true })).toBe(0);
+    expect(await errs({ supportNoticeDismissed: false })).toBeGreaterThan(0);
+    await expect(
+      make().controller.update(as('u1'), {
+        supportNoticeDismissed: false,
+      } as unknown as UpdatePreferencesDto),
+    ).rejects.toThrow(BadRequestException);
   });
 });

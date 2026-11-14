@@ -31,6 +31,7 @@ import { notifyError } from "~/lib/notify";
 import { api } from "~/lib/query";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
+import { SupportLinks } from "./support-notice";
 
 const chipClass =
   "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 text-meta font-semibold text-primary transition-colors hover:bg-primary/25";
@@ -270,6 +271,14 @@ function SettingsContent({
           </kbd>
         </Button>
       )}
+
+      <Separator className="my-2" />
+
+      {/* The one-time support notice, findable again (Instagram, new tab) */}
+      <div className="flex flex-col gap-2 py-1">
+        <p className="text-control font-medium">{t("support.settings")}</p>
+        <SupportLinks quiet />
+      </div>
 
       <Separator className="my-2" />
 

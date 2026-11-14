@@ -18,8 +18,9 @@ import {
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
 import { PANEL_TOGGLE } from "./connections-panel";
-import { JumpBox } from "./jump-box";
 import { MoreSheet } from "./more-sheet";
+import { PaletteTrigger } from "../palette/palette-trigger";
+import { TranslationChooser } from "./translation-chooser";
 
 export function ReaderNav({
   book,
@@ -42,21 +43,12 @@ export function ReaderNav({
   annotationBoxesOpen: boolean;
   onToggleAnnotationBoxes: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const pwa = usePwaInstall();
   const nameOf = useBookName();
   const current = getBook(book);
   const chapterCount = current?.chapters ?? 1;
-  const uiLanguage = i18n.language.split("-")[0];
-  const languageName = (code: string) => {
-    if (!code || code.split("-")[0] === uiLanguage) return null;
-    try {
-      return new Intl.DisplayNames([i18n.language], { type: "language" }).of(code) ?? null;
-    } catch {
-      return null;
-    }
-  };
 
   return (
     <nav
@@ -103,52 +95,18 @@ export function ReaderNav({
           </SelectContent>
         </Select>
 
-        {/* Translation switcher (#11): marks live per translation — switching
+        {/* Translation chooser (#11): marks live per translation — switching
             re-reads the chapter in the chosen version */}
         {translations.length > 1 && (
-          <Select value={translationId} onValueChange={(v) => v && onSwitchTranslation(v)}>
-            <SelectTrigger aria-label={t("nav.translation")} size="sm">
-              {/* Explicit label: SelectValue would fall back to the raw value
-                  (an opaque API.Bible id) in the trigger */}
-              {(() => {
-                const tr = translations.find((x) => x.id === translationId);
-                return tr ? (
-                  <>
-                    <span className="font-mono">{tr.abbreviation}</span>
-                    <span className="hidden max-w-44 truncate text-meta text-muted-foreground lg:inline">
-                      {tr.name}
-                    </span>
-                  </>
-                ) : (
-                  <SelectValue />
-                );
-              })()}
-            </SelectTrigger>
-            {/* Anchored below the trigger (#62); rows are a two-column grid
-                (abbr | name) so names align and long ones end in an ellipsis */}
-            <SelectContent
-              alignItemWithTrigger={false}
-              align="start"
-              className="w-80 max-w-[calc(100vw-1rem)]"
-            >
-              {translations.map((tr) => (
-                <SelectItem key={tr.id} value={tr.id} title={tr.name} className="min-h-9">
-                  <span className="grid w-full min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-baseline gap-2">
-                    <span className="font-mono">{tr.abbreviation}</span>
-                    <span className="truncate text-meta text-muted-foreground">
-                      {tr.name}
-                      {/* The text's language when it isn't the UI's (#66): "· engelsk" */}
-                      {languageName(tr.language) && ` · ${languageName(tr.language)}`}
-                    </span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <TranslationChooser
+            translations={translations}
+            translationId={translationId}
+            onSwitch={onSwitchTranslation}
+          />
         )}
 
         {/* Go to reference (#53): inline from sm, a search icon on phones */}
-        <JumpBox />
+        <PaletteTrigger />
 
         {/* "Notes & topics" (#62, was the unexplained "Connections"): icon +
             tooltip from sm, the word itself from 1180px. Phones reach it, the

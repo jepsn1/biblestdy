@@ -46,3 +46,4 @@ export {
   type Preferences,
   type PreferencesPatch,
 } from './preferences.js'
+export { TRANSLATION_INFO, translationInfo, type TranslationInfo } from './translation-info.js'
