@@ -1,6 +1,6 @@
 import { bookName, type Annotation, type Highlight, type Note } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { buildResults, plainText, wordPrefixMatch, type PaletteContext } from "./palette-results";
+import { buildResults, matchRanges, plainText, wordPrefixMatch, type PaletteContext } from "./palette-results";
 
 const anchor = (book: string, chapter: number, startVerse: number, endVerse = startVerse) => ({
   id: `a-${book}${chapter}${startVerse}`,
@@ -73,12 +73,15 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
     translationId: "web",
     translationAbbr: (id) => id.toUpperCase(),
     colorLabel: () => undefined,
+    colorWords: (c) => [c, { green: "grøn", blue: "blå" }[c as string] ?? c],
     labels: {
       goTo: (r) => `Go to ${r}`,
-      emptyHint: "type a passage",
       morePassages: (n) => `+${n} more`,
       invalid: "invalid",
+      noMatches: (q) => `No matches for ${q}`,
       noTextSearch: "no text search",
+      focusColor: (name) => `Focus on ${name}`,
+      colorDetail: (n) => `${n} highlights`,
       untitled: "Untitled",
       mark: "Mark",
     },
@@ -137,18 +140,30 @@ describe("palette results", () => {
     expect(buildResults("new", ctx()).find((r) => r.id === "topic:t1")?.href).toBe("/topic/new-birth");
   });
 
-  it("nothing found: says Bible text search isn't there yet", () => {
+  it("nothing found: says so, and that Bible text search isn't there yet", () => {
     expect(buildResults("love is patient", ctx())).toEqual([
-      expect.objectContaining({ id: "none", disabled: true, label: "no text search" }),
+      expect.objectContaining({ id: "none", disabled: true, label: "No matches for love is patient", detail: "no text search" }),
     ]);
   });
 
-  it("empty: recent (deduped, not the current chapter), then common actions", () => {
-    expect(ids("")).toEqual(["recent:PSA/23", "action:dark", "action:shortcuts"]);
+  it("empty: common commands first, then recent (deduped, not the current chapter)", () => {
+    expect(ids("")).toEqual(["action:dark", "action:shortcuts", "recent:PSA/23"]);
   });
 
-  it("empty with no history: a hint on what to type", () => {
-    expect(ids("", ctx({ recent: [] }))).toEqual(["empty-hint", "action:dark", "action:shortcuts"]);
+  it("empty with no history: just the commands", () => {
+    expect(ids("", ctx({ recent: [] }))).toEqual(["action:dark", "action:shortcuts"]);
+  });
+
+  it("searching: commands come after your study", () => {
+    const c = ctx({ notes: [{ id: "d", title: "Darkness and light", body: "", anchors: [anchor("JHN", 1, 5)] }] });
+    expect(ids("dark", c)).toEqual(["note:d", "action:dark"]);
+  });
+
+  it("rows carry the typed words to bold; a passage doesn't", () => {
+    expect(buildResults("adop", ctx()).find((r) => r.id === "note:n1")?.match).toBe("adop");
+    expect(buildResults("joh", ctx()).find((r) => r.id === "book:JHN")?.match).toBe("joh");
+    expect(buildResults("mørk", ctx()).find((r) => r.id === "action:dark")?.match).toBe("mørk");
+    expect(buildResults("rom 8", ctx()).every((r) => !r.match)).toBe(true);
   });
 
   it("a note on several passages shows and opens the one that matched", () => {
@@ -270,6 +285,33 @@ describe("palette results: marked words", () => {
     expect(ids("green", ctx({ highlights })).filter((id) => id.startsWith("highlight"))).toEqual([]);
   });
 
+  it("a colour is found by its own name or its plain one, as one row that brings it out", () => {
+    const named = ctx({ highlights, colorLabel: (c) => (c === "green" ? "God speaking" : undefined) });
+    const row = buildResults("god speaking", named)[0];
+    expect(row).toMatchObject({
+      id: "color:green",
+      group: "colors",
+      label: "Focus on God speaking",
+      detail: "3 highlights · green",
+      filterColor: "green",
+      match: "god speaking",
+    });
+    expect(ids("green", named)[0]).toBe("color:green");
+    expect(ids("grøn", named)[0]).toBe("color:green");
+    // Unnamed: its plain name; a colour nobody used isn't offered
+    expect(buildResults("green", ctx({ highlights }))[0]).toMatchObject({ label: "Focus on green", detail: "3 highlights" });
+    expect(ids("blue", ctx({ highlights }))).not.toContain("color:blue");
+    // Never on a passage ("god 3" isn't a colour)
+    expect(ids("john 3", named)).not.toContain("color:green");
+  });
+
+  it("found by its colour's name: all of that colour, not just five", () => {
+    const many = Array.from({ length: 8 }, (_, i) => hl(`g${i}`, `verse ${i}`, "PSA", 1, i + 1));
+    const named = ctx({ highlights: many, colorLabel: (c) => (c === "green" ? "God speaking" : undefined) });
+    expect(ids("god speaking", named).filter((id) => id.startsWith("highlight"))).toHaveLength(8);
+    expect(ids("verse", named).filter((id) => id.startsWith("highlight"))).toHaveLength(5);
+  });
+
   it("@ includes highlights", () => {
     expect(ids("@shepherd", ctx({ highlights }))).toEqual(["annotation:x2", "highlight:h2"]);
   });
@@ -294,6 +336,37 @@ describe("palette results: marked words", () => {
     // Neither words nor quote: labelled by its place
     const bare = ctx({ annotations: [{ ...ann("b", "", "JHN", 3, 2), text: null as unknown as string }] });
     expect(buildResults("john 3:2", bare).find((r) => r.id === "annotation:b")?.label).toBe("John 3:2");
+  });
+});
+
+describe("matchRanges (bold)", () => {
+  const bold = (text: string, q: string) => matchRanges(text, q).map(([a, b]) => text.slice(a, b));
+
+  it("every word a query word starts, all hits, case-insensitive", () => {
+    expect(bold("He who doesn't love doesn't know God, for God is love", "god")).toEqual(["God", "God"]);
+    expect(bold("Switch to dark view", "sw da")).toEqual(["Sw", "da"]);
+  });
+
+  it("only at word starts, as matching does", () => {
+    expect(bold("Promise from God", "rom")).toEqual([]);
+  });
+
+  it("the longest query word wins on a word", () => {
+    expect(bold("God speaking", "g god")).toEqual(["God"]);
+  });
+
+  it("accents and Danish letters: ranges in the original text", () => {
+    expect(bold("Født af Ånden", "anden")).toEqual(["Ånden"]);
+    expect(bold("Født af Ånden", "født")).toEqual(["Født"]);
+    expect(bold("Guds kærlighed", "kærl")).toEqual(["kærl"]);
+    expect(bold("Café crème", "creme")).toEqual(["crème"]);
+    // Decomposed input (a + combining ring) keeps its mark inside the bold
+    expect(bold("A\u030Andens frugt", "and")).toEqual(["A\u030And"]);
+  });
+
+  it("nothing typed, nothing bold", () => {
+    expect(matchRanges("God", "")).toEqual([]);
+    expect(matchRanges("", "god")).toEqual([]);
   });
 });
 
