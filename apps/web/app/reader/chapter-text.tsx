@@ -9,7 +9,7 @@ import {
   words,
   wordRangeInVerse,
 } from "@biblestdy/shared";
-import { FileText, X } from "lucide-react";
+import { Copy, Eraser, FileText, Link2, PenLine, X } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
@@ -1077,11 +1077,10 @@ export function ChapterText({
               preferred={defaultColor}
               onPick={(color) => addHighlight(menu.anchor, color)}
             />
-            {/* A pen mark, no text: box / underline / circle / bracket */}
-            <ActionMenuMarks value={null} onPick={(mark) => onAddAnnotation(menu.anchor, null, mark)} />
             <ActionMenuSeparator />
             <ActionMenuItem
               hint={t("menu.annotateHint")}
+              icon={<PenLine aria-hidden />}
               shortcut="m"
               onSelect={() => {
                 setDraft("");
@@ -1092,12 +1091,16 @@ export function ChapterText({
             >
               {t("menu.annotate")}
             </ActionMenuItem>
-            <ActionMenuItem hint={t("menu.createNoteHint")} shortcut="n" onSelect={() => onAddNote(menu.anchor)}>
+            {/* A pen mark, no text: box / underline / circle / bracket */}
+            <ActionMenuMarks value={null} onPick={(mark) => onAddAnnotation(menu.anchor, null, mark)} />
+            <ActionMenuSeparator />
+            <ActionMenuItem hint={t("menu.createNoteHint")} icon={<FileText aria-hidden />} shortcut="n" onSelect={() => onAddNote(menu.anchor)}>
               {t("menu.createNote")}
             </ActionMenuItem>
             {allNotes.length > 0 && (
               <ActionMenuItem
                 hint={t("menu.noteLinkHint")}
+                icon={<Link2 aria-hidden />}
                 onSelect={() => {
                   const attach = { kind: "attach" as const, anchor: menu.anchor };
                   nextMenu.current = attach;
@@ -1108,7 +1111,7 @@ export function ChapterText({
               </ActionMenuItem>
             )}
             <ActionMenuSeparator />
-            <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.anchor)}>
+            <ActionMenuItem hint={t("menu.copyHint")} icon={<Copy aria-hidden />} shortcut="c" onSelect={() => void copyAnchorText(menu.anchor)}>
               {t("menu.copy")}
             </ActionMenuItem>
           </>
@@ -1121,6 +1124,7 @@ export function ChapterText({
             />
             <ActionMenuSeparator />
             <ActionMenuItem
+              icon={<PenLine aria-hidden />}
               onSelect={() => {
                 setDraft("");
                 const a = menu.annotation;
@@ -1131,11 +1135,11 @@ export function ChapterText({
             >
               {t("marks.addText")}
             </ActionMenuItem>
-            <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.annotation)}>
+            <ActionMenuItem hint={t("menu.copyHint")} icon={<Copy aria-hidden />} shortcut="c" onSelect={() => void copyAnchorText(menu.annotation)}>
               {t("menu.copy")}
             </ActionMenuItem>
             <ActionMenuSeparator />
-            <ActionMenuItem destructive onSelect={() => onRemoveAnnotation(menu.annotation.id)}>
+            <ActionMenuItem destructive icon={<Eraser aria-hidden />} onSelect={() => onRemoveAnnotation(menu.annotation.id)}>
               {t("marks.remove")}
             </ActionMenuItem>
           </>
