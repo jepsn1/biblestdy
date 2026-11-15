@@ -1,6 +1,6 @@
 import type { Anchor, Chapter } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { anchorQuote, formatCopy, MAX_QUOTE } from "./copy-attribution";
+import { anchorQuote, anchorReferenceLabel, formatCopy, MAX_QUOTE } from "./copy-attribution";
 
 const john3: Chapter = {
   translationId: "web",
@@ -32,7 +32,7 @@ describe("formatCopy", () => {
   it("verse range: words across verses, reference shows the range", () => {
     const { text } = formatCopy(john3, anchor(16, 3, 18, 2), "WEB");
     expect(text).toBe(
-      "loved the world, For God didn't send his Son He who believes\nJohn 3:16-18 (WEB)",
+      "loved the world, For God didn't send his Son He who believes\nJohn 3:16–18 (WEB)",
     );
   });
 
@@ -50,6 +50,25 @@ describe("formatCopy", () => {
     expect(html).toBe(
       "For God<br>John 3:16 (NIV)<br>© 2011 Biblica &lt;www.biblica.com&gt; &amp; co",
     );
+  });
+});
+
+describe("formatCopy in Danish", () => {
+  it("reference line uses Danish book name and comma", () => {
+    const { text } = formatCopy(john3, anchor(16, 0, 16, 5), "WEB", "da");
+    expect(text).toBe("For God so loved the world,\nJohannes 3,16 (WEB)");
+  });
+
+  it("range: en-dash, comma separator", () => {
+    const { text } = formatCopy(john3, anchor(16, 3, 18, 2), "WEB", "da");
+    expect(text.split("\n")[1]).toBe("Johannes 3,16–18 (WEB)");
+  });
+});
+
+describe("anchorReferenceLabel", () => {
+  it("names the anchor in the UI language", () => {
+    expect(anchorReferenceLabel(anchor(16, 0, 18, 2), "da")).toBe("Johannes 3,16–18");
+    expect(anchorReferenceLabel(anchor(16, 0, 16, 2), "en")).toBe("John 3:16");
   });
 });
 

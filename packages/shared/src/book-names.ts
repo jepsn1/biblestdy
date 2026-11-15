@@ -66,13 +66,13 @@ export const DANISH_BOOKS: Record<BookId, readonly [string, ...string[]]> = {
   TIT: ['Titusbrevet', 'tit'],
   PHM: ['Filemonbrevet', 'filem'],
   HEB: ['Hebræerbrevet', 'hebr'],
-  JAS: ['Jakobsbrev', 'jak', 'jakobs brev'],
+  JAS: ['Jakobsbrevet', 'jak', 'jakobsbrev', 'jakobs brev'],
   '1PE': ['1 Petersbrev', '1 pet', 'første petersbrev'],
   '2PE': ['2 Petersbrev', '2 pet', 'andet petersbrev'],
   '1JN': ['1 Johannesbrev', '1 joh', 'første johannesbrev'],
   '2JN': ['2 Johannesbrev', '2 joh', 'andet johannesbrev'],
   '3JN': ['3 Johannesbrev', '3 joh', 'tredje johannesbrev'],
-  JUD: ['Judasbrev', 'jud', 'judas'],
+  JUD: ['Judasbrevet', 'jud', 'judasbrev', 'judas'],
   REV: ['Åbenbaringen', 'åb', 'åbenb', "johannes' åbenbaring"],
 }
 

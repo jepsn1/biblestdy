@@ -25,10 +25,13 @@ export function noteTitle(note: Pick<Note, "title" | "body">, untitled: string):
   return first.length > 60 ? `${first.slice(0, 60).trimEnd()}…` : first;
 }
 
+/** One psalm is "Salme 23" / "Psalm 23", the book "Salmerne" / "Psalms". */
+const ONE_PSALM: Record<BookLocale, string> = { da: "Salme", en: "Psalm" };
+
 /** A reference in the UI language: "Johannes 3,16–18" / "John 3:16–18". */
 export function referenceLabel(ref: Reference, bookName: (id: string) => string, locale: BookLocale): string {
-  const name = bookName(ref.book);
-  if (ref.chapter === undefined) return name;
+  if (ref.chapter === undefined) return bookName(ref.book);
+  const name = ref.book === "PSA" ? ONE_PSALM[locale] : bookName(ref.book);
   if (ref.verse === undefined) return `${name} ${ref.chapter}`;
   const sep = locale === "da" ? "," : ":";
   let out = `${name} ${ref.chapter}${sep}${ref.verse}`;

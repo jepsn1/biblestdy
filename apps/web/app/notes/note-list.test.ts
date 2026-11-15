@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bookName, type Chapter, type Note } from "@biblestdy/shared";
-import { anchorForReference, anchorLabel, filterNotes, keepOrder, noteTitle } from "./note-list";
+import { bookName, parseReference, type Chapter, type Note } from "@biblestdy/shared";
+import { anchorForReference, anchorLabel, filterNotes, keepOrder, noteTitle, referenceLabel } from "./note-list";
 
 const T = "2026-11-01T00:00:00.000Z";
 const anchor = (book: string, chapter: number, startVerse: number, endVerse = startVerse) => ({
@@ -33,6 +33,48 @@ describe("anchorLabel", () => {
   it("speaks the UI language: Danish names and comma", () => {
     expect(anchorLabel(anchor("JHN", 3, 16, 18), da, "da")).toBe("Johannes 3,16–18");
     expect(anchorLabel(anchor("ROM", 5, 8), en, "en")).toBe("Romans 5:8");
+  });
+});
+
+describe("referenceLabel", () => {
+  it.each([
+    ["da", "chapter", { book: "JHN", chapter: 3 }, "Johannes 3"],
+    ["da", "single verse", { book: "JHN", chapter: 3, verse: 16 }, "Johannes 3,16"],
+    ["da", "range", { book: "JHN", chapter: 3, verse: 14, endVerse: 15 }, "Johannes 3,14–15"],
+    ["da", "cross-chapter range", { book: "JHN", chapter: 3, verse: 36, endChapter: 4, endVerse: 2 }, "Johannes 3,36–4,2"],
+    ["da", "book only", { book: "GEN" }, "1 Mosebog"],
+    ["en", "chapter", { book: "JHN", chapter: 3 }, "John 3"],
+    ["en", "single verse", { book: "JHN", chapter: 3, verse: 16 }, "John 3:16"],
+    ["en", "range", { book: "JHN", chapter: 3, verse: 14, endVerse: 15 }, "John 3:14–15"],
+    ["en", "cross-chapter range", { book: "JHN", chapter: 3, verse: 36, endChapter: 4, endVerse: 2 }, "John 3:36–4:2"],
+    ["en", "book only", { book: "GEN" }, "Genesis"],
+  ] as const)("%s %s", (locale, _, ref, want) => {
+    expect(referenceLabel(ref, locale === "da" ? da : en, locale)).toBe(want);
+  });
+  it("round-trips through the passage parser (palette, add reference)", () => {
+    for (const label of ["Johannes 3,16", "Johannes 3,14–15", "Johannes 3,36–4,2", "1 Mosebog 1"]) {
+      const ref = parseReference(label, "da");
+      expect(ref && referenceLabel(ref, da, "da")).toBe(label);
+    }
+    for (const label of ["John 3:16", "John 3:14–15", "1 John 2:1"]) {
+      const ref = parseReference(label, "en");
+      expect(ref && referenceLabel(ref, en, "en")).toBe(label);
+    }
+  });
+  it("one psalm is singular, the book plural", () => {
+    expect(referenceLabel({ book: "PSA", chapter: 23 }, da, "da")).toBe("Salme 23");
+    expect(referenceLabel({ book: "PSA", chapter: 23, verse: 1 }, en, "en")).toBe("Psalm 23:1");
+    expect(referenceLabel({ book: "PSA" }, da, "da")).toBe("Salmerne");
+    expect(referenceLabel({ book: "JAS", chapter: 1 }, da, "da")).toBe("Jakobsbrevet 1");
+    expect(referenceLabel({ book: "JUD", chapter: 1, verse: 3 }, da, "da")).toBe("Judasbrevet 1,3");
+    for (const label of ["Salme 23,1", "Jakobsbrevet 1", "Judasbrevet 1,3"]) {
+      const ref = parseReference(label, "da");
+      expect(ref && referenceLabel(ref, da, "da")).toBe(label);
+    }
+    expect(parseReference("Jakobsbrev 1", "da")).toEqual({ book: "JAS", chapter: 1 });
+  });
+  it("a one-verse range reads as the verse", () => {
+    expect(referenceLabel({ book: "PSA", chapter: 23, verse: 1, endVerse: 1 }, da, "da")).toBe("Salme 23,1");
   });
 });
 

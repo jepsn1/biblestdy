@@ -1,10 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { Anchor, Chapter, Note, Highlight, HighlightColor, Annotation, AnnotationMark, Verse, WordPos } from "@biblestdy/shared";
 import {
-  anchorReference,
   buildAnchor,
   DEFAULT_HIGHLIGHT_COLOR,
-  formatReference,
   HIGHLIGHT_COLORS,
   words,
   wordRangeInVerse,
@@ -13,11 +11,12 @@ import { Copy, Eraser, FileText, Link2, PenLine, X } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
+import { bookLocale } from "~/lib/book-name";
 import type { ReaderTool } from "./tool-palette";
 import { notifyCopied, notifyCopyFailed } from "~/lib/notify";
 import { cn, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
-import { formatCopy } from "./copy-attribution";
+import { anchorReferenceLabel, formatCopy } from "./copy-attribution";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE, NOTE_INK_WASH } from "./highlight-colors";
 import { lineOf, type Rect } from "./ink-geometry";
 import {
@@ -204,7 +203,8 @@ export function ChapterText({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const draftRef = useRef<HTMLTextAreaElement>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = bookLocale(i18n.language);
   const { data: session } = authClient.useSession();
   const defaultColor: HighlightColor = isColor(session?.user.defaultHighlightColor)
     ? session.user.defaultHighlightColor
@@ -576,17 +576,17 @@ export function ChapterText({
       const native = window.getSelection();
       if (native && !native.isCollapsed) return;
       if (!e.clipboardData) return;
-      const { text, html } = formatCopy(chapter, copyAnchor, translationAbbreviation);
+      const { text, html } = formatCopy(chapter, copyAnchor, translationAbbreviation, locale);
       e.clipboardData.setData("text/plain", text);
       e.clipboardData.setData("text/html", html);
       e.preventDefault();
     };
     document.addEventListener("copy", onCopy);
     return () => document.removeEventListener("copy", onCopy);
-  }, [copyAnchor, chapter, translationAbbreviation]);
+  }, [copyAnchor, chapter, translationAbbreviation, locale]);
 
   async function copyAnchorText(anchor: Anchor) {
-    const { text, html } = formatCopy(chapter, anchor, translationAbbreviation);
+    const { text, html } = formatCopy(chapter, anchor, translationAbbreviation, locale);
     try {
       await navigator.clipboard.write([
         new ClipboardItem({
@@ -603,7 +603,7 @@ export function ChapterText({
         return;
       }
     }
-    notifyCopied(formatReference(anchorReference(anchor)), translationAbbreviation);
+    notifyCopied(anchorReferenceLabel(anchor, locale), translationAbbreviation);
   }
 
   function wordPosOf(target: EventTarget | null): WordPos | null {
@@ -1161,7 +1161,7 @@ export function ChapterText({
             <ActionMenuItem key={n.id} onSelect={() => onAttachNote(n.id, menu.anchor)}>
               <span className="min-w-0 flex-1 truncate font-serif">{n.title || t("note.untitled")}</span>
               <span className="shrink-0 font-mono text-meta text-muted-foreground">
-                {n.anchors.length > 0 && formatReference(anchorReference(n.anchors[0]))}
+                {n.anchors.length > 0 && anchorReferenceLabel(n.anchors[0], locale)}
                 {n.anchors.length > 1 && ` +${n.anchors.length - 1}`}
               </span>
             </ActionMenuItem>
