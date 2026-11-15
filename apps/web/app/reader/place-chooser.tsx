@@ -231,7 +231,11 @@ function PlacePanel({
   function backToBooks() {
     setStep("books");
     setActive(stepBook);
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // Desktop: back in the filter. Phones: on the list (the filter would
+    // raise the keyboard over it)
+    setTimeout(() =>
+      (focusFilter ? inputRef.current : viewport.current?.querySelector<HTMLElement>("[role=listbox]"))?.focus(),
+    );
   }
 
   // Esc on the chapters goes back to the books first; a second Esc closes
@@ -317,9 +321,9 @@ function PlacePanel({
       </div>
 
       <div ref={viewport} className="flex min-h-0 flex-1 flex-col">
-        <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-[min(80dvh,46rem)] max-sm:max-h-none">
+        <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-[min(80dvh,46rem)] max-sm:max-h-[60dvh]">
           {step === "books" ? (
-            <div id={`${ids}-books`} role="listbox" aria-label={t("place.books")} className="@container px-2 pt-1 pb-3">
+            <div id={`${ids}-books`} role="listbox" tabIndex={-1} aria-label={t("place.books")} className="@container px-2 pt-1 pb-3 outline-none">
               {filter.books.length === 0 && (
                 <p role="presentation" className="px-2 py-3 text-control text-muted-foreground">
                   {t("place.noMatch", { q: query.trim() })}

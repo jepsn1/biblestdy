@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { HIGHLIGHT_COLORS, READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
-import { LogOut, Monitor, Moon, Sun, UserRound } from "lucide-react";
+import { ChevronRight, LogOut, Monitor, Moon, Sun, UserRound } from "lucide-react";
 import { Hint } from "~/components/hint";
 import {
   AlertDialog,
@@ -363,6 +363,16 @@ function SettingsContent({
           {t("colorNames.edit")}
         </Button>
       </SettingRow>
+
+      {/* Every note, all in one place (was the sidebar's "Notes" link) —
+          never just "Notes": that's the panel for this chapter */}
+      <Link
+        to="/notes"
+        className="flex h-10 items-center justify-between text-control underline-offset-2 hover:underline max-sm:h-12"
+      >
+        {t("palette.allNotes")}
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+      </Link>
 
       {onShortcuts && (
         <Button variant="ghost" className="h-10 justify-between px-0 hover:bg-transparent hover:underline" onClick={onShortcuts}>
