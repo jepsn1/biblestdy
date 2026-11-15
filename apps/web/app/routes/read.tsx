@@ -1,9 +1,9 @@
 import type { Translation } from "@biblestdy/shared";
-import { formatReference } from "@biblestdy/shared";
+import { bookName } from "@biblestdy/shared";
 import { useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
-import { useBookName } from "~/lib/book-name";
+import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
@@ -17,6 +17,7 @@ import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { loadChapter, prefetchNeighbours } from "../reader/chapter-cache";
 import { ReaderNav } from "../reader/reader-nav";
+import { referenceLabel } from "../notes/note-list";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
 import { ColorNamesDialog, OPEN_COLOR_NAMES } from "../reader/color-names-dialog";
 import { SkipToText } from "../reader/skip-link";
@@ -50,10 +51,12 @@ function pickTranslation(translations: Translation[]): Translation {
 }
 
 export function meta({ params }: Route.MetaArgs) {
-  const title = formatReference({
-    book: params.book.toUpperCase(),
-    chapter: Number(params.chapter),
-  });
+  const locale = bookLocale(i18n.language);
+  const title = referenceLabel(
+    { book: params.book.toUpperCase(), chapter: Number(params.chapter) },
+    (id) => bookName(id, locale),
+    locale,
+  );
   return [{ title: `${title} — biblestdy` }];
 }
 

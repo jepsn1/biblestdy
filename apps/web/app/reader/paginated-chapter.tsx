@@ -7,7 +7,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/componen
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { authClient } from "~/lib/auth-client";
-import { useBookName } from "~/lib/book-name";
+import { bookLocale, useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
@@ -130,8 +130,10 @@ export function PaginatedChapter({
   placeRef?: React.MutableRefObject<number | null>;
 }) {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const nameOf = useBookName();
+  /** Chapter–verse separator in the UI language: "3:16" / "3,16". */
+  const sep = bookLocale(i18n.language) === "da" ? "," : ":";
   const contentRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const contentBoxRef = useRef<HTMLDivElement>(null);
@@ -820,9 +822,9 @@ export function PaginatedChapter({
     : chapter.copyright;
   const credit = [translation.name, copyright].filter((part): part is string => !!part);
   const attribution = credit.join(" · ");
-  /** ":1–11" — the verses on this page (one verse: ":16"). */
+  /** ":1–11" — the verses on this page (one verse: ":16"); "," in Danish. */
   const verseSpan = pageVerses
-    ? `:${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
+    ? `${sep}${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
     : "";
   /** The last page also carries the next chapter's opening (#flow): the
    * range runs on into it, "2:23–3:4", like a printed running head. */
@@ -831,7 +833,7 @@ export function PaginatedChapter({
    * is in the top bar already, like a printed Bible's running head. */
   const shortRange =
     runsOn && pageVerses
-      ? `${chapter.chapter}:${pageVerses.first}–${runsOn.ref.chapter}:${runsOn.runOn.toLabel}`
+      ? `${chapter.chapter}${sep}${pageVerses.first}–${runsOn.ref.chapter}${sep}${runsOn.runOn.toLabel}`
       : `${chapter.chapter}${verseSpan}`;
   const rangeLabel = `${nameOf(chapter.book)} ${shortRange}`;
 
