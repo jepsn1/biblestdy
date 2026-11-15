@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import i18n from "./i18n";
+import { ApiError } from "./query";
 
 /**
  * Feedback toasts (#64): every destructive action says what happened and
@@ -87,6 +88,9 @@ export function notifyError(
   } = {},
 ) {
   console.error("[write]", e);
+  // Signed out: api() is already on its way to sign-in (and back here) —
+  // a Retry would only fail again
+  if (e instanceof ApiError && e.status === 401) return;
   toast.error(message, {
     id,
     // Errors wait for the reader — a retry they never saw is no retry

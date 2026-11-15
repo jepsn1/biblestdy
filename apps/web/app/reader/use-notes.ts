@@ -1,8 +1,10 @@
 import type { Anchor, NewNote, Note, NoteAnchor } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { pruneDrafts } from "~/lib/note-drafts";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
-import { api } from "~/lib/query";
+import { api, updateList } from "~/lib/query";
 import { noteTitle } from "../notes/note-list";
 
 /** Mutations must not fail silently (#64) — toast, return null, let callers
@@ -39,25 +41,30 @@ export function useAllNotes(enabled: boolean) {
 /** All notes + whether they have loaded (first-use hint, #63) or failed
  * (the Notes page says so rather than showing an empty library). */
 export function useAllNotesQuery(enabled: boolean) {
-  const { data: notes = [], isFetched, isError, refetch } = useQuery({
+  const { data: notes = [], isFetched, isError, isSuccess, refetch } = useQuery({
     queryKey: ["notes", "all"],
     queryFn: () => api<Note[]>("/api/notes"),
     enabled,
   });
+  // Every note there is: drafts of any other are orphans (deleted elsewhere)
+  useEffect(() => {
+    if (isSuccess) pruneDrafts(new Set(notes.map((n) => n.id)));
+  }, [isSuccess, notes]);
   return { notes, loaded: isFetched, failed: isError, retry: refetch };
 }
 
-/** One chapter's notes — shared with the neighbour prefetch. */
+/** One chapter's notes — shared with the neighbour prefetch. A failed load
+ * stays an error (never "no notes"): the reader says so. */
 export function notesQuery(translationId: string, book: string, chapter: number) {
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
   return {
     queryKey: ["notes", translationId, book, chapter],
-    queryFn: () => api<Note[]>(`/api/notes?${params}`).catch(() => []),
+    queryFn: () => api<Note[]>(`/api/notes?${params}`),
   };
 }
 
 /** Loads + mutates the current chapter's notes (markdown documents) for the
- * signed-in user. */
+ * signed-in user. A failed load is `failed`, `retry` loads again. */
 export function useNotes(translationId: string, book: string, chapter: number) {
   const qc = useQueryClient();
   const query = notesQuery(translationId, book, chapter);
@@ -68,7 +75,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       (a) => a.translationId === translationId && a.book === book && a.chapter === chapter,
     );
 
-  const { data: notes = [] } = useQuery(query);
+  const { data: notes = [], isError, refetch } = useQuery(query);
 
   /** A note reaches into every chapter it anchors in — after any mutation,
    * refetch all note queries (the setQueryData above keeps this chapter
@@ -87,7 +94,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       body: JSON.stringify(anchor),
     }).catch(toastFail);
     if (created) {
-      qc.setQueryData<Note[]>(key, (n = []) => [...n, created]);
+      updateList<Note>(qc, key, (n) => [...n, created]);
       invalidateAll();
     }
     return created;
@@ -101,7 +108,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       method: "PATCH",
       body: JSON.stringify(patch),
     });
-    qc.setQueryData<Note[]>(key, (n = []) => n.map((x) => (x.id === updated.id ? updated : x)));
+    updateList<Note>(qc, key, (n) => n.map((x) => (x.id === updated.id ? updated : x)));
     invalidateAll();
     return updated;
   }
@@ -111,7 +118,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   async function restore(id: string): Promise<Note> {
     const note = await api<Note>(`/api/notes/${id}/restore`, { method: "POST" });
     if (inChapter(note)) {
-      qc.setQueryData<Note[]>(key, (n = []) => [...n.filter((x) => x.id !== id), note]);
+      updateList<Note>(qc, key, (n) => [...n.filter((x) => x.id !== id), note]);
     }
     invalidateAll();
     return note;
@@ -122,8 +129,8 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   async function remove(id: string) {
     const removed = qc.getQueryData<Note[]>(key)?.find((x) => x.id === id);
     const deleted = await removeWithUndo({
-      hide: () => qc.setQueryData<Note[]>(key, (n = []) => n.filter((x) => x.id !== id)),
-      unhide: () => removed && qc.setQueryData<Note[]>(key, (n = []) => [...n, removed]),
+      hide: () => updateList<Note>(qc, key, (n) => n.filter((x) => x.id !== id)),
+      unhide: () => removed && updateList<Note>(qc, key, (n) => [...n, removed]),
       remove: () => api(`/api/notes/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
       message: i18n.t("toast.noteDeleted"),
@@ -139,7 +146,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       body: JSON.stringify(anchor),
     }).catch(toastFail);
     if (updated) {
-      qc.setQueryData<Note[]>(key, (n = []) =>
+      updateList<Note>(qc, key, (n) =>
         n.some((x) => x.id === updated.id)
           ? n.map((x) => (x.id === updated.id ? updated : x))
           : [...n, updated],
@@ -156,7 +163,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       method: "DELETE",
     }).catch(toastFail);
     if (updated) {
-      qc.setQueryData<Note[]>(key, (n = []) =>
+      updateList<Note>(qc, key, (n) =>
         n
           .map((x) => (x.id === updated.id ? updated : x))
           .filter((x) => x.id !== updated.id || inChapter(updated)),
@@ -165,7 +172,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     }
   }
 
-  return { notes, add, edit, remove, restore, attach, detach };
+  return { notes, failed: isError, retry: refetch, add, edit, remove, restore, attach, detach };
 }
 
 /** One chapter's other-version counts — shared with the neighbour prefetch. */
@@ -173,10 +180,8 @@ export function otherVersionsQuery(translationId: string, book: string, chapter:
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
   return {
     queryKey: ["notes", "other-versions", translationId, book, chapter],
-    queryFn: () =>
-      api<{ verse: number; count: number }[]>(`/api/notes/other-versions?${params}`).catch(
-        () => [],
-      ),
+    // A failed count shows no badges this time; the next visit asks again
+    queryFn: () => api<{ verse: number; count: number }[]>(`/api/notes/other-versions?${params}`),
   };
 }
 
@@ -202,7 +207,7 @@ export function useNoteActions() {
   const allKey = ["notes", "all"];
 
   function put(note: Note) {
-    qc.setQueryData<Note[]>(allKey, (n = []) =>
+    updateList<Note>(qc, allKey, (n) =>
       n.some((x) => x.id === note.id)
         ? n.map((x) => (x.id === note.id ? { ...note, tags: note.tags ?? x.tags } : x))
         : [note, ...n],
@@ -247,8 +252,8 @@ export function useNoteActions() {
   async function remove(id: string) {
     const removed = qc.getQueryData<Note[]>(allKey)?.find((x) => x.id === id);
     const deleted = await removeWithUndo({
-      hide: () => qc.setQueryData<Note[]>(allKey, (n = []) => n.filter((x) => x.id !== id)),
-      unhide: () => removed && qc.setQueryData<Note[]>(allKey, (n = []) => [removed, ...n]),
+      hide: () => updateList<Note>(qc, allKey, (n) => n.filter((x) => x.id !== id)),
+      unhide: () => removed && updateList<Note>(qc, allKey, (n) => [removed, ...n]),
       remove: () => api(`/api/notes/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
       message: i18n.t("toast.noteDeleted"),

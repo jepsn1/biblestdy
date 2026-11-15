@@ -2,28 +2,30 @@ import type { Anchor, Chapter, Highlight, HighlightColor } from "@biblestdy/shar
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
-import { api } from "~/lib/query";
+import { api, updateList } from "~/lib/query";
 import { anchorQuote } from "./copy-attribution";
 import { useQuoteBackfill } from "./quote-backfill";
 
 /** All the user's highlights (palette search). Writes only touch chapter
- * caches, so it refetches each time it's enabled (palette opened). */
+ * caches, so it refetches each time it's enabled (palette opened). A failed
+ * load finds nothing this time and is tried again on the next open. */
 export function useAllHighlightsQuery(enabled: boolean) {
   const { data: highlights = [] } = useQuery({
     queryKey: ["highlights", "all"],
-    queryFn: () => api<Highlight[]>("/api/highlights").catch(() => []),
+    queryFn: () => api<Highlight[]>("/api/highlights"),
     enabled,
     staleTime: 0,
   });
   return highlights;
 }
 
-/** One chapter's highlights — shared with the neighbour prefetch. */
+/** One chapter's highlights — shared with the neighbour prefetch. A failed
+ * load stays an error (never "no highlights"): the reader says so. */
 export function highlightsQuery(translationId: string, book: string, chapter: number) {
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
   return {
     queryKey: ["highlights", translationId, book, chapter],
-    queryFn: () => api<Highlight[]>(`/api/highlights?${params}`).catch(() => []),
+    queryFn: () => api<Highlight[]>(`/api/highlights?${params}`),
   };
 }
 
@@ -31,18 +33,19 @@ export function highlightsQuery(translationId: string, book: string, chapter: nu
  * With the loaded `text`, new highlights carry their marked words (`quote`)
  * and older ones without get them backfilled.
  * Failed writes surface a toast with Retry; removal offers Undo (#64 — the
- * API soft-deletes, `restore` brings the row back). */
+ * API soft-deletes, `restore` brings the row back). A failed load is
+ * `failed` (MarksLoadError says so), `retry` loads again. */
 export function useHighlights(translationId: string, book: string, chapter: number, text?: Chapter) {
   const qc = useQueryClient();
   const query = highlightsQuery(translationId, book, chapter);
   const key = query.queryKey;
 
-  const { data: highlights = [], isFetched } = useQuery(query);
+  const { data: highlights = [], isFetched, isError, refetch } = useQuery(query);
   useQuoteBackfill("highlights", highlights, text, key);
 
   /** Put a (re)created highlight into the cache, replacing any same-id copy. */
   function put(h: Highlight) {
-    qc.setQueryData<Highlight[]>(key, (list = []) => [...list.filter((x) => x.id !== h.id), h]);
+    updateList<Highlight>(qc, key, (list) => [...list.filter((x) => x.id !== h.id), h]);
   }
 
   async function add(anchor: Anchor, color: HighlightColor) {
@@ -68,7 +71,7 @@ export function useHighlights(translationId: string, book: string, chapter: numb
   async function remove(id: string) {
     const removed = qc.getQueryData<Highlight[]>(key)?.find((x) => x.id === id);
     await removeWithUndo({
-      hide: () => qc.setQueryData<Highlight[]>(key, (h = []) => h.filter((x) => x.id !== id)),
+      hide: () => updateList<Highlight>(qc, key, (h) => h.filter((x) => x.id !== id)),
       unhide: () => removed && put(removed),
       remove: () => api(`/api/highlights/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
@@ -80,7 +83,7 @@ export function useHighlights(translationId: string, book: string, chapter: numb
   /** New colour, same span. Optimistic; a failed save restores the old one. */
   async function recolor(id: string, color: HighlightColor) {
     const before = qc.getQueryData<Highlight[]>(key);
-    qc.setQueryData<Highlight[]>(key, (h = []) => h.map((x) => (x.id === id ? { ...x, color } : x)));
+    updateList<Highlight>(qc, key, (h) => h.map((x) => (x.id === id ? { ...x, color } : x)));
     try {
       await api<Highlight>(`/api/highlights/${id}`, {
         method: "PATCH",
@@ -92,5 +95,5 @@ export function useHighlights(translationId: string, book: string, chapter: numb
     }
   }
 
-  return { highlights, loaded: isFetched, add, remove, restore, recolor };
+  return { highlights, loaded: isFetched, failed: isError, retry: refetch, add, remove, restore, recolor };
 }

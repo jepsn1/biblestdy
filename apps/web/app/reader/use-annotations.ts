@@ -2,48 +2,50 @@ import type { Anchor, Annotation, AnnotationMark, Chapter } from "@biblestdy/sha
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
-import { api } from "~/lib/query";
+import { api, updateList } from "~/lib/query";
 import { anchorQuote } from "./copy-attribution";
 import { useQuoteBackfill } from "./quote-backfill";
 
 /** All the user's annotations (palette search). Writes only touch chapter
- * caches, so it refetches each time it's enabled (palette opened). */
+ * caches, so it refetches each time it's enabled (palette opened). A failed
+ * load finds nothing this time and is tried again on the next open. */
 export function useAllAnnotationsQuery(enabled: boolean) {
   const { data: annotations = [] } = useQuery({
     queryKey: ["annotations", "all"],
-    queryFn: () => api<Annotation[]>("/api/annotations").catch(() => []),
+    queryFn: () => api<Annotation[]>("/api/annotations"),
     enabled,
     staleTime: 0,
   });
   return annotations;
 }
 
-/** One chapter's annotations — shared with the neighbour prefetch. */
+/** One chapter's annotations — shared with the neighbour prefetch. A failed
+ * load stays an error (never "no annotations"): the reader says so. */
 export function annotationsQuery(translationId: string, book: string, chapter: number) {
   const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
   return {
     queryKey: ["annotations", translationId, book, chapter],
-    queryFn: () => api<Annotation[]>(`/api/annotations?${params}`).catch(() => []),
+    queryFn: () => api<Annotation[]>(`/api/annotations?${params}`),
   };
 }
 
 /** Loads + mutates the current chapter's inline annotations for the signed-in
  * user. Failed writes surface a toast with Retry; removal offers Undo (#64).
  * With the loaded `text`, new annotations carry their marked words (`quote`)
- * and older ones without get them backfilled. */
+ * and older ones without get them backfilled. A failed load is `failed`,
+ * `retry` loads again. */
 export function useAnnotations(translationId: string, book: string, chapter: number, text?: Chapter) {
   const qc = useQueryClient();
   const query = annotationsQuery(translationId, book, chapter);
   const key = query.queryKey;
 
-  const { data: annotations = [], isFetched } = useQuery(query);
+  const { data: annotations = [], isFetched, isError, refetch } = useQuery(query);
   useQuoteBackfill("annotations", annotations, text, key);
 
   const replace = (updated: Annotation) =>
-    qc.setQueryData<Annotation[]>(key, (n = []) => n.map((x) => (x.id === updated.id ? updated : x)));
+    updateList<Annotation>(qc, key, (n) => n.map((x) => (x.id === updated.id ? updated : x)));
   /** Put a (re)created annotation into the cache, replacing any same-id copy. */
-  const put = (a: Annotation) =>
-    qc.setQueryData<Annotation[]>(key, (n = []) => [...n.filter((x) => x.id !== a.id), a]);
+  const put = (a: Annotation) => updateList<Annotation>(qc, key, (n) => [...n.filter((x) => x.id !== a.id), a]);
 
   /** body null = a plain pen mark in `mark` style. */
   async function add(anchor: Anchor, body: string | null, mark?: AnnotationMark) {
@@ -82,7 +84,7 @@ export function useAnnotations(translationId: string, book: string, chapter: num
   async function remove(id: string) {
     const removed = qc.getQueryData<Annotation[]>(key)?.find((x) => x.id === id);
     await removeWithUndo({
-      hide: () => qc.setQueryData<Annotation[]>(key, (n = []) => n.filter((x) => x.id !== id)),
+      hide: () => updateList<Annotation>(qc, key, (n) => n.filter((x) => x.id !== id)),
       unhide: () => removed && put(removed),
       remove: () => api(`/api/annotations/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
@@ -98,7 +100,7 @@ export function useAnnotations(translationId: string, book: string, chapter: num
     id: string,
     patch: { offsetX?: number; offsetY?: number; width?: number; mark?: AnnotationMark | null },
   ) {
-    qc.setQueryData<Annotation[]>(key, (n = []) =>
+    updateList<Annotation>(qc, key, (n) =>
       n.map((x) => (x.id === id ? { ...x, ...patch } : x)),
     );
     await api(`/api/annotations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }).catch(
@@ -106,5 +108,5 @@ export function useAnnotations(translationId: string, book: string, chapter: num
     );
   }
 
-  return { annotations, loaded: isFetched, add, edit, remove, place, restore };
+  return { annotations, loaded: isFetched, failed: isError, retry: refetch, add, edit, remove, place, restore };
 }

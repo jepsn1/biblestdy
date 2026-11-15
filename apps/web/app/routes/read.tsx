@@ -9,7 +9,7 @@ import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
 import { loadTextSize, useViewportFits } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
-import { requireAuth } from "~/lib/require-auth";
+import { pathOf, requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { BooksSidebar } from "../reader/books-sidebar";
@@ -35,9 +35,9 @@ const PREFETCH_DELAY_MS = 800;
 
 let translationsCache: Translation[] | undefined;
 
-async function loadTranslations(): Promise<Translation[]> {
+async function loadTranslations(next: string): Promise<Translation[]> {
   if (translationsCache) return translationsCache;
-  const res = await fetchScripture("/api/translations");
+  const res = await fetchScripture("/api/translations", next);
   if (!res.ok) throw data(i18n.t("error.translationsLoad"), { status: 502 });
   const translations = (await res.json()) as Translation[];
   if (translations.length === 0) throw data(i18n.t("error.noTranslations"), { status: 502 });
@@ -77,20 +77,22 @@ export function shouldRevalidate({
   return defaultShouldRevalidate;
 }
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const session = await requireAuth({ cached: true });
+export async function clientLoader({ params, request }: Route.ClientLoaderArgs) {
+  // Signed out (or the session expired): sign in, then back to this page
+  const next = pathOf(request.url);
+  const session = await requireAuth({ cached: true, next });
   // Account reader style (#45) applies before render; null = never chosen
   // Text size (#61) too — same single preferences fetch
   // …and the reader's own highlight colour names
   const [translations, readerStyle] = await Promise.all([
-    loadTranslations(),
+    loadTranslations(next),
     loadReaderStyle(session.user.id),
     loadTextSize(session.user.id),
     loadHighlightLabels(session.user.id),
   ]);
   const translation = pickTranslation(translations);
   // From memory when already read or prefetched (chapter-cache.ts)
-  const chapter = await loadChapter(translation.id, { book: params.book, chapter: Number(params.chapter) });
+  const chapter = await loadChapter(translation.id, { book: params.book, chapter: Number(params.chapter) }, next);
   // Only a chapter that actually loaded may become the launch page; the
   // reader adds the page (?p) once it knows it (#52)
   const here = `${chapter.book}/${chapter.chapter}`;

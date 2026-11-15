@@ -23,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { appChannel, appVersion } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
+import { clearAllDrafts } from "~/lib/note-drafts";
 import { setUiLanguage } from "~/lib/i18n";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
@@ -425,6 +426,7 @@ function DeleteAccountDialog({
     }
     // The server already revoked every session; clear the cookie client-side
     await authClient.signOut().catch(() => undefined);
+    clearAllDrafts();
     void navigate("/signin");
   }
 

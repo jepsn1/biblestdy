@@ -12,7 +12,7 @@ import {
 } from "~/components/ui/resizable";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Check, Maximize2, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Hint } from "~/components/hint";
@@ -20,11 +20,14 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import { AddReference } from "../notes/add-reference";
 import { anchorLabel } from "../notes/note-list";
 import { notifyError } from "~/lib/notify";
+import { setOpenNote } from "~/lib/next-path";
+import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
 import { noteEditor } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
+import { LoadError } from "./marks-load-error";
 import { useNoteTags } from "./use-tags";
 import { useLazyModule } from "~/lib/lazy-module";
 
@@ -34,13 +37,18 @@ export const NOTE_OPENER = "data-note-opener";
 
 /** The note's tags (issue #10) — own component so the query mounts per note. */
 function NoteTagsRow({ noteId }: { noteId: string }) {
-  const { tags, add, remove } = useNoteTags(noteId);
+  const { t } = useTranslation();
+  const { tags, failed, retry, add, remove } = useNoteTags(noteId);
   return (
-    <TagChips
-      tags={tags}
-      onAdd={(name) => void add(name)}
-      onRemove={(t) => void remove(t)}
-    />
+    <>
+      <TagChips
+        tags={tags}
+        onAdd={(name) => void add(name)}
+        onRemove={(t) => void remove(t)}
+      />
+      {/* A failed load isn't "no topics" */}
+      <LoadError failed={failed} message={t("note.topicsLoadFailed")} onRetry={retry} className="mt-1" />
+    </>
   );
 }
 
@@ -280,11 +288,25 @@ export function NotePanel({
   mobile?: boolean;
 }) {
   const { t } = useTranslation();
-  const [title, setTitle] = useState(note.title);
-  const [body, setBody] = useState(note.body);
-  // Which note `body` holds: on a note switch it's the old one's for a render
-  const [bodyFor, setBodyFor] = useState(note.id);
-  const liveBody = bodyFor === note.id ? body : note.body;
+  // Unsaved text kept on this device (a failed save, an expired session's
+  // trip to sign-in): reopening the note puts it back and autosave sends it
+  const opened = useMemo(() => {
+    const draft = readDraft(note.id);
+    const decision = draftDecision(note, draft);
+    return decision === "restore" && draft
+      ? { title: draft.title, body: draft.body, decision }
+      : { title: note.title, body: note.body, decision, draft };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opened note
+  }, [note.id]);
+  const [title, setTitle] = useState(opened.title);
+  const [body, setBody] = useState(opened.body);
+  // Whose text the buffers hold: switching notes, they keep the previous
+  // note's for a render — never to be saved or kept as this one's
+  const [owner, setOwner] = useState(note.id);
+  // The editor is uncontrolled: a restore it didn't start with remounts it
+  const [editorKey, setEditorKey] = useState(0);
+  // The live buffer — never the previous note's text during a switch
+  const liveBody = owner === note.id ? body : opened.body;
   const dark = useIsDark();
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -405,6 +427,9 @@ export function NotePanel({
       await onEdit(id, patch);
       setFailed(false);
       toast.dismiss(`note-save-${id}`);
+      // Saved what's on screen: nothing left to keep
+      const l = latest.current;
+      if (l.id === id && l.title === patch.title && l.body === patch.body) clearDraft(id);
     } catch (e) {
       setFailed(true);
       notifyError(e, {
@@ -425,16 +450,50 @@ export function NotePanel({
 
   // Fresh note -> fresh buffers (the editor itself resets via key={note.id})
   useEffect(() => {
-    setTitle(note.title);
-    setBody(note.body);
-    setBodyFor(note.id);
+    setTitle(opened.title);
+    setBody(opened.body);
+    setOwner(note.id);
     setFailed(false);
+    if (opened.decision === "restore") toast(t("note.draftRestored"), { id: `note-draft-${note.id}` });
+    // Changed on another device since: offer, never overwrite
+    const draft = opened.decision === "offer" ? opened.draft : null;
+    if (draft) {
+      toast(t("note.draftFound"), {
+        id: `note-draft-${note.id}`,
+        duration: 15_000,
+        action: {
+          label: t("note.draftRestore"),
+          onClick: () => {
+            setTitle(draft.title);
+            setBody(draft.body);
+            setEditorKey((k) => k + 1);
+          },
+        },
+        // Only an explicit Discard drops it: ignored, it's offered next time
+        cancel: { label: t("note.draftDiscard"), onClick: () => clearDraft(note.id) },
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
+  // While unsaved, keep the text on this device too (sync, every change):
+  // a full-page trip to sign-in runs no unmount flush
+  useEffect(() => {
+    if (shouldKeepDraft(owner, note, { title, body })) writeDraft(note.id, { title, body, base: note.updatedAt });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- note's fields listed
+  }, [owner, note.id, note.title, note.body, note.updatedAt, title, body]);
+
+  // An open reader note comes back after sign-in (?note=); the Notes page
+  // has it in its path already
+  useEffect(() => {
+    if (page) return;
+    setOpenNote(note.id);
+    return () => setOpenNote(null);
+  }, [note.id, page]);
+
   // Debounced autosave
   useEffect(() => {
-    if (title === note.title && body === note.body) return;
+    if (!shouldKeepDraft(owner, note, { title, body })) return;
     const timer = setTimeout(() => void save(note.id, { title, body }), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -520,7 +579,7 @@ export function NotePanel({
       {(() => {
         const editor = Editor && handedOver ? (
           <Editor.NoteEditor
-            key={note.id}
+            key={`${note.id}:${editorKey}`}
             editorRef={editorRef}
             // The live buffer: whatever was typed in the stand-in comes along
             markdown={liveBody}
@@ -589,6 +648,7 @@ export function NotePanel({
           className="text-muted-foreground hover:text-destructive max-sm:h-10"
           onClick={() => {
             latest.current.dirty = false; // nothing to flush into a deleted note
+            clearDraft(note.id);
             onRemove(note.id);
             onClose();
           }}
