@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { Annotation, AnnotationMark } from "@biblestdy/shared";
 import { FileText } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { cn, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
@@ -9,6 +9,7 @@ import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-color
 import { lineRuns, placeRailChips, type Rect } from "./ink-geometry";
 import type { NoteMark } from "./use-notes";
 import { NOTE_OPENER } from "./note-panel";
+import { sameData, useMeasure, useSameData } from "./use-measure";
 import {
   bracketPath,
   leaderPath,
@@ -129,6 +130,36 @@ function penPath(
 /** Where the margin rail is (region-local px), measured with the anchors. */
 type RailEdges = { leftEnd: number; rightStart: number; width: number; rem: number };
 
+/** An anchor's words in one text column (content-box space, every page). */
+type Seg = {
+  col: number;
+  page: number;
+  box: Box;
+  lines: number;
+  runs: Rect[];
+  /** The column's edges; `side` picks the bracket's. */
+  edgeL: number;
+  edgeR: number;
+  side: "left" | "right";
+  firstLineY: number;
+};
+
+/** Everything the ink layer reads from the DOM, page-independent: margin
+ * items project it onto the current page without re-measuring. */
+type InkGeometry = {
+  region: { w: number; h: number };
+  rail: RailEdges;
+  leftLaneRight: number;
+  rightLaneLeft: number;
+  /** Content box left / top in the region (page 0's position). */
+  contentLeft: number;
+  boxTop: number;
+  stride: number;
+  /** Segments per annotation id, and per note mark ("note:<noteId>:<id>"). */
+  anchors: Record<string, Seg[]>;
+};
+const NO_REGION = { w: 0, h: 0 };
+
 /** Box center, width and arrow endpoints, honoring an active drag/resize,
  * then stored placement, then the default lane. */
 function geom(
@@ -215,8 +246,8 @@ function geom(
 }
 
 export function AnnotationMarks({
-  annotations,
-  noteMarks,
+  annotations: annotationsProp,
+  noteMarks: noteMarksProp,
   regionRef,
   contentRef,
   flowRef,
@@ -255,8 +286,9 @@ export function AnnotationMarks({
   /** Mid page-turn: margin boxes, arrows and chips (fixed to the pane) wait
    * out the slide, then fade in at the new page's spots. */
   marginHidden?: boolean;
-  /** Anything that moves the words without resizing the boxes (page,
-   * stride, column count, text size) — re-measure on change. */
+  /** Anything that moves the words without resizing the boxes (stride,
+   * column count, text size) — re-measure on change. A page turn only
+   * re-projects the margin items: the words themselves don't move. */
   layoutKey: string;
   activeAnnotationId: string | null;
   /** Mark of the reference selected in the note panel — while set, every
@@ -280,23 +312,16 @@ export function AnnotationMarks({
   ) => void;
   onOpenNote: (id: string) => void;
 }) {
+  // Rebuilt by the caller on every render: only new data re-measures
+  const annotations = useSameData(annotationsProp);
+  const noteMarks = useSameData(noteMarksProp);
   const spotlight =
     selectedMarkId != null &&
     noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
-  const [placements, setPlacements] = useState<Placement[]>([]);
-  const [pens, setPens] = useState<Pen[]>([]);
   const { t } = useTranslation();
   // Current sheet scale (mobile, #13) — pointer deltas are visual px, box
   // coordinates local px
   const scaleRef = useRef(1);
-  const [noteTabs, setNoteTabs] = useState<NoteTab[]>([]);
-  const [rail, setRail] = useState<RailEdges | null>(null);
-  // Spotlight: only the selected reference's mark is drawn
-  const shownPlacements = spotlight ? [] : placements;
-  const shownTabs = spotlight
-    ? noteTabs.filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
-    : noteTabs;
-  const [regionSize, setRegionSize] = useState({ w: 0, h: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [resize, setResize] = useState<{ id: string; cx: number; w: number } | null>(null);
@@ -329,20 +354,22 @@ export function AnnotationMarks({
     return () => document.removeEventListener("pointerdown", onDown);
   }, [editingId]);
 
-  useLayoutEffect(() => {
-    const region = regionRef.current;
-    const content = contentRef.current;
-    const flowEl = flowRef.current;
-    if (!region || !content || !flowEl) return;
-
-    const measure = () => {
+  // Measured: page-independent (every page's words, content-box space) —
+  // a page turn only re-projects (below), it never re-reads the layout
+  const [geo, setGeo] = useState<InkGeometry | null>(null);
+  useMeasure(
+    () => [regionRef.current, contentRef.current, flowRef.current],
+    () => {
+      const region = regionRef.current;
+      const content = contentRef.current;
+      const flowEl = flowRef.current;
+      if (!region || !content || !flowEl) return;
       const regionRect = region.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
       // Mobile sheet-scale (#13): rects are visual (scaled) px, overlays paint
       // in the region's local space — divide the scale out everywhere.
       const s = regionRect.width / region.offsetWidth || 1;
       scaleRef.current = s;
-      setRegionSize({ w: region.offsetWidth, h: region.offsetHeight });
       const leftLaneRight = (contentRect.left - regionRect.left) / s - GAP;
       const rightLaneLeft = (contentRect.right - regionRect.left) / s + GAP;
       const contentLeft = (contentRect.left - regionRect.left) / s;
@@ -353,12 +380,6 @@ export function AnnotationMarks({
       const textLeft = contentLeft + (parseFloat(pad.paddingLeft) || 0);
       const textRight = contentRight - (parseFloat(pad.paddingRight) || 0);
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      setRail({
-        leftEnd: textLeft - RAIL_GAP,
-        rightStart: textRight + RAIL_GAP,
-        width: region.offsetWidth,
-        rem,
-      });
 
       // Words are measured relative to the flow (its page-turn transform
       // cancels out), in the content box's space: x of page n's words runs
@@ -366,8 +387,6 @@ export function AnnotationMarks({
       const flowRect = flowEl.getBoundingClientRect();
       const ox = flowEl.offsetLeft;
       const oy = flowEl.offsetTop;
-      const toRegionX = contentLeft - page * stride;
-      const boxTop = (contentRect.top - regionRect.top) / s;
       const pageOfX = (x: number) => (stride > 0 ? Math.max(0, Math.floor((x - ox) / stride)) : 0);
       /** Content-box center of page n — which column a span sits in. */
       const midOf = (n: number) => n * stride + content.offsetWidth / 2;
@@ -380,7 +399,6 @@ export function AnnotationMarks({
       const colStride = (flowEl.clientWidth - colGap * (colCount - 1)) / colCount + colGap;
       const colOfX = (x: number) => (colStride > 0 ? Math.max(0, Math.floor((x - ox + 1) / colStride)) : 0);
       const colWidth = colStride - colGap;
-      type Seg = { col: number; page: number; box: Box; lines: number; runs: Rect[]; edgeL: number; edgeR: number; mid: number; firstLineY: number };
       /** An anchor's words, one segment per page (box + line count),
        * measured straight from the [data-verse][data-word] spans —
        * independent of any wrapper, so overlapping/nested marks all measure
@@ -418,50 +436,77 @@ export function AnnotationMarks({
           // Distinct (line, column) clusters — same top in the other column of
           // the spread is a different line
           const runs = lineRuns(rects);
+          const page = pageOfX(left);
           return {
             col: n,
-            page: pageOfX(left),
+            page,
             box: { x: left, y: top, w: right - left, h: bottom - top },
             lines: runs.length,
             runs,
             edgeL: ox + n * colStride,
             edgeR: ox + n * colStride + colWidth,
-            mid: (left + right) / 2,
+            side: compact || (left + right) / 2 < midOf(page) ? "left" : "right",
             firstLineY: (runs[0].top + runs[0].bottom) / 2,
           };
         });
       };
-      const sideOf = (seg: Seg): "left" | "right" => (compact || seg.mid < midOf(seg.page) ? "left" : "right");
-      /** The current page's segments (one per column), in pane (region) coordinates. */
-      const onPage = (segs: Seg[]) =>
-        segs
-          .filter((g) => g.page === page)
-          .map((seg) => ({
-            col: seg.col,
-            copy: seg !== segs[0],
-            box: { ...seg.box, x: seg.box.x + toRegionX, y: seg.box.y + boxTop },
-            edge: (sideOf(seg) === "left" ? seg.edgeL : seg.edgeR) + toRegionX,
-            lines: seg.lines,
-            side: sideOf(seg),
-            firstLineY: seg.firstLineY + boxTop,
-          }));
-      const penList: Pen[] = [];
+      const anchors: InkGeometry["anchors"] = {};
+      for (const annotation of annotations) anchors[annotation.id] = measureAnchor(annotation);
+      for (const mark of noteMarks) anchors[`note:${mark.noteId}:${mark.id}`] = measureAnchor(mark);
+      const next: InkGeometry = {
+        region: { w: region.offsetWidth, h: region.offsetHeight },
+        rail: { leftEnd: textLeft - RAIL_GAP, rightStart: textRight + RAIL_GAP, width: region.offsetWidth, rem },
+        leftLaneRight,
+        rightLaneLeft,
+        contentLeft,
+        boxTop: (contentRect.top - regionRect.top) / s,
+        stride,
+        anchors,
+      };
+      setGeo((prev) => (sameData(prev, next) ? prev : next));
+    },
+    [annotations, noteMarks, layoutKey, regionRef, contentRef, flowRef, scopeRef, compact, stride],
+  );
+  const regionSize = geo?.region ?? NO_REGION;
+  const rail = geo?.rail ?? null;
 
-      const items: Placement[] = [];
-      for (const annotation of annotations) {
-        const segs = measureAnchor(annotation);
-        for (const g of segs)
-          penList.push({ key: `${annotation.id}:${g.col}`, markId: annotation.id, isNote: false, box: g.box, lines: g.lines, runs: g.runs, edge: sideOf(g) === "left" ? g.edgeL : g.edgeR, colSide: sideOf(g), shape: shapeOf(annotation.mark, g.lines) });
-        // A plain pen mark (no text) has no margin box
-        if (!annotation.text) continue;
-        for (const m of onPage(segs)) {
+  // The current page's margin items (pane space) and every page's pens
+  const { placements, noteTabs, pens } = useMemo(() => {
+    const items: Placement[] = [];
+    const tabs: NoteTab[] = [];
+    const penList: Pen[] = [];
+    if (!geo) return { placements: items, noteTabs: tabs, pens: penList };
+    const { leftLaneRight, rightLaneLeft, boxTop } = geo;
+    const regionW = geo.region.w;
+    const toRegionX = geo.contentLeft - page * geo.stride;
+    const edgeOf = (seg: Seg) => (seg.side === "left" ? seg.edgeL : seg.edgeR);
+    /** The current page's segments (one per column), in pane (region) coordinates. */
+    const onPage = (segs: Seg[]) =>
+      segs
+        .filter((g) => g.page === page)
+        .map((seg) => ({
+          col: seg.col,
+          copy: seg !== segs[0],
+          box: { ...seg.box, x: seg.box.x + toRegionX, y: seg.box.y + boxTop },
+          edge: edgeOf(seg) + toRegionX,
+          lines: seg.lines,
+          side: seg.side,
+          firstLineY: seg.firstLineY + boxTop,
+        }));
+
+    for (const annotation of annotations) {
+      const segs = geo.anchors[annotation.id] ?? [];
+      for (const g of segs)
+        penList.push({ key: `${annotation.id}:${g.col}`, markId: annotation.id, isNote: false, box: g.box, lines: g.lines, runs: g.runs, edge: edgeOf(g), colSide: g.side, shape: shapeOf(annotation.mark, g.lines) });
+      // A plain pen mark (no text) has no margin box
+      if (!annotation.text) continue;
+      for (const m of onPage(segs)) {
         // One scroll column (phones): brackets always on the left gutter
         const side = m.side;
         // Narrow pane (#51): lanes shrink — the default box narrows to the
         // room left (wrapping its text), stays on screen and clear of the
         // edge page-flip strips
-        const room =
-          side === "left" ? leftLaneRight - EDGE : region.offsetWidth - EDGE - rightLaneLeft;
+        const room = side === "left" ? leftLaneRight - EDGE : regionW - EDGE - rightLaneLeft;
         const laneWidth = Math.min(LANE, Math.max(MIN_W, room));
         items.push({
           annotation,
@@ -477,40 +522,28 @@ export function AnnotationMarks({
             x:
               side === "left"
                 ? Math.max(EDGE + laneWidth / 2, leftLaneRight - laneWidth / 2)
-                : Math.min(region.offsetWidth - EDGE - laneWidth / 2, rightLaneLeft + laneWidth / 2),
+                : Math.min(regionW - EDGE - laneWidth / 2, rightLaneLeft + laneWidth / 2),
             y: m.box.y + m.box.h / 2,
           },
         });
-        }
       }
-      setPlacements(items);
+    }
 
-      const tabs: NoteTab[] = [];
-      for (const mark of noteMarks) {
-        const segs = measureAnchor(mark);
-        const markId = `note:${mark.noteId}:${mark.id}`;
-        for (const g of segs)
-          penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: sideOf(g) === "left" ? g.edgeL : g.edgeR, colSide: sideOf(g), shape: shapeOf(null, g.lines) });
-        const m = onPage(segs)[0];
-        if (m) tabs.push({ mark, box: m.box, lines: m.lines, colSide: m.side, firstLineY: m.firstLineY });
-      }
-      setNoteTabs(tabs);
-      setPens(penList);
-    };
-
-    measure();
-    // Once webfonts land (Literata swaps in -> lines rewrap under fixed-size boxes)
-    let alive = true;
-    void document.fonts?.ready.then(() => alive && measure());
-    const ro = new ResizeObserver(measure);
-    ro.observe(region);
-    ro.observe(content);
-    ro.observe(flowEl);
-    return () => {
-      alive = false;
-      ro.disconnect();
-    };
-  }, [annotations, noteMarks, layoutKey, regionRef, contentRef, flowRef, scopeRef, compact, page, stride]);
+    for (const mark of noteMarks) {
+      const markId = `note:${mark.noteId}:${mark.id}`;
+      const segs = geo.anchors[markId] ?? [];
+      for (const g of segs)
+        penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: edgeOf(g), colSide: g.side, shape: shapeOf(null, g.lines) });
+      const m = onPage(segs)[0];
+      if (m) tabs.push({ mark, box: m.box, lines: m.lines, colSide: m.side, firstLineY: m.firstLineY });
+    }
+    return { placements: items, noteTabs: tabs, pens: penList };
+  }, [geo, annotations, noteMarks, page]);
+  // Spotlight: only the selected reference's mark is drawn
+  const shownPlacements = spotlight ? [] : placements;
+  const shownTabs = spotlight
+    ? noteTabs.filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
+    : noteTabs;
 
   // Note chips in the margin rail (#63): beside the mark's first line,
   // stacked clear of each other and of default-placed annotation boxes.
