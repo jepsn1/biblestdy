@@ -13,6 +13,7 @@ import { pathOf, requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
+import { zoomLockHandle } from "~/lib/viewport";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
@@ -53,6 +54,9 @@ function pickTranslation(translations: Translation[]): Translation {
     typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
   return translations.find((t) => t.id === preferred) ?? translations[0];
 }
+
+// App route: zoom locked (#61) — the in-app Text size setting enlarges text
+export const handle = zoomLockHandle;
 
 export function meta({ params, error }: Route.MetaArgs) {
   if (error) {

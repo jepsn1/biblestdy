@@ -86,7 +86,6 @@ export default function SignIn() {
               aria-label={t("signin.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="text-control"
             />
             <Button type="submit" className="mt-3 w-full" disabled={busy}>
               {busy ? t("signin.sending") : t("signin.send")}
@@ -134,13 +133,13 @@ export default function SignIn() {
           type="button"
           aria-label={t("nav.language")}
           onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
-          className="mx-auto mt-6 block text-center text-meta text-muted-foreground hover:text-foreground"
+          className="mx-auto mt-6 block min-h-6 px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
         >
           {i18next.language.startsWith("da") ? "English" : "Dansk"}
         </button>
         <Link
           to="/privacy"
-          className="mx-auto mt-1 block text-center text-meta text-muted-foreground hover:text-foreground"
+          className="mx-auto mt-1 block min-h-6 w-fit px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
         >
           {t("settings.privacy")}
         </Link>

@@ -23,6 +23,7 @@ import { describeRouteError } from "~/lib/route-error";
 import { cn } from "~/lib/utils";
 import { ErrorScreen } from "~/components/error-page";
 import { Button, buttonVariants } from "~/components/ui/button";
+import { useViewportZoom, VIEWPORT_OPEN, VIEWPORT_PREPAINT } from "~/lib/viewport";
 import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
@@ -39,14 +40,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang={i18n.language} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        {/* Zoom disabled: the reader is a fixed folio that manages its own scale;
-            pinch-zoom fights page-flip + annotation drag gestures. Product
-            decision (2026-11-13 UI review): the lock stays — enlarging text
-            is the in-app Text size setting instead (#61, WCAG 1.4.4) */}
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-        />
+        {/* Zoom on by default (public pages are websites — M10); app routes
+            (reader, notes) and the native shell lock it — see lib/viewport */}
+        <meta name="viewport" content={VIEWPORT_OPEN} />
+        <script dangerouslySetInnerHTML={{ __html: VIEWPORT_PREPAINT }} />
         <meta name="theme-color" content="#211d18" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
@@ -80,6 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useEffect(() => watchSystemTheme(), []);
+  useViewportZoom();
   return (
     <QueryClientProvider client={queryClient}>
       {/* Tooltips (#62): ~300ms, then instant while moving between buttons */}
@@ -102,6 +100,8 @@ export default function App() {
  * never the router's raw text. Dev builds still show the stack. */
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const { t } = useTranslation();
+  // Public pages zoom, app routes stay locked (#128) — on the error page too
+  useViewportZoom();
   const revalidator = useRevalidator();
   const online = typeof navigator === "undefined" || navigator.onLine;
   const { kind, detail } = describeRouteError(error, online);
