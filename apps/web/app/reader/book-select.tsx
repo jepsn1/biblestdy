@@ -40,7 +40,7 @@ export function BookSelect({
         size="sm"
         aria-label={t("nav.book")}
         style={style}
-        className="-ml-1 min-w-0 border-transparent pl-1.5 font-serif font-medium hover:bg-muted dark:bg-transparent dark:hover:bg-muted"
+        className="-ml-1 min-w-0 justify-start border-transparent pl-1.5 font-serif font-medium hover:bg-muted dark:bg-transparent dark:hover:bg-muted"
       >
         <span className="min-w-0 truncate">{nameOf(book)}</span>
       </SelectTrigger>

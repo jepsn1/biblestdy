@@ -83,8 +83,9 @@ export function ReaderNav({
           ref={nameRef}
           book={book}
           // Wrapped: the name stays on the first line (never alone below the
-          // sidebar button) and fills what that line leaves
-          style={wraps ? { flex: "1 1 0", minWidth: `${NAME_MIN_EM}em` } : undefined}
+          // sidebar button) and fills what that line leaves — its minimum
+          // plus the chooser's chevron and padding
+          style={wraps ? { flex: "1 1 0", minWidth: `calc(${NAME_MIN_EM}em + 2.25rem)` } : undefined}
         />
 
         {!chapterInStrip && (
