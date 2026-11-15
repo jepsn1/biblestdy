@@ -79,7 +79,7 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
   return (
     <nav ref={navRef} aria-label={t("reader.stripLabel", { book: nameOf(book) })} className={cn("h-7 font-sans", className)}>
       {/* The row's keys (the links stay plain links in a nav) */}
-      <div role="presentation" onKeyDown={onKeyDown} className="flex h-full items-center gap-1 overflow-hidden">
+      <div role="presentation" onKeyDown={onKeyDown} className="flex h-full items-center gap-1">
       {slots > 0 &&
         view.items.map((item) => {
           if (item.kind === "gap") {
