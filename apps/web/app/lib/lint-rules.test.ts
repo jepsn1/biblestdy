@@ -25,6 +25,15 @@ describe("design-system lint rules", () => {
     expect(await hits("bg-primary/15 border-primary/50 ring-foreground/40 text-meta")).toEqual([]);
   });
 
+  it("flags a faded focus ring, not the opaque token (WCAG 1.4.11)", async () => {
+    expect(await hits("focus-visible:ring-ring/50 outline-ring/50 ring-sidebar-ring/40")).toEqual([
+      "biblestdy/no-faded-ring",
+      "biblestdy/no-faded-ring",
+      "biblestdy/no-faded-ring",
+    ]);
+    expect(await hits("focus-visible:ring-3 focus-visible:ring-ring outline-ring ring-destructive/20")).toEqual([]);
+  });
+
   it("flags arbitrary rem/px sizes and Tailwind size names, not scale tokens or em", async () => {
     expect(await hits("text-[0.65rem] md:text-[13px] text-sm sm:text-2xl")).toEqual([
       "biblestdy/type-scale",

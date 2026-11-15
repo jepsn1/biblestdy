@@ -12,6 +12,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Shared keyboard focus ring (#61) for raw inputs/textareas/buttons that
- * drop the browser outline — same look as the shadcn Input/Button. */
+ * drop the browser outline — same look as the shadcn Input/Button. 2px of
+ * the opaque --ring token: ≥ 3:1 on every theme (WCAG 1.4.11). */
 export const focusRing =
-  "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

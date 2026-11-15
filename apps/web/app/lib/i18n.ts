@@ -22,6 +22,20 @@ void i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false }, // React escapes already
 });
 
+/** <html lang> follows the UI language (WCAG 3.1.1): the prerendered shell
+ * says "en", and hydration doesn't patch it — screen readers would voice a
+ * Danish UI in English. */
+export function syncDocumentLang(
+  lng: string | undefined,
+  doc: { documentElement: { lang: string } } | undefined = typeof document !== "undefined"
+    ? document
+    : undefined,
+) {
+  if (lng && doc && doc.documentElement.lang !== lng) doc.documentElement.lang = lng;
+}
+syncDocumentLang(i18n.language);
+i18n.on("languageChanged", (lng) => syncDocumentLang(lng));
+
 export function setUiLanguage(lng: UiLanguage) {
   localStorage.setItem("uiLanguage", lng);
   void i18n.changeLanguage(lng);

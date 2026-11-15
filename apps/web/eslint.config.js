@@ -1,5 +1,5 @@
-// Web lint (#68): a11y (jsx-a11y), hooks rules, and two design-system rules
-// that keep text legible — see `biblestdy/*` below.
+// Web lint (#68): a11y (jsx-a11y), hooks rules, and design-system rules that
+// keep text and focus legible — see `biblestdy/*` below.
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
@@ -10,6 +10,10 @@ const TEXT_TOKENS =
 
 /** `text-primary/80`, `hover:text-muted-foreground/60` — opacity drops the token below AA. */
 const FADED_TEXT = new RegExp(`(?<![\\w-])(?:[\\w-]+:)*text-(?:${TEXT_TOKENS})/\\d+`, "g");
+
+/** `ring-ring/50`, `outline-ring/50` — the focus ring token is opaque and
+ * ≥ 3:1 on its page (WCAG 1.4.11); an alpha modifier fades it below that. */
+const FADED_RING = /(?<![\w-])(?:[\w-]+:)*(?:ring|outline|border)-(?:ring|sidebar-ring)\/\d+/g;
 
 /**
  * Type scale (#66): sizes come from the app.css tokens only. Arbitrary rem/px
@@ -44,6 +48,11 @@ const biblestdy = {
           `\`${m}\` fades a text colour token below AA contrast — use the token itself, or add a token that passes.`,
       ),
     ),
+    "no-faded-ring": classNameRule("Ban opacity modifiers on the focus ring token", (text) =>
+      [...text.matchAll(FADED_RING)].map(
+        ([m]) => `\`${m}\` fades the focus ring below 3:1 — use the ring token itself.`,
+      ),
+    ),
     "type-scale": classNameRule("Font sizes come from the type scale tokens", (text) =>
       [...text.matchAll(ARBITRARY_SIZE), ...text.matchAll(TAILWIND_SIZE)].map(
         ([m]) =>
@@ -75,12 +84,13 @@ export default tseslint.config(
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       "biblestdy/no-faded-text": "error",
+      "biblestdy/no-faded-ring": "error",
       "biblestdy/type-scale": "error",
     },
   },
   {
     // The contrast test asserts on example class strings.
     files: ["app/**/*.test.ts"],
-    rules: { "biblestdy/no-faded-text": "off", "biblestdy/type-scale": "off" },
+    rules: { "biblestdy/no-faded-text": "off", "biblestdy/no-faded-ring": "off", "biblestdy/type-scale": "off" },
   },
 );

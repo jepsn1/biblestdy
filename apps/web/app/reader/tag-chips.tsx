@@ -79,7 +79,7 @@ export function TagChips({
           placeholder={t("tags.placeholder")}
           aria-label={t("tags.inputLabel")}
           className={cn(
-            "w-20 rounded-full border border-border bg-background px-2 py-0.5 text-meta focus:border-primary/50",
+            "w-20 rounded-full border border-border bg-background px-2 py-0.5 text-meta focus:border-ring",
             focusRing,
           )}
         />

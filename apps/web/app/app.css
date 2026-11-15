@@ -147,7 +147,9 @@
   --destructive: oklch(0.55 0.19 25);
   --border: oklch(0.3 0.02 80 / 15%);
   --input: oklch(0.3 0.02 80 / 18%);
-  --ring: oklch(0.5 0.11 80 / 50%);
+  /* Focus ring: opaque, ≥ 3:1 on --background and --sidebar (WCAG 1.4.11).
+     Used at full strength — never with an alpha modifier */
+  --ring: oklch(0.5 0.11 80);
   --chart-1: oklch(0.5 0.11 80);
   --chart-2: oklch(0.5 0.02 82);
   --chart-3: oklch(0.62 0.02 82);
@@ -156,12 +158,14 @@
   --radius: 0.5rem;
   --sidebar: oklch(0.945 0.012 90);
   --sidebar-foreground: oklch(0.26 0.02 80);
-  --sidebar-primary: oklch(0.5 0.11 80);
+  /* A shade under --primary: the current book is gold text on the
+     --sidebar-accent row, ≥ 4.5:1 there too */
+  --sidebar-primary: oklch(0.47 0.11 80);
   --sidebar-primary-foreground: oklch(0.98 0.008 90);
   --sidebar-accent: oklch(0.9 0.02 88);
   --sidebar-accent-foreground: oklch(0.26 0.02 80);
   --sidebar-border: oklch(0.3 0.02 80 / 15%);
-  --sidebar-ring: oklch(0.5 0.11 80 / 50%);
+  --sidebar-ring: oklch(0.5 0.11 80);
 
   /* Pen: dark ballpoint blue, pressed into the page */
   --note-ink: oklch(0.38 0.2 264);
@@ -195,10 +199,11 @@
   --passage: oklch(0.75 0.1 40); /* warm terracotta rubric, 8.3:1 */
   --accent: oklch(0.28 0.02 85);
   --accent-foreground: oklch(0.92 0.015 90);
-  --destructive: oklch(0.62 0.19 25);
+  /* 4.5:1 as text on its own 20% wash (destructive buttons) */
+  --destructive: oklch(0.65 0.19 25);
   --border: oklch(0.95 0.02 90 / 12%);
   --input: oklch(0.95 0.02 90 / 14%);
-  --ring: oklch(0.83 0.1 85 / 50%);
+  --ring: oklch(0.83 0.1 85);
   --chart-1: oklch(0.83 0.1 85);
   --chart-2: oklch(0.64 0.02 85);
   --chart-3: oklch(0.5 0.02 85);
@@ -211,7 +216,7 @@
   --sidebar-accent: oklch(0.28 0.02 85);
   --sidebar-accent-foreground: oklch(0.92 0.015 90);
   --sidebar-border: oklch(0.95 0.02 90 / 12%);
-  --sidebar-ring: oklch(0.83 0.1 85 / 50%);
+  --sidebar-ring: oklch(0.83 0.1 85);
 
   /* Pen ink lightened for the dark page (additive screen physics) */
   --note-ink: oklch(0.74 0.16 255);
@@ -254,7 +259,7 @@
   --destructive: oklch(0.577 0.245 27);
   --border: oklch(0.92 0.004 286);
   --input: oklch(0.92 0.004 286);
-  --ring: oklch(0.705 0.015 286);
+  --ring: oklch(0.55 0.014 286);
   --chart-1: oklch(0.21 0.006 286);
   --chart-2: oklch(0.55 0.014 286);
   --chart-3: oklch(0.65 0.012 286);
@@ -267,7 +272,7 @@
   --sidebar-accent: oklch(0.967 0.001 286);
   --sidebar-accent-foreground: oklch(0.21 0.006 286);
   --sidebar-border: oklch(0.92 0.004 286);
-  --sidebar-ring: oklch(0.705 0.015 286);
+  --sidebar-ring: oklch(0.55 0.014 286);
   --selection: oklch(0.62 0.12 255 / 22%);
 }
 
@@ -291,7 +296,7 @@
   --destructive: oklch(0.704 0.191 22);
   --border: oklch(0.27 0.006 286);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.55 0.014 286);
+  --ring: oklch(0.705 0.015 286);
   --chart-1: oklch(0.92 0.004 286);
   --chart-2: oklch(0.705 0.015 286);
   --chart-3: oklch(0.55 0.014 286);
@@ -304,18 +309,31 @@
   --sidebar-accent: oklch(0.27 0.006 286);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.27 0.006 286);
-  --sidebar-ring: oklch(0.55 0.014 286);
+  --sidebar-ring: oklch(0.705 0.015 286);
   --selection: oklch(0.7 0.11 250 / 30%);
 }
 
-/* Reference spotlight: other ink is hidden (in-component); the words dim just
-   enough that the active view state is legible, the selected span stays lit */
-[data-spotlight] :is(h1, sup, [data-word], [data-section]) {
-  opacity: 0.55;
-  transition: opacity 200ms ease;
+/* Reference spotlight: other ink is hidden (in-component); the words step
+   down to the muted ink so the active view state is legible, the selected
+   span stays in full ink. A colour, not opacity: muted ink still reads at
+   4.5:1 (an opacity dim took body text to ~3.5:1) */
+[data-spotlight] :is(h1, [data-word], [data-section]) {
+  color: var(--muted-foreground);
+  transition: color 200ms ease;
 }
 [data-spotlight] [data-spotlit] [data-word] {
-  opacity: 1;
+  color: var(--foreground);
+}
+
+/* Toasts (Sonner): our focus ring, not its own 40% black (WCAG 1.4.11);
+   off the filled Undo button by a hair of the toast's own colour */
+[data-sonner-toaster] [data-sonner-toast][data-styled]:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled] :is([data-button], [data-close-button]):focus-visible {
+  box-shadow:
+    0 0 0 2px var(--popover),
+    0 0 0 4px var(--ring);
 }
 
 /* MDXEditor (full-note panel): sit on our tokens instead of its defaults */
@@ -334,6 +352,21 @@
 .mdxeditor [role="toolbar"] :is(button, [role="combobox"]):is(:hover, [data-state="on"], [aria-checked="true"]) {
   color: var(--foreground);
 }
+/* Placeholders on our muted ink (#123) — the editor's own greys fail AA on
+   our pages. Its classes are CSS-module hashed: matched by their stable stem */
+.mdxeditor [class*="_placeholder_"] {
+  color: var(--muted-foreground);
+}
+/* The toolbar's block-type select: on the page, outlined (it was a white
+   box, even on Charcoal), its "Block type" placeholder in our muted ink —
+   not a 1.9:1 grey of its own */
+.mdxeditor [class*="_selectTrigger_"] {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.mdxeditor [class*="_selectTrigger_"][data-placeholder] > span:first-child {
+  color: var(--muted-foreground);
+}
 /* Popups (block-type select, link dialog) portal outside the panel's stacking
    context — without a z-index they end up behind the editor content */
 .mdxeditor-popup-container {
@@ -342,7 +375,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   html {
     @apply font-sans;

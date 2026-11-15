@@ -110,7 +110,9 @@ const EMPTY_RECT = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, 
 export function ChapterText({
   chapter,
   translationAbbreviation,
+  language,
   heading,
+  headingLevel = 1,
   bookName,
   highlights,
   annotations,
@@ -143,8 +145,14 @@ export function ChapterText({
   chapter: Chapter;
   /** Shown in the reference line of copied text, e.g. "(NIV)". */
   translationAbbreviation: string;
+  /** The translation's language (BCP 47): Scripture is voiced in it, not in
+   * the UI's (WCAG 3.1.2) — Danish text under the English UI. */
+  language: string;
   /** "John 3": the chapter's (screen-reader) heading. */
   heading: string;
+  /** 2 for a chapter running on under another (the spill): one h1 a page.
+   * Its passage headings step down with it. */
+  headingLevel?: 1 | 2;
   /** "John": printed above a book's first chapter, like a Bible. */
   bookName: string;
   highlights: Highlight[];
@@ -205,6 +213,8 @@ export function ChapterText({
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
+  const Heading = headingLevel === 1 ? "h1" : "h2";
+  const Section = headingLevel === 1 ? "h2" : "h3";
   const { data: session } = authClient.useSession();
   const defaultColor: HighlightColor = isColor(session?.user.defaultHighlightColor)
     ? session.user.defaultHighlightColor
@@ -854,23 +864,28 @@ export function ChapterText({
         if (!menuRef.current) setTouchSel(null);
       }}
       data-spotlight={spotlight || undefined}
+      lang={language}
       // Native selection is off for everyone — selections are word-snapped by
       // construction (drag wash on desktop, tap + handles on phones)
       className="select-none [-webkit-touch-callout:none]"
     >
       {/* Like a printed Bible: the book's name only where the book begins,
           and each chapter opens on its big numeral (below) — the top bar
-          names the place. Screen readers still get "John 3" as the h1. */}
+          names the place. Screen readers still get "John 3" as the heading —
+          UI words, voiced in the UI's language (as is the hint below). */}
       {chapter.chapter === 1 && opening ? (
-        <h1 className="mb-6 font-serif text-display font-medium tracking-tight">
+        <Heading lang={i18n.language} className="mb-6 font-serif text-display font-medium tracking-tight">
           <span aria-hidden>{bookName}</span>
           <span className="sr-only">{heading}</span>
-        </h1>
+        </Heading>
       ) : (
-        <h1 className="sr-only">{heading}</h1>
+        <Heading lang={i18n.language} className="sr-only">
+          {heading}
+        </Heading>
       )}
       {firstUseHint && (
         <p
+          lang={i18n.language}
           data-first-use-hint
           className="mb-6 flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 font-sans text-control text-muted-foreground [break-inside:avoid]"
         >
@@ -894,7 +909,7 @@ export function ChapterText({
           {block.headings.map((title) => (
             // Editorial heading: a book-style subhead in the section colour,
             // setting passages apart; never anchorable
-            <h2
+            <Section
               key={title}
               data-section
               className={`mb-[0.4em] font-serif text-[0.95em] leading-snug font-semibold text-passage [break-after:avoid] ${
@@ -902,7 +917,7 @@ export function ChapterText({
               }`}
             >
               {title}
-            </h2>
+            </Section>
           ))}
           {bi === 0 && block.kind === "poetry" && opening?.showNumber && (
             // Poetry (a psalm) is set line by line — nothing to wrap around
@@ -980,6 +995,7 @@ export function ChapterText({
                         key={m.id}
                         type="button"
                         data-ink-box
+                        lang={i18n.language}
                         {...{ [NOTE_OPENER]: m.id }}
                         aria-label={t("reader.openNoteNamed", { title: m.title || t("note.untitled") })}
                         title={m.title || t("note.untitled")}
@@ -1046,7 +1062,7 @@ export function ChapterText({
                   })}
                   {lines?.map((a) =>
                     editingId === a.id ? (
-                      <span key={a.id} className="my-1 block indent-0">
+                      <span key={a.id} lang={i18n.language} className="my-1 block indent-0">
                         <AnnotationEditor
                           text={a.text ?? ""}
                           mark={a.mark ?? (a.startVerse !== a.endVerse ? "bracket" : "circle")}
@@ -1283,7 +1299,7 @@ export function ChapterText({
           placeholder={t("menu.annotationPlaceholder")}
           aria-label={t("menu.annotationPlaceholder")}
           className={cn(
-            "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-phone focus:border-primary/50 sm:text-control",
+            "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-phone focus:border-ring sm:text-control",
             focusRing,
           )}
         />

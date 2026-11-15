@@ -560,6 +560,10 @@ const da: typeof en = {
     help: "Denne liste",
     or: "eller",
   },
+  /** Shared UI chrome (components/ui): the generic dialog/sheet close. */
+  common: {
+    close: "Luk",
+  },
   toast: {
     undo: "Fortryd",
     retry: "Prøv igen",
