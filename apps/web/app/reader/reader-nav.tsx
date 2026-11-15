@@ -2,11 +2,12 @@ import type { Translation } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
 import { MonitorDown, NotebookText, Share, SquarePlus } from "lucide-react";
 import { useRef } from "react";
+import { Link } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
-import { cn } from "~/lib/utils";
+import { cn, focusRing } from "~/lib/utils";
 import { AccountChip } from "./account-settings";
 import { PANEL_TOGGLE } from "./connections-panel";
 import { MoreSheet } from "./more-sheet";
@@ -65,6 +66,16 @@ export function ReaderNav({
           wraps ? "flex-wrap" : "flex-nowrap",
         )}
       >
+        {/* The wordmark (the sidebar's, before it went): whose site this is,
+            and home. Only where the row has room (rem: large text hides it first) */}
+        <Link
+          to="/"
+          aria-label={t("nav.home")}
+          className={cn("mr-1 hidden shrink-0 rounded-md select-none @4xl/nav:inline", focusRing)}
+        >
+          <span className="font-mono text-control font-semibold tracking-tight text-primary">biblestdy</span>
+        </Link>
+
         {/* The address — "Salmerne 23 ⌄" — and the one pointer route to any
             book and chapter (persona panel 2026-11-15). The name gives way
             first when the row is short; the chapter number never. */}

@@ -41,6 +41,7 @@ import type en from './en';
  */
 const da: typeof en = {
   nav: {
+    home: "biblestdy forside",
     shortcuts: "Tastaturgenveje",
     label: "Kapitelnavigation",
     search: "Søg",

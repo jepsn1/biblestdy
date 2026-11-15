@@ -1,6 +1,7 @@
 /** English UI strings (issue #12). Adding a locale = adding a sibling file. */
 export default {
   nav: {
+    home: "biblestdy home",
     shortcuts: "Keyboard shortcuts",
     label: "Chapter navigation",
     search: "Search",
