@@ -34,10 +34,11 @@ import { HighlightMarks } from "./highlight-marks";
 import { NOTE_OPENER, NotePanel } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
 import { preloadWhenIdle } from "~/lib/lazy-module";
-import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, type Span } from "./sheet-layout";
+import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, stripFits, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { MarksLoadError, useMarksLoad } from "./marks-load-error";
 import { PageFoot, type FootButton } from "./page-foot";
+import { ChapterStrip } from "./chapter-strip";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
@@ -100,6 +101,15 @@ function readHintDone() {
   }
 }
 
+/** Does the paged sheet carry the chapter strip (the top bar's chapter
+ * chooser steps aside)? Paged, and tall enough in rem (sheet-layout). */
+export function useChapterStrip() {
+  const tall = useViewportFits(stripFits, true, "height");
+  return !useScrollMode() && tall;
+}
+
+/** Phone layout, or large text the paged sheet can't hold: one scrolling
+ * column, no pages. */
 function useScrollMode() {
   const paged = useViewportFits(pagedFits);
   const [phone, setPhone] = useState(
@@ -308,6 +318,7 @@ export function PaginatedChapter({
     null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollMode = useScrollMode();
+  const strip = useChapterStrip();
   // Chapters run on (#flow). Where this one starts: after the verses the
   // page before already carried (a page turn), else at its first verse.
   // Phones scroll the whole chapter.
@@ -1386,6 +1397,15 @@ export function PaginatedChapter({
                   className="relative mx-auto flex h-full flex-col justify-center overflow-hidden px-6 pt-6 pb-6"
                   style={{ width: `${layout.contentWidth}rem` }}
                 >
+                  {/* Running head: the book's chapters, mirroring the foot
+                      (half the air: the chapter numeral brings its own) */}
+                  {strip && (
+                    <ChapterStrip
+                      book={chapter.book}
+                      chapter={chapter.chapter}
+                      className="-ml-2 mb-[calc(var(--spacing-sheet-air)/2)] shrink-0"
+                    />
+                  )}
                   <div
                     ref={contentRef}
                     id={CHAPTER_TEXT_ID}

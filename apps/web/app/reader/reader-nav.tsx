@@ -1,25 +1,18 @@
 import type { Translation } from "@biblestdy/shared";
-import { getBook } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
 import { MonitorDown, NotebookText, Share, SquarePlus } from "lucide-react";
 import { useRef } from "react";
-import { useNavigate } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
-import { useBookName } from "~/lib/book-name";
 import { useTextSize } from "~/lib/text-size";
 import { cn } from "~/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+import { SelectTrigger, SelectValue } from "~/components/ui/select";
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
+import { BookSelect } from "./book-select";
+import { ChapterSelect } from "./chapter-select";
 import { PANEL_TOGGLE } from "./connections-panel";
 import { MoreSheet } from "./more-sheet";
 import { NAME_MIN_EM, useNavWraps } from "./nav-fit";
@@ -36,6 +29,7 @@ export function ReaderNav({
   onToggleConnections,
   annotationBoxesOpen,
   onToggleAnnotationBoxes,
+  chapterInStrip = false,
 }: {
   book: string;
   chapter: number;
@@ -46,18 +40,16 @@ export function ReaderNav({
   onToggleConnections: () => void;
   annotationBoxesOpen: boolean;
   onToggleAnnotationBoxes: () => void;
+  /** The sheet's chapter strip shows (desktop, paged): no top-bar chapter chooser. */
+  chapterInStrip?: boolean;
 }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const pwa = usePwaInstall();
-  const nameOf = useBookName();
-  const current = getBook(book);
-  const chapterCount = current?.chapters ?? 1;
   // Large text (175%+): Notes, Search, More, Settings and the translation's
   // name drop their words, so the row holds (or wraps less)
   const iconOnly = useTextSize() >= 175;
   const rowRef = useRef<HTMLDivElement>(null);
-  const nameRef = useRef<HTMLSpanElement>(null);
+  const nameRef = useRef<HTMLButtonElement>(null);
   const wraps = useNavWraps(rowRef, nameRef);
 
   return (
@@ -84,43 +76,24 @@ export function ReaderNav({
 
         <div className="h-4 w-px shrink-0 bg-border" />
 
-        <span
+        {/* The address — Book · Chapter · Translation — each its own
+            chooser. Where the paged sheet shows the chapter strip, that is
+            the chapter part (no second chooser an inch away). */}
+        <BookSelect
           ref={nameRef}
-          className="min-w-0 truncate font-serif text-control font-medium"
+          book={book}
           // Wrapped: the name stays on the first line (never alone below the
           // sidebar button) and fills what that line leaves
           style={wraps ? { flex: "1 1 0", minWidth: `${NAME_MIN_EM}em` } : undefined}
-        >
-          {nameOf(book)}
-        </span>
+        />
 
-        <Select
-          value={String(chapter)}
-          onValueChange={(value) => navigate(`/read/${book}/${String(value)}`)}
-        >
-          <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="shrink-0 font-mono">
-            <SelectValue />
-          </SelectTrigger>
-          {/* Number grid (#62): Psalms' 150 chapters in a few rows, not a
-              150-row list; anchored below the trigger like every menu */}
-          <SelectContent
-            alignItemWithTrigger={false}
-            align="start"
-            className="w-auto"
-            listClassName="grid grid-cols-[repeat(6,2.5rem)] gap-0.5 p-1"
-          >
-            {Array.from({ length: chapterCount }, (_, i) => i + 1).map((c) => (
-              <SelectItem
-                key={c}
-                value={String(c)}
-                indicator={false}
-                className="h-9 justify-center px-0 font-mono tabular-nums data-selected:font-semibold data-selected:ring-2 data-selected:ring-primary data-selected:ring-inset"
-              >
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!chapterInStrip && (
+          <ChapterSelect book={book} chapter={chapter}>
+            <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="shrink-0 font-mono">
+              <SelectValue />
+            </SelectTrigger>
+          </ChapterSelect>
+        )}
 
         {/* Translation chooser (#11): marks live per translation — switching
             re-reads the chapter in the chosen version */}

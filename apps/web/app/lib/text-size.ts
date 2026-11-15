@@ -37,25 +37,30 @@ export function useTextSize(): TextSize {
   return useSyncExternalStore(subscribe, current, () => DEFAULT_TEXT_SIZE);
 }
 
-/** A layout decision on the window's width in rem (`test`), which shrinks
- * with a larger text size and with browser zoom alike. Holds only the
- * answer: a resize re-renders only when it flips. `fallback` until mounted
- * (no window on the server). `test` must be a stable (module-level) function. */
-export function useViewportFits(test: (viewportRem: number) => boolean, fallback = true): boolean {
+/** A layout decision on the window's width (or `height`) in rem (`test`),
+ * which shrinks with a larger text size and with browser zoom alike. Holds
+ * only the answer: a resize re-renders only when it flips. `fallback` until
+ * mounted (no window on the server). `test` must be a stable (module-level)
+ * function. */
+export function useViewportFits(
+  test: (viewportRem: number) => boolean,
+  fallback = true,
+  axis: "width" | "height" = "width",
+): boolean {
   const size = useTextSize();
-  const [fits, setFits] = useState(() => (typeof window === "undefined" ? fallback : test(viewportRem())));
+  const [fits, setFits] = useState(() => (typeof window === "undefined" ? fallback : test(viewportRem(axis))));
   useEffect(() => {
-    const measure = () => setFits(test(viewportRem()));
+    const measure = () => setFits(test(viewportRem(axis)));
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [size, test]);
+  }, [size, test, axis]);
   return fits;
 }
 
-function viewportRem(): number {
+function viewportRem(axis: "width" | "height"): number {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  return window.innerWidth / rem;
+  return (axis === "width" ? window.innerWidth : window.innerHeight) / rem;
 }
 
 /** Apply to <html> + mirror to localStorage (no server write). */
