@@ -11,14 +11,15 @@ function toastFail(e: unknown): null {
 }
 
 /** One note's tags + add/remove (issue #10). The connections panel is a view
- * over the same graph — its cache is dropped on every tag mutation. */
+ * over the same graph — its cache is dropped on every tag mutation. A failed
+ * load is `failed` (never "no topics"), `retry` loads again. */
 export function useNoteTags(noteId: string) {
   const qc = useQueryClient();
   const key = ["tags", "note", noteId];
 
-  const { data: tags = [] } = useQuery({
+  const { data: tags = [], isError, refetch } = useQuery({
     queryKey: key,
-    queryFn: () => api<Tag[]>(`/api/tags/note/${noteId}`).catch(() => []),
+    queryFn: () => api<Tag[]>(`/api/tags/note/${noteId}`),
   });
 
   function settle(updated: Tag[] | null) {
@@ -50,7 +51,7 @@ export function useNoteTags(noteId: string) {
     notifyUndo(i18n.t("toast.tagRemoved", { name: tag.name }), () => add(tag.name));
   }
 
-  return { tags, add, remove };
+  return { tags, failed: isError, retry: refetch, add, remove };
 }
 
 /** Tag/untag the current passage (chapter). The panel reads topics from the

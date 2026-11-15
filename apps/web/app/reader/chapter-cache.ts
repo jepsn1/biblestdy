@@ -38,9 +38,9 @@ function budgetLeft(now: number) {
 
 const keyOf = (translationId: string, ref: ChapterRef) => `${translationId}/${ref.book}/${ref.chapter}`;
 
-async function fetchChapter(translationId: string, ref: ChapterRef): Promise<Chapter> {
+async function fetchChapter(translationId: string, ref: ChapterRef, next?: string): Promise<Chapter> {
   fetchedAt.push(Date.now());
-  const res = await fetchScripture(`/api/passages/${translationId}/${ref.book}/${ref.chapter}`);
+  const res = await fetchScripture(`/api/passages/${translationId}/${ref.book}/${ref.chapter}`, next);
   if (res.status === 404 || res.status === 400) {
     throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
   }
@@ -53,13 +53,15 @@ async function fetchChapter(translationId: string, ref: ChapterRef): Promise<Cha
 }
 
 /** One chapter's text: from memory when already loaded or prefetched.
- * Throws the route errors the reader shows (unavailable, limit, load). */
-export function loadChapter(translationId: string, ref: ChapterRef): Promise<Chapter> {
+ * Throws the route errors the reader shows (unavailable, limit, load).
+ * `next`: where sign-in returns to if the session has expired (the page
+ * being opened; default the current one). */
+export function loadChapter(translationId: string, ref: ChapterRef, next?: string): Promise<Chapter> {
   const key = keyOf(translationId, ref);
   let entry = kept.get(key);
   if (entry) kept.delete(key); // re-insert: most recently used last
   else {
-    entry = fetchChapter(translationId, ref);
+    entry = fetchChapter(translationId, ref, next);
     const mine = entry;
     entry.then(
       (chapter) => {

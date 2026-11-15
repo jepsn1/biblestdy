@@ -44,6 +44,7 @@ const da: typeof en = {
     noMatch: "Ingen bøger passer",
   },
   reader: {
+    marksLoadFailed: "Dine fremhævninger og annoteringer kunne ikke hentes",
     verseLabel: "Vers {{n}}, markér: {{text}}",
     selectVerse: "Markér vers {{n}}",
     firstUseHint: "Markér ord for at fremhæve dem eller tilføje en note",
@@ -134,6 +135,11 @@ const da: typeof en = {
     cancel: "Annullér",
   },
   note: {
+    draftRestored: "Ikke-gemte ændringer er gendannet",
+    draftFound: "Der er ikke-gemte ændringer til noten på denne enhed",
+    draftRestore: "Gendan",
+    draftDiscard: "Kassér",
+    topicsLoadFailed: "Notens emner kunne ikke hentes",
     untitled: "Unavngivet note",
     titlePlaceholder: "Unavngivet note",
     titleLabel: "Notens titel",

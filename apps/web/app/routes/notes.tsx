@@ -17,7 +17,7 @@ import i18n from "~/lib/i18n";
 import { api } from "~/lib/query";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
-import { requireAuth } from "~/lib/require-auth";
+import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
 import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
 import { lastReadHref } from "../reader/chapter-nav";
@@ -30,10 +30,10 @@ export function meta() {
   return [{ title: `${i18n.t("notes.title")} — biblestdy` }];
 }
 
-export async function clientLoader() {
+export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   // The Notes page is for editing: fetch the editor chunk (M8) alongside
   noteEditor.preload();
-  const session = await requireAuth({ cached: true });
+  const session = await requireAuth({ cached: true, next: pathOf(request.url) });
   await Promise.all([loadReaderStyle(session.user.id), loadTextSize(session.user.id)]);
   return null;
 }

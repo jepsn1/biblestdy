@@ -1,19 +1,21 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { operator } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import i18n, { setUiLanguage } from "~/lib/i18n";
+import { nextFromSearch } from "~/lib/next-path";
 import { redirectIfAuthed } from "~/lib/require-auth";
+import type { Route } from "./+types/signin";
 
 export function meta() {
   return [{ title: i18n.t("signin.metaTitle") }];
 }
 
-export async function clientLoader() {
-  await redirectIfAuthed();
+export async function clientLoader({ request }: Route.ClientLoaderArgs) {
+  await redirectIfAuthed(nextFromSearch(new URL(request.url).search));
   return null;
 }
 
@@ -22,6 +24,10 @@ type Step = "email" | "code";
 export default function SignIn() {
   const { t, i18n: i18next } = useTranslation();
   const navigate = useNavigate();
+  // Where to go once signed in: the page that sent the reader here (an
+  // expired session, a deep link) — same-origin paths only
+  const [params] = useSearchParams();
+  const next = nextFromSearch(params.toString());
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -35,7 +41,7 @@ export default function SignIn() {
     // Send both: OTP code (typed here) and a magic link (clickable in email)
     const [otp] = await Promise.all([
       authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" }),
-      authClient.signIn.magicLink({ email, callbackURL: "/" }),
+      authClient.signIn.magicLink({ email, callbackURL: next }),
     ]);
     setBusy(false);
     if (otp.error) {
@@ -55,7 +61,7 @@ export default function SignIn() {
       setError(t("signin.codeError"));
       return;
     }
-    navigate("/");
+    navigate(next, { replace: true });
   }
 
   return (

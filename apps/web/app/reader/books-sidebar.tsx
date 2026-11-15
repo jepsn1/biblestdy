@@ -29,6 +29,7 @@ import {
   SidebarMenuItem,
 } from "~/components/ui/sidebar";
 import { authClient } from "~/lib/auth-client";
+import { clearAllDrafts } from "~/lib/note-drafts";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { notifyError } from "~/lib/notify";
 import { cn, focusRing } from "~/lib/utils";
@@ -160,7 +161,10 @@ function SessionFooter() {
               onClick={() =>
                 void authClient
                   .signOut()
-                  .then(() => navigate("/signin"))
+                  .then(() => {
+                    clearAllDrafts(); // unsaved note text stays with its owner
+                    return navigate("/signin");
+                  })
                   .catch((e: unknown) => notifyError(e, { message: t("toast.signOutFailed") }))
               }
             >

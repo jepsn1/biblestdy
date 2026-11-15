@@ -35,6 +35,7 @@ import { noteEditor } from "./note-editor-loader";
 import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
+import { MarksLoadError, useMarksLoad } from "./marks-load-error";
 import { PageFoot, type FootButton } from "./page-foot";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
@@ -205,7 +206,13 @@ export function PaginatedChapter({
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   // The reference selected in the note panel — only its mark stays drawn
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
-  const { highlights: allHighlights, loaded: highlightsLoaded, add: addHighlight, remove, recolor: recolorHighlight } = useHighlights(
+  const {
+    highlights: allHighlights,
+    loaded: highlightsLoaded,
+    add: addHighlight,
+    remove,
+    recolor: recolorHighlight,
+  } = useHighlights(
     chapter.translationId,
     chapter.book,
     chapter.chapter,
@@ -225,7 +232,18 @@ export function PaginatedChapter({
   };
   const annotationsApi = useAnnotations(chapter.translationId, chapter.book, chapter.chapter, chapter);
   const notesApi = useNotes(chapter.translationId, chapter.book, chapter.chapter);
-  const { notes: allNotes, loaded: allNotesLoaded } = useAllNotesQuery(true);
+  const { notes: allNotes, loaded: allNotesLoaded, failed: allNotesFailed } = useAllNotesQuery(true);
+  // A failed load is said (MarksLoadError), never shown as "no marks here"
+  // — this chapter's, or the run-on next chapter's
+  const { failed: marksFailed, retry: retryMarks } = useMarksLoad();
+  const focusText = useCallback(() => document.getElementById(CHAPTER_TEXT_ID), []);
+  /** Where the load-error line goes: laid over the sheet just under the
+   * running foot (`top`, px), so it takes no room from the columns — or, when
+   * it can't fit there in one go (large text in a narrow pane), in the flow
+   * above the foot (`inFlow`: the page re-lays out once, never covering the
+   * page-turn buttons or clipping Retry). Measured only while it shows. */
+  const [errorPlace, setErrorPlace] = useState<{ top: number; inFlow: boolean } | null>(null);
+  const errorGhostRef = useRef<HTMLParagraphElement>(null);
   // The selection being made — its wash is painted with the highlights
   const [selection, setSelection] = useState<Anchor | null>(null);
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
@@ -394,6 +412,28 @@ export function PaginatedChapter({
   const [pane, setPane] = useState({ width: 0, rem: 16 });
   // Text size (#61) changes the rem without resizing the pane: re-measure
   const textSize = useTextSize();
+  // The load-error line's place under the foot (paged sheet only)
+  useLayoutEffect(() => {
+    const box = contentBoxRef.current;
+    const region = regionRef.current;
+    const ghost = errorGhostRef.current;
+    if (!marksFailed || scrollMode || !box || !region || !ghost) return setErrorPlace(null);
+    const measure = () => {
+      const foot = box.querySelector(".chapter-foot");
+      if (!foot) return;
+      const top = foot.getBoundingClientRect().bottom - region.getBoundingClientRect().top;
+      const fits = ghost.offsetHeight <= region.clientHeight - top;
+      // Once in the flow, it stays there for this failure: no flip-flopping
+      setErrorPlace((prev) => ({ top, inFlow: Boolean(prev?.inFlow) || !fits }));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(ghost);
+    const foot = box.querySelector(".chapter-foot");
+    if (foot) observer.observe(foot);
+    return () => observer.disconnect();
+  }, [marksFailed, scrollMode, textSize]);
   useLayoutEffect(() => {
     const el = paneRef.current;
     if (!el || scrollMode) return;
@@ -458,7 +498,8 @@ export function PaginatedChapter({
   useEffect(() => {
     if (loaded && hasStudy && !hintDone) dismissHint();
   }, [loaded, hasStudy, hintDone]);
-  const firstUseHint = loaded && !hasStudy && !hintDone;
+  // Not while a load failed: "nothing yet" would be a guess
+  const firstUseHint = loaded && !hasStudy && !hintDone && !marksFailed && !allNotesFailed;
 
   async function addNote(anchor: Parameters<typeof notesApi.add>[0]) {
     const created = await notesApi.add(anchor);
@@ -1281,6 +1322,13 @@ export function PaginatedChapter({
           <ScrollArea ref={scrollRef} data-chapter-sheet className="h-full">
             <div ref={regionRef} className="relative isolate">
               <div ref={contentBoxRef} className="relative px-4 pt-8 pb-16">
+                {/* Phones: the foot is at the chapter's end — say it up top */}
+                <MarksLoadError
+                  failed={marksFailed}
+                  onRetry={retryMarks}
+                  focusAfter={focusText}
+                  className="mx-auto mb-4 max-w-[65ch]"
+                />
                 <div
                   ref={contentRef}
                   id={CHAPTER_TEXT_ID}
@@ -1381,6 +1429,15 @@ export function PaginatedChapter({
                       </div>
                     )}
                   </div>
+                  {/* No room under the foot: the error line joins the flow */}
+                  <div className="shrink-0">
+                    <MarksLoadError
+                      failed={marksFailed && errorPlace?.inFlow === true}
+                      onRetry={retryMarks}
+                      focusAfter={focusText}
+                      className="mt-2 text-center"
+                    />
+                  </div>
                   <PageFoot
                     label={t("reader.pagesNav")}
                     position={[shortRange, t("reader.pageOf", { page: page + 1, count: pageCount })]}
@@ -1393,6 +1450,24 @@ export function PaginatedChapter({
                   {wordInk}
                 </div>
                 {inkLayers}
+                {/* Just under the running foot, in its bottom margin, laid
+                    over the page: it never takes room from the columns (the
+                    page count and first verse stay put), and spans the pane
+                    between the gutters so it stays one line where it can */}
+                <div className="absolute inset-x-reader-gutter z-10" style={{ top: errorPlace?.top ?? 0 }}>
+                  {/* Its size, unseen: does it fit under the foot? */}
+                  <p ref={errorGhostRef} aria-hidden className="invisible absolute inset-x-0 top-0 min-h-6 text-center text-control text-balance">
+                    {t("reader.marksLoadFailed")}
+                    {"\u00a0· "}
+                    <span className="px-1 font-medium">{t("toast.retry")}</span>
+                  </p>
+                  <MarksLoadError
+                    failed={marksFailed && errorPlace?.inFlow === false}
+                    onRetry={retryMarks}
+                    focusAfter={focusText}
+                    className="text-center"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1439,6 +1514,8 @@ export function PaginatedChapter({
           {/* min = what the editor toolbar needs in one row */}
           <ResizablePanel id="note" defaultSize={`${noteSize}%`} minSize="35rem" maxSize="65%">
             <NotePanel
+              // One panel per note: no text carries over to the next
+              key={openNote.id}
               note={openNote}
               onEdit={notesApi.edit}
               onRemove={notesApi.remove}
@@ -1484,6 +1561,8 @@ export function PaginatedChapter({
             >
               {openNote && (
                 <NotePanel
+                  // One panel per note: no text carries over to the next
+                  key={openNote.id}
                   note={openNote}
                   onEdit={notesApi.edit}
                   onRemove={notesApi.remove}

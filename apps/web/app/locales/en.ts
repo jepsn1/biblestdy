@@ -42,6 +42,7 @@ export default {
     noMatch: "No books match",
   },
   reader: {
+    marksLoadFailed: "Couldn\u2019t load your highlights and margin notes",
     verseLabel: "Verse {{n}}, select: {{text}}",
     selectVerse: "Select verse {{n}}",
     firstUseHint: "Select words to highlight or add a note",
@@ -132,6 +133,11 @@ export default {
     cancel: "Cancel",
   },
   note: {
+    draftRestored: "Unsaved changes restored",
+    draftFound: "This device has unsaved changes to this note",
+    draftRestore: "Restore",
+    draftDiscard: "Discard",
+    topicsLoadFailed: "Couldn\u2019t load this note\u2019s topics",
     untitled: "Untitled note",
     titlePlaceholder: "Untitled note",
     titleLabel: "Note title",
