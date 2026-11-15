@@ -1463,7 +1463,7 @@ export function PaginatedChapter({
                     prev={prevButton}
                     next={nextButton}
                     phone={false}
-                    className="chapter-foot mt-1 shrink-0"
+                    className="chapter-foot mt-sheet-air shrink-0"
                   />
                   {wordInk}
                 </div>

@@ -24,6 +24,10 @@
      + a hair, mirrored right (sheet-layout GUTTER) */
   --spacing-reader-inset: 0.75rem;
   --spacing-reader-gutter: 3.75rem;
+  /* Air between the paged text block and what frames it (chapter strip
+     above, running foot below): room to write under the last line. Scales
+     with the window's height (a short screen keeps its lines), capped */
+  --spacing-sheet-air: clamp(1.25rem, 5dvh, 3rem);
   --text-*: initial;
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
