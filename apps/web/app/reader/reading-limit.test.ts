@@ -33,7 +33,7 @@ describe("readingLimitMessage", () => {
   it("explains a pace limit with the wait, in Danish", async () => {
     const t = await tFor("da");
     expect(readingLimitMessage(t, { reason: "pace", retryAfterSeconds: 1 })).toBe(
-      "Du bladrer hurtigere, end vi kan følge med. Prøv igen om 1 sekund.",
+      "Du bladrer hurtigere end vi kan følge med. Prøv igen om 1 sekund.",
     );
   });
 
