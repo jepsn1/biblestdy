@@ -1,6 +1,44 @@
 import type en from './en';
 
-/** Danish UI strings (issue #12) — same shape as en.ts, enforced by the type. */
+/*
+ * Danish UI strings (issue #12) — same shape as en.ts, enforced by the type.
+ *
+ * ORDLISTE (glossary) — use these words, and only these, for these things:
+ *
+ *   selection        markering / markér        – ONLY for selecting text
+ *                                                  ("Markér ord", "Fjern markeringen").
+ *   choose (options) vælg                      – picking an option, tool, colour, note.
+ *   highlight        fremhævning / fremhæv     – colour over words. Never "markering".
+ *   highlighter tool Overstregningspen         – the tool's name only (a real Danish
+ *                                                  word for the pen). Don't use
+ *                                                  "overstrege" as a verb: it means
+ *                                                  "cross out". Colours =
+ *                                                  "fremhævningsfarver".
+ *   annotation       annotering / annotér      – anything written or drawn with the
+ *                                                  pen beside the text (owner's choice;
+ *                                                  not "margennote", not "kantnote").
+ *   pen mark         pennestreg                – an annotation without text. Styles
+ *                                                  are nouns: Ramme, Understregning,
+ *                                                  Ring, Klamme.
+ *   note             note / noter              – the longer markdown notes.
+ *   topic            emne                      – (tags).
+ *   passage          skriftsted                – a Bible reference (not "reference").
+ *   translation      oversættelse              – never "version".
+ *   email            e-mail                    – never "mail"/"mailadresse".
+ *   reading style    stil (Papir / Enkel); theme = tema (Lys / Mørk / System).
+ *
+ * Style:
+ *   - Commas: Dansk Sprognævns anbefaling — no comma before a subordinate clause
+ *     ("det du lærer"), always a comma after one ("Står feltet tomt, beholder …")
+ *     and between main clauses ("Skriv din e-mail, så sender vi …"). Purpose
+ *     "så (at)" is subordinate: "knyttet til din konto så det følger dig".
+ *   - Quotes: Danish »…« (also around English text shown in the Danish UI).
+ *   - Ellipsis: "…" glued to the word ("Søg eller gå til…"). Dash: " — ".
+ *   - Imperatives with accent where Danish spells it: Markér, Kopiér, Redigér,
+ *     Installér, Annullér. Sentences start with a capital.
+ *   - Address the reader as "du"; the app never says "jeg".
+ *   - Danish references: "Joh 3,16", "Rom 8,28" (comma between chapter and verse).
+ */
 const da: typeof en = {
   nav: {
     shortcuts: "Tastaturgenveje",
@@ -19,15 +57,15 @@ const da: typeof en = {
     shown: "Vises",
     hidden: "Skjult",
     language: "Sprog",
-    install: "Installer app",
-    installIosTitle: "Installer p\u00e5 denne iPhone/iPad",
+    install: "Installér app",
+    installIosTitle: "Installér p\u00e5 denne iPhone/iPad",
     installIosStep1: "Tryk p\u00e5 Del-knappen i Safaris v\u00e6rkt\u00f8jslinje",
-    installIosStep2: "V\u00e6lg \u201cF\u00f8j til hjemmesk\u00e6rm\u201d",
-    installIosWhy: "biblestdy \u00e5bner i fuld sk\u00e6rm som en rigtig app \u2014 uden browserkrom.",
+    installIosStep2: "V\u00e6lg \u00bbF\u00f8j til hjemmesk\u00e6rm\u00ab",
+    installIosWhy: "biblestdy \u00e5bner i fuld sk\u00e6rm som en rigtig app \u2014 uden browserens knapper og adresselinje.",
     settingsHint: "Tema, tekststørrelse, sprog og din konto",
     jumpOpen: "Gå til skriftsted",
     jumpClose: "Luk",
-    jumpInvalid: "Ukendt skriftsted — prøv “Joh 3,16” eller “Rom 8”",
+    jumpInvalid: "Ukendt skriftsted — prøv »Joh 3,16« eller »Rom 8«",
     jumpSuggestions: "Bøger",
   },
   sidebar: {
@@ -69,49 +107,49 @@ const da: typeof en = {
     nextInto: "Næste: {{ref}}",
     pageOf: "Side {{page}} af {{count}}",
     announce: "{{ref}}, side {{page}} af {{count}}",
-    otherVersions_one: "{{count}} note i andre versioner",
-    otherVersions_other: "{{count}} noter i andre versioner",
+    otherVersions_one: "{{count}} note i andre oversættelser",
+    otherVersions_other: "{{count}} noter i andre oversættelser",
     publicDomain: "Fri af ophavsret",
   },
   tools: {
     label: "Studieværktøjer",
-    select: "Vælg",
-    selectHint: "vælg ord, og vælg så hvad der skal ske",
+    select: "Markér",
+    selectHint: "markér ord, og vælg så hvad der skal ske",
     highlight: "Overstregningspen",
-    highlightHint: "vælg ord for at markere dem",
+    highlightHint: "markér ord for at fremhæve dem",
     annotate: "Pen",
-    annotateHint: "vælg ord for at skrive en annotering",
+    annotateHint: "markér ord for at skrive en annotering",
     note: "Note",
-    noteHint: "vælg ord for at starte en note",
+    noteHint: "markér ord for at starte en note",
     erase: "Viskelæder",
-    eraseHint: "vælg en markering eller annotering for at fjerne den",
-    highlightStatus: "Overstregningspen ({{color}}): vælg ord for at markere",
-    annotateStatus: "Pen: vælg ord for at skrive en annotering",
-    markStatus: "Pen ({{style}}): vælg ord for at markere dem",
-    noteStatus: "Note: vælg ord for at starte en note",
-    eraseStatus: "Viskelæder: vælg en markering eller annotering for at fjerne den",
+    eraseHint: "vælg en fremhævning eller annotering for at fjerne den",
+    highlightStatus: "Overstregningspen ({{color}}): markér ord for at fremhæve dem",
+    annotateStatus: "Pen: markér ord for at skrive en annotering",
+    markStatus: "Pen ({{style}}): markér ord for at sætte en pennestreg",
+    noteStatus: "Note: markér ord for at starte en note",
+    eraseStatus: "Viskelæder: vælg en fremhævning eller annotering for at fjerne den",
     done: "Færdig",
   },
   marks: {
-    style: "Markering",
+    style: "Stregtype",
     contour: "Ramme",
-    underline: "Understreg",
-    circle: "Ring om",
+    underline: "Understregning",
+    circle: "Ring",
     bracket: "Klamme",
     removeText: "Fjern tekst",
     addText: "Tilføj tekst…",
-    label: "Pen-markering",
-    remove: "Fjern markering",
+    label: "Pennestreg",
+    remove: "Fjern pennestreg",
     text: "Med tekst",
   },
   menu: {
     highlight: "Fremhæv ({{color}})",
     annotate: "Annotér",
-    annotateHint: "En kort håndskreven krusedulle ved teksten",
-    createNote: "Opret ny note",
-    createNoteHint: "Et markdown-dokument, åbner editoren ved siden af",
-    noteLink: "Opret notelink…",
-    noteLinkHint: "Forankr også en eksisterende note til dette udsnit",
+    annotateHint: "En kort håndskrevet tanke i margenen",
+    createNote: "Ny note",
+    createNoteHint: "En længere note der åbner ved siden af teksten",
+    noteLink: "Knyt til en note…",
+    noteLinkHint: "Knyt en eksisterende note til dette skriftsted",
     copy: "Kopiér",
     copyHint: "Kopierer teksten med henvisning (også ⌘C / Ctrl+C)",
     annotationPlaceholder: "Din annotering…",
@@ -146,7 +184,7 @@ const da: typeof en = {
     bodyPlaceholder: "Skriv din note…",
     close: "Luk note",
     references: "Skriftsteder",
-    removeReference: "Fjern denne reference",
+    removeReference: "Fjern dette skriftsted",
     readPassage: "Læs dette skriftsted",
     deselect: "Fravælg",
     open: "Åbn note",
@@ -160,7 +198,7 @@ const da: typeof en = {
     escCloses: "Esc lukker",
     escCancel: "Esc annullerer",
     save: "Gem",
-    refUnknown: "Det skriftsted kender jeg ikke — prøv fx Rom 8,28",
+    refUnknown: "Ukendt skriftsted — prøv fx Rom 8,28",
     refNeedsChapter: "Tilføj et kapitel, fx Sl 23",
     refOneChapter: "Et skriftsted holder sig inden for ét kapitel — tilføj hvert kapitel for sig",
     refNoVerse: "{{ref}} findes ikke i denne oversættelse",
@@ -210,7 +248,7 @@ const da: typeof en = {
     sortBible: "Bibelens orden",
     noPassages: "Ingen skriftsteder endnu",
     emptyAll: "Du har ikke skrevet nogen noter endnu. Begynd her med Ny note, eller markér ord mens du læser.",
-    emptyEditor: "Dine noter bor her — for sig selv, eller knyttet til de skriftsteder, de handler om.",
+    emptyEditor: "Dine noter bor her — for sig selv eller knyttet til de skriftsteder de handler om.",
     missingTitle: "Noten findes ikke længere",
     missingBody: "Den kan være slettet, eller linket hører til en anden konto.",
     pickOne: "Vælg en note til venstre, eller begynd en ny.",
@@ -226,20 +264,20 @@ const da: typeof en = {
   signin: {
     metaTitle: "Log ind — biblestdy",
     title: "Log ind",
-    subtitle: "Velkommen. Skriv din mail, så sender vi dig en kode \u2014 ingen adgangskode.",
-    email: "Mail",
+    subtitle: "Velkommen. Skriv din e-mail, så sender vi dig en kode \u2014 ingen adgangskode.",
+    email: "E-mail",
     emailPlaceholder: "dig@eksempel.dk",
     send: "Send kode",
     sending: "Sender…",
     sendError: "Koden kunne ikke sendes — prøv igen.",
     codeTitle: "Indtast din kode",
     sentTo: "Sendt til",
-    typeCode: "Indtast koden, eller klik på linket i samme mail.",
+    typeCode: "Indtast koden, eller klik på linket i samme e-mail.",
     code: "Bekræftelseskode",
     verify: "Bekræft og log ind",
     verifying: "Bekræfter…",
-    codeError: "Koden passede ikke. Tjek den, eller brug linket i din mail.",
-    differentEmail: "← brug en anden mail",
+    codeError: "Koden passede ikke. Tjek den, eller brug linket i din e-mail.",
+    differentEmail: "← Brug en anden e-mail",
     operatedBy: "Drives af {{name}} · CVR {{cvr}}",
   },
   theme: {
@@ -258,21 +296,21 @@ const da: typeof en = {
     title: "Farvekode",
     showAll: "Vis alle",
     count: "{{shown}} af {{all}}",
-    showing: "{{colors}} fremhævet; andre farver tonet ned",
-    showingAll: "Viser alle markeringer",
-    focusOne: "Fremhæv; ton de andre farver ned",
-    fade: "Ton disse markeringer ned",
-    bringBack: "Fremhæv disse markeringer igen",
-    nameHint: "Fx blå = “Gud taler”. Står feltet tomt, beholder farven sit eget navn.",
+    showing: "{{colors}} vises tydeligt; andre farver er tonet ned",
+    showingAll: "Viser alle fremhævninger",
+    focusOne: "Vis tydeligt; ton de andre farver ned",
+    fade: "Ton disse fremhævninger ned",
+    bringBack: "Vis disse fremhævninger tydeligt igen",
+    nameHint: "Fx blå = »Gud taler«. Står feltet tomt, beholder farven sit eget navn.",
     nameFor: "Navn til {{color}}",
     saved: "Farvenavne gemt",
   },
   colorNames: {
     open: "Navngiv farver…",
-    setting: "Overstregningsfarver",
+    setting: "Fremhævningsfarver",
     edit: "Navngiv…",
     title: "Navngiv dine farver",
-    intro: "Giv en farve en betydning — fx blå for “Gud taler”. Navnet vises overalt, hvor farven gør.",
+    intro: "Giv en farve en betydning — fx blå for »Gud taler«. Navnet vises overalt hvor farven gør.",
     hint: "Højst {{max}} tegn. Lad et felt stå tomt for at bruge farvens eget navn.",
     save: "Gem",
     cancel: "Annullér",
@@ -289,13 +327,13 @@ const da: typeof en = {
     language: "Sprog",
     version: "Version",
     privacy: "Privatlivspolitik",
-    dangerZone: "Farezone",
+    dangerZone: "Slet konto",
     deleteAccount: "Slet konto…",
     deleteTitle: "Slet din konto?",
     deleteWarning:
       "Sletter din konto og alt i den — noter, fremhævninger, annoteringer, emner. Det kan ikke fortrydes.",
     deleteConfirmWord: "slet",
-    deleteTypeToConfirm: "Skriv “{{word}}” for at bekræfte",
+    deleteTypeToConfirm: "Skriv »{{word}}« for at bekræfte",
     deleteConfirm: "Slet min konto",
     deleteBusy: "Sletter…",
     deleteError: "Sletningen mislykkedes — prøv igen.",
@@ -304,40 +342,40 @@ const da: typeof en = {
   landing: {
     metaTitle: "biblestdy — et stille sted at studere Bibelen",
     metaDescription:
-      "Læs Skriften, markér det der taler til dig, og gem dine noter ved de tekster de hører til. Gratis, privat, på dansk og engelsk.",
+      "Læs Skriften, fremhæv det der taler til dig, og gem dine noter ved de tekster de hører til. Gratis, privat, på dansk og engelsk.",
     signIn: "Log ind",
     eyebrow: "Til dig der læser Bibelen",
     heroTitleA: "Skriften først.",
     heroTitleB: "Dine noter ved siden af.",
     heroBody:
-      "biblestdy er et stille sted at læse Bibelen, markere det du lægger mærke til, og gemme dine tanker ved de tekster de hører til \u2014 så du kan finde dem igen.",
+      "biblestdy er et stille sted at læse Bibelen, fremhæve det du lægger mærke til, og gemme dine tanker ved de tekster de hører til \u2014 så du kan finde dem igen.",
     ctaStart: "Begynd at læse",
     ctaHow: "Se hvordan det virker",
     ctaNote: "Gratis. Du logger ind med din e-mail \u2014 vi sender dig en kode. Ingen adgangskode, ingen reklamer, ingen sporing.",
     whyVerse:
-      "\u201cYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u201d",
-    whyVerseRef: "John 5:39\u201340 \u00b7 WEB",
+      "\u00bbYou search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me. Yet you will not come to me, that you may have life.\u00ab",
+    whyVerseRef: "Joh 5,39\u201340 \u00b7 WEB",
     whyBody1:
       "Målet er ikke at læse Bibelen for læsningens skyld, og heller ikke at samle noter. Skrifterne peger på Jesus Kristus \u2014 og i ham er livet.",
     whyBody2:
       "Derfor prøver biblestdy at holde sig i baggrunden. Teksten kommer først \u2014 med ro til at lytte, og et sted at gemme det du lærer.",
     howEyebrow: "Sådan læser du",
-    howTitle: "Markér som du ville gøre på papir",
+    howTitle: "Som med blyant og papir",
     howBody:
       "Vælg nogle ord, og bestem så hvor meget du vil skrive om dem — fra ingenting til en hel side.",
-    howHighlightTitle: "Markér med farve",
+    howHighlightTitle: "Fremhæv med farve",
     howHighlightBody:
-      "Træk en farve hen over de ord der fik dig til at stoppe op \u2014 som med en markeringspen. Seks farver, ingen tekst nødvendig.",
+      "Træk en farve hen over de ord der fik dig til at stoppe op \u2014 som med en overstregningspen. Seks farver, ingen tekst nødvendig.",
     howMarginTitle: "Skriv i margenen",
     howMarginBody:
       "Sæt ring om et ord eller en streg ved et par vers, og skriv en kort tanke ved siden af \u2014 som en blyant i din Bibel.",
     howNoteTitle: "Skriv en note",
     howNoteBody:
       "En hel note til det der kræver mere plads: en prædiken, et spørgsmål, et studie. Den ligger ved siden af teksten, ikke et andet sted.",
-    growEyebrow: "Det du lærer, bliver",
-    growTitle: "Intet du lærer går tabt",
+    growEyebrow: "Det du lærer, bliver hos dig",
+    growTitle: "Intet du lærer, går tabt",
     growBody:
-      "Tekster kaster lys over hinanden. Dine noter kan følge tråden på tværs af bøgerne \u2014 og finde dig igen, når du vender tilbage.",
+      "Tekster kaster lys over hinanden. Dine noter kan følge tråden på tværs af bøgerne \u2014 og finde dig igen når du vender tilbage.",
     growLinkTitle: "Én note, mange tekster",
     growLinkBody:
       "Knyt en note til alle de tekster den handler om. Åbn en af dem, og noten er der.",
@@ -348,15 +386,15 @@ const da: typeof en = {
     growReturnBody:
       "Vend tilbage til et kapitel, og dine noter venter, sammen med hvor de ellers peger hen.",
     readEyebrow: "Lavet til at læse i",
-    readTitle: "En side, som i din Bibel",
+    readTitle: "En side som i din Bibel",
     readBody:
-      "Hele kapitlet sat op som en trykt Bibel, så du læser teksten i sammenhæng i stedet for at bladre forbi enkelte vers.",
+      "Hele kapitlet sat op som en trykt Bibel så du læser teksten i sammenhæng i stedet for at bladre forbi enkelte vers.",
     readPagesTitle: "Vend siden",
     readPagesBody:
       "Kapitlerne er sat som sider du vender. Versnumre og oversætternes overskrifter står hvor du forventer dem, adskilt fra selve teksten.",
     readTranslationsTitle: "Oversættelser",
     readTranslationsBody:
-      "På dansk: Bibelen på hverdagsdansk, en letlæst oversættelse i nutidigt sprog. På engelsk: NIV, NKJV og World English Bible. Dine noter bliver hvor du skrev dem \u2014 skifter du oversættelse, er de vers du har skrevet om, stadig markeret.",
+      "På dansk: Bibelen på hverdagsdansk, en letlæst oversættelse i nutidigt sprog. På engelsk: NIV, NKJV og World English Bible. Dine noter bliver hvor du skrev dem \u2014 skifter du oversættelse, kan du stadig se de vers du har skrevet om.",
     readLookTitle: "Papir eller Enkel, lys eller mørk",
     readLookBody: "En varm trykt side eller en enkel moderne — om dagen eller om aftenen.",
     readSizeTitle: "Så stor tekst du har brug for",
@@ -364,9 +402,9 @@ const da: typeof en = {
     readDevicesTitle: "Computer, iPad og telefon",
     readDevicesBody:
       "Studér ved skrivebordet, læs i lænestolen. Læg den på hjemmeskærmen, så åbner den som en app.",
-    readKeysTitle: "Tastatur, hvis du vil",
+    readKeysTitle: "Tastatur hvis du vil",
     readKeysBody:
-      "Skriv et skriftsted som “rom 8,28” og kom direkte derhen. Genveje til dem der studerer meget.",
+      "Skriv et skriftsted som »rom 8,28« og kom direkte derhen. Genveje til dem der studerer meget.",
     promiseEyebrow: "Det holder vi fast i",
     promiseTitle: "Et par løfter",
     promiseInterpretTitle: "Skriften forbliver Skriften",
@@ -377,21 +415,21 @@ const da: typeof en = {
       "Dine noter er dine. Ingen sporing, ingen reklamer, og vi sælger aldrig dine data. Slet det hele når du vil.",
     promiseFreeTitle: "Gratis",
     promiseFreeBody:
-      "Læsning, markeringer, margennoter, noter og emner er gratis, og det bliver de ved med at være. Ingen reklamer.",
+      "Læsning, fremhævninger, annoteringer, noter og emner er gratis, og det bliver de ved med at være. Ingen reklamer.",
     faqTitle: "Spørgsmål",
     madeBy: "Lavet af Marcus",
     faq: {
       who: {
         q: "Hvem står bag biblestdy?",
-        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark \u2014 drevet gennem mit lille selskab MJK Holding ApS, så der er en ansvarlig bag. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
+        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark \u2014 drevet gennem mit lille selskab MJK Holding ApS så der er en ansvarlig bag. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
       },
       new: {
-        q: "Jeg er ny i Bibelen (eller har ikke læst i den siden konfirmationen). Er det her for mig?",
-        a: "Ja. Du behøver ikke vide noget på forhånd. Mange begynder med Markusevangeliet \u2014 det er kort, og det fortæller om Jesus fra begyndelsen. Læs et kapitel ad gangen, og markér det du lægger mærke til.",
+        q: "Ny i Bibelen? Er det her for mig?",
+        a: "Ja. Du behøver ikke vide noget på forhånd \u2014 heller ikke hvis du ikke har læst i Bibelen siden konfirmationen. Mange begynder med Markusevangeliet \u2014 det er kort, og det fortæller om Jesus fra begyndelsen. Læs et kapitel ad gangen, og fremhæv det du lægger mærke til.",
       },
       free: {
         q: "Koster det noget?",
-        a: "Nej. Læsning, markeringer, noter og emner er gratis, og det bliver de ved med at være. Ingen reklamer. biblestdy er bygget af én person i Danmark.",
+        a: "Nej. Læsning, fremhævninger, annoteringer, noter og emner er gratis, og det bliver de ved med at være. Ingen reklamer. biblestdy er bygget af én person i Danmark.",
       },
       translations: {
         q: "Hvilke bibeloversættelser kan jeg læse?",
@@ -399,15 +437,15 @@ const da: typeof en = {
       },
       private: {
         q: "Hvem kan se mine noter?",
-        a: "Kun dig. Vi gemmer din e-mail og det du selv skriver, knyttet til din konto, så det følger dig mellem enheder. Ingen andre kan læse det, og vi sælger eller deler aldrig data.",
+        a: "Kun dig. Vi gemmer din e-mail og det du selv skriver, knyttet til din konto så det følger dig mellem enheder. Ingen andre kan læse det, og vi sælger eller deler aldrig data.",
       },
       phone: {
         q: "Virker det på min telefon eller iPad?",
-        a: "Ja, i browseren. Sådan lægger du den på hjemmeskærmen på iPhone eller iPad: åbn biblestdy.com i Safari, tryk på Del-knappen (firkanten med en pil op), og vælg \u201cFøj til hjemmeskærm\u201d. Så ligger den sammen med dine andre apps og åbner i fuld skærm.",
+        a: "Ja, i browseren. Sådan lægger du den på hjemmeskærmen på iPhone eller iPad: åbn biblestdy.com i Safari, tryk på Del-knappen (firkanten med en pil op), og vælg \u00bbFøj til hjemmeskærm\u00ab. Så ligger den sammen med dine andre apps og åbner i fuld skærm.",
       },
       group: {
         q: "Kan vi bruge det i en bibelkreds?",
-        a: "Ja \u2014 indtil videre hver for sig. Alle læser den samme tekst med deres egne noter, og I deler det I har fundet, når I mødes \u2014 ikke gennem appen.",
+        a: "Ja \u2014 indtil videre hver for sig. Alle læser den samme tekst med deres egne noter, og I deler det I har fundet når I mødes \u2014 ikke gennem appen.",
       },
       password: {
         q: "Hvordan logger jeg ind?",
@@ -415,11 +453,11 @@ const da: typeof en = {
       },
       danish: {
         q: "Er det på dansk?",
-        a: "Ja. Hele appen findes på dansk og engelsk \u2014 vælg frit, uanset hvilken bibeloversættelse du læser.",
+        a: "Ja. Hele appen findes på dansk og engelsk \u2014 vælg frit uanset hvilken bibeloversættelse du læser.",
       },
     },
-    closeTitle: "Slå op og læs.",
-    closeBody: "Åbn et kapitel, markér det du lægger mærke til, og lad dit studie vokse i dit eget tempo.",
+    closeTitle: "Tag og læs.",
+    closeBody: "Åbn et kapitel, fremhæv det du lægger mærke til, og lad dit studie vokse i dit eget tempo.",
     vis: {
       tryColours: "Prøv en farve",
       marginNote: "hver morgen, før nyhederne",
@@ -444,7 +482,7 @@ const da: typeof en = {
     title: "biblestdy er gratis",
     body: "Hej, mit navn er Marcus. Jeg har lavet biblestdy selv, uden reklamer og uden indtægt. Hvis du kan lide appen, så følg med på Instagram.",
     follow: "Følg @{{handle}}",
-    chat: "Gå med i gruppechatten",
+    chat: "Kom med i gruppechatten",
     close: "Luk besked",
     settings: "Følg biblestdy",
   },
@@ -452,23 +490,23 @@ const da: typeof en = {
     title: "Oversættelse",
     close: "Luk oversættelser",
     selected: "Valgt",
-    switched: "Du læser nu {{name}}. Dine markeringer i {{prev}} er gemt.",
+    switched: "Du læser nu {{name}}. Dine fremhævninger, annoteringer og noter i {{prev}} er gemt.",
     back: "Tilbage til {{abbr}}",
   },
   palette: {
-    open: "Søg eller gå til …",
+    open: "Søg eller gå til…",
     title: "Søg eller gå til",
     loadFailed: "Søgningen kunne ikke åbnes. Tjek forbindelsen, og prøv igen.",
     placeholder: "Søg, eller gå til Joh 3,16",
-    backTo: "Luk – tilbage til {{ref}}",
+    backTo: "Luk — tilbage til {{ref}}",
     closest: "Nærmeste match",
     morePassages_one: "+{{count}} skriftsted mere",
     morePassages_other: "+{{count}} skriftsteder mere",
     close: "Luk",
-    switchTheme: "Skift til {{value}} visning",
+    switchTheme: "Skift tema: {{value}}",
     themeChanged: "Tema: {{value}}",
     styleChanged: "Stil: {{value}}",
-    noMatches: "Intet fundet for “{{q}}”",
+    noMatches: "Intet fundet for »{{q}}«",
     noTextSearch: "Vi kan ikke søge i selve bibelteksten endnu — skriv et skriftsted, fx 1 Kor 13,4.",
     untitled: "Note uden titel",
     count_one: "{{count}} resultat",
@@ -477,13 +515,13 @@ const da: typeof en = {
     tips: "Søgetips",
     tip: {
       passage: "Joh 3,16 · sl 23 · j3",
-      passageSays: "Gå til et skriftsted eller kapitel — forkortede eller stavet forkert går også",
+      passageSays: "Gå til et skriftsted eller kapitel — forkortelser og stavefejl går også",
       words: "hyrde",
       wordsSays: "Dine noter, annoteringer, fremhævninger, emner og handlinger",
       color: "blå",
-      colorSays: "En farve, ved dens navn eller dit eget navn for den",
+      colorSays: "En farve — ved dens eget navn eller det navn du har givet den",
       prefix: "> # @",
-      prefixSays: "Kun handlinger, emner eller dine noter og markeringer",
+      prefixSays: "Kun handlinger, emner eller dine noter, fremhævninger og annoteringer",
       keysSays: "Vælg, åbn · {{mod}}↵ ny fane · Tab udfylder en bog eller et skriftsted · Esc rydder, så lukker · Alt+/ åbner søgning fra en note",
     },
     groupRecent: "Senest læst",
@@ -497,9 +535,9 @@ const da: typeof en = {
     focusColor: "Fokus på {{name}}",
     colorDetail_one: "{{count}} fremhævning",
     colorDetail_other: "{{count}} fremhævninger",
-    kindMark: "Markering",
+    kindMark: "Pennestreg",
     groupTopics: "Emner",
-    chooseTranslation: "Vælg oversættelse …",
+    chooseTranslation: "Vælg oversættelse…",
     readIn: "Læs i {{abbr}} · {{name}}",
     openConnections: "Vis noter ved siden af teksten",
     closeConnections: "Skjul noter ved siden af teksten",
@@ -518,23 +556,23 @@ const da: typeof en = {
     updated: "Senest opdateret",
     storeTitle: "Hvad vi gemmer",
     storeBody:
-      "Din mailadresse (bruges kun til at logge dig ind — ingen adgangskoder) og det studie du skaber: noter, fremhævninger, annoteringer og emner, knyttet til din konto så det følger dig på tværs af enheder.",
+      "Din e-mailadresse (bruges kun til at logge dig ind — ingen adgangskoder) og det studie du skaber: noter, fremhævninger, annoteringer og emner, knyttet til din konto så det følger dig på tværs af enheder.",
     trackTitle: "Hvad vi ikke gør",
     trackBody:
       "Ingen sporing, ingen analyse, ingen reklamer, ingen cookies ud over sessionen der holder dig logget ind. Dine data sælges eller deles aldrig med nogen.",
     deleteTitle: "Sletning af dine data",
     deleteBody:
-      "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt, du nogensinde har gemt.",
+      "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt du nogensinde har gemt.",
     operatorTitle: "Hvem står bag biblestdy",
     operatorBody:
       "biblestdy drives af {{name}} (CVR {{cvr}}), Danmark, som er dataansvarlig for dine data.",
     contactTitle: "Spørgsmål eller hjælp",
     contactBody: "Skriv til os — support- og privatlivsspørgsmål i samme indbakke:",
-    backToApp: "tilbage til biblestdy",
+    backToApp: "Tilbage til biblestdy",
   },
   readingLimit: {
     title: "Tid til et pust",
-    pace: "Du bladrer hurtigere, end vi kan følge med. Prøv igen om {{wait}}.",
+    pace: "Du bladrer hurtigere end vi kan følge med. Prøv igen om {{wait}}.",
     daily: "Du har nået dagens læsegrænse. Kom tilbage i morgen (om {{wait}}).",
     cooldown: "Du har ramt grænsen, så læsningen er sat på pause. Prøv igen om {{wait}}.",
     seconds_one: "{{count}} sekund",
@@ -546,7 +584,7 @@ const da: typeof en = {
   },
   shortcuts: {
     title: "Tastaturgenveje",
-    intro: "Bogstavtaster virker på det vers, hvis nummer har fokus (tryk Tab for at nå teksten), eller på din markering.",
+    intro: "Bogstavtaster virker på det vers hvis nummer har fokus (tryk Tab for at nå teksten), eller på din markering.",
     reading: "Læsning",
     text: "Vers og markering",
     panels: "Paneler",
@@ -554,7 +592,7 @@ const da: typeof en = {
     firstLast: "Første / sidste side",
     chapter: "Forrige / næste kapitel",
     translation: "Vælg oversættelse",
-    jump: "Søg eller gå til …",
+    jump: "Søg eller gå til…",
     verse: "Forrige / næste vers",
     selectWords: "Markér ord for ord",
     selectVerses: "Markér vers for vers",
@@ -571,7 +609,7 @@ const da: typeof en = {
     sidebar: "Bogliste",
     penStyle: "Pennens stil (mens pennen er valgt)",
     highlighter: "Overstregningspen (seneste farve)",
-    highlightColor: "Overstregningsfarve (mens du overstreger)",
+    highlightColor: "Farve (mens overstregningspennen er valgt)",
     help: "Denne liste",
     or: "eller",
   },
@@ -585,8 +623,8 @@ const da: typeof en = {
     noteDeleted: "Note slettet",
     highlightRemoved: "Fremhævning fjernet",
     annotationRemoved: "Annotering fjernet",
-    tagRemoved: "Emnet \u201c{{name}}\u201d fjernet",
-    copied: "Kopierede {{ref}} ({{translation}})",
+    tagRemoved: "Emnet \u00bb{{name}}\u00ab fjernet",
+    copied: "{{ref}} ({{translation}}) kopieret",
     saveFailed: "Kunne ikke gemme",
     deleteFailed: "Kunne ikke slette",
     undoFailed: "Kunne ikke fortryde \u2014 det er måske slettet for altid",
@@ -599,7 +637,7 @@ const da: typeof en = {
     notFoundTitle: "Siden findes ikke",
     notFoundBody: "Vi kunne ikke finde den side.",
     offlineTitle: "Du er offline",
-    offlineBody: "Tjek din internetforbindelse og prøv igen.",
+    offlineBody: "Tjek din internetforbindelse, og prøv igen.",
     tryAgain: "Prøv igen",
     backToReading: "Tilbage til læsningen",
     home: "Forside",

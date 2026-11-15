@@ -169,8 +169,8 @@ await shot("K6-segmented-arrows", {}, R, async (p) => { await openSettings(p); c
 const tapHighlight = async (p) => { await p.locator('[data-verse="3"][data-word="8"]').first().click(); await p.waitForTimeout(700); };
 await shot("54-highlight-menu", {}, R, async (p) => { await tapHighlight(p); if (!(await p.getByRole("menu").count())) throw new Error("no highlight menu"); }, true);
 await shot("55-highlight-menu-keyboard", {}, R, async (p) => { await tapHighlight(p); await p.keyboard.press("ArrowDown"); await p.keyboard.press("ArrowDown"); }, true);
-await shot("56-annotate-composer", {}, R, async (p) => { await drag(4, 1, 6)(p); await p.getByRole("menuitem", { name: /Annotate/ }).click(); await p.waitForTimeout(600); }, true);
-await shot("57-note-link-list", {}, R, async (p) => { await drag(4, 1, 6)(p); await p.getByRole("menuitem", { name: /note link/i }).click(); await p.waitForTimeout(600); }, true);
+await shot("56-annotate-composer", {}, R, async (p) => { await drag(4, 1, 6)(p); await p.getByRole("menuitem", { name: /^(Write in the margin|Annotér)/ }).click(); await p.waitForTimeout(600); }, true);
+await shot("57-note-link-list", {}, R, async (p) => { await drag(4, 1, 6)(p); await p.getByRole("menuitem", { name: /^(Link to a note|Knyt til en note)/ }).click(); await p.waitForTimeout(600); }, true);
 await shot("58-phone-highlight-drawer", { w: 390, h: 844 }, R, async (p) => { await p.locator('[data-verse="3"][data-word="8"]').first().tap(); await p.waitForTimeout(900); }, true);
 await shot("59-phone-note-marker", { w: 390, h: 844 }, R + "?v=13", undefined, true);
 await shot("60-phone-annotation-lines", { w: 390, h: 844, textSize: 150 }, R, async (p) => { await phoneBoxes(p); await p.locator('[data-verse="5"][data-word="0"]').first().scrollIntoViewIfNeeded(); await p.waitForTimeout(400); });
