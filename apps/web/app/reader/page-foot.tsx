@@ -150,12 +150,21 @@ function useFit(position: string[], credit: string[]) {
       );
     };
     measure();
-    const observer = new ResizeObserver(measure);
+    // Next frame: the fit changes the foot's height, which the observer
+    // watches (no "ResizeObserver loop" warning)
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    });
     observer.observe(nav);
     nav.querySelectorAll("[data-foot-end]").forEach((el) => observer.observe(el));
     // Webfonts change every width once they arrive
     void document.fonts?.ready.then(measure);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, [key]);
   return { navRef, rulerRef, ...fit };
 }

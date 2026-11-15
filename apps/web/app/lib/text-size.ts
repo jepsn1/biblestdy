@@ -37,22 +37,23 @@ export function useTextSize(): TextSize {
   return useSyncExternalStore(subscribe, current, () => DEFAULT_TEXT_SIZE);
 }
 
-/** The window's width in rem — what a layout that works in rem has to
- * place: shrinks with a larger text size and with browser zoom alike.
- * `fallback` until mounted (no window on the server). */
-export function useViewportRem(fallback = 120): number {
+/** A layout decision on the window's width in rem (`test`), which shrinks
+ * with a larger text size and with browser zoom alike. Holds only the
+ * answer: a resize re-renders only when it flips. `fallback` until mounted
+ * (no window on the server). `test` must be a stable (module-level) function. */
+export function useViewportFits(test: (viewportRem: number) => boolean, fallback = true): boolean {
   const size = useTextSize();
-  const [rem, setRem] = useState(() => (typeof window === "undefined" ? fallback : measureViewportRem()));
+  const [fits, setFits] = useState(() => (typeof window === "undefined" ? fallback : test(viewportRem())));
   useEffect(() => {
-    const measure = () => setRem(measureViewportRem());
+    const measure = () => setFits(test(viewportRem()));
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [size]);
-  return rem;
+  }, [size, test]);
+  return fits;
 }
 
-function measureViewportRem(): number {
+function viewportRem(): number {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   return window.innerWidth / rem;
 }

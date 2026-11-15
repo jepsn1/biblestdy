@@ -8,7 +8,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
-import { useTextSize, useViewportRem } from "~/lib/text-size";
+import { useTextSize, useViewportFits } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import {
@@ -82,7 +82,7 @@ function readHintDone() {
 }
 
 function useScrollMode() {
-  const viewportRem = useViewportRem();
+  const paged = useViewportFits(pagedFits);
   const [phone, setPhone] = useState(
     () => typeof window !== "undefined" && window.matchMedia(SCROLL_MODE_QUERY).matches,
   );
@@ -93,7 +93,7 @@ function useScrollMode() {
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);
-  return phone || !pagedFits(viewportRem);
+  return phone || !paged;
 }
 
 /**

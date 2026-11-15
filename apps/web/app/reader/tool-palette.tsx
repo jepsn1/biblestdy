@@ -199,9 +199,10 @@ function Swatch({ color, on }: { color: HighlightColor; on: boolean }) {
 }
 
 /** Too short a pane for the colour column (a low window, big text): one
- * highlighter button in the last colour; it opens the six colours as a
- * list beside it — swatch and name, ↑/↓ to move (each one picked as it's
- * reached), Enter/click to pick and close, Esc back to the button. */
+ * highlighter button in the last colour. A click picks the highlighter (as
+ * the full column's swatches do) and opens the six colours as a list beside
+ * it — swatch and name, ↑/↓ to move (each one picked as it's reached),
+ * Enter/click to pick and close, Esc back to the button. */
 function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: ReaderTool) => void }) {
   const { t } = useTranslation();
   const { title } = useColorName();
@@ -211,26 +212,36 @@ function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: 
   const pick = (color: HighlightColor) => onChange({ ...tool, kind: "highlight", color });
   return (
     <div className={groupClass}>
-      <Popover open={open} onOpenChange={setOpen}>
-        <Hint label={`${label} — ${t("tools.chooseColour")}`} shortcut="Shift+H" side="right">
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          // Opening arms the highlighter: one click, like the full column
+          if (next && !on) onChange({ ...tool, kind: "highlight" });
+          setOpen(next);
+        }}
+      >
+        <Hint label={`${label} — ${t("tools.highlightHint")}`} shortcut="Shift+H" side="right">
           <PopoverTrigger
             render={
               <button
                 type="button"
+                // On/off like the other tools; the popover is its colours
+                aria-pressed={on}
                 aria-label={label}
                 aria-keyshortcuts="Shift+H"
-                className={cn(buttonClass, (on || open) && "bg-muted hover:bg-muted", focusRing)}
+                className={cn(buttonClass, on && "bg-muted hover:bg-muted", focusRing)}
               />
             }
           >
             <Swatch color={tool.color} on={on} />
           </PopoverTrigger>
         </Hint>
-        <PopoverContent side="right" align="start" sideOffset={8} className="max-h-(--available-height) w-auto min-w-48 gap-0 p-0">
+        <PopoverContent side="right" align="end" sideOffset={8} className="max-h-(--available-height) w-auto min-w-48 gap-0 p-0">
           <PopoverTitle className="px-3 pt-2.5 pb-1 text-meta font-normal text-muted-foreground">{t("tools.highlight")}</PopoverTitle>
           <ScrollArea viewportClassName="max-h-[calc(var(--available-height)-2.5rem)]">
             <RadioGroup
-              value={tool.color}
+              // Checked only while the highlighter is the tool
+              value={on ? tool.color : null}
               // Arrows move and pick at once (a radio group); the tool goes on
               onValueChange={(c) => pick(c as HighlightColor)}
               aria-label={t("menu.colour")}

@@ -76,7 +76,6 @@ const da: typeof en = {
     select: "Vælg",
     selectHint: "vælg ord, og vælg så hvad der skal ske",
     highlight: "Overstregningspen",
-    chooseColour: "vælg dens farve",
     highlightHint: "vælg ord for at markere dem",
     annotate: "Pen",
     annotateHint: "vælg ord for at skrive en annotering",

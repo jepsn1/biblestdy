@@ -7,7 +7,7 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
-import { loadTextSize, useViewportRem } from "~/lib/text-size";
+import { loadTextSize, useViewportFits } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
@@ -250,7 +250,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
 
   // Large text on a smaller screen: the books sidebar opens over the page
   // (closed on load) instead of squeezing the text to a few words a line
-  const sidebarOverlay = !sidebarBeside(useViewportRem());
+  const sidebarOverlay = !useViewportFits(sidebarBeside);
 
   return (
     <SidebarProvider overlay={sidebarOverlay} className="h-dvh overflow-hidden">
