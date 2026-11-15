@@ -38,10 +38,12 @@ export default function SignIn() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    // Send both: OTP code (typed here) and a magic link (clickable in email)
+    // Send both: OTP code (typed here) and a magic link (clickable in email).
+    // The email is written in the UI language, not the browser's (api email.ts)
+    const fetchOptions = { headers: { "Accept-Language": i18next.language } };
     const [otp] = await Promise.all([
-      authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" }),
-      authClient.signIn.magicLink({ email, callbackURL: next }),
+      authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in", fetchOptions }),
+      authClient.signIn.magicLink({ email, callbackURL: next, fetchOptions }),
     ]);
     setBusy(false);
     if (otp.error) {
@@ -82,7 +84,7 @@ export default function SignIn() {
               required
               // eslint-disable-next-line jsx-a11y/no-autofocus -- sign-in page's only field
               autoFocus
-              placeholder="you@example.com"
+              placeholder={t("signin.emailPlaceholder")}
               aria-label={t("signin.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
