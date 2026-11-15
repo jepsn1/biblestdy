@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -27,6 +28,11 @@ export function SkeletonLines({
   className?: string;
 }) {
   const { t } = useTranslation();
+  // Once waiting on the limit, say so until the text is in (each retry
+  // briefly looks like a plain load; the status must not flicker)
+  const wasLimited = useRef(false);
+  if (limited) wasLimited.current = true;
+  limited = wasLimited.current;
   return (
     <div aria-busy="true" data-chapter-skeleton className={cn("flex flex-col gap-[0.65em]", className)}>
       <p role="status" aria-live="polite" className={cn("font-sans text-control text-muted-foreground", !limited && "sr-only")}>

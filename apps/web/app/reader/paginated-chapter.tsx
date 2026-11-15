@@ -381,6 +381,15 @@ export function PaginatedChapter({
     onward = adjacentChapter(ref, 1);
     onwardState = null;
   }
+  // Near the end, read ahead what runs on to the next chapter's last page
+  // (a short psalm is all last page): ready before the reader gets there
+  const onwardAfter = onward && adjacentChapter(onward, 1);
+  const lookAhead = nearEnd && onward ? [onward, onwardAfter?.book === onward.book ? onwardAfter : null] : [];
+  const lookAheadKey = lookAhead.map((r) => r && `${r.book}.${r.chapter}`).join();
+  useEffect(() => {
+    if (lookAhead.length) prefetchNeighbours(chapter.translationId, lookAhead);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lookAheadKey stands for lookAhead
+  }, [lookAheadKey, chapter.translationId]);
   // Skipping chapters carried whole: turning back returns to this page
   if (onward && nextChapter && (onward.book !== nextChapter.book || onward.chapter !== nextChapter.chapter))
     onwardState = { ...onwardState, from: { book: chapter.book, chapter: chapter.chapter } };
