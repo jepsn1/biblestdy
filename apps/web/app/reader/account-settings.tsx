@@ -60,7 +60,12 @@ export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
   // Where focus lands when the settings (or a dialog they open) close: the
   // chip, or the More trigger when opened from the More sheet
   const returnTo = useRef<HTMLElement | null>(null);
-  const backTo = () => (returnTo.current?.isConnected ? returnTo.current : chipRef.current);
+  // (More is only CSS-hidden from sm: after a rotate/resize across it, the
+  // chip is the visible way back)
+  const backTo = () => {
+    const el = returnTo.current;
+    return el?.isConnected && el.checkVisibility?.() !== false ? el : chipRef.current;
+  };
   const { data: session } = authClient.useSession();
   const email = session?.user.email ?? "";
   const initial = email ? email[0].toUpperCase() : <UserRound className="size-4" />;
@@ -144,7 +149,9 @@ export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
                   type="button"
                   aria-label={t("settings.open")}
                   className={cn(
-                    "flex shrink-0 items-center gap-2 rounded-full hover:bg-muted",
+                    // hidden below sm here too: the first render (isMobile
+                    // not known yet) mustn't show, or measure, the chip
+                    "hidden shrink-0 items-center gap-2 rounded-full hover:bg-muted sm:flex",
                     !iconOnly && "min-[1180px]:pr-2.5",
                   )}
                 />

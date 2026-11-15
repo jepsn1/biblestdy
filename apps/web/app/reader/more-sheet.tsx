@@ -36,6 +36,9 @@ export function MoreSheet({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Settings row: open the settings only once this sheet has fully closed
+  // (its focus return to More done), so the two drawers never race for focus
+  const settingsNext = useRef(false);
 
   return (
     <>
@@ -51,7 +54,16 @@ export function MoreSheet({
         <Ellipsis data-icon={iconOnly ? undefined : "inline-start"} />
         {!iconOnly && t("nav.more")}
       </Button>
-      <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
+      <Drawer
+        open={open}
+        onOpenChange={setOpen}
+        onOpenChangeComplete={(isOpen) => {
+          if (isOpen || !settingsNext.current) return;
+          settingsNext.current = false;
+          openSettings(triggerRef.current);
+        }}
+        showSwipeHandle
+      >
         <DrawerContent className="[--drawer-content-max-height:92dvh]">
           <PanelHeader onClose={() => setOpen(false)} closeLabel={t("nav.moreClose")}>
             <DrawerTitle className={panelTitleClass}>{t("nav.moreTitle")}</DrawerTitle>
@@ -109,9 +121,10 @@ export function MoreSheet({
               icon={<Settings />}
               label={t("settings.title")}
               hint={t("nav.settingsHint")}
+              opensDialog
               onClick={() => {
+                settingsNext.current = true;
                 setOpen(false);
-                openSettings(triggerRef.current);
               }}
             />
           </div>
@@ -127,6 +140,7 @@ function SheetRow({
   hint,
   pressed,
   state,
+  opensDialog,
   onClick,
 }: {
   icon: React.ReactNode;
@@ -135,12 +149,15 @@ function SheetRow({
   pressed?: boolean;
   /** Visible on/off word for a toggle row. */
   state?: string;
+  /** The row opens another panel (aria-haspopup). */
+  opensDialog?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       aria-pressed={pressed}
+      aria-haspopup={opensDialog ? "dialog" : undefined}
       onClick={onClick}
       className={cn(
         "flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-muted [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",

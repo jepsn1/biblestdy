@@ -14,7 +14,7 @@ import { openPalette as open } from "./command-palette";
  * phase, so the note editor's own ⌘K link dialog still wins inside notes),
  * `/` when not typing. A search icon below lg, or at any width when
  * `iconOnly` (large text sizes), so the nav keeps to one row. The field
- * gives way before the book name does (shrink weight).
+ * only takes what the book name leaves (basis 0, grows to its 18rem).
  */
 export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
   const { t } = useTranslation();
@@ -80,7 +80,7 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
         aria-keyshortcuts="Meta+K Control+K /"
         onClick={open}
         className={cn(
-          "ml-auto hidden h-7 w-72 min-w-40 shrink-[100] items-center gap-2 rounded-md border border-input bg-transparent px-2 text-list text-muted-foreground hover:bg-muted",
+          "ml-auto hidden h-7 max-w-72 min-w-40 grow basis-0 items-center gap-2 rounded-md border border-input bg-transparent px-2 text-list text-muted-foreground hover:bg-muted",
           !iconOnly && "lg:flex",
         )}
       >
