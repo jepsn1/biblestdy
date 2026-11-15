@@ -25,7 +25,7 @@ export function readingLimitMessage(t: TFunction, limit: ReadingLimit): string {
 }
 
 /** Parse a 429 body; fall back to the Retry-After header, then reason pace. */
-async function parseLimit(res: Response): Promise<ReadingLimit> {
+export async function parseLimit(res: Response): Promise<ReadingLimit> {
   const header = Number(res.headers.get("retry-after"));
   const fallback: ReadingLimit = {
     reason: "pace",
@@ -45,6 +45,31 @@ async function parseLimit(res: Response): Promise<ReadingLimit> {
   } catch {
     return fallback;
   }
+}
+
+/** Longest wait the reader sits out with a skeleton, retrying by itself;
+ * anything longer (the daily cap, a long cooldown) is the route error. */
+export const MAX_AUTO_WAIT_SECONDS = 120;
+
+/** A chapter refused for now (429): why, how long, and the localized
+ * message. Short waits retry by themselves (shouldWait). */
+export class ReadingLimited extends Error {
+  constructor(
+    readonly limit: ReadingLimit,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ReadingLimited";
+  }
+  /** A short wait the reader can sit out (a skeleton, then retry). */
+  get shortWait(): boolean {
+    return this.limit.reason !== "daily" && this.limit.retryAfterSeconds <= MAX_AUTO_WAIT_SECONDS;
+  }
+}
+
+/** The route error (status 429, localized wait message) for a long wait. */
+export function readingLimitRouteError(err: ReadingLimited) {
+  return data(err.message, { status: 429 });
 }
 
 /**

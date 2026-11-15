@@ -23,7 +23,8 @@ import {
   type VerseRange,
   type WantedPage,
 } from "./chapter-nav";
-import { chapterArriving, prefetchNeighbours, useLoadedChapter, warmChapter } from "./chapter-cache";
+import { chapterArriving, prefetchNeighbours, useChapterText, warmChapter } from "./chapter-cache";
+import { SkeletonLines } from "./chapter-skeleton";
 import { useMeasure } from "./use-measure";
 import { ChapterSpill, type RunOn } from "./chapter-spill";
 import { ChapterText } from "./chapter-text";
@@ -343,12 +344,17 @@ export function PaginatedChapter({
     const ref = i === 0 ? (scrollMode ? null : nextChapter) : chain[i - 1] && adjacentChapter(chain[i - 1]!, 1);
     chain.push(ref?.book === chapter.book ? ref : null);
   }
-  const chainTexts = [
-    useLoadedChapter(chapter.translationId, chain[0]),
-    useLoadedChapter(chapter.translationId, chain[1]),
-    useLoadedChapter(chapter.translationId, chain[2]),
-  ];
   const [runOns, setRunOns] = useState<(RunOn | null)[]>(() => Array(MAX_RUN_ON).fill(null));
+  // Run-on text is needed (fetched, not just read ahead) from the page before
+  // the last one: it is ready by the time the reader gets there. A section
+  // below a run-on chapter is needed once the one above fit whole.
+  const nearEnd = !scrollMode && page >= pageCount - 2;
+  const chainLoads = [
+    useChapterText(chapter.translationId, chain[0], nearEnd),
+    useChapterText(chapter.translationId, chain[1], nearEnd && runOns[0]?.nextFrom === null),
+    useChapterText(chapter.translationId, chain[2], nearEnd && runOns[0]?.nextFrom === null && runOns[1]?.nextFrom === null),
+  ];
+  const chainTexts = chainLoads.map((l) => l.text);
   const reportRunOn = useMemo(
     () =>
       Array.from({ length: MAX_RUN_ON }, (_, i) => (runOn: RunOn | null) =>
@@ -375,15 +381,24 @@ export function PaginatedChapter({
     onward = adjacentChapter(ref, 1);
     onwardState = null;
   }
+  // Near the end, read ahead what runs on to the next chapter's last page
+  // (a short psalm is all last page): ready before the reader gets there
+  const onwardAfter = onward && adjacentChapter(onward, 1);
+  const lookAhead = nearEnd && onward ? [onward, onwardAfter?.book === onward.book ? onwardAfter : null] : [];
+  const lookAheadKey = lookAhead.map((r) => r && `${r.book}.${r.chapter}`).join();
+  useEffect(() => {
+    if (lookAhead.length) prefetchNeighbours(chapter.translationId, lookAhead);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lookAheadKey stands for lookAhead
+  }, [lookAheadKey, chapter.translationId]);
   // Skipping chapters carried whole: turning back returns to this page
   if (onward && nextChapter && (onward.book !== nextChapter.book || onward.chapter !== nextChapter.chapter))
     onwardState = { ...onwardState, from: { book: chapter.book, chapter: chapter.chapter } };
-  // A whole chapter carried: read the one after ahead (budgeted)
-  const wantAhead = chain.findIndex((ref, i) => i > 0 && ref && !chainTexts[i] && sectionShown(i - 1) && runOns[i - 1]?.nextFrom === null);
-  useEffect(() => {
-    if (wantAhead > 0) prefetchNeighbours(chapter.translationId, [chain[wantAhead]]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- chain[wantAhead] follows from these
-  }, [wantAhead, chapter.translationId, chapter.book, chapter.chapter]);
+  /** The first run-on section still on its way (or waiting out the reading
+   * quota): a skeleton holds its place on the last page. */
+  const pendingAt = chain.findIndex(
+    (ref, i) => ref && !chainTexts[i] && chainLoads[i].pending && (i === 0 || (sectionShown(i - 1) && runOns[i - 1]?.nextFrom === null)),
+  );
+  const pendingSpill = pendingAt >= 0 ? chainLoads[pendingAt] : null;
   const [washHost, setWashHost] = useState<HTMLDivElement | null>(null);
   const [marginHost, setMarginHost] = useState<HTMLDivElement | null>(null);
   // Split width is a per-device ergonomic preference -> localStorage, not DB
@@ -782,7 +797,7 @@ export function PaginatedChapter({
     // — a short one (a psalm) is all last page, so read it ahead now
     const after = dir === "next" && !scrollMode ? adjacentChapter(target, 1) : null;
     const runsOnTo = after?.book === target.book ? after : null;
-    prefetchNeighbours(chapter.translationId, [runsOnTo]);
+    prefetchNeighbours(chapter.translationId, [runsOnTo], { needed: true });
     // Normally read ahead already; else fetched now, while the page stays live
     await Promise.race([
       Promise.allSettled([warmChapter(chapter.translationId, target), chapterArriving(chapter.translationId, runsOnTo)]),
@@ -1386,7 +1401,7 @@ export function PaginatedChapter({
                     <div ref={mainRef}>{chapterText}</div>
                     {/* The next chapter's opening fills this chapter's last
                         page (#flow) — off it (inert) on every other page */}
-                    {chainTexts[0] && sectionShown(0) && stride > 0 && (
+                    {((chainTexts[0] && sectionShown(0)) || pendingSpill) && stride > 0 && (
                       <div ref={spillBoxRef} data-spill inert={page < pageCount - 1}>
                         {chainTexts.map(
                           (text, i) =>
@@ -1425,6 +1440,9 @@ export function PaginatedChapter({
                                 />
                               </div>
                             ),
+                        )}
+                        {pendingSpill && (
+                          <SkeletonLines lines={6} numeral limited={pendingSpill.limited} className="mt-[1.6em]" />
                         )}
                       </div>
                     )}

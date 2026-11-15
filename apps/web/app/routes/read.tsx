@@ -1,5 +1,7 @@
 import type { Translation } from "@biblestdy/shared";
 import { bookName } from "@biblestdy/shared";
+import type { Chapter } from "@biblestdy/shared";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
@@ -9,6 +11,7 @@ import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
 import { loadTextSize, useViewportFits } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
+import { queryClient } from "~/lib/query";
 import { pathOf, requireAuth } from "~/lib/require-auth";
 import { loadMarkedTranslationId } from "~/lib/preferences";
 import { readingTranslation, rememberDefaultTranslation } from "~/lib/reading-translation";
@@ -19,9 +22,11 @@ import { zoomLockHandle } from "~/lib/viewport";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
-import { loadChapter, prefetchNeighbours } from "../reader/chapter-cache";
 import { sidebarBeside } from "../reader/sheet-layout";
 import { ReaderError } from "../reader/reader-error";
+import { chapterQuery, loadChapter, prefetchNeighbours, readingPausedFor, retryWhenLimited } from "../reader/chapter-cache";
+import { ChapterSkeleton } from "../reader/chapter-skeleton";
+import { ReadingLimited, readingLimitRouteError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
 import { referenceLabel } from "../notes/note-list";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
@@ -36,7 +41,7 @@ import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
 
 /** How long a chapter must stay open before its neighbours are fetched. */
-const PREFETCH_DELAY_MS = 800;
+const PREFETCH_DELAY_MS = 300;
 
 let translationsCache: Translation[] | undefined;
 
@@ -97,16 +102,18 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
     loadHighlightLabels(session.user.id),
   ]);
   const translation = await readingTranslation(translations, i18n.language, loadMarkedTranslationId);
-  // From memory when already read or prefetched (chapter-cache.ts)
-  const chapter = await loadChapter(translation.id, { book: params.book, chapter: Number(params.chapter) }, next);
-  // Kept only once it actually served a chapter (a quota/outage error doesn't stick)
-  rememberDefaultTranslation(translation.id);
-  // Only a chapter that actually loaded may become the launch page; the
-  // reader adds the page (?p) once it knows it (#52)
-  const here = `${chapter.book}/${chapter.chapter}`;
-  const stored = localStorage.getItem("lastRead");
-  if (stored !== here && !stored?.startsWith(`${here}?`)) localStorage.setItem("lastRead", here);
-  pushRecent({ book: chapter.book, chapter: chapter.chapter });
+  // From memory when already read or prefetched (chapter-cache.ts). Turning
+  // pages faster than the reading quota allows (#29) is no dead end: a short
+  // wait shows the sheet as a skeleton and loads by itself (Read below).
+  const ref = { book: params.book, chapter: Number(params.chapter) };
+  let chapter: Chapter | null = queryClient.getQueryData(chapterQuery(translation.id, ref).queryKey) ?? null;
+  try {
+    if (!chapter && readingPausedFor() === 0) chapter = await loadChapter(translation.id, ref, next);
+  } catch (err) {
+    if (!(err instanceof ReadingLimited)) throw err;
+    if (!err.shortWait) throw readingLimitRouteError(err);
+  }
+  if (chapter) noteVisit(chapter);
   return {
     chapter,
     translation,
@@ -121,7 +128,66 @@ export function ErrorBoundary({ error, params }: Route.ErrorBoundaryProps) {
   return <ReaderError error={error} params={params} />;
 }
 
-export default function Read({ loaderData }: Route.ComponentProps) {
+/** Only a chapter that actually loaded may become the launch page; the
+ * reader adds the page (?p) once it knows it (#52). */
+function noteVisit(chapter: Chapter) {
+  // Kept only once it actually served a chapter (a quota/outage error doesn't stick)
+  rememberDefaultTranslation(chapter.translationId);
+  const here = `${chapter.book}/${chapter.chapter}`;
+  const stored = localStorage.getItem("lastRead");
+  if (stored !== here && !stored?.startsWith(`${here}?`)) localStorage.setItem("lastRead", here);
+  pushRecent({ book: chapter.book, chapter: chapter.chapter });
+}
+
+type ReadData = Route.ComponentProps["loaderData"];
+
+/**
+ * The chapter, or — while it waits out the reading quota — a skeleton sheet
+ * that says so politely and loads it once the wait is over (retried after
+ * Retry-After; a long wait becomes the route's limit message).
+ */
+export default function Read({ loaderData, params }: Route.ComponentProps) {
+  const ref = { book: params.book, chapter: Number(params.chapter) };
+  const waiting = !loaderData.chapter;
+  const q = useQuery({
+    ...chapterQuery(loaderData.translation.id, ref),
+    ...retryWhenLimited,
+    enabled: waiting,
+  });
+  const chapter = loaderData.chapter ?? q.data ?? null;
+  useEffect(() => {
+    if (waiting && q.data) noteVisit(q.data);
+  }, [waiting, q.data]);
+  if (chapter) return <Reader loaderData={{ ...loaderData, chapter }} />;
+  if (q.error) throw q.error instanceof ReadingLimited ? readingLimitRouteError(q.error) : q.error;
+  return <ChapterPending loaderData={loaderData} book={ref.book} chapter={ref.chapter} />;
+}
+
+/** Only ever shown while waiting out the reading quota. */
+function ChapterPending({ loaderData, book, chapter }: { loaderData: ReadData; book: string; chapter: number }) {
+  const noop = () => {};
+  return (
+    <SidebarProvider className="h-dvh overflow-hidden">
+      <BooksSidebar book={book} />
+      <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">
+        <ReaderNav
+          book={book}
+          chapter={chapter}
+          translations={loaderData.translations}
+          translationId={loaderData.translation.id}
+          onSwitchTranslation={noop}
+          connectionsOpen={false}
+          onToggleConnections={noop}
+          annotationBoxesOpen={false}
+          onToggleAnnotationBoxes={noop}
+        />
+        <ChapterSkeleton limited />
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } }) {
   const { chapter, translation, translations, needsStyleChoice, userId } = loaderData;
   const [styleChosen, setStyleChosen] = useState(false);
   const revalidator = useRevalidator();

@@ -83,6 +83,8 @@ const da: typeof en = {
   },
   reader: {
     marksLoadFailed: "Dine fremhævninger og annoteringer kunne ikke hentes",
+    slowDown: "Sæt lige tempoet lidt ned… de næste sider er på vej.",
+    loadingChapter: "Henter kapitel…",
     verseLabel: "Vers {{n}}, markér: {{text}}",
     selectVerse: "Markér vers {{n}}",
     firstUseHint: "Markér ord for at fremhæve dem eller tilføje en note",

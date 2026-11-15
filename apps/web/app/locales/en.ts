@@ -43,6 +43,8 @@ export default {
   },
   reader: {
     marksLoadFailed: "Couldn\u2019t load your highlights and margin notes",
+    slowDown: "Slow down a moment… the next pages are on their way.",
+    loadingChapter: "Loading chapter…",
     verseLabel: "Verse {{n}}, select: {{text}}",
     selectVerse: "Select verse {{n}}",
     firstUseHint: "Select words to highlight or add a note",

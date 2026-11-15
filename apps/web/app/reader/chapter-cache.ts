@@ -1,102 +1,118 @@
 import type { Chapter } from "@biblestdy/shared";
-import { useSyncExternalStore } from "react";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { data } from "react-router";
 import i18n from "~/lib/i18n";
 import { queryClient } from "~/lib/query";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import type { ChapterRef } from "./chapter-nav";
-import { readingLimitError } from "./reading-limit";
+import { parseLimit, readingLimitMessage, ReadingLimited } from "./reading-limit";
 import { annotationsQuery } from "./use-annotations";
 import { highlightsQuery } from "./use-highlights";
 import { notesQuery, otherVersionsQuery } from "./use-notes";
 
 /**
- * Chapter text, kept for the page load (scripture never changes under a
- * reader), so a chapter turn renders from memory with no loading pause. The
- * neighbours are fetched ahead while the reader reads (prefetchNeighbours).
- * Failures are never kept: the next load tries again.
+ * Chapter text lives in the query cache (scripture never changes under a
+ * reader): one fetch per chapter, shared by the route loader, the run-on page
+ * (ChapterSpill) and reading ahead — a request already on its way is joined,
+ * never repeated. Failures are not kept: the next use tries again.
+ *
+ * Every chapter fetched spends the reading quota (#29: a burst, then one per
+ * 2 s; a chapter already read today is free). Two kinds of fetch:
+ * - needed: the chapter being opened, and what runs on to its last page.
+ *   Always fetched; a short over-limit wait is sat out (skeleton, retry).
+ * - read ahead (prefetchNeighbours): only while the server says the burst
+ *   has more than READ_AHEAD_RESERVE left, so reading ahead never spends what
+ *   the reader's own turns need; paused after a refusal until its wait ends.
  */
-const MAX_KEPT = 30;
-const kept = new Map<string, Promise<Chapter>>();
-/** Loaded texts, readable without waiting (the run-on page draws from it). */
-const settled = new WeakMap<Promise<Chapter>, Chapter>();
-const listeners = new Set<() => void>();
-/** Reading ahead must never be what runs a reader into the reading quota
- * (#29: 20 at once, then one per 3 s): it only fetches while this tab has
- * fetched fewer than PREFETCH_BUDGET chapters in the last minute (reading
- * on costs one — the chapter behind is already here), and a refusal stops
- * it for a while. */
-const PREFETCH_BUDGET = 6;
-const fetchedAt: number[] = [];
-let limitedUntil = 0;
-const LIMIT_PAUSE_MS = 10 * 60_000;
+const READ_AHEAD_RESERVE = 10;
+/** The account's refill (policy.ts): estimates the burst between replies. */
+const REFILL_MS = 2000;
+/** Unread chapter text stays this long after its last use. */
+const KEEP_MS = 30 * 60_000;
 
-function budgetLeft(now: number) {
-  while (fetchedAt.length && fetchedAt[0] < now - 60_000) fetchedAt.shift();
-  return fetchedAt.length < PREFETCH_BUDGET;
+let remaining: { tokens: number; at: number } | null = null;
+let pausedUntil = 0;
+
+function tokensLeft(now: number): number {
+  if (!remaining) return Infinity; // nothing fetched yet: a full burst
+  return remaining.tokens + Math.floor((now - remaining.at) / REFILL_MS);
 }
 
-const keyOf = (translationId: string, ref: ChapterRef) => `${translationId}/${ref.book}/${ref.chapter}`;
+/** Waiting out a refusal from the reading quota (ms left; 0 = not). */
+export function readingPausedFor(): number {
+  return Math.max(0, pausedUntil - Date.now());
+}
 
 async function fetchChapter(translationId: string, ref: ChapterRef, next?: string): Promise<Chapter> {
-  fetchedAt.push(Date.now());
+  // A refusal's wait still runs: sit it out instead of earning another
+  const pause = readingPausedFor();
+  if (pause > 0) await new Promise((resolve) => setTimeout(resolve, pause));
   const res = await fetchScripture(`/api/passages/${translationId}/${ref.book}/${ref.chapter}`, next);
   if (res.status === 404 || res.status === 400) {
     throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
   }
-  // Over the reading quota (#29): friendly wait message, no auto-retry
-  if (res.status === 429) limitedUntil = Date.now() + LIMIT_PAUSE_MS;
-  const limit = await readingLimitError(res, i18n.t);
-  if (limit) throw limit;
+  if (res.status === 429) {
+    const limit = await parseLimit(res);
+    pausedUntil = Math.max(pausedUntil, Date.now() + limit.retryAfterSeconds * 1000);
+    remaining = { tokens: 0, at: pausedUntil };
+    throw new ReadingLimited(limit, readingLimitMessage(i18n.t, limit));
+  }
   if (!res.ok) throw data(i18n.t("error.chapterLoad"), { status: 502 });
+  const left = Number(res.headers.get("ratelimit-remaining") ?? NaN);
+  if (Number.isFinite(left)) remaining = { tokens: left, at: Date.now() };
   return (await res.json()) as Chapter;
 }
 
-/** One chapter's text: from memory when already loaded or prefetched.
- * Throws the route errors the reader shows (unavailable, limit, load).
- * `next`: where sign-in returns to if the session has expired (the page
- * being opened; default the current one). */
+export const chapterQuery = (translationId: string, ref: ChapterRef) =>
+  queryOptions({
+    queryKey: ["chapter", translationId, ref.book, ref.chapter] as const,
+    queryFn: () => fetchChapter(translationId, ref),
+    staleTime: Infinity,
+    gcTime: KEEP_MS,
+    retry: false,
+  });
+
+/** Retry a short over-limit wait once it is over (a few times at most);
+ * anything else fails straight away. */
+export const retryWhenLimited = {
+  retry: (count: number, err: unknown) => err instanceof ReadingLimited && err.shortWait && count < 5,
+  retryDelay: (_count: number, err: unknown) =>
+    err instanceof ReadingLimited ? err.limit.retryAfterSeconds * 1000 + 250 : 1000,
+};
+
+/** One chapter's text: from the cache when already loaded or on its way.
+ * Throws the route errors the reader shows (unavailable, load) or
+ * ReadingLimited (429). `next`: where sign-in returns to if the session has
+ * expired (the page being opened; default the current one). */
 export function loadChapter(translationId: string, ref: ChapterRef, next?: string): Promise<Chapter> {
-  const key = keyOf(translationId, ref);
-  let entry = kept.get(key);
-  if (entry) kept.delete(key); // re-insert: most recently used last
-  else {
-    entry = fetchChapter(translationId, ref, next);
-    const mine = entry;
-    entry.then(
-      (chapter) => {
-        settled.set(mine, chapter);
-        for (const listener of listeners) listener();
-      },
-      () => {
-        if (kept.get(key) === mine) kept.delete(key);
-      },
-    );
-  }
-  kept.set(key, entry);
-  while (kept.size > MAX_KEPT) kept.delete(kept.keys().next().value!);
-  return entry;
+  return queryClient.fetchQuery({ ...chapterQuery(translationId, ref), queryFn: () => fetchChapter(translationId, ref, next) });
 }
 
-/** A chapter's text if it is already here (read or read ahead), else null —
- * never fetches. Re-renders when it arrives. */
-export function useLoadedChapter(translationId: string, ref: ChapterRef | null): Chapter | null {
-  return useSyncExternalStore(
-    (onChange) => {
-      listeners.add(onChange);
-      return () => listeners.delete(onChange);
-    },
-    () => {
-      const entry = ref && kept.get(keyOf(translationId, ref));
-      return (entry && settled.get(entry)) ?? null;
-    },
-    () => null,
-  );
+/**
+ * A chapter's text for the run-on page: cached text straight away; else, once
+ * `needed`, fetched (a short over-limit wait is sat out and retried).
+ * `pending`: on its way or waiting out a limit (`limited`) — draw a skeleton.
+ */
+export function useChapterText(translationId: string, ref: ChapterRef | null, needed: boolean) {
+  const q = useQuery({
+    ...chapterQuery(translationId, ref ?? { book: "", chapter: 0 }),
+    ...retryWhenLimited,
+    enabled: !!ref && needed,
+  });
+  if (!ref) return { text: null, pending: false, limited: false };
+  return {
+    text: q.data ?? null,
+    pending: !q.data && q.fetchStatus === "fetching",
+    limited: !q.data && (q.failureReason instanceof ReadingLimited || readingPausedFor() > 0),
+  };
 }
 
 /** Wait (briefly) for a chapter that is already on its way; never fetches. */
 export function chapterArriving(translationId: string, ref: ChapterRef | null): Promise<unknown> {
-  return (ref && kept.get(keyOf(translationId, ref))) ?? Promise.resolve();
+  if (!ref) return Promise.resolve();
+  const query = chapterQuery(translationId, ref);
+  if (queryClient.getQueryState(query.queryKey)?.fetchStatus !== "fetching") return Promise.resolve();
+  return queryClient.fetchQuery(query).catch(() => {}); // joins the request on its way
 }
 
 /** One chapter ready to draw: its text and the study data the reader lays
@@ -113,15 +129,21 @@ export function warmChapter(translationId: string, ref: ChapterRef): Promise<unk
   ]);
 }
 
-/** Fetch the chapters either side ahead of the reader: text plus the
- * per-chapter study data the reader draws (marks decide the margin lanes,
- * so they must be in before the first paint for the page count to hold). */
-export function prefetchNeighbours(translationId: string, refs: (ChapterRef | null)[]) {
+/** Fetch chapters ahead of the reader: text plus the per-chapter study data
+ * the reader draws (marks decide the margin lanes, so they must be in before
+ * the first paint for the page count to hold). Text already here is never
+ * fetched again. `needed`: the reader is about to see it (a run-on page) —
+ * fetched whatever the reserve, unless a refusal's wait still runs. */
+export function prefetchNeighbours(translationId: string, refs: (ChapterRef | null)[], { needed = false } = {}) {
   const now = Date.now();
-  if (now < limitedUntil) return;
+  if (now < pausedUntil) return;
   for (const ref of refs) {
-    if (!ref || (!kept.has(keyOf(translationId, ref)) && !budgetLeft(now))) continue;
-    loadChapter(translationId, ref).catch(() => {}); // the real visit reports errors
+    if (!ref) continue;
+    const query = chapterQuery(translationId, ref);
+    if (!queryClient.getQueryData(query.queryKey)) {
+      if (!needed && tokensLeft(now) <= READ_AHEAD_RESERVE) continue;
+      void queryClient.prefetchQuery(query); // the real visit reports errors
+    }
     const { book, chapter } = ref;
     void queryClient.prefetchQuery(highlightsQuery(translationId, book, chapter));
     void queryClient.prefetchQuery(annotationsQuery(translationId, book, chapter));

@@ -2,6 +2,7 @@ import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
+import { READING_QUOTA_POLICY } from '../reading-quota/policy';
 import { ReadingQuotaService } from '../reading-quota/service';
 import { InMemoryQuotaStore } from '../reading-quota/store';
 import { FakeScriptureProvider } from './fake.provider';
@@ -80,20 +81,35 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
     expect(await translations.json()).toHaveLength(2);
   });
 
-  it('429s the 21st rapid chapter request with Retry-After + reason', async () => {
+  /** Distinct chapters (re-reads are free); the fake only has a few, so a
+   * 404 past the quota check is fine — what matters is "not 429". */
+  const psalm = (base: string, n: number) =>
+    fetch(`${base}/passages/WEB/PSA/${n}`);
+
+  it('429s the 31st rapid distinct chapter with Retry-After + reason', async () => {
     const base = await start(true);
-    for (let i = 0; i < 20; i++) {
-      const ok = await fetch(`${base}/passages/WEB/JHN/3`);
-      expect(ok.status).toBe(200);
-    }
-    const limited = await fetch(`${base}/passages/WEB/JHN/3`);
+    for (let i = 1; i <= 30; i++)
+      expect((await psalm(base, i)).status).not.toBe(429);
+    const limited = await psalm(base, 31);
     expect(limited.status).toBe(429);
-    // First strike: the wait covers the 1-minute cooldown it starts (#32)
-    expect(limited.headers.get('retry-after')).toBe('60');
+    // First strike is forgiven: just the 2 s to the next token
+    expect(limited.headers.get('retry-after')).toBe('2');
     expect(await limited.json()).toEqual({
       reason: 'pace',
-      retryAfterSeconds: 60,
+      retryAfterSeconds: 2,
     });
+  });
+
+  it('tells the reader how many chapters are left in the burst', async () => {
+    const base = await start(true);
+    const first = await fetch(`${base}/passages/WEB/JHN/3`);
+    expect(first.headers.get('ratelimit-remaining')).toBe('29');
+  });
+
+  it('re-reading a chapter already read today never runs out', async () => {
+    const base = await start(true);
+    for (let i = 0; i < 40; i++)
+      expect((await fetch(`${base}/passages/WEB/JHN/3`)).status).toBe(200);
   });
 
   it('429s with reason cooldown while a cooldown runs (#32)', async () => {
@@ -102,12 +118,16 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
       true,
       new ReadingQuotaService({
         store: new InMemoryQuotaStore(),
+        policy: {
+          ...READING_QUOTA_POLICY,
+          cooldown: { ...READING_QUOTA_POLICY.cooldown!, graceStrikes: 0 },
+        },
         now: () => now,
       }),
     );
-    for (let i = 0; i < 21; i++) await fetch(`${base}/passages/WEB/JHN/3`);
+    for (let i = 1; i <= 31; i++) await psalm(base, i);
     now += 45_000; // tokens back, cooldown not over
-    const limited = await fetch(`${base}/passages/WEB/JHN/3`);
+    const limited = await psalm(base, 32);
     expect(limited.status).toBe(429);
     expect(limited.headers.get('retry-after')).toBe('15');
     expect(await limited.json()).toEqual({
