@@ -558,6 +558,10 @@ export default {
     help: "This list",
     or: "or",
   },
+  /** Shared UI chrome (components/ui): the generic dialog/sheet close. */
+  common: {
+    close: "Close",
+  },
   toast: {
     undo: "Undo",
     retry: "Retry",

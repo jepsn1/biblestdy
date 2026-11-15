@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { BOOKS, findBook, suggestBooks } from "@biblestdy/shared";
 import { LogOut, NotebookText } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   AlertDialog,
@@ -78,7 +78,7 @@ export function BooksSidebar({ book }: { book: string }) {
   const newTestament = NEW_TESTAMENT.filter(matches);
 
   return (
-    <Sidebar>
+    <Sidebar label={t("sidebar.label")}>
       {/* One named landmark for the whole sidebar (axe region/landmark-unique) */}
       <nav aria-label={t("sidebar.label")} className="flex h-full min-h-0 w-full flex-col">
       <SidebarHeader className="gap-2 px-4 pt-3">
@@ -183,23 +183,26 @@ function BookGroup({
   current: string;
 }) {
   const nameOf = useBookName();
+  const labelId = useId();
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="eyebrow">
+      {/* A heading (jump straight to the New Testament) that names its list */}
+      <SidebarGroupLabel render={({ children, ...props }) => <h2 {...props}>{children}</h2>} id={labelId} className="eyebrow">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu>
+        <SidebarMenu aria-labelledby={labelId}>
           {books.map((b) => (
             <SidebarMenuItem key={b.id}>
               <SidebarMenuButton
                 isActive={b.id === current}
                 size="sm"
-                className="data-active:font-semibold data-active:text-primary"
+                className="data-active:font-semibold data-active:text-sidebar-primary"
                 render={
                   <Link
                     to={`/read/${b.id}/1`}
-                    aria-current={b.id === current ? "page" : undefined}
+                    // The current book, not this page (that's a chapter)
+                    aria-current={b.id === current ? "true" : undefined}
                   >
                     {nameOf(b.id)}
                   </Link>

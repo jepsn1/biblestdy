@@ -1121,6 +1121,7 @@ export function PaginatedChapter({
     <ChapterText
       chapter={chapter}
       translationAbbreviation={translation.abbreviation}
+      language={translation.language}
       heading={heading}
       bookName={nameOf(chapter.book)}
       highlights={highlights}
@@ -1321,6 +1322,7 @@ export function PaginatedChapter({
                                 <ChapterSpill
                                   chapter={text}
                                   translationAbbreviation={translation.abbreviation}
+                                  language={translation.language}
                                   heading={refLabel(text)}
                                   bookName={nameOf(text.book)}
                                   boxRef={sectionRefs[i]}

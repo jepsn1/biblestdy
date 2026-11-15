@@ -36,6 +36,7 @@ export type RunOn = { to: number; toLabel: string; nextFrom: number | null };
 export function ChapterSpill({
   chapter,
   translationAbbreviation,
+  language,
   heading,
   bookName,
   boxRef,
@@ -65,6 +66,7 @@ export function ChapterSpill({
   /** The next chapter (same book). */
   chapter: Chapter;
   translationAbbreviation: string;
+  language: string;
   heading: string;
   bookName: string;
   /** Its place in the flow (the reader hides it to count its own pages). */
@@ -183,7 +185,10 @@ export function ChapterSpill({
         chapter={chapter}
         verses={span}
         translationAbbreviation={translationAbbreviation}
+        language={language}
         heading={heading}
+        // Runs on under this page's chapter: an h2, not a second h1
+        headingLevel={2}
         bookName={bookName}
         highlights={highlightsApi.highlights}
         annotations={annotationsApi.annotations}

@@ -35,7 +35,7 @@ import { readRecent } from "~/lib/recent-passages";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
-import { cn } from "~/lib/utils";
+import { cn, focusTitle } from "~/lib/utils";
 import { OPEN_SHORTCUTS } from "../reader/shortcuts-dialog";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
@@ -590,7 +590,10 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            className="h-12 min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone"
+            className={cn(
+              "h-12 min-w-0 flex-1 bg-transparent text-control placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone",
+              focusTitle,
+            )}
           />
           {/* A worded way out on every screen (an iPad without keyboard too) */}
           {!isMobile && (

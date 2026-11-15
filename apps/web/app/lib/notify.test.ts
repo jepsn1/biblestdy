@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Action = { label: string; onClick: () => void };
-const calls: { kind: "toast" | "error"; message: string; action?: Action }[] = [];
+const calls: { kind: "toast" | "error"; message: string; action?: Action; duration?: number }[] = [];
 vi.mock("sonner", () => {
-  const toast = (message: string, opts?: { action?: Action }) =>
-    calls.push({ kind: "toast", message, action: opts?.action });
+  const toast = (message: string, opts?: { action?: Action; duration?: number }) =>
+    calls.push({ kind: "toast", message, action: opts?.action, duration: opts?.duration });
   toast.error = (message: string, opts?: { action?: Action }) =>
     calls.push({ kind: "error", message, action: opts?.action });
   return { toast };
 });
 vi.spyOn(console, "error").mockImplementation(() => {});
 
-const { removeWithUndo } = await import("./notify");
+const { UNDO_MS, holdWhileFocused, removeWithUndo } = await import("./notify");
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -65,5 +65,53 @@ describe("removeWithUndo (#64)", () => {
     await flush();
     expect(calls[1]).toMatchObject({ kind: "error" });
     expect(calls[1].message).toMatch(/undo/i);
+  });
+});
+
+describe("Undo stays long enough (WCAG 2.2.1)", () => {
+  it("lasts at least 10 seconds", async () => {
+    calls.length = 0;
+    await removeWithUndo(setup().args);
+    expect(UNDO_MS).toBeGreaterThanOrEqual(10_000);
+    expect(calls[0].duration).toBe(UNDO_MS);
+  });
+});
+
+describe("holdWhileFocused", () => {
+  /** A fake element: inside the toast iff `inside`. */
+  const el = (inside: boolean) => ({ closest: (sel: string) => (inside && sel === ".undo-1" ? {} : null) });
+  const focus = (doc: EventTarget, type: "focusin" | "focusout", target: unknown, relatedTarget: unknown = null) => {
+    const e = new Event(type);
+    Object.defineProperties(e, { target: { value: target }, relatedTarget: { value: relatedTarget } });
+    doc.dispatchEvent(e);
+  };
+
+  it("holds while focus is inside, releases when it leaves", () => {
+    const doc = new EventTarget();
+    const log: boolean[] = [];
+    holdWhileFocused(".undo-1", (held) => log.push(held), doc);
+    focus(doc, "focusin", el(false));
+    expect(log).toEqual([]);
+    focus(doc, "focusin", el(true));
+    expect(log).toEqual([true]);
+    // Moving within the toast (toast → its Undo button) keeps the hold
+    focus(doc, "focusout", el(true), el(true));
+    focus(doc, "focusin", el(true));
+    expect(log).toEqual([true]);
+    focus(doc, "focusout", el(true), el(false));
+    expect(log).toEqual([true, false]);
+  });
+
+  it("stops listening once released", () => {
+    const doc = new EventTarget();
+    const log: boolean[] = [];
+    const release = holdWhileFocused(".undo-1", (held) => log.push(held), doc);
+    release();
+    focus(doc, "focusin", el(true));
+    expect(log).toEqual([]);
+  });
+
+  it("is a no-op without a document", () => {
+    expect(() => holdWhileFocused(".x", () => {}, undefined)()).not.toThrow();
   });
 });

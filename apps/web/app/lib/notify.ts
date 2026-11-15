@@ -8,25 +8,67 @@ import i18n from "./i18n";
  * aria-live region.
  */
 
-/** How long Undo stays on screen. The server keeps a deleted row for an
- * hour (RESTORE_WINDOW_MS), so a slow undo still lands. */
-export const UNDO_MS = 5000;
+/** How long Undo stays on screen — long enough to Tab or swipe to it
+ * (WCAG 2.2.1). Hovering pauses it (Sonner); so does focus inside the toast
+ * (holdWhileFocused). The server keeps a deleted row for an hour
+ * (RESTORE_WINDOW_MS), so a slow undo still lands. */
+export const UNDO_MS = 10_000;
+
+let undoSeq = 0;
 
 /** "Note deleted · Undo". `undo` should resolve once restored; a rejected
  * undo shows its own error toast. */
 export function notifyUndo(message: string, undo: () => Promise<unknown>) {
-  toast(message, {
-    duration: UNDO_MS,
-    action: {
-      label: i18n.t("toast.undo"),
-      onClick: () => {
-        undo().catch((e: unknown) => {
-          console.error("[undo]", e);
-          toast.error(i18n.t("toast.undoFailed"));
-        });
+  const id = `undo-${++undoSeq}`;
+  let release = () => {};
+  const show = (duration: number) =>
+    toast(message, {
+      id,
+      // Also the hook holdWhileFocused finds the toast by
+      className: id,
+      duration,
+      onDismiss: () => release(),
+      onAutoClose: () => release(),
+      action: {
+        label: i18n.t("toast.undo"),
+        onClick: () => {
+          release();
+          undo().catch((e: unknown) => {
+            console.error("[undo]", e);
+            toast.error(i18n.t("toast.undoFailed"));
+          });
+        },
       },
-    },
-  });
+    });
+  show(UNDO_MS);
+  // Same id = updated in place: no timer while focused, a fresh one after
+  release = holdWhileFocused(`.${id}`, (held) => show(held ? Infinity : UNDO_MS));
+}
+
+/** Calls `onChange(true)` when focus moves into `selector`, `false` when it
+ * leaves. Returns the unsubscribe. No-op without a document (tests, SSR). */
+export function holdWhileFocused(
+  selector: string,
+  onChange: (held: boolean) => void,
+  doc: Pick<Document, "addEventListener" | "removeEventListener"> | undefined = typeof document !==
+  "undefined"
+    ? document
+    : undefined,
+): () => void {
+  if (!doc) return () => {};
+  let held = false;
+  const update = (el: EventTarget | null) => {
+    const inside = !!(el as Element | null)?.closest?.(selector);
+    if (inside !== held) onChange((held = inside));
+  };
+  const onIn = (e: Event) => update(e.target);
+  const onOut = (e: Event) => update((e as FocusEvent).relatedTarget);
+  doc.addEventListener("focusin", onIn);
+  doc.addEventListener("focusout", onOut);
+  return () => {
+    doc.removeEventListener("focusin", onIn);
+    doc.removeEventListener("focusout", onOut);
+  };
 }
 
 /** "Couldn't save · Retry". Pass `retry` to offer the button; `message`
