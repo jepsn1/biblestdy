@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { HIGHLIGHT_COLORS, READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
@@ -28,12 +28,21 @@ import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { notifyError } from "~/lib/notify";
+import { cn } from "~/lib/utils";
 import { api } from "~/lib/query";
 import { openColorNames } from "./color-names-dialog";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
 import { SupportLinks } from "./support-notice";
+
+/** Event name: phones open the settings from the More sheet (the chip
+ * leaves the one-row nav below sm); `detail` = the element focus goes back
+ * to when they close. */
+export const OPEN_SETTINGS = "biblestdy:settings";
+export function openSettings(returnTo?: HTMLElement | null) {
+  window.dispatchEvent(new CustomEvent(OPEN_SETTINGS, { detail: returnTo ?? null }));
+}
 
 const chipClass =
   "flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-primary/15 text-meta font-semibold text-primary transition-colors hover:bg-primary/25";
@@ -42,15 +51,39 @@ const chipClass =
  * surface. Popover on desktop, content-sized bottom drawer on phones; both
  * share the PanelHeader (#62). Delete account is an AlertDialog owned here,
  * outside the popover/drawer, so closing those never unmounts it. */
-export function AccountChip() {
+export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const chipRef = useRef<HTMLButtonElement>(null);
+  // Where focus lands when the settings (or a dialog they open) close: the
+  // chip, or the More trigger when opened from the More sheet
+  const returnTo = useRef<HTMLElement | null>(null);
+  // (More is only CSS-hidden from sm: after a rotate/resize across it, the
+  // chip is the visible way back)
+  const backTo = () => {
+    const el = returnTo.current;
+    return el?.isConnected && el.checkVisibility?.() !== false ? el : chipRef.current;
+  };
   const { data: session } = authClient.useSession();
   const email = session?.user.email ?? "";
   const initial = email ? email[0].toUpperCase() : <UserRound className="size-4" />;
+
+  useEffect(() => {
+    function show(e: Event) {
+      returnTo.current = (e as CustomEvent<HTMLElement | null>).detail;
+      setOpen(true);
+    }
+    window.addEventListener(OPEN_SETTINGS, show);
+    return () => window.removeEventListener(OPEN_SETTINGS, show);
+  }, []);
+
+  /** Opened from the chip itself: focus comes back to it. */
+  function openFromChip(next: boolean) {
+    if (next) returnTo.current = null;
+    setOpen(next);
+  }
 
   function askDelete() {
     setOpen(false);
@@ -61,7 +94,7 @@ export function AccountChip() {
    * comes back to the chip). */
   function showColorNames() {
     setOpen(false);
-    openColorNames(chipRef.current);
+    openColorNames(backTo());
   }
 
   /** The `?` list (#65) — the popover closes first, the dialog takes over. */
@@ -83,18 +116,20 @@ export function AccountChip() {
     <>
       {isMobile ? (
         <>
+          {/* Below sm the chip leaves the nav (one row); the More sheet's
+              Settings row opens this same drawer */}
           <button
             ref={chipRef}
             type="button"
             aria-label={t("settings.open")}
-            className={chipClass}
-            onClick={() => setOpen(true)}
+            className={cn(chipClass, "hidden sm:flex")}
+            onClick={() => openFromChip(true)}
           >
             {initial}
           </button>
           <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
             {/* Content-sized (#62): grows with the rows, capped at 92dvh */}
-            <DrawerContent className="[--drawer-content-max-height:92dvh]">
+            <DrawerContent className="[--drawer-content-max-height:92dvh]" finalFocus={backTo}>
               <PanelHeader onClose={() => setOpen(false)} closeLabel={t("settings.close")}>
                 <DrawerTitle className={panelTitleClass}>{t("settings.title")}</DrawerTitle>
               </PanelHeader>
@@ -105,7 +140,7 @@ export function AccountChip() {
           </Drawer>
         </>
       ) : (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={openFromChip}>
           <Hint label={t("settings.open")}>
             <PopoverTrigger
               render={
@@ -113,13 +148,21 @@ export function AccountChip() {
                   ref={chipRef}
                   type="button"
                   aria-label={t("settings.open")}
-                  className="flex items-center gap-2 rounded-full hover:bg-muted min-[1180px]:pr-2.5"
+                  className={cn(
+                    // hidden below sm here too: the first render (isMobile
+                    // not known yet) mustn't show, or measure, the chip
+                    "hidden shrink-0 items-center gap-2 rounded-full hover:bg-muted sm:flex",
+                    !iconOnly && "min-[1180px]:pr-2.5",
+                  )}
                 />
               }
             >
               <span className={chipClass}>{initial}</span>
-              {/* Visible word next to the chip on wide screens (#62) */}
-              <span className="hidden text-control min-[1180px]:inline">{t("settings.short")}</span>
+              {/* Visible word next to the chip on wide screens (#62); not at
+                  large text sizes, like Notes and Search */}
+              <span className={cn("hidden text-control", !iconOnly && "min-[1180px]:inline")}>
+                {t("settings.short")}
+              </span>
             </PopoverTrigger>
           </Hint>
           <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0">
@@ -130,7 +173,7 @@ export function AccountChip() {
           </PopoverContent>
         </Popover>
       )}
-      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} returnFocus={chipRef} />
+      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} returnFocus={backTo} />
     </>
   );
 }
@@ -342,7 +385,7 @@ function SettingsContent({
 
 /** Delete account (App Store 5.1.1(v)), #62: an AlertDialog that keeps the
  * typed confirm — DELETE /api/account → sign out → /signin. Focus starts in
- * the confirm field and returns to the account chip on cancel. */
+ * the confirm field and returns to the chip (or More) on cancel. */
 function DeleteAccountDialog({
   open,
   onOpenChange,
@@ -350,7 +393,7 @@ function DeleteAccountDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  returnFocus: React.RefObject<HTMLButtonElement | null>;
+  returnFocus: () => HTMLElement | null;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();

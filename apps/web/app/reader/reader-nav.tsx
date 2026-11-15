@@ -2,12 +2,15 @@ import type { Translation } from "@biblestdy/shared";
 import { getBook } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
 import { MonitorDown, NotebookText, Share, SquarePlus } from "lucide-react";
+import { useRef } from "react";
 import { useNavigate } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
 import { useBookName } from "~/lib/book-name";
+import { useTextSize } from "~/lib/text-size";
+import { cn } from "~/lib/utils";
 import {
   Select,
   SelectContent,
@@ -19,6 +22,7 @@ import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
 import { PANEL_TOGGLE } from "./connections-panel";
 import { MoreSheet } from "./more-sheet";
+import { NAME_MIN_EM, useNavWraps } from "./nav-fit";
 import { PaletteTrigger } from "../palette/palette-trigger";
 import { TranslationChooser } from "./translation-chooser";
 
@@ -49,6 +53,12 @@ export function ReaderNav({
   const nameOf = useBookName();
   const current = getBook(book);
   const chapterCount = current?.chapters ?? 1;
+  // Large text (175%+): Notes, Search, More, Settings and the translation's
+  // name drop their words, so the row holds (or wraps less)
+  const iconOnly = useTextSize() >= 175;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const wraps = useNavWraps(rowRef, nameRef);
 
   return (
     <nav
@@ -56,14 +66,31 @@ export function ReaderNav({
       className="relative shrink-0 border-b border-border bg-background/85"
     >
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      <div className="flex flex-wrap items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
+      {/* One row (a second row costs reading height on every phone page):
+          the book name gives way (ellipsis), the rest keeps its size; phones
+          reach the settings through More. Only when even a short name won't
+          fit (large text, narrow pane) does the row wrap, never hiding a
+          control. */}
+      <div
+        ref={rowRef}
+        className={cn(
+          "flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4",
+          wraps ? "flex-wrap" : "flex-nowrap",
+        )}
+      >
         <Hint label={t("nav.toggleSidebar")} shortcut="mod+B">
           <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
         </Hint>
 
-        <div className="h-4 w-px bg-border" />
+        <div className="h-4 w-px shrink-0 bg-border" />
 
-        <span className="min-w-0 truncate font-serif text-control font-medium">
+        <span
+          ref={nameRef}
+          className="min-w-0 truncate font-serif text-control font-medium"
+          // Wrapped: the name stays on the first line (never alone below the
+          // sidebar button) and fills what that line leaves
+          style={wraps ? { flex: "1 1 0", minWidth: `${NAME_MIN_EM}em` } : undefined}
+        >
           {nameOf(book)}
         </span>
 
@@ -71,7 +98,7 @@ export function ReaderNav({
           value={String(chapter)}
           onValueChange={(value) => navigate(`/read/${book}/${String(value)}`)}
         >
-          <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="font-mono">
+          <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="shrink-0 font-mono">
             <SelectValue />
           </SelectTrigger>
           {/* Number grid (#62): Psalms' 150 chapters in a few rows, not a
@@ -102,11 +129,13 @@ export function ReaderNav({
             translations={translations}
             translationId={translationId}
             onSwitch={onSwitchTranslation}
+            iconOnly={iconOnly}
           />
         )}
 
-        {/* Go to reference (#53): inline from sm, a search icon on phones */}
-        <PaletteTrigger />
+        {/* Go to reference (#53): the worded field from lg, a search icon
+            below (and at large text sizes) */}
+        <PaletteTrigger iconOnly={iconOnly} />
 
         {/* "Notes & topics" (#62, was the unexplained "Connections"): icon +
             tooltip from sm, the word itself from 1180px. Phones reach it, the
@@ -115,14 +144,19 @@ export function ReaderNav({
           <Button
             variant={connectionsOpen ? "secondary" : "ghost"}
             size="icon-sm"
-            className="hidden gap-1.5 sm:inline-flex min-[1180px]:w-auto min-[1180px]:px-2.5"
+            className={cn(
+              "hidden gap-1.5 sm:inline-flex",
+              !iconOnly && "min-[1180px]:w-auto min-[1180px]:px-2.5",
+            )}
             aria-label={t("nav.connectionsToggle")}
             aria-pressed={connectionsOpen}
             {...{ [PANEL_TOGGLE]: "connections" }}
             onClick={onToggleConnections}
           >
             <NotebookText />
-            <span className="hidden min-[1180px]:inline">{t("nav.connectionsToggle")}</span>
+            <span className={cn("hidden", !iconOnly && "min-[1180px]:inline")}>
+              {t("nav.connectionsToggle")}
+            </span>
           </Button>
         </Hint>
 
@@ -132,6 +166,7 @@ export function ReaderNav({
           annotationBoxesOpen={annotationBoxesOpen}
           onToggleAnnotationBoxes={onToggleAnnotationBoxes}
           pwa={pwa}
+          iconOnly={iconOnly}
         />
 
         {/* Install as app: real prompt on Chromium; iOS Safari has no install
@@ -185,8 +220,8 @@ export function ReaderNav({
         )}
 
         {/* Account chip (#17): settings surface — theme + language live in
-            there now, keeping the nav row lean */}
-        <AccountChip />
+            there now, keeping the nav row lean. From sm; phones use More. */}
+        <AccountChip iconOnly={iconOnly} />
       </div>
     </nav>
   );
