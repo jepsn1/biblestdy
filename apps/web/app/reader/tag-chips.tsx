@@ -3,7 +3,7 @@ import type { Tag } from "@biblestdy/shared";
 import { X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import { cn, focusRing } from "~/lib/utils";
+import { cn, focusField, focusRing } from "~/lib/utils";
 
 /**
  * Tag chips + inline add box (issue #10). A chip links to its topic page;
@@ -79,8 +79,8 @@ export function TagChips({
           placeholder={t("tags.placeholder")}
           aria-label={t("tags.inputLabel")}
           className={cn(
-            "w-20 rounded-full border border-border bg-background px-2 py-0.5 text-meta focus:border-ring",
-            focusRing,
+            "w-20 rounded-full border border-border bg-background px-2 py-0.5 text-meta",
+            focusField,
           )}
         />
       ) : (

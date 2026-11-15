@@ -3,7 +3,7 @@ import type { Anchor, Chapter, Note, NoteAnchor } from "@biblestdy/shared";
 import { words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
 import { api } from "~/lib/query";
-import { cn, focusRing } from "~/lib/utils";
+import { cn, focusRing, focusTitle } from "~/lib/utils";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
   ResizableHandle,
@@ -381,8 +381,8 @@ export function NotePanel({
           data-form-type="other"
           aria-label={t("note.titleLabel")}
           className={cn(
-            "min-w-0 flex-1 rounded-sm bg-transparent font-serif text-title font-medium placeholder:text-muted-foreground",
-            focusRing,
+            "min-w-0 flex-1 bg-transparent font-serif text-title font-medium placeholder:text-muted-foreground",
+            focusTitle,
           )}
         />
         {onOpenInNotes && (

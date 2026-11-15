@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 /** Text colour tokens tuned to ≥ 4.5:1 on their background (app.css). */
 const TEXT_TOKENS =
-  "foreground|muted-foreground|primary|primary-foreground|secondary-foreground|accent-foreground|card-foreground|popover-foreground|destructive|sidebar-foreground|sidebar-primary|sidebar-accent-foreground";
+  "foreground|muted-foreground|primary|primary-foreground|secondary-foreground|accent-foreground|card-foreground|popover-foreground|destructive|destructive-foreground|sidebar-foreground|sidebar-primary|sidebar-accent-foreground";
 
 /** `text-primary/80`, `hover:text-muted-foreground/60` — opacity drops the token below AA. */
 const FADED_TEXT = new RegExp(`(?<![\\w-])(?:[\\w-]+:)*text-(?:${TEXT_TOKENS})/\\d+`, "g");

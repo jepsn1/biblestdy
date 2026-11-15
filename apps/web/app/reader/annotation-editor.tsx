@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AnnotationMark } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
-import { cn, focusRing } from "~/lib/utils";
+import { cn, focusField, focusRing } from "~/lib/utils";
 
 /** Pen styles in menu/editor order. */
 export const MARK_STYLES = ["contour", "underline", "circle", "bracket"] as const;
@@ -61,7 +61,7 @@ export function AnnotationEditor({
         aria-label={t("menu.annotationPlaceholder")}
         className={cn(
           "h-16 w-full resize-none rounded border border-primary/50 bg-background/80 p-1.5 font-serif text-control",
-          focusRing,
+          focusField,
         )}
       />
       {mark && onMark && (

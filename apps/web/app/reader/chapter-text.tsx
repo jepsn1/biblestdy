@@ -14,7 +14,7 @@ import { authClient } from "~/lib/auth-client";
 import { bookLocale } from "~/lib/book-name";
 import type { ReaderTool } from "./tool-palette";
 import { notifyCopied, notifyCopyFailed } from "~/lib/notify";
-import { cn, focusRing } from "~/lib/utils";
+import { cn, focusField, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { anchorReferenceLabel, formatCopy } from "./copy-attribution";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE, NOTE_INK_WASH } from "./highlight-colors";
@@ -874,12 +874,12 @@ export function ChapterText({
           names the place. Screen readers still get "John 3" as the heading —
           UI words, voiced in the UI's language (as is the hint below). */}
       {chapter.chapter === 1 && opening ? (
-        <Heading lang={i18n.language} className="mb-6 font-serif text-display font-medium tracking-tight">
+        <Heading data-chapter-heading lang={i18n.language} className="mb-6 font-serif text-display font-medium tracking-tight">
           <span aria-hidden>{bookName}</span>
           <span className="sr-only">{heading}</span>
         </Heading>
       ) : (
-        <Heading lang={i18n.language} className="sr-only">
+        <Heading data-chapter-heading lang={i18n.language} className="sr-only">
           {heading}
         </Heading>
       )}
@@ -1089,6 +1089,7 @@ export function ChapterText({
                         key={a.id}
                         type="button"
                         data-ink-box
+                        lang={i18n.language}
                         aria-label={t("reader.editAnnotation", { text: a.text })}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1299,8 +1300,8 @@ export function ChapterText({
           placeholder={t("menu.annotationPlaceholder")}
           aria-label={t("menu.annotationPlaceholder")}
           className={cn(
-            "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-phone focus:border-ring sm:text-control",
-            focusRing,
+            "h-20 resize-none rounded border border-border bg-background p-2 font-serif text-phone sm:text-control",
+            focusField,
           )}
         />
         <div className="flex items-center justify-between gap-2">

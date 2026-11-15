@@ -16,3 +16,14 @@ export function cn(...inputs: ClassValue[]) {
  * the opaque --ring token: ≥ 3:1 on every theme (WCAG 1.4.11). */
 export const focusRing =
   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+
+/** Text fields (inputs, textareas): the field's own edge is the indicator —
+ * its border turns --ring and thickens inward to 2px. Fields match
+ * :focus-visible on click and on programmatic focus too, so an outer ring
+ * would frame every field you click; an edge reads as the field, not a box. */
+export const focusField =
+  "focus-visible:outline-none focus-visible:border-ring focus-visible:inset-ring-1 focus-visible:inset-ring-ring"
+
+/** Borderless fields set as text (the note title): a ruled underline. */
+export const focusTitle =
+  "focus-visible:outline-none focus-visible:shadow-[inset_0_-2px_0_var(--ring)]"
