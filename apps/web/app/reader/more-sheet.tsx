@@ -23,15 +23,12 @@ export function MoreSheet({
   annotationBoxesOpen,
   onToggleAnnotationBoxes,
   pwa,
-  iconOnly = false,
 }: {
   connectionsOpen: boolean;
   onToggleConnections: () => void;
   annotationBoxesOpen: boolean;
   onToggleAnnotationBoxes: () => void;
   pwa: PwaInstall;
-  /** Large text sizes: the ⋯ alone (named by aria-label), so the nav wraps less. */
-  iconOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -45,14 +42,13 @@ export function MoreSheet({
       <Button
         ref={triggerRef}
         variant="ghost"
-        size={iconOnly ? "icon-sm" : "sm"}
-        className="sm:hidden"
-        aria-label={iconOnly ? t("nav.more") : undefined}
+        size="sm"
+        className="shrink-0 sm:hidden"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
-        <Ellipsis data-icon={iconOnly ? undefined : "inline-start"} />
-        {!iconOnly && t("nav.more")}
+        <Ellipsis data-icon="inline-start" />
+        {t("nav.more")}
       </Button>
       <Drawer
         open={open}

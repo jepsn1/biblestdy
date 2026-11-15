@@ -4,19 +4,19 @@ import { useTranslation } from "react-i18next";
 import { Hint, modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { ignoreShortcut } from "~/lib/shortcuts";
-import { cn } from "~/lib/utils";
 import { openPalette as open, palette, PALETTE_PROXY } from "./open-palette";
 
 /**
- * The nav's "Search or go to…" (replaces the jump box, #53). Same place and
- * width as the old field; a worded button, the shortcut only where a
- * keyboard is likely. Owns the keys: ⌘K / Ctrl+K from anywhere (bubble
- * phase, so the note editor's own ⌘K link dialog still wins inside notes),
- * `/` when not typing. A search icon below lg, or at any width when
- * `iconOnly` (large text sizes), so the nav keeps to one row. The field
- * only takes what the book name leaves (basis 0, grows to its 18rem).
+ * The nav's "Search or go to…" (replaces the jump box, #53). A worded
+ * field where the nav row (a container, `@container/nav`) has room, a
+ * worded "Search" button where it hasn't — never an icon alone (Birthe,
+ * persona panel 2026-11-15). Both show the keys: ⌘K / Ctrl+K first (on a
+ * Danish keyboard "/" is Shift+7), then `/`. Owns the keys: ⌘K / Ctrl+K
+ * from anywhere (bubble phase, so the note editor's own ⌘K link dialog still
+ * wins inside notes), `/` when not typing. The field only takes what the
+ * address leaves (basis 0, grows to its 18rem).
  */
-export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
+export function PaletteTrigger() {
   const { t } = useTranslation();
   // Platform key resolved on the client (SSR markup never depends on it)
   const [mod, setMod] = useState("Ctrl+");
@@ -55,8 +55,8 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
       <Hint label={t("palette.open")} shortcut="mod+K">
         <Button
           variant="ghost"
-          size="icon-sm"
-          className={cn("ml-auto", !iconOnly && "lg:hidden")}
+          size="sm"
+          className="ml-auto shrink-0 gap-1.5 px-2 @min-[48rem]/nav:hidden"
           aria-label={t("palette.open")}
           aria-haspopup="dialog"
           aria-keyshortcuts="Meta+K Control+K /"
@@ -69,7 +69,8 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
             open();
           }}
         >
-          <Search />
+          <Search aria-hidden />
+          {t("nav.search")}
         </Button>
       </Hint>
       <input
@@ -77,7 +78,7 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
         {...{ [PALETTE_PROXY]: "" }}
         aria-hidden
         tabIndex={-1}
-        className={cn("pointer-events-none fixed top-0 left-0 size-px text-phone opacity-0", !iconOnly && "lg:hidden")}
+        className="pointer-events-none fixed top-0 left-0 size-px text-phone opacity-0 @min-[48rem]/nav:hidden"
       />
       <button
         type="button"
@@ -87,16 +88,14 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
         onPointerEnter={palette.preload}
         onFocus={palette.preload}
         onClick={open}
-        className={cn(
-          "ml-auto hidden h-7 max-w-72 min-w-40 grow basis-0 items-center gap-2 rounded-md border border-input bg-transparent px-2 text-list text-muted-foreground hover:bg-muted",
-          !iconOnly && "lg:flex",
-        )}
+        className="ml-auto hidden h-7 max-w-72 min-w-40 grow basis-0 items-center gap-2 rounded-md border border-input bg-transparent px-2 text-list text-muted-foreground hover:bg-muted @min-[48rem]/nav:flex"
       >
         <Search className="size-3.5 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-left">{t("palette.open")}</span>
-        <kbd className="rounded border border-border bg-muted px-1 font-mono text-meta pointer-coarse:hidden">
-          {mod}K
-        </kbd>
+        <span className="flex shrink-0 gap-1 pointer-coarse:hidden" aria-hidden>
+          <kbd className="rounded border border-border bg-muted px-1 font-mono text-meta">{mod}K</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 font-mono text-meta">/</kbd>
+        </span>
       </button>
     </>
   );

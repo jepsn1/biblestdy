@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ignoreShortcut, type ShortcutEvent } from "./shortcuts";
+import { ignoreShortcut, opensPlaceChooser, type ShortcutEvent } from "./shortcuts";
 
 /** Minimal element: `closest` answers from the selectors its ancestry matches. */
 function el(matches: (selector: string) => boolean, extra: { isContentEditable?: boolean } = {}) {
@@ -74,5 +74,36 @@ describe("ignoreShortcut", () => {
   it("tolerates a non-element target (window)", () => {
     expect(ignoreShortcut(key("ArrowRight", {}), noModal)).toBe(false);
     expect(ignoreShortcut(key("ArrowRight", null), noModal)).toBe(false);
+  });
+});
+
+describe("opensPlaceChooser (Ctrl/⌘B)", () => {
+  const input = el((s) => s === "input");
+  const editor = el(() => false, { isContentEditable: true });
+  const filter = el((s) => s === "input" || s === "[data-place-filter]");
+
+  it("Ctrl+B and ⌘B on the page", () => {
+    expect(opensPlaceChooser(key("b", body, { ctrlKey: true }), noModal)).toBe(true);
+    expect(opensPlaceChooser(key("B", body, { metaKey: true }), noModal)).toBe(true);
+  });
+
+  it("not a plain b, nor with Alt/Shift", () => {
+    expect(opensPlaceChooser(key("b", body), noModal)).toBe(false);
+    expect(opensPlaceChooser(key("b", body, { ctrlKey: true, altKey: true }), noModal)).toBe(false);
+    expect(opensPlaceChooser({ ...key("b", body, { ctrlKey: true }), shiftKey: true }, noModal)).toBe(false);
+  });
+
+  it("never in a field or the note editor (Ctrl+B = bold there)", () => {
+    expect(opensPlaceChooser(key("b", input, { ctrlKey: true }), noModal)).toBe(false);
+    expect(opensPlaceChooser(key("b", editor, { ctrlKey: true }), noModal)).toBe(false);
+  });
+
+  it("but in its own filter it toggles", () => {
+    expect(opensPlaceChooser(key("b", filter, { ctrlKey: true }), noModal)).toBe(true);
+  });
+
+  it("not over another dialog, nor when already handled", () => {
+    expect(opensPlaceChooser(key("b", body, { ctrlKey: true }), modalOpen)).toBe(false);
+    expect(opensPlaceChooser(key("b", body, { ctrlKey: true, defaultPrevented: true }), noModal)).toBe(false);
   });
 });
