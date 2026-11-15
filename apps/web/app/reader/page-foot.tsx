@@ -182,6 +182,9 @@ function Parts({ parts, wrapLong = false }: { parts: string[]; wrapLong?: boolea
 
 function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "next"; phone: boolean }) {
   const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
+  // Mouse turns on press, like a page under the finger; touch keeps click
+  // (a press may be a scroll), keyboard keeps Enter/Space (detail 0)
+  const pressed = useRef(false);
   return (
     <Hint label={button.name} shortcut={button.hintKey} side="top">
       <Button
@@ -193,7 +196,17 @@ function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "ne
         data-foot-end
         aria-label={button.name === button.label ? undefined : button.name}
         aria-keyshortcuts={button.keys}
-        onClick={button.onClick}
+        onPointerDown={(e) => {
+          pressed.current = e.pointerType === "mouse" && e.button === 0 && !button.disabled;
+          if (pressed.current) button.onClick();
+        }}
+        onClick={(e) => {
+          if (e.detail > 0 && pressed.current) {
+            pressed.current = false;
+            return;
+          }
+          button.onClick();
+        }}
         className={cn(
           // -mx-2: chevron and word line up with the text's edge; the hover
           // wash spills into the content padding, never into a margin lane
