@@ -22,6 +22,7 @@ export default {
     installIosStep1: "Tap the Share button in Safari\u2019s toolbar",
     installIosStep2: "Choose \u201cAdd to Home Screen\u201d",
     installIosWhy: "biblestdy opens full-screen like a native app \u2014 no browser chrome.",
+    settingsHint: "Theme, text size, language and your account",
     jumpOpen: "Go to reference",
     jumpClose: "Close",
     jumpInvalid: "Unknown reference — try “John 3:16” or “Rom 8”",

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Ellipsis, Layers, MonitorDown, NotebookText, Share, SquarePlus } from "lucide-react";
+import { Ellipsis, Layers, MonitorDown, NotebookText, Settings, Share, SquarePlus } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
 import type { PwaInstall } from "~/hooks/use-pwa-install";
 import { cn, focusRing } from "~/lib/utils";
+import { openSettings } from "./account-settings";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 
 /**
@@ -12,7 +13,9 @@ import { PanelHeader, panelTitleClass } from "./panel-header";
  * don't say what they do (Freja, Birthe). Rather than captions under every
  * icon (a taller nav on every page, cramped Danish words), the rarer actions
  * move into one labelled sheet: full words plus a line of explanation, one
- * extra tap. Desktop keeps them in the nav with tooltips + labels.
+ * extra tap. Desktop keeps them in the nav with tooltips + labels. The
+ * settings live here too on phones, so the nav stays one row (Danish book
+ * names pushed the chip onto a second line).
  */
 export function MoreSheet({
   connectionsOpen,
@@ -20,27 +23,33 @@ export function MoreSheet({
   annotationBoxesOpen,
   onToggleAnnotationBoxes,
   pwa,
+  iconOnly = false,
 }: {
   connectionsOpen: boolean;
   onToggleConnections: () => void;
   annotationBoxesOpen: boolean;
   onToggleAnnotationBoxes: () => void;
   pwa: PwaInstall;
+  /** Large text sizes: the ⋯ alone (named by aria-label), so the nav wraps less. */
+  iconOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <>
       <Button
+        ref={triggerRef}
         variant="ghost"
-        size="sm"
+        size={iconOnly ? "icon-sm" : "sm"}
         className="sm:hidden"
+        aria-label={iconOnly ? t("nav.more") : undefined}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
-        <Ellipsis data-icon="inline-start" />
-        {t("nav.more")}
+        <Ellipsis data-icon={iconOnly ? undefined : "inline-start"} />
+        {!iconOnly && t("nav.more")}
       </Button>
       <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
         <DrawerContent className="[--drawer-content-max-height:92dvh]">
@@ -95,6 +104,16 @@ export function MoreSheet({
                 </ol>
               </div>
             )}
+            {/* The settings drawer takes over; closing it lands on More */}
+            <SheetRow
+              icon={<Settings />}
+              label={t("settings.title")}
+              hint={t("nav.settingsHint")}
+              onClick={() => {
+                setOpen(false);
+                openSettings(triggerRef.current);
+              }}
+            />
           </div>
         </DrawerContent>
       </Drawer>

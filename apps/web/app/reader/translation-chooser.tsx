@@ -52,10 +52,13 @@ export function TranslationChooser({
   translations,
   translationId,
   onSwitch,
+  iconOnly = false,
 }: {
   translations: Translation[];
   translationId: string;
   onSwitch: (id: string) => void;
+  /** Large text sizes: the abbreviation only, the name stays in the label. */
+  iconOnly?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const ui: Lang = i18n.language.startsWith("da") ? "da" : "en";
@@ -95,7 +98,7 @@ export function TranslationChooser({
     <>
       <span className="text-control font-medium tracking-[0.02em]">{current.abbreviation}</span>
       {/* Wide screens: which Bible, in words (Sofie: "WEB" reads as "website") */}
-      {translationInfo(current.abbreviation) && (
+      {translationInfo(current.abbreviation) && !iconOnly && (
         <span className="hidden text-control text-muted-foreground lg:inline">
           · {translationInfo(current.abbreviation)?.shortName}
         </span>
