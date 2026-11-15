@@ -24,6 +24,7 @@ import {
   type WantedPage,
 } from "./chapter-nav";
 import { chapterArriving, prefetchNeighbours, useLoadedChapter, warmChapter } from "./chapter-cache";
+import { useMeasure } from "./use-measure";
 import { ChapterSpill, type RunOn } from "./chapter-spill";
 import { ChapterText } from "./chapter-text";
 import { VERSE_FOCUS } from "./keyboard-selection";
@@ -40,6 +41,20 @@ import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
 import { revealColor, setHighlightFilter, useHighlightFilter } from "~/lib/highlight-filter";
 import { useAnnotations } from "./use-annotations";
+
+/** Which page an element is on, for a whole scan: the content box is read
+ * once, not per element. */
+function pageReader(content: HTMLElement | null, pageStride: number): ((el: Element) => number) | null {
+  if (!content || pageStride <= 0) return null;
+  const contentRect = content.getBoundingClientRect();
+  const s = contentRect.width / content.offsetWidth || 1;
+  // By its centre: a drop numeral (negative margin) or a hanging line
+  // starts a hair left of its column, which read as the page before
+  return (el) => {
+    const r = el.getBoundingClientRect();
+    return Math.max(0, Math.floor(((r.left + r.right) / 2 - contentRect.left) / s / pageStride));
+  };
+}
 
 /** The chapter text container: target of the "Skip to text" link (#61). */
 export const CHAPTER_TEXT_ID = "chapter-text";
@@ -453,14 +468,7 @@ export function PaginatedChapter({
   /** Desktop page holding an element (transform cancels out of both rects,
    * so this works from any current page); null before measurement. */
   function pageOf(el: Element, pageStride: number): number | null {
-    const content = contentRef.current;
-    if (!content || pageStride <= 0) return null;
-    const contentRect = content.getBoundingClientRect();
-    const s = contentRect.width / content.offsetWidth || 1;
-    // By its centre: a drop numeral (negative margin) or a hanging line
-    // starts a hair left of its column, which read as the page before
-    const r = el.getBoundingClientRect();
-    return Math.max(0, Math.floor(((r.left + r.right) / 2 - contentRect.left) / s / pageStride));
+    return pageReader(contentRef.current, pageStride)?.(el) ?? null;
   }
 
   /** Phones: scroll an element to the upper third of the pane. Not
@@ -556,46 +564,40 @@ export function PaginatedChapter({
   // Layout effect: measured + resolved before paint, so arriving on page 3
   // (or the last page) never flashes page 1 first
   useLayoutEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    if (scrollMode) {
-      // One long column: a single "page"; prev/next go straight to chapters
-      setPage(0);
-      setStride(0);
-      setPageCount(1);
-      return;
-    }
-    const measure = () => {
+    if (!scrollMode) return;
+    // One long column: a single "page"; prev/next go straight to chapters
+    setPage(0);
+    setStride(0);
+    setPageCount(1);
+  }, [chapterKey, scrollMode, layout.columns, textSize, flowFrom]);
+  useMeasure(
+    () => [scrollMode ? null : contentRef.current],
+    (reason) => {
+      const content = contentRef.current;
+      if (!content || scrollMode) return;
+      // One read phase (late: after the ink's pure reads). The chapter's own
+      // pages: the next chapter's opening (#flow) only fills the last one,
+      // so it is hidden while the extent is read, and left out of the count
+      const spill = spillBoxRef.current;
+      if (spill) spill.style.display = "none";
       const gap = parseFloat(getComputedStyle(content).columnGap || "0") || 0;
       const width = content.clientWidth;
+      const scrollWidth = content.scrollWidth;
+      if (spill) spill.style.display = "";
+      if (reason === "fonts") {
+        // Webfont swap rewraps the text: the page count changes, and a
+        // wanted verse can move to another page without changing the count
+        setFontTick((t) => t + 1);
+        if (wantedVerse.current !== null) setVerseTick((t) => t + 1);
+      }
       if (width === 0) return;
       const nextStride = width + gap;
       setStride(nextStride);
-      // The chapter's own pages: the next chapter's opening (#flow) only
-      // fills the last one, so it is left out of the count
-      const spill = spillBoxRef.current;
-      if (spill) spill.style.display = "none";
-      const scrollWidth = content.scrollWidth;
-      if (spill) spill.style.display = "";
       setPageCount(Math.max(1, Math.ceil((scrollWidth + gap) / nextStride)));
-    };
-    measure();
-    // Webfont swap rewraps the text -> page count changes
-    let alive = true;
-    // (and can move a wanted verse to another page without changing the count)
-    void document.fonts?.ready.then(() => {
-      if (!alive) return;
-      measure();
-      setFontTick((t) => t + 1);
-      if (wantedVerse.current !== null) setVerseTick((t) => t + 1);
-    });
-    const observer = new ResizeObserver(measure);
-    observer.observe(content);
-    return () => {
-      alive = false;
-      observer.disconnect();
-    };
-  }, [chapterKey, scrollMode, layout.columns, textSize, flowFrom]);
+    },
+    [chapterKey, scrollMode, layout.columns, textSize, flowFrom],
+    { late: true },
+  );
 
   // Verse jump (#53): `?v=` (link, or the jump box — same chapter too).
   // After the chapterKey effect above, which clears any previous target.
@@ -1058,8 +1060,9 @@ export function PaginatedChapter({
     }
     let first: number | null = null;
     let last: number | null = null;
+    const pageAt = pageReader(content, stride);
     for (const el of mainRef.current?.querySelectorAll<HTMLElement>("[data-verse][data-word]") ?? []) {
-      if (pageOf(el, stride) !== page) continue;
+      if (pageAt?.(el) !== page) continue;
       const v = Number(el.dataset.verse);
       if (first === null) first = v;
       last = v;
@@ -1084,8 +1087,9 @@ export function PaginatedChapter({
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content || scrollMode || stride === 0) return;
+    const pageAt = pageReader(content, stride);
     for (const el of content.querySelectorAll<HTMLElement>("button, a[href], input, textarea")) {
-      const off = pageOf(el, stride) !== page;
+      const off = pageAt?.(el) !== page;
       if (el.inert !== off) el.inert = off;
     }
   });
@@ -1093,7 +1097,8 @@ export function PaginatedChapter({
     const content = contentRef.current;
     if (!content || scrollMode || stride === 0) return;
     const verses = [...(mainRef.current?.querySelectorAll<HTMLElement>(`[${VERSE_FOCUS}]`) ?? [])];
-    const onPage = (el: HTMLElement) => pageOf(el, stride) === page;
+    const pageAt = pageReader(content, stride);
+    const onPage = (el: HTMLElement) => pageAt?.(el) === page;
     const byUser = userTurn.current;
     userTurn.current = false;
     const focused = verses.find((el) => el === document.activeElement);

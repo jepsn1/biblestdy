@@ -1,8 +1,9 @@
 import type { Anchor, Highlight } from "@biblestdy/shared";
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { isShown, type HighlightFilter } from "~/lib/highlight-filter";
 import { HIGHLIGHT_BG } from "./highlight-colors";
 import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geometry";
+import { sameData, useMeasure } from "./use-measure";
 
 /**
  * Marker layer. Highlights (and the live selection) are drawn as full
@@ -51,12 +52,12 @@ export function HighlightMarks({
 }) {
   const [rects, setRects] = useState<MarkRect[]>([]);
 
-  useLayoutEffect(() => {
-    const box = boxRef.current;
-    const flowEl = flowRef.current;
-    if (!box || !flowEl) return;
-
-    const measure = () => {
+  useMeasure(
+    () => [boxRef.current, flowRef.current],
+    () => {
+      const box = boxRef.current;
+      const flowEl = flowRef.current;
+      if (!box || !flowEl) return;
       // Page-independent (#ink slides): word rects relative to the flow
       // (its page-turn transform cancels out), placed at the flow's
       // untransformed spot in the box. The caller's layer carries the same
@@ -122,21 +123,10 @@ export function HighlightMarks({
       for (const hl of [...highlights].sort((a, b) => Number(faint(b)) - Number(faint(a)) || size(b) - size(a)))
         paint(hl, hl.id, HIGHLIGHT_BG[hl.color], faint(hl));
       if (selection) paint(selection, "selection", "var(--selection)");
-      setRects(out);
-    };
-
-    measure();
-    // Once webfonts land (Literata swaps in -> lines rewrap under fixed-size boxes)
-    let alive = true;
-    void document.fonts?.ready.then(() => alive && measure());
-    const ro = new ResizeObserver(measure);
-    ro.observe(box);
-    ro.observe(flowEl);
-    return () => {
-      alive = false;
-      ro.disconnect();
-    };
-  }, [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown]);
+      setRects((prev) => (sameData(prev, out) ? prev : out));
+    },
+    [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown],
+  );
 
   return (
     <svg
