@@ -5,7 +5,7 @@ import { Hint, modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
-import { openPalette as open, palette } from "./open-palette";
+import { openPalette as open, palette, PALETTE_PROXY } from "./open-palette";
 
 /**
  * The nav's "Search or go to…" (replaces the jump box, #53). Same place and
@@ -74,6 +74,7 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
       </Hint>
       <input
         ref={proxy}
+        {...{ [PALETTE_PROXY]: "" }}
         aria-hidden
         tabIndex={-1}
         className={cn("pointer-events-none fixed top-0 left-0 size-px text-phone opacity-0", !iconOnly && "lg:hidden")}

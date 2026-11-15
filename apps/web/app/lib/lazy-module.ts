@@ -34,12 +34,14 @@ export function lazyModule<T>(importer: () => Promise<T>): LazyModule<T> {
 
 /** Runs `fn` once the page has settled — a moment after the first paint,
  * then the browser's next idle time — so it never competes with the
- * chapter's own loading. Never when the reader asked to save data.
+ * chapter's own loading. Never when the reader asked to save data or the
+ * connection is 2G-slow.
  * Returns a cancel. */
 export function whenIdle(fn: () => void, afterMs = 1500): () => void {
   if (typeof window === "undefined") return () => {};
-  const conn = (navigator as { connection?: { saveData?: boolean } }).connection;
-  if (conn?.saveData) return () => {};
+  const conn = (navigator as { connection?: { saveData?: boolean; effectiveType?: string } })
+    .connection;
+  if (conn?.saveData || /2g/.test(conn?.effectiveType ?? "")) return () => {};
   let idle: number | undefined;
   const timer = setTimeout(() => {
     // Safari: no requestIdleCallback — the delay alone

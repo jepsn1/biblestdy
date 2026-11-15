@@ -164,7 +164,9 @@ export default {
     noReferences: "No passages yet. Type one below, or select words in the Bible text.",
     removeReferenceNamed: "Remove {{ref}} from this note",
     editorLoading: "Loading the editor…",
-    editorFailed: "Couldn\u2019t load the editor.",
+    editorFailed: "Couldn\u2019t load the editor — you can keep writing as plain text.",
+    reloadPage: "Reload page",
+    bodyLabel: "Note text",
     openInNotes: "Open in Notes",
   },
   connections: {

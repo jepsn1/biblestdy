@@ -165,8 +165,10 @@ const da: typeof en = {
     refPreview: "Enter tilføjer {{ref}}",
     noReferences: "Ingen skriftsteder endnu. Skriv et herunder, eller markér ord i bibelteksten.",
     removeReferenceNamed: "Fjern {{ref}} fra noten",
-    editorLoading: "Indlæser editoren …",
-    editorFailed: "Editoren kunne ikke indlæses.",
+    editorLoading: "Indlæser editoren…",
+    editorFailed: "Editoren kunne ikke indlæses — du kan skrive videre som ren tekst.",
+    reloadPage: "Genindlæs siden",
+    bodyLabel: "Notens tekst",
     openInNotes: "Åbn i Noter",
   },
   connections: {

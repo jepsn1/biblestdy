@@ -338,10 +338,13 @@ export function CommandPalette({
   const selectable = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
   // The first selectable row is highlighted while typing (Enter = top row)
   useEffect(() => setActive(selectable[0] ?? -1), [query, open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Enter typed ahead (open-palette.ts): go to the top row once it's there
+  const [submitAhead, setSubmitAhead] = useState(false);
   useEffect(() => {
     if (!open) {
       setQuery("");
       setTipsOpen(false);
+      setSubmitAhead(false);
     }
   }, [open]);
 
@@ -397,6 +400,15 @@ export function CommandPalette({
     onOpenChange(false);
     navigate(item.href);
   }
+
+  useEffect(() => {
+    if (!submitAhead) return;
+    const i = selectable[0];
+    if (i === undefined) return; // results still coming
+    setSubmitAhead(false);
+    run(items[i]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once results exist
+  }, [submitAhead, items]);
 
   function move(dir: 1 | -1) {
     if (selectable.length === 0) return;
@@ -584,10 +596,14 @@ export function CommandPalette({
             // writing carries on at their end
             onFocus={(e) => {
               const ahead = takeTypeahead();
-              if (ahead) setQuery((q) => q + ahead);
+              if (ahead.text) setQuery((q) => q + ahead.text);
               else e.currentTarget.setSelectionRange(query.length, query.length);
+              if (ahead.enter) setSubmitAhead(true);
             }}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setSubmitAhead(false); // typing on: no stale Enter
+              setQuery(e.target.value);
+            }}
             onKeyDown={onKeyDown}
             className={cn(
               "h-12 min-w-0 flex-1 bg-transparent text-control placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone",

@@ -164,53 +164,72 @@ function ReferencesTable({
 }
 
 /**
- * Stands in for the editor while its chunk loads (M8): the toolbar row and a
- * few lines of text, so nothing jumps when it arrives. Focusable (the panel
- * parks focus here) and busy for screen readers; a failed load says so and
- * offers Retry instead of breaking the panel.
+ * Plain-text stand-in while the rich editor's chunk loads (M8): the note's
+ * markdown in a real textarea, styled like the editor body — readable at
+ * once and writable (the same body buffer, so autosave covers it). The
+ * toolbar row is a placeholder. A failed load keeps it as a plain-text
+ * editor and offers Retry (then Reload page — a deploy renames chunks).
  */
-function EditorSkeleton({
+function FallbackEditor({
   ref,
+  value,
+  onChange,
+  onActivity,
+  onComposing,
   failed,
   onRetry,
+  reload,
   mobile,
 }: {
-  ref: React.Ref<HTMLDivElement>;
+  ref: React.Ref<HTMLTextAreaElement>;
+  value: string;
+  onChange: (value: string) => void;
+  /** Any input — the hand-over waits for a pause. */
+  onActivity: () => void;
+  onComposing: (composing: boolean) => void;
   failed: boolean;
   onRetry: () => void;
+  /** Retried already: offer a page reload instead. */
+  reload: boolean;
   mobile: boolean;
 }) {
   const { t } = useTranslation();
   return (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      role="status"
-      aria-busy={!failed}
-      className="flex min-h-0 flex-1 flex-col outline-none"
-    >
+    <div className="flex min-h-0 flex-1 flex-col">
       <div aria-hidden className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-2">
         {Array.from({ length: mobile ? 3 : 6 }, (_, i) => (
           <span key={i} className="h-5 w-12 rounded bg-muted" />
         ))}
       </div>
       {failed ? (
-        <p className="flex items-center gap-2 px-3 py-3 font-serif text-control text-muted-foreground">
+        <p role="status" className="flex flex-wrap items-center gap-x-2 border-b border-border px-3 py-1.5 text-meta text-muted-foreground">
           {t("note.editorFailed")}
-          <Button variant="link" size="sm" className="h-auto p-0 text-control" onClick={onRetry}>
-            {t("note.retry")}
+          <Button variant="link" size="sm" className="h-auto p-0 text-meta" onClick={onRetry}>
+            {reload ? t("note.reloadPage") : t("note.retry")}
           </Button>
         </p>
       ) : (
-        <>
-          <span className="sr-only">{t("note.editorLoading")}</span>
-          <div aria-hidden className="flex flex-col gap-3 px-3 py-3 motion-safe:animate-pulse">
-            {["w-11/12", "w-full", "w-10/12", "w-full", "w-9/12", "w-1/2"].map((w, i) => (
-              <span key={i} className={`h-3.5 rounded bg-muted ${w}`} />
-            ))}
-          </div>
-        </>
+        <span role="status" className="sr-only">
+          {t("note.editorLoading")}
+        </span>
       )}
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => {
+          onActivity();
+          onChange(e.target.value);
+        }}
+        onKeyDown={onActivity}
+        onCompositionStart={() => onComposing(true)}
+        onCompositionEnd={() => {
+          onComposing(false);
+          onActivity();
+        }}
+        placeholder={t("note.bodyPlaceholder")}
+        aria-label={t("note.bodyLabel")}
+        className="min-h-0 flex-1 resize-none bg-transparent px-3 py-3 font-serif text-control leading-relaxed outline-none placeholder:text-muted-foreground"
+      />
     </div>
   );
 }
@@ -263,24 +282,69 @@ export function NotePanel({
   const { t } = useTranslation();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
+  // Which note `body` holds: on a note switch it's the old one's for a render
+  const [bodyFor, setBodyFor] = useState(note.id);
+  const liveBody = bodyFor === note.id ? body : note.body;
   const dark = useIsDark();
   const titleRef = useRef<HTMLInputElement>(null);
 
   const editorRef = useRef<MDXEditorMethods>(null);
   // The editor is its own chunk (M8) — usually here already (idle preload)
   const { value: Editor, error: editorError, retry: retryEditor } = useLazyModule(noteEditor);
-  const skeletonRef = useRef<HTMLDivElement>(null);
-  const pendingBodyFocus = useRef(false);
+  const fallbackRef = useRef<HTMLTextAreaElement>(null);
   const focusBody = () =>
     editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true });
+  const focusFallback = () => {
+    const el = fallbackRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
+  // Plain textarea until the editor is here AND the writer pauses (~400ms,
+  // no IME composition) — then the editor takes over with the live text
+  const [handedOver, setHandedOver] = useState(() => !!noteEditor.peek());
+  const lastInput = useRef(0);
+  const composing = useRef(false);
+  const focusOnReady = useRef(false);
+  useEffect(() => {
+    if (!Editor || handedOver) return;
+    let timer = 0;
+    const check = () => {
+      const quiet = Date.now() - lastInput.current;
+      if (composing.current || quiet < 400) {
+        timer = window.setTimeout(check, composing.current ? 200 : 410 - quiet);
+        return;
+      }
+      // Writing in the textarea: the editor gets the focus (caret at the end)
+      focusOnReady.current = document.activeElement === fallbackRef.current;
+      setHandedOver(true);
+    };
+    timer = window.setTimeout(check, 0);
+    return () => window.clearTimeout(timer);
+  }, [Editor, handedOver]);
   function onEditorReady() {
-    if (!pendingBodyFocus.current) return;
-    pendingBodyFocus.current = false;
-    // Only if focus is still where we parked it (the placeholder is gone now)
+    if (!focusOnReady.current) return;
+    focusOnReady.current = false;
+    // The textarea is gone, so focus fell to <body>: move it on. Anything
+    // the reader chose meanwhile keeps it.
     requestAnimationFrame(() => {
       const active = document.activeElement;
       if (!active || active === document.body) focusBody();
     });
+  }
+  // A failed editor download: Retry, then (a deploy renamed the chunk) a
+  // page reload — after saving what's written
+  const [editorRetries, setEditorRetries] = useState(0);
+  function retryOrReload() {
+    if (editorRetries === 0) {
+      setEditorRetries(1);
+      retryEditor();
+      return;
+    }
+    const l = latest.current;
+    const reload = () => window.location.reload();
+    if (l.dirty) void saveRef.current(l.id, { title: l.title, body: l.body }).finally(reload);
+    else reload();
   }
 
   // Desktop side panel: focus moves to the note body on open (#65), ready to
@@ -304,12 +368,8 @@ export function NotePanel({
       requestAnimationFrame(() => {
         if (blank) titleRef.current?.focus({ preventScroll: true });
         else if (editorRef.current) focusBody();
-        else {
-          // Editor chunk still loading: hold focus on its placeholder (in the
-          // panel, announced as loading); it moves on once the editor mounts
-          pendingBodyFocus.current = true;
-          skeletonRef.current?.focus({ preventScroll: true });
-        }
+        // Editor chunk still loading: its plain-text stand-in, caret at the end
+        else focusFallback();
       });
     if (!openerSel.current) return;
     const sel = openerSel.current;
@@ -367,6 +427,7 @@ export function NotePanel({
   useEffect(() => {
     setTitle(note.title);
     setBody(note.body);
+    setBodyFor(note.id);
     setFailed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
@@ -457,11 +518,12 @@ export function NotePanel({
       </div>
 
       {(() => {
-        const editor = Editor ? (
+        const editor = Editor && handedOver ? (
           <Editor.NoteEditor
             key={note.id}
             editorRef={editorRef}
-            markdown={note.body}
+            // The live buffer: whatever was typed in the stand-in comes along
+            markdown={liveBody}
             onChange={setBody}
             onReady={onEditorReady}
             placeholder={t("note.bodyPlaceholder")}
@@ -469,10 +531,19 @@ export function NotePanel({
             mobile={mobile}
           />
         ) : (
-          <EditorSkeleton
-            ref={skeletonRef}
+          <FallbackEditor
+            ref={fallbackRef}
+            value={liveBody}
+            onChange={setBody}
+            onActivity={() => {
+              lastInput.current = Date.now();
+            }}
+            onComposing={(c) => {
+              composing.current = c;
+            }}
             failed={!!editorError}
-            onRetry={retryEditor}
+            onRetry={retryOrReload}
+            reload={editorRetries > 0}
             mobile={mobile}
           />
         );

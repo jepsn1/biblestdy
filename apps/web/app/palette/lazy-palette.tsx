@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useLazyModule, whenIdle } from "~/lib/lazy-module";
@@ -50,9 +50,24 @@ export function LazyCommandPalette({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open, mod, onOpenChange]);
 
+  // A download that failed while closed (idle preload) is retried on open;
+  // one that fails while open says so — with a reload, in case a deploy
+  // renamed the chunk — and closes
+  const failedWhileClosed = useRef(false);
   useEffect(() => {
-    if (!error || !open) return;
-    toast.error(t("palette.loadFailed"));
+    if (!error) return;
+    if (!open) {
+      failedWhileClosed.current = true;
+      return;
+    }
+    if (failedWhileClosed.current) {
+      failedWhileClosed.current = false;
+      retry();
+      return;
+    }
+    toast.error(t("palette.loadFailed"), {
+      action: { label: t("note.reloadPage"), onClick: () => window.location.reload() },
+    });
     onOpenChange(false);
     retry(); // a later open tries the download again
   }, [error, open, onOpenChange, retry, t]);

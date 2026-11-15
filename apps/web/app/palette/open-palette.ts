@@ -26,10 +26,16 @@ export const palette = lazyModule(() => import("./command-palette"));
  * Type-ahead: ⌘K then typing at once must not lose the first keys. Between
  * the open and the palette's input taking focus (a render, the dialog's open,
  * on a cold start the chunk's download) keys are kept here — and kept from
- * the reader's own single-key shortcuts — then handed to the input.
+ * the reader's own keys (shortcuts, Enter on a verse, arrows paging) — then
+ * handed to the input. Enter is remembered and replayed as "go" there.
  */
-let typed = "";
+type Typeahead = { text: string; enter: boolean };
+let typed: Typeahead = { text: "", enter: false };
 let stopTypeahead: (() => void) | null = null;
+
+/** The phone trigger's hidden input (keeps the iOS keyboard up): Android
+ * keyboards send `key: "Unidentified"`, their text only lands in there. */
+export const PALETTE_PROXY = "data-palette-proxy";
 
 export function startTypeahead() {
   takeTypeahead();
@@ -37,26 +43,31 @@ export function startTypeahead() {
     if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return;
     // Focus reached a dialog (the palette's input): it types for itself
     if ((e.target as Element | null)?.closest?.("[role=dialog]")) return;
-    if (e.key === "Backspace") typed = typed.slice(0, -1);
-    else if (e.key.length === 1) typed += e.key;
-    else return;
+    if (e.key === "Escape" || e.key === "Shift") return; // Esc: lazy-palette cancels
+    if (e.key === "Backspace") typed.text = typed.text.slice(0, -1);
+    else if (e.key === "Enter") typed.enter = true;
+    else if (e.key.length === 1 && !typed.enter) typed.text += e.key;
+    // Unidentified (Android) passes on to the proxy input; the rest is swallowed
+    if (e.key === "Unidentified") return;
     e.preventDefault();
     e.stopPropagation();
   };
   window.addEventListener("keydown", onKey, true);
-  // Never outlives a palette that didn't open
-  const timer = window.setTimeout(() => takeTypeahead(), 5000);
+  // Never outlives a palette that didn't open (a very slow chunk still fits)
+  const timer = window.setTimeout(() => takeTypeahead(), 30_000);
   stopTypeahead = () => {
     window.removeEventListener("keydown", onKey, true);
     window.clearTimeout(timer);
   };
 }
 
-/** The keys kept so far; stops keeping them. */
-export function takeTypeahead(): string {
+/** The keys kept so far (and whether Enter was pressed); stops keeping them. */
+export function takeTypeahead(): Typeahead {
   stopTypeahead?.();
   stopTypeahead = null;
-  const t = typed;
-  typed = "";
+  const proxy = document.querySelector<HTMLInputElement>(`[${PALETTE_PROXY}]`);
+  const t = { text: typed.text + (proxy?.value ?? ""), enter: typed.enter };
+  if (proxy) proxy.value = "";
+  typed = { text: "", enter: false };
   return t;
 }
