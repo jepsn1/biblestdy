@@ -7,7 +7,7 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
-import { loadTextSize } from "~/lib/text-size";
+import { loadTextSize, useViewportFits } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
@@ -16,6 +16,7 @@ import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { loadChapter, prefetchNeighbours } from "../reader/chapter-cache";
+import { sidebarBeside } from "../reader/sheet-layout";
 import { ReaderNav } from "../reader/reader-nav";
 import { referenceLabel } from "../notes/note-list";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
@@ -247,8 +248,12 @@ export default function Read({ loaderData }: Route.ComponentProps) {
     snoozeSupport(userId); // back in 30 days (this device)
   }
 
+  // Large text on a smaller screen: the books sidebar opens over the page
+  // (closed on load) instead of squeezing the text to a few words a line
+  const sidebarOverlay = !useViewportFits(sidebarBeside);
+
   return (
-    <SidebarProvider className="h-dvh overflow-hidden">
+    <SidebarProvider overlay={sidebarOverlay} className="h-dvh overflow-hidden">
       <SkipToText />
       <BooksSidebar book={chapter.book} />
       <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">

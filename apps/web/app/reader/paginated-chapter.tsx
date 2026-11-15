@@ -8,7 +8,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
-import { useTextSize } from "~/lib/text-size";
+import { useTextSize, useViewportFits } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import {
@@ -30,7 +30,7 @@ import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NotePanel } from "./note-panel";
-import { boxesFitLane, crossingSlide, LANE, PAD, RAIL, sheetLayout, type Span } from "./sheet-layout";
+import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { PageFoot, type FootButton } from "./page-foot";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
@@ -67,7 +67,8 @@ const MAX_RUN_ON = 3;
  * reader just came from. */
 const flowStarts = new Map<string, FlowState | null>();
 
-/** Phones (< sm) read in one scrolling column; wider screens page a spread. */
+/** Phones (< sm) read in one scrolling column; wider screens page a spread
+ * — unless large text leaves the page too few rem for its measure. */
 const SCROLL_MODE_QUERY = "(max-width: 639.98px)";
 
 /** First-use hint (#63) dismissed, or the reader has used the study tools. */
@@ -81,17 +82,18 @@ function readHintDone() {
 }
 
 function useScrollMode() {
-  const [scroll, setScroll] = useState(
+  const paged = useViewportFits(pagedFits);
+  const [phone, setPhone] = useState(
     () => typeof window !== "undefined" && window.matchMedia(SCROLL_MODE_QUERY).matches,
   );
   useEffect(() => {
     const mql = window.matchMedia(SCROLL_MODE_QUERY);
-    const onChange = () => setScroll(mql.matches);
+    const onChange = () => setPhone(mql.matches);
     onChange();
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);
-  return scroll;
+  return phone || !paged;
 }
 
 /**

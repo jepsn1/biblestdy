@@ -1,5 +1,5 @@
 import { DEFAULT_TEXT_SIZE, isTextSize, type TextSize } from "@biblestdy/shared";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { loadPreferences, savePreferences } from "./preferences";
 import { TEXT_SIZE_KEY } from "./text-size-prepaint";
 
@@ -35,6 +35,27 @@ function current(): TextSize {
 /** Reactive active size (re-measure layouts that work in rem on change). */
 export function useTextSize(): TextSize {
   return useSyncExternalStore(subscribe, current, () => DEFAULT_TEXT_SIZE);
+}
+
+/** A layout decision on the window's width in rem (`test`), which shrinks
+ * with a larger text size and with browser zoom alike. Holds only the
+ * answer: a resize re-renders only when it flips. `fallback` until mounted
+ * (no window on the server). `test` must be a stable (module-level) function. */
+export function useViewportFits(test: (viewportRem: number) => boolean, fallback = true): boolean {
+  const size = useTextSize();
+  const [fits, setFits] = useState(() => (typeof window === "undefined" ? fallback : test(viewportRem())));
+  useEffect(() => {
+    const measure = () => setFits(test(viewportRem()));
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [size, test]);
+  return fits;
+}
+
+function viewportRem(): number {
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  return window.innerWidth / rem;
 }
 
 /** Apply to <html> + mirror to localStorage (no server write). */
