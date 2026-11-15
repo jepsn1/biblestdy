@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP, magicLink } from 'better-auth/plugins';
 import { db, schema } from '../db';
-import { queueAuthEmail } from './email';
+import { emailLanguage, queueAuthEmail } from './email';
 import { AUTH_IP_ADDRESS, AUTH_RATE_LIMIT } from './rate-limit';
 
 /**
@@ -29,14 +29,14 @@ export const auth = betterAuth({
   },
   plugins: [
     magicLink({
-      sendMagicLink: ({ email, url }) => {
-        queueAuthEmail(email, { url });
+      sendMagicLink: ({ email, url }, ctx) => {
+        queueAuthEmail(email, { url }, emailLanguage(ctx));
         return Promise.resolve();
       },
     }),
     emailOTP({
-      sendVerificationOTP: ({ email, otp }) => {
-        queueAuthEmail(email, { otp });
+      sendVerificationOTP: ({ email, otp }, ctx) => {
+        queueAuthEmail(email, { otp }, emailLanguage(ctx));
         return Promise.resolve();
       },
     }),

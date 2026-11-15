@@ -15,14 +15,84 @@ const COALESCE_MS = 2500;
 interface Pending {
   url?: string;
   otp?: string;
+  /** From whichever request came first; both carry the same header. */
+  lang: EmailLanguage;
   timer: NodeJS.Timeout;
 }
 
 const pending = new Map<string, Pending>();
 
+export type EmailLanguage = 'en' | 'da';
+
+/** The email's language. The sign-in page sends its UI language as
+ * Accept-Language (the browser's own header is the fallback): Danish if it
+ * leads with da, else English. `ctx` = Better Auth's endpoint context. */
+export function emailLanguage(ctx?: {
+  headers?: Headers;
+  request?: Request;
+}): EmailLanguage {
+  const accept = (ctx?.headers ?? ctx?.request?.headers)?.get(
+    'accept-language',
+  );
+  return accept && /^da\b/i.test(accept.trim()) ? 'da' : 'en';
+}
+
+const COPY = {
+  en: {
+    subject: 'Your sign-in code for biblestdy',
+    button: 'Sign in to biblestdy',
+    link: 'Link',
+    orCode: 'Or enter this code:',
+    code: 'Code',
+    ignore: "If you didn't request this, ignore this email.",
+  },
+  da: {
+    subject: 'Din loginkode til biblestdy',
+    button: 'Log ind på biblestdy',
+    link: 'Link',
+    orCode: 'Eller indtast denne kode:',
+    code: 'Kode',
+    ignore: 'Har du ikke bedt om denne e-mail, kan du bare ignorere den.',
+  },
+} satisfies Record<EmailLanguage, Record<string, string>>;
+
+/** Subject + plain text + HTML for one sign-in email, in the reader's UI
+ * language — usually their first contact with biblestdy. */
+export function renderAuthEmail({
+  url,
+  otp,
+  lang,
+}: {
+  url?: string;
+  otp?: string;
+  lang: EmailLanguage;
+}): { subject: string; text: string; html: string } {
+  const c = COPY[lang];
+  const linkHtml = url
+    ? `<p style="margin:24px 0"><a href="${url}" style="background:#b8860b;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">${c.button}</a></p>`
+    : '';
+  // With no link the code is the only way in — no "Or"
+  const otpHtml = otp
+    ? `<p>${url ? c.orCode : `${c.code}:`} <strong style="font-size:20px;letter-spacing:3px">${otp}</strong></p>`
+    : '';
+  return {
+    subject: c.subject,
+    text: [
+      `${c.button}:`,
+      url && `${c.link}: ${url}`,
+      otp && `${c.code}: ${otp}`,
+      c.ignore,
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    html: `<div lang="${lang}" style="font-family:sans-serif;max-width:480px">${linkHtml}${otpHtml}<p style="color:#666;font-size:14px">${c.ignore}</p></div>`,
+  };
+}
+
 export function queueAuthEmail(
   email: string,
   part: { url?: string; otp?: string },
+  lang: EmailLanguage = 'en',
 ): void {
   const entry = pending.get(email);
   if (entry) {
@@ -36,6 +106,7 @@ export function queueAuthEmail(
   }
   const fresh: Pending = {
     ...part,
+    lang,
     // Fallback: if only one flow was triggered, send what we have
     timer: setTimeout(() => {
       pending.delete(email);
@@ -45,21 +116,15 @@ export function queueAuthEmail(
   pending.set(email, fresh);
 }
 
-async function send(email: string, { url, otp }: Pending): Promise<void> {
+async function send(email: string, { url, otp, lang }: Pending): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    if (url) logger.log(`Magic link for ${email}: ${url}`);
-    if (otp) logger.log(`OTP for ${email}: ${otp}`);
+    if (url) logger.log(`Magic link for ${email} (${lang}): ${url}`);
+    if (otp) logger.log(`OTP for ${email} (${lang}): ${otp}`);
     return;
   }
 
-  const linkHtml = url
-    ? `<p style="margin:24px 0"><a href="${url}" style="background:#b8860b;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">Sign in to biblestdy</a></p>`
-    : '';
-  const otpHtml = otp
-    ? `<p>Or enter this code: <strong style="font-size:20px;letter-spacing:3px">${otp}</strong></p>`
-    : '';
-
+  const { subject, text, html } = renderAuthEmail({ url, otp, lang });
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -70,16 +135,9 @@ async function send(email: string, { url, otp }: Pending): Promise<void> {
       body: JSON.stringify({
         from: process.env.EMAIL_FROM ?? 'biblestdy <auth@biblestdy.com>',
         to: [email],
-        subject: 'Sign in to biblestdy',
-        text: [
-          'Sign in to biblestdy:',
-          url && `Link: ${url}`,
-          otp && `Code: ${otp}`,
-          'If you did not request this, ignore this email.',
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
-        html: `<div style="font-family:sans-serif;max-width:480px">${linkHtml}${otpHtml}<p style="color:#888;font-size:13px">If you didn't request this, ignore this email.</p></div>`,
+        subject,
+        text,
+        html,
       }),
     });
     if (!res.ok) {

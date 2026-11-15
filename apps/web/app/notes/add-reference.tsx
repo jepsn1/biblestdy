@@ -6,7 +6,10 @@ import { useId, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import i18n from "~/lib/i18n";
+import { loadMarkedTranslationId } from "~/lib/preferences";
 import { api } from "~/lib/query";
+import { readingTranslation } from "~/lib/reading-translation";
 import { findPassages } from "../palette/passage-query";
 import { anchorForReference, referenceLabel } from "./note-list";
 
@@ -15,7 +18,7 @@ async function readingTranslationId(): Promise<string> {
   const stored = typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
   if (stored) return stored;
   const translations = await api<Translation[]>("/api/translations");
-  return translations[0].id;
+  return (await readingTranslation(translations, i18n.language, loadMarkedTranslationId)).id;
 }
 
 /**

@@ -10,6 +10,8 @@ import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiv
 import { loadTextSize, useViewportFits } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { pathOf, requireAuth } from "~/lib/require-auth";
+import { loadMarkedTranslationId } from "~/lib/preferences";
+import { readingTranslation, rememberDefaultTranslation } from "~/lib/reading-translation";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
@@ -46,13 +48,6 @@ async function loadTranslations(next: string): Promise<Translation[]> {
   if (translations.length === 0) throw data(i18n.t("error.noTranslations"), { status: 502 });
   translationsCache = translations;
   return translations;
-}
-
-/** The reading translation (#11): sticky preference, first offered as default. */
-function pickTranslation(translations: Translation[]): Translation {
-  const preferred =
-    typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
-  return translations.find((t) => t.id === preferred) ?? translations[0];
 }
 
 // App route: zoom locked (#61) — the in-app Text size setting enlarges text
@@ -101,9 +96,11 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
     loadTextSize(session.user.id),
     loadHighlightLabels(session.user.id),
   ]);
-  const translation = pickTranslation(translations);
+  const translation = await readingTranslation(translations, i18n.language, loadMarkedTranslationId);
   // From memory when already read or prefetched (chapter-cache.ts)
   const chapter = await loadChapter(translation.id, { book: params.book, chapter: Number(params.chapter) }, next);
+  // Kept only once it actually served a chapter (a quota/outage error doesn't stick)
+  rememberDefaultTranslation(translation.id);
   // Only a chapter that actually loaded may become the launch page; the
   // reader adds the page (?p) once it knows it (#52)
   const here = `${chapter.book}/${chapter.chapter}`;

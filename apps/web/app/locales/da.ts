@@ -228,6 +228,7 @@ const da: typeof en = {
     title: "Log ind",
     subtitle: "Velkommen. Skriv din mail, så sender vi dig en kode \u2014 ingen adgangskode.",
     email: "Mail",
+    emailPlaceholder: "dig@eksempel.dk",
     send: "Send kode",
     sending: "Sender…",
     sendError: "Koden kunne ikke sendes — prøv igen.",

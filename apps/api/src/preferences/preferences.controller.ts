@@ -29,6 +29,15 @@ export class PreferencesController {
     return this.preferences.get(req.user.id);
   }
 
+  /** GET /api/preferences/marked-translation (reader's default on a new
+   * device; asked only when the device has no stored translation). */
+  @Get('marked-translation')
+  markedTranslation(
+    @Req() req: AuthedRequest,
+  ): Promise<{ translationId: string | null }> {
+    return this.preferences.markedTranslation(req.user.id);
+  }
+
   @Patch()
   async update(
     @Req() req: AuthedRequest,

@@ -33,3 +33,11 @@ export async function savePreferences(patch: PreferencesPatch): Promise<void> {
     body: JSON.stringify(patch),
   });
 }
+
+/** The Bible this account's marks are mostly in, or null (no marks, or the
+ * request failed) — a new device opens there (reading-translation.ts). */
+export function loadMarkedTranslationId(): Promise<string | null> {
+  return api<{ translationId: string | null }>("/api/preferences/marked-translation")
+    .then((r) => r.translationId)
+    .catch(() => null);
+}

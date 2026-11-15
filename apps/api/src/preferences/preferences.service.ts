@@ -12,6 +12,13 @@ export class PreferencesService {
     return this.store.get(userId);
   }
 
+  /** Where the account's marks live — a new device opens that Bible. */
+  async markedTranslation(
+    userId: string,
+  ): Promise<{ translationId: string | null }> {
+    return { translationId: await this.store.markedTranslationId(userId) };
+  }
+
   async update(userId: string, patch: PreferencesPatch): Promise<Preferences> {
     await this.store.update(userId, patch);
     return this.get(userId);

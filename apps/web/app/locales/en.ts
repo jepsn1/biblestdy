@@ -226,6 +226,7 @@ export default {
     title: "Sign in",
     subtitle: "Welcome. Enter your email and we\u2019ll send you a code \u2014 no password needed.",
     email: "Email",
+    emailPlaceholder: "you@example.com",
     send: "Send code",
     sending: "Sending…",
     sendError: "Could not send the code — try again.",
