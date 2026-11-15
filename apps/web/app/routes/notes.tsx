@@ -19,12 +19,16 @@ import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
 import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
+import { zoomLockHandle } from "~/lib/viewport";
 import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
 import { readingHref } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
 import type { Route } from "./+types/notes";
+
+// App route: zoom locked (#61) — the in-app Text size setting enlarges text
+export const handle = zoomLockHandle;
 
 export function meta() {
   return [{ title: `${i18n.t("notes.title")} — biblestdy` }];
