@@ -9,24 +9,35 @@ import {
 import type { QuotaStore } from './store';
 
 /**
- * Tiny policy so tests stay short: account burst 3, one token per 10 s, 5
- * distinct chapters/day; IP looser like the real one, burst 5, one token per
- * 4 s, 8 distinct chapters/day. No cooldowns, so pace/daily waits show bare;
+ * Tiny policy so tests stay short: account burst 3, one token per 10 s; IP
+ * looser like the real one, burst 5, one token per 4 s. Daily caps out of the
+ * way (DAILY_POLICY tests them). No cooldowns, so pace/daily waits show bare;
  * cooldown tests use COOLDOWN_POLICY.
  */
 export const TEST_POLICY: ReadingQuotaPolicy = {
-  account: { pace: { burst: 3, refillMs: 10_000 }, dailyChapters: 5 },
-  ip: { pace: { burst: 5, refillMs: 4_000 }, dailyChapters: 8 },
+  account: { pace: { burst: 3, refillMs: 10_000 }, dailyChapters: 1000 },
+  ip: { pace: { burst: 5, refillMs: 4_000 }, dailyChapters: 1000 },
   cooldown: null,
 };
 
-/** TEST_POLICY plus the real cooldown escalation (1 min, ×4, …). */
+/** TEST_POLICY with small daily caps: 5 distinct chapters/day per account,
+ * 8 per IP. */
+export const DAILY_POLICY: ReadingQuotaPolicy = {
+  ...TEST_POLICY,
+  account: { ...TEST_POLICY.account, dailyChapters: 5 },
+  ip: { ...TEST_POLICY.ip, dailyChapters: 8 },
+};
+
+/** TEST_POLICY plus the real cooldown escalation (1 min, ×4, …), no grace. */
 export const COOLDOWN_POLICY: ReadingQuotaPolicy = {
   ...TEST_POLICY,
-  cooldown: READING_QUOTA_POLICY.cooldown,
+  cooldown: { ...READING_QUOTA_POLICY.cooldown!, graceStrikes: 0 },
 };
 
 const chapter = { translationId: 'WEB', book: 'JHN', chapter: 3 };
+/** A chapter not read yet (re-reads are free, so pace tests need new ones). */
+let lastChapter = 1000;
+const unread = () => ({ ...chapter, chapter: ++lastChapter });
 
 /**
  * Reading-quota service behaviour against a given store. Runs against the
@@ -52,7 +63,11 @@ export function quotaServiceContract(
         now: clock,
         logger: { warn: (msg: string) => warnings.push(msg) },
       });
-    const check = (): QuotaCheck => ({ userId: ctx.userId(), chapter });
+    const check = (): QuotaCheck => ({
+      userId: ctx.userId(),
+      chapter: unread(),
+    });
+    const daily = (store = ctx.store()) => service(store, [], DAILY_POLICY);
 
     // Fresh addresses per test: the Postgres store keeps rows across tests
     let ipPrefix = '';
@@ -64,23 +79,46 @@ export function quotaServiceContract(
     const at = (u: number, addr: string | undefined): QuotaCheck => ({
       userId: user(u),
       ip: addr,
-      chapter,
+      chapter: unread(),
     });
     const run = async (s: ReadingQuotaService, c: QuotaCheck, n: number) => {
       const out: QuotaOutcome[] = [];
-      for (let i = 0; i < n; i++) out.push(await s.check(c));
+      for (let i = 0; i < n; i++)
+        out.push(await s.check({ ...c, chapter: unread() }));
       return out;
     };
 
     it('allows the burst, then denies with pace + retry-after', async () => {
       const s = service();
       for (let i = 0; i < 3; i++)
-        expect(await s.check(check())).toEqual({ allowed: true });
+        expect(await s.check(check())).toEqual({
+          allowed: true,
+          remaining: 2 - i,
+        });
       expect(await s.check(check())).toEqual({
         allowed: false,
         reason: 'pace',
         retryAfterMs: 10_000,
         subject: `user:${ctx.userId()}`,
+      });
+    });
+
+    it('re-reading a chapter read today spends nothing, even on an empty bucket', async () => {
+      const s = service();
+      const same = check();
+      expect(await s.check(same)).toEqual({ allowed: true, remaining: 2 });
+      await run(s, check(), 2); // bucket empty
+      expect((await s.check(check())).allowed).toBe(false);
+      for (let i = 0; i < 5; i++)
+        expect(await s.check(same)).toEqual({ allowed: true, remaining: 0 });
+    });
+
+    it('remaining is the tightest subject', async () => {
+      const s = service();
+      await run(s, at(1, ip()), 2); // IP 3 left, account 1
+      expect(await s.check(at(2, ip()))).toEqual({
+        allowed: true,
+        remaining: 2,
       });
     });
 
@@ -128,7 +166,7 @@ export function quotaServiceContract(
     }
 
     it('caps distinct chapters per day; retry-after runs to Copenhagen midnight', async () => {
-      const s = service();
+      const s = daily();
       now = Date.UTC(2026, 9, 29, 10, 0, 0); // 11:00 CET
       const results = await readDistinct(s, 6);
       expect(results.slice(0, 5).every((r) => r.allowed)).toBe(true);
@@ -142,7 +180,7 @@ export function quotaServiceContract(
     });
 
     it('re-reading a chapter already read today is free; other translations are distinct', async () => {
-      const s = service();
+      const s = daily();
       await readDistinct(s, 5);
       now += 10_000;
       expect(
@@ -160,7 +198,7 @@ export function quotaServiceContract(
     });
 
     it('a denied chapter is not recorded as read', async () => {
-      const s = service();
+      const s = daily();
       await readDistinct(s, 5);
       now += 10_000;
       const sixth = { ...check(), chapter: { ...chapter, chapter: 6 } };
@@ -172,19 +210,19 @@ export function quotaServiceContract(
     it('the cap resets at Copenhagen midnight and survives a restart', async () => {
       const store = ctx.store();
       now = Date.UTC(2026, 9, 29, 22, 0, 0); // 23:00 CET
-      await readDistinct(service(store), 5);
+      await readDistinct(daily(store), 5);
       now += 10_000;
       const sixth = { ...check(), chapter: { ...chapter, chapter: 6 } };
-      expect((await service(ctx.store()).check(sixth)).allowed).toBe(false);
+      expect((await daily().check(sixth)).allowed).toBe(false);
       now = Date.UTC(2026, 9, 29, 23, 0, 0); // midnight Copenhagen
-      expect((await service(ctx.store()).check(sixth)).allowed).toBe(true);
+      expect((await daily().check(sixth)).allowed).toBe(true);
     });
 
     it('concurrent distinct chapters never exceed the cap', async () => {
       now += 3_600_000; // full bucket
       const results = await Promise.all(
         Array.from({ length: 3 }, (_, i) =>
-          service(ctx.store()).check({
+          daily().check({
             ...check(),
             chapter: { ...chapter, chapter: 10 + i },
           }),
@@ -194,7 +232,7 @@ export function quotaServiceContract(
       now += 3_600_000;
       const more = await Promise.all(
         Array.from({ length: 3 }, (_, i) =>
-          service(ctx.store()).check({
+          daily().check({
             ...check(),
             chapter: { ...chapter, chapter: 20 + i },
           }),
@@ -322,7 +360,7 @@ export function quotaServiceContract(
       };
 
       it('IP daily cap counts distinct chapters across accounts sharing it', async () => {
-        const s = service();
+        const s = daily();
         now = Date.UTC(2026, 9, 29, 10, 0, 0);
         await readVia(s, 1, ip(), [1, 2, 3, 4, 5]); // IP: 5 distinct
         // Account 2 re-reading 1–5 is new for it, free for the IP

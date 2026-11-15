@@ -62,6 +62,7 @@ export class ScriptureController {
       );
     }
     // Cached chapters count too: the quota guards text leaving, not API calls
+    // (a chapter this reader already read today is free: no new text leaves)
     const outcome = await this.quota.check({
       userId: req.user.id,
       ip: req.ip,
@@ -79,6 +80,8 @@ export class ScriptureController {
       };
       throw new HttpException(body, HttpStatus.TOO_MANY_REQUESTS);
     }
+    // Lets the reader read ahead only while the bucket has room (#flow)
+    res.setHeader('RateLimit-Remaining', String(outcome.remaining));
     try {
       return await this.provider.getChapter(translationId, book.id, chapter);
     } catch (err) {

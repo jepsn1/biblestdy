@@ -27,7 +27,12 @@ export interface QuotaCheck {
 }
 
 export type QuotaOutcome =
-  | { allowed: true }
+  | {
+      allowed: true;
+      /** Pace tokens left (the tightest subject): clients read ahead only
+       * while plenty remain, keeping the rest for the reader's own turns. */
+      remaining: number;
+    }
   | {
       allowed: false;
       reason: DenyReason;
@@ -122,7 +127,14 @@ export class ReadingQuotaService {
           if (!denied && firstReadToday)
             await tx.recordRead(subject, day, check.chapter);
         }
-        return denied ?? { allowed: true };
+        return (
+          denied ?? {
+            allowed: true,
+            remaining: Math.min(
+              ...decisions.map((d) => d.decision.next.tokens),
+            ),
+          }
+        );
       },
     );
     if (!outcome.allowed)

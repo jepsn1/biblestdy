@@ -27,72 +27,77 @@ function burst(state: QuotaState | null, n: number, now: number) {
 }
 
 describe('reading-quota policy: pace (token bucket)', () => {
-  it('account policy = burst 20, refill 1 per 3 s', () => {
+  it('account policy = burst 30, refill 1 per 2 s', () => {
     expect(READING_QUOTA_POLICY.account.pace).toEqual({
-      burst: 20,
-      refillMs: 3000,
+      burst: 30,
+      refillMs: 2000,
     });
   });
 
-  it('IP policy = burst 40, refill 1 per 1.5 s (looser, shared networks)', () => {
+  it('IP policy = burst 60, refill 1 per 1 s (looser, shared networks)', () => {
     expect(READING_QUOTA_POLICY.ip.pace).toEqual({
-      burst: 40,
-      refillMs: 1500,
+      burst: 60,
+      refillMs: 1000,
     });
   });
 
   it('allows a fresh subject a full burst, then denies with reason pace', () => {
-    const { decisions } = burst(null, 21, T0);
-    expect(decisions.slice(0, 20).every((d) => d.allowed)).toBe(true);
-    expect(decisions[20]).toMatchObject({ allowed: false, reason: 'pace' });
+    const { decisions } = burst(null, 31, T0);
+    expect(decisions.slice(0, 30).every((d) => d.allowed)).toBe(true);
+    expect(decisions[30]).toMatchObject({ allowed: false, reason: 'pace' });
+  });
+
+  it('a fast reader: 10 quick turns of 3 chapters (turn + run-on + read-ahead) all pass', () => {
+    const { decisions } = burst(null, 30, T0);
+    expect(decisions.every((d) => d.allowed)).toBe(true);
   });
 
   it('says exactly how long until the next token', () => {
-    const { state } = burst(null, 20, T0);
-    const d = decide({ state, now: T0 + 1000, limits, ...fresh });
-    expect(d).toMatchObject({ allowed: false, retryAfterMs: 2000 });
-  });
-
-  it('refills one token per 3 s, never above the burst', () => {
-    let { state } = burst(null, 20, T0);
-    expect(burst(state, 2, T0 + 3000).decisions.map((d) => d.allowed)).toEqual([
-      true,
-      false,
-    ]);
-    ({ state } = burst(state, 2, T0 + 3 * 3000));
-    expect(
-      burst(state, 4, T0 + 3 * 3000).decisions.map((d) => d.allowed),
-    ).toEqual([true, false, false, false]);
-    // An hour idle tops up to the burst, not to 1200
-    const idle = burst(state, 21, T0 + 3_600_000).decisions;
-    expect(idle.filter((d) => d.allowed)).toHaveLength(20);
-  });
-
-  it('keeps partial refill progress across allowed requests', () => {
-    let { state } = burst(null, 20, T0);
-    // 4.5 s later: one token earned, 1.5 s banked toward the next
-    ({ state } = burst(state, 1, T0 + 4500));
-    const d = decide({ state, now: T0 + 4500, limits, ...fresh });
+    const { state } = burst(null, 30, T0);
+    const d = decide({ state, now: T0 + 500, limits, ...fresh });
     expect(d).toMatchObject({ allowed: false, retryAfterMs: 1500 });
   });
 
+  it('refills one token per 2 s, never above the burst', () => {
+    let { state } = burst(null, 30, T0);
+    expect(burst(state, 2, T0 + 2000).decisions.map((d) => d.allowed)).toEqual([
+      true,
+      false,
+    ]);
+    ({ state } = burst(state, 2, T0 + 3 * 2000));
+    expect(
+      burst(state, 4, T0 + 3 * 2000).decisions.map((d) => d.allowed),
+    ).toEqual([true, false, false, false]);
+    // An hour idle tops up to the burst, not to 1800
+    const idle = burst(state, 31, T0 + 3_600_000).decisions;
+    expect(idle.filter((d) => d.allowed)).toHaveLength(30);
+  });
+
+  it('keeps partial refill progress across allowed requests', () => {
+    let { state } = burst(null, 30, T0);
+    // 3.5 s later: one token earned, 1.5 s banked toward the next
+    ({ state } = burst(state, 1, T0 + 3500));
+    const d = decide({ state, now: T0 + 3500, limits, ...fresh });
+    expect(d).toMatchObject({ allowed: false, retryAfterMs: 500 });
+  });
+
   it('denied requests consume nothing (hammering does not delay the next token)', () => {
-    const { state } = burst(null, 20, T0);
+    const { state } = burst(null, 30, T0);
     let s = state;
-    for (let t = T0; t < T0 + 3000; t += 100) {
+    for (let t = T0; t < T0 + 2000; t += 100) {
       const d = decide({ state: s, now: t, limits, ...fresh });
       expect(d.allowed).toBe(false);
       s = d.next; // even persisting denial state must not cost tokens
     }
-    expect(decide({ state: s, now: T0 + 3000, limits, ...fresh }).allowed).toBe(
+    expect(decide({ state: s, now: T0 + 2000, limits, ...fresh }).allowed).toBe(
       true,
     );
   });
 
-  it('a steady human pace (1 chapter / 3 s) is never limited', () => {
+  it('a steady pace (1 chapter / 2 s) is never limited', () => {
     let state: QuotaState | null = null;
     for (let i = 0; i < 500; i++) {
-      const d = decide({ state, now: T0 + i * 3000, limits, ...fresh });
+      const d = decide({ state, now: T0 + i * 2000, limits, ...fresh });
       expect(d.allowed).toBe(true);
       state = d.next;
     }
@@ -146,8 +151,8 @@ describe('reading-quota policy: daily distinct-chapter cap', () => {
     expect(d.allowed).toBe(true);
   });
 
-  it('repeats still cost pace tokens', () => {
-    const { state } = burst(null, 20, T0);
+  it('re-reads are free of pace too: allowed on an empty bucket, spend nothing', () => {
+    const { state } = burst(null, 30, T0);
     const d = decide({
       state,
       now: T0,
@@ -155,7 +160,8 @@ describe('reading-quota policy: daily distinct-chapter cap', () => {
       readToday: 150,
       alreadyReadToday: true,
     });
-    expect(d).toMatchObject({ allowed: false, reason: 'pace' });
+    expect(d.allowed).toBe(true);
+    expect(d.next.tokens).toBe(0);
   });
 
   it('a daily denial consumes no pace tokens', () => {
@@ -170,7 +176,7 @@ describe('reading-quota policy: daily distinct-chapter cap', () => {
   });
 
   it('daily wins over pace when both deny (the longer wait)', () => {
-    const { state } = burst(null, 20, T0);
+    const { state } = burst(null, 30, T0);
     const d = decide({
       state,
       now: T0,
@@ -239,8 +245,48 @@ describe('Copenhagen calendar day', () => {
   });
 });
 
-describe('reading-quota policy: escalating cooldowns (#32)', () => {
+describe('reading-quota policy: grace strikes', () => {
   const cooldown = READING_QUOTA_POLICY.cooldown;
+  const read = (state: QuotaState | null, now: number) =>
+    decide({ state, now, limits, cooldown, ...fresh });
+  /** Empty the bucket at `now`, then one more: a pace overage. */
+  function overrun(state: QuotaState | null, now: number) {
+    for (let i = 0; i < 30; i++) {
+      const d = read(state, now);
+      if (d.allowed) state = d.next;
+    }
+    return read(state, now);
+  }
+
+  it('policy forgives 2 strikes before any cooldown', () => {
+    expect(cooldown?.graceStrikes).toBe(2);
+  });
+
+  it('an occasional fast burst only waits for the next token (no lockout)', () => {
+    const d = overrun(null, T0);
+    expect(d).toMatchObject({
+      allowed: false,
+      reason: 'pace',
+      retryAfterMs: 2000,
+    });
+    expect(d.next).toMatchObject({ strikes: 1 });
+    expect(read(d.next, T0 + 2000).allowed).toBe(true);
+  });
+
+  it('a second overage 10+ min later is forgiven too; the third starts a 1-minute cooldown', () => {
+    let d = overrun(null, T0);
+    d = overrun(d.next, T0 + 10 * MIN);
+    expect(d).toMatchObject({ reason: 'pace', retryAfterMs: 2000 });
+    expect(d.next.strikes).toBe(2);
+    d = overrun(d.next, T0 + 20 * MIN);
+    expect(d.next.strikes).toBe(3);
+    expect(d.retryAfterMs).toBe(MIN);
+  });
+});
+
+describe('reading-quota policy: escalating cooldowns (#32)', () => {
+  // Escalation itself, without the grace strikes in front
+  const cooldown = { ...READING_QUOTA_POLICY.cooldown!, graceStrikes: 0 };
   const DAY = 24 * HOUR;
   /** A request over the daily cap: always an overage, whatever the tokens. */
   const over = (state: QuotaState | null, now: number) =>
@@ -268,7 +314,8 @@ describe('reading-quota policy: escalating cooldowns (#32)', () => {
   }
 
   it('policy = 1 min first, ×4 per strike, 24 h cap, ≤1 strike / 10 min, decay 1 / 24 h', () => {
-    expect(cooldown).toEqual({
+    expect(READING_QUOTA_POLICY.cooldown).toEqual({
+      graceStrikes: 2,
       firstMs: MIN,
       factor: 4,
       maxMs: DAY,
@@ -280,7 +327,7 @@ describe('reading-quota policy: escalating cooldowns (#32)', () => {
   it('a denial records a strike and starts a 1-minute cooldown', () => {
     // Pace overage: bucket empty
     let state: QuotaState | null = null;
-    for (let i = 0; i < 20; i++) state = read(state, T0).next;
+    for (let i = 0; i < 30; i++) state = read(state, T0).next;
     const d = read(state, T0);
     expect(d).toMatchObject({ allowed: false, reason: 'pace' });
     expect(d.next).toMatchObject({ strikes: 1, cooldownUntil: T0 + MIN });

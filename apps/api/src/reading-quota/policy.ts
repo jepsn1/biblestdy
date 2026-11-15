@@ -23,11 +23,15 @@ export interface SubjectLimits {
 
 /**
  * Escalating cooldowns (#32): every denial is an overage that records a strike
- * (at most one per `strikeEveryMs`). Strike n puts the subject in cooldown for
- * `firstMs × factor^(n-1)`, capped at `maxMs`. Strikes decay by one per
- * `decayMs` since the last strike.
+ * (at most one per `strikeEveryMs`). The first `graceStrikes` strikes only
+ * cost the plain pace/daily wait (a reader who flips fast now and then is
+ * never locked out); strike n after them puts the subject in cooldown for
+ * `firstMs × factor^(n-1-graceStrikes)`, capped at `maxMs`. Strikes decay by
+ * one per `decayMs` since the last strike.
  */
 export interface CooldownPolicy {
+  /** Strikes forgiven before cooldowns start. */
+  graceStrikes: number;
   firstMs: number;
   factor: number;
   maxMs: number;
@@ -51,10 +55,23 @@ export interface ReadingQuotaPolicy {
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
+/*
+ * Why these numbers:
+ * - Account burst 30: a fast reader flipping short chapters (psalms) with the
+ *   next chapters running on and read ahead spends ~3 chapters per turn, so
+ *   30 covers ~10 quick turns before any wait.
+ * - Refill 1 per 2 s (30/min): faster than anyone reads; a scraper still gets
+ *   at most the daily cap, the real licence guard (150 distinct chapters a
+ *   day ≈ 8 days per account for the whole Bible).
+ * - Re-reading a chapter already read today is free (no new text leaves).
+ * - IP twice the account: shared networks (church, school, office).
+ * - 2 grace strikes: only repeated overage (10+ min apart) starts cooldowns.
+ */
 export const READING_QUOTA_POLICY: ReadingQuotaPolicy = {
-  account: { pace: { burst: 20, refillMs: 3000 }, dailyChapters: 150 },
-  ip: { pace: { burst: 40, refillMs: 1500 }, dailyChapters: 400 },
+  account: { pace: { burst: 30, refillMs: 2000 }, dailyChapters: 150 },
+  ip: { pace: { burst: 60, refillMs: 1000 }, dailyChapters: 400 },
   cooldown: {
+    graceStrikes: 2,
     firstMs: MINUTE,
     factor: 4,
     maxMs: DAY,
@@ -88,7 +105,8 @@ export interface DecideInput {
   cooldown?: CooldownPolicy | null;
   /** Distinct chapters this subject read today (Copenhagen day of `now`). */
   readToday: number;
-  /** The requested chapter is among them: free against the daily cap. */
+  /** The requested chapter is among them: free against the daily cap and
+   * the pace (no new text leaves); cooldowns still apply. */
   alreadyReadToday: boolean;
 }
 
@@ -186,11 +204,13 @@ function liveStrikes(
   return Math.max(0, state.strikes - decayed);
 }
 
-/** Cooldown length for strike number `strike` (1-based). */
+/** Cooldown length for strike number `strike` (1-based); 0 within grace. */
 function cooldownMs(strike: number, cooldown: CooldownPolicy): number {
+  const n = strike - cooldown.graceStrikes;
+  if (n < 1) return 0;
   return Math.min(
     cooldown.maxMs,
-    cooldown.firstMs * cooldown.factor ** (strike - 1),
+    cooldown.firstMs * cooldown.factor ** (n - 1),
   );
 }
 
@@ -223,8 +243,9 @@ function overLimit(
   current: QuotaState,
   { now, limits, readToday, alreadyReadToday }: DecideInput,
 ): { reason: 'pace' | 'daily'; retryAfterMs: number } | null {
+  if (alreadyReadToday) return null;
   // Daily cap first: its wait (until midnight) outlasts any pace wait
-  if (!alreadyReadToday && readToday >= limits.dailyChapters)
+  if (readToday >= limits.dailyChapters)
     return { reason: 'daily', retryAfterMs: msUntilCopenhagenMidnight(now) };
   if (current.tokens < 1)
     return {
@@ -235,7 +256,8 @@ function overLimit(
 }
 
 /**
- * Decide one chapter request for one subject. Denials consume nothing, but
+ * Decide one chapter request for one subject. A re-read today is free.
+ * Denials consume nothing, but
  * each records a strike (throttled) that escalates the cooldown. During a
  * cooldown the reason is `cooldown`; the retry-after is always the longest
  * wait among every limit in force, so retrying then can succeed.
@@ -250,7 +272,10 @@ export function decide(input: DecideInput): QuotaDecision {
       allowed: true,
       reason: null,
       retryAfterMs: 0,
-      next: { ...current, tokens: current.tokens - 1 },
+      next: {
+        ...current,
+        tokens: current.tokens - (input.alreadyReadToday ? 0 : 1),
+      },
     };
   const next = strike(current, now, cooldown);
   return {
