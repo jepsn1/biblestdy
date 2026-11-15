@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { boxesFitLane, crossingSlide, GUTTER, LANE, RAIL, sheetLayout } from "./sheet-layout";
+import {
+  boxesFitLane,
+  crossingSlide,
+  GUTTER,
+  LANE,
+  lineWidth,
+  MEASURE_MIN,
+  PAD,
+  pagedFits,
+  partsThatFit,
+  RAIL,
+  SIDEBAR,
+  sheetLayout,
+  sidebarBeside,
+} from "./sheet-layout";
 
 /** Everything the layout places must fit the pane: no sideways scroll. */
 function fits(paneRem: number, lane: number) {
@@ -47,6 +61,69 @@ describe("sheetLayout", () => {
       expect(fits(pane, LANE), `pane ${pane} lanes`).toBe(true);
       expect(fits(pane, RAIL), `pane ${pane} rail`).toBe(true);
     }
+  });
+});
+
+/** A window `px` wide at a text size (%) — or browser zoom — in rem. */
+const rem = (px: number, size = 100) => px / (16 * size / 100);
+
+describe("large text: sidebar, paging, measure", () => {
+  it("100%: the sidebar stays beside the reader from 1024 up", () => {
+    expect(sidebarBeside(rem(1024))).toBe(true);
+    expect(sidebarBeside(rem(1280))).toBe(true);
+  });
+
+  it("the sidebar goes over the page where it would squeeze the text", () => {
+    // 1024 at 150%+, 1280 at 175%+, 1440 at 200%
+    expect(sidebarBeside(rem(1024, 150))).toBe(false);
+    expect(sidebarBeside(rem(1280, 150))).toBe(true);
+    expect(sidebarBeside(rem(1280, 175))).toBe(false);
+    expect(sidebarBeside(rem(1440, 175))).toBe(true);
+    expect(sidebarBeside(rem(1440, 200))).toBe(false);
+  });
+
+  it("1024 and 1440 page at every text size; browser zoom 200% at 1280 too", () => {
+    for (const size of [100, 125, 150, 175, 200]) {
+      expect(pagedFits(rem(1024, size)), `1024 ${size}%`).toBe(true);
+      expect(pagedFits(rem(1440, size)), `1440 ${size}%`).toBe(true);
+    }
+    expect(pagedFits(rem(640))).toBe(true);
+  });
+
+  it("a window too narrow for the measure at its text size reflows to one scrolling column", () => {
+    expect(pagedFits(rem(800, 200))).toBe(false);
+    expect(pagedFits(rem(900, 175))).toBe(true);
+  });
+
+  it("wherever it pages, the text keeps at least the minimum measure (≈30ch)", () => {
+    for (let viewport = 20; viewport <= 160; viewport += 0.25) {
+      if (!pagedFits(viewport)) continue;
+      const pane = sidebarBeside(viewport) ? viewport - SIDEBAR : viewport;
+      for (const lane of [0, RAIL, LANE]) {
+        const text = sheetLayout(pane, lane).contentWidth - 2 * PAD;
+        expect(text, `viewport ${viewport}rem, lane ${lane}`).toBeGreaterThanOrEqual(MEASURE_MIN);
+      }
+    }
+  });
+});
+
+describe("running foot fit", () => {
+  // [separator, verse range, page count] in px
+  const folio = [12, 60, 120];
+
+  it("room for the whole line: every part", () => {
+    expect(partsThatFit(folio, 200)).toBe(2);
+    expect(lineWidth(folio)).toBe(192);
+  });
+
+  it("short of room: the leading part gives way, the last stays", () => {
+    expect(partsThatFit(folio, 191)).toBe(1);
+    expect(partsThatFit(folio, 40)).toBe(1); // last resort: truncated, never dropped
+  });
+
+  it("empty line: nothing to keep", () => {
+    expect(partsThatFit([12], 100)).toBe(0);
+    expect(lineWidth([12])).toBe(0);
   });
 });
 

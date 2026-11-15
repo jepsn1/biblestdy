@@ -25,6 +25,14 @@ export const SINGLE_MIN = 22;
 export const LANE = 13.5; // 190px box + 20px gap ≈ 13.1rem, rounded up
 /** Note-chip rail when the chapter has notes but no annotation boxes (#63). */
 export const RAIL = 8;
+/** Narrowest text measure the sheet ever sets: ≈30ch of the reading face
+ * (Literata's 0 ≈ 0.55em at text-reading), ~40 characters of prose. Below
+ * it a line holds a handful of words (large text, #61). */
+export const MEASURE_MIN = 19;
+/** The books sidebar's width beside the reader (ui/sidebar SIDEBAR_WIDTH). */
+export const SIDEBAR = 16;
+/** Narrowest viewport that pages: both gutters + the minimum measure. */
+export const PAGED_MIN = 2 * GUTTER + MEASURE_MIN + 2 * PAD;
 
 export type SheetLayout = {
   columns: 1 | 2;
@@ -49,6 +57,25 @@ export function sheetLayout(paneRem: number, laneRem: number): SheetLayout {
   const contentWidth = Math.max(singleMin, Math.min(singleMax, avail - lanes));
   const lane = hasLanes ? Math.max(0, Math.min(laneRem, (avail - contentWidth) / 2)) : 0;
   return { columns: 1, contentWidth, lane };
+}
+
+/**
+ * Large text (#61) on a smaller screen: does the paged sheet still get its
+ * minimum measure? If not, the reader reflows to the phone's one scrolling
+ * column (WCAG 1.4.10) — what the same window shows at 100% when it is that
+ * many rem narrow. In rem, so text size and browser zoom count alike.
+ */
+export function pagedFits(viewportRem: number): boolean {
+  return viewportRem >= PAGED_MIN;
+}
+
+/**
+ * Books sidebar beside the reader (pushing it narrower) only when the sheet
+ * keeps a proper single column next to it; else it opens over the page and
+ * starts closed — large text never buys the sidebar with the measure.
+ */
+export function sidebarBeside(viewportRem: number): boolean {
+  return viewportRem - SIDEBAR >= 2 * GUTTER + SINGLE_MIN + 2 * PAD;
 }
 
 /** A margin box never gets narrower than this (annotation-marks MIN_W)… */
@@ -90,4 +117,28 @@ export function crossingSlide(
   // the clip; the old page then ends fully outside it too
   const reach = dir === "next" ? oldBox.right - newBox.left : newBox.right - oldBox.left;
   return { distance: Math.ceil(Math.max(reach, width) + gap), clip: { ...newBox } };
+}
+
+/**
+ * The running foot's centre lines (page-foot.tsx), measured as
+ * `[separator, ...parts]` in px: how many parts fit `room`, counted from
+ * the line's end — the last part (page count, copyright) always stays,
+ * the ones before it (verse range, translation name) give way first.
+ */
+export function partsThatFit(widths: number[], room: number): number {
+  const [sep = 0, ...parts] = widths;
+  let width = 0;
+  let keep = 0;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    width += parts[i]! + (keep > 0 ? sep : 0);
+    if (keep > 0 && width > room + 0.5) break;
+    keep++;
+  }
+  return keep;
+}
+
+/** A whole foot line's width (px), from the same `[separator, ...parts]`. */
+export function lineWidth(widths: number[]): number {
+  const [sep = 0, ...parts] = widths;
+  return parts.reduce((sum, w) => sum + w, 0) + sep * Math.max(0, parts.length - 1);
 }

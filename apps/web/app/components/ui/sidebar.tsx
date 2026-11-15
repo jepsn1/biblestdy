@@ -56,6 +56,7 @@ function SidebarProvider({
   defaultOpen = true,
   open: openProp,
   onOpenChange: setOpenProp,
+  overlay = false,
   className,
   style,
   children,
@@ -64,8 +65,11 @@ function SidebarProvider({
   defaultOpen?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /** Open over the page (the phone's sheet, closed until asked for) even on
+   * a wide screen: large text where the sidebar would squeeze the page. */
+  overlay?: boolean
 }) {
-  const isMobile = useIsMobile()
+  const isMobile = useIsMobile() || overlay
   const [openMobile, setOpenMobile] = React.useState(false)
 
   // This is the internal state of the sidebar.

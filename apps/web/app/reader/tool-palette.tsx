@@ -3,7 +3,11 @@ import { HIGHLIGHT_COLORS } from "@biblestdy/shared";
 import { Eraser, FileText, Highlighter, MousePointer2, PenLine, type LucideIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
 import { Hint } from "~/components/hint";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { useColorName } from "~/lib/highlight-labels";
 import { cn, focusRing } from "~/lib/utils";
 import { COLOUR_KEY_ATTR } from "./colour-key";
@@ -195,48 +199,69 @@ function Swatch({ color, on }: { color: HighlightColor; on: boolean }) {
 }
 
 /** Too short a pane for the colour column (a low window, big text): one
- * highlighter button in the last colour, its colours a row beside it while
- * it's the tool — like the pen's styles. */
+ * highlighter button in the last colour; it opens the six colours as a
+ * list beside it — swatch and name, ↑/↓ to move (each one picked as it's
+ * reached), Enter/click to pick and close, Esc back to the button. */
 function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: ReaderTool) => void }) {
   const { t } = useTranslation();
   const { title } = useColorName();
+  const [open, setOpen] = useState(false);
   const on = tool.kind === "highlight";
   const label = `${t("tools.highlight")} (${title(tool.color)})`;
+  const pick = (color: HighlightColor) => onChange({ ...tool, kind: "highlight", color });
   return (
-    <div role="toolbar" aria-orientation="vertical" aria-label={t("tools.highlight")} className={cn(groupClass, "relative")}>
-      <Hint label={`${label} — ${t("tools.highlightHint")}`} shortcut="Shift+H" side="right">
-        <button
-          type="button"
-          aria-pressed={on}
-          aria-label={label}
-          aria-keyshortcuts="Shift+H"
-          onClick={() => onChange({ ...tool, kind: "highlight" })}
-          className={cn(buttonClass, on && "bg-muted hover:bg-muted", focusRing)}
-        >
-          <Swatch color={tool.color} on={on} />
-        </button>
-      </Hint>
-      {on && (
-        <div className="absolute top-0 left-full ml-2 flex items-center gap-0.5 rounded-full border border-border bg-background p-1 shadow-xs">
-          <div role="radiogroup" aria-label={t("menu.colour")} className="flex items-center gap-0.5">
-            {HIGHLIGHT_COLORS.map((c, i) => (
-              <Hint key={c} label={title(c)} shortcut={String(i + 1)} side="bottom">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={tool.color === c}
-                  aria-label={title(c)}
-                  aria-keyshortcuts={String(i + 1)}
-                  onClick={() => onChange({ ...tool, color: c })}
-                  className={cn("flex size-8 items-center justify-center rounded-full hover:bg-muted", focusRing)}
+    <div className={groupClass}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Hint label={`${label} — ${t("tools.chooseColour")}`} shortcut="Shift+H" side="right">
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label={label}
+                aria-keyshortcuts="Shift+H"
+                className={cn(buttonClass, (on || open) && "bg-muted hover:bg-muted", focusRing)}
+              />
+            }
+          >
+            <Swatch color={tool.color} on={on} />
+          </PopoverTrigger>
+        </Hint>
+        <PopoverContent side="right" align="start" sideOffset={8} className="max-h-(--available-height) w-auto min-w-48 gap-0 p-0">
+          <PopoverTitle className="px-3 pt-2.5 pb-1 text-meta font-normal text-muted-foreground">{t("tools.highlight")}</PopoverTitle>
+          <ScrollArea viewportClassName="max-h-[calc(var(--available-height)-2.5rem)]">
+            <RadioGroup
+              value={tool.color}
+              // Arrows move and pick at once (a radio group); the tool goes on
+              onValueChange={(c) => pick(c as HighlightColor)}
+              aria-label={t("menu.colour")}
+              className="flex flex-col gap-0.5 p-1"
+            >
+              {HIGHLIGHT_COLORS.map((c, i) => (
+                <Radio.Root
+                  key={c}
+                  value={c}
+                  aria-keyshortcuts={on ? String(i + 1) : undefined}
+                  // Click / Enter / Space: pick (even the current one) and close
+                  onClick={() => {
+                    pick(c);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex min-h-9 items-center gap-2.5 rounded-lg px-2 text-left text-control hover:bg-muted data-checked:bg-muted",
+                    focusRing,
+                  )}
                 >
-                  <Swatch color={c} on={tool.color === c} />
-                </button>
-              </Hint>
-            ))}
-          </div>
-        </div>
-      )}
+                  <Swatch color={c} on={on && tool.color === c} />
+                  <span className="flex-1">{title(c)}</span>
+                  <kbd aria-hidden className="font-mono text-meta text-muted-foreground">
+                    {i + 1}
+                  </kbd>
+                </Radio.Root>
+              ))}
+            </RadioGroup>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

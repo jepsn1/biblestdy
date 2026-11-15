@@ -74,6 +74,7 @@ export default {
     select: "Select",
     selectHint: "select words, then choose what to do",
     highlight: "Highlighter",
+    chooseColour: "choose its colour",
     highlightHint: "select words to highlight them",
     annotate: "Pen",
     annotateHint: "select words to write an annotation",
