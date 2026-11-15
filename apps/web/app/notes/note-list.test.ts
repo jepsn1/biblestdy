@@ -61,8 +61,20 @@ describe("referenceLabel", () => {
       expect(ref && referenceLabel(ref, en, "en")).toBe(label);
     }
   });
+  it("one psalm is singular, the book plural", () => {
+    expect(referenceLabel({ book: "PSA", chapter: 23 }, da, "da")).toBe("Salme 23");
+    expect(referenceLabel({ book: "PSA", chapter: 23, verse: 1 }, en, "en")).toBe("Psalm 23:1");
+    expect(referenceLabel({ book: "PSA" }, da, "da")).toBe("Salmerne");
+    expect(referenceLabel({ book: "JAS", chapter: 1 }, da, "da")).toBe("Jakobsbrevet 1");
+    expect(referenceLabel({ book: "JUD", chapter: 1, verse: 3 }, da, "da")).toBe("Judasbrevet 1,3");
+    for (const label of ["Salme 23,1", "Jakobsbrevet 1", "Judasbrevet 1,3"]) {
+      const ref = parseReference(label, "da");
+      expect(ref && referenceLabel(ref, da, "da")).toBe(label);
+    }
+    expect(parseReference("Jakobsbrev 1", "da")).toEqual({ book: "JAS", chapter: 1 });
+  });
   it("a one-verse range reads as the verse", () => {
-    expect(referenceLabel({ book: "PSA", chapter: 23, verse: 1, endVerse: 1 }, da, "da")).toBe("Salmerne 23,1");
+    expect(referenceLabel({ book: "PSA", chapter: 23, verse: 1, endVerse: 1 }, da, "da")).toBe("Salme 23,1");
   });
 });
 
