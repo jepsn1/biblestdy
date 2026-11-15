@@ -10,9 +10,7 @@ import {
   pagedFits,
   partsThatFit,
   RAIL,
-  SIDEBAR,
   sheetLayout,
-  sidebarBeside,
   stripFits,
 } from "./sheet-layout";
 
@@ -68,21 +66,7 @@ describe("sheetLayout", () => {
 /** A window `px` wide at a text size (%) — or browser zoom — in rem. */
 const rem = (px: number, size = 100) => px / (16 * size / 100);
 
-describe("large text: sidebar, paging, measure", () => {
-  it("100%: the sidebar stays beside the reader from 1024 up", () => {
-    expect(sidebarBeside(rem(1024))).toBe(true);
-    expect(sidebarBeside(rem(1280))).toBe(true);
-  });
-
-  it("the sidebar goes over the page where it would squeeze the text", () => {
-    // 1024 at 150%+, 1280 at 175%+, 1440 at 200%
-    expect(sidebarBeside(rem(1024, 150))).toBe(false);
-    expect(sidebarBeside(rem(1280, 150))).toBe(true);
-    expect(sidebarBeside(rem(1280, 175))).toBe(false);
-    expect(sidebarBeside(rem(1440, 175))).toBe(true);
-    expect(sidebarBeside(rem(1440, 200))).toBe(false);
-  });
-
+describe("large text: paging, measure", () => {
   it("1024 and 1440 page at every text size; browser zoom 200% at 1280 too", () => {
     for (const size of [100, 125, 150, 175, 200]) {
       expect(pagedFits(rem(1024, size)), `1024 ${size}%`).toBe(true);
@@ -99,7 +83,7 @@ describe("large text: sidebar, paging, measure", () => {
   it("wherever it pages, the text keeps at least the minimum measure (≈30ch)", () => {
     for (let viewport = 20; viewport <= 160; viewport += 0.25) {
       if (!pagedFits(viewport)) continue;
-      const pane = sidebarBeside(viewport) ? viewport - SIDEBAR : viewport;
+      const pane = viewport;
       for (const lane of [0, RAIL, LANE]) {
         const text = sheetLayout(pane, lane).contentWidth - 2 * PAD;
         expect(text, `viewport ${viewport}rem, lane ${lane}`).toBeGreaterThanOrEqual(MEASURE_MIN);
@@ -144,11 +128,11 @@ describe("running foot fit", () => {
 
 describe("boxesFitLane", () => {
   it("full lanes at 100% hold margin boxes", () => {
-    expect(boxesFitLane(sheetLayout(74, LANE), 16)).toBe(true); // 1440 with sidebar
+    expect(boxesFitLane(sheetLayout(74, LANE), 16)).toBe(true); // a 74rem pane
   });
 
   it("200% text squeezes the lane to a sliver: boxes go inline", () => {
-    // 1440 with sidebar at 200%: (1440 - 512) / 32 = 29rem pane
+    // a 29rem pane at 200% (a note panel open)
     expect(boxesFitLane(sheetLayout(29, LANE), 32)).toBe(false);
   });
 

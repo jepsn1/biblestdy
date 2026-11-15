@@ -52,13 +52,10 @@ export function TranslationChooser({
   translations,
   translationId,
   onSwitch,
-  iconOnly = false,
 }: {
   translations: Translation[];
   translationId: string;
   onSwitch: (id: string) => void;
-  /** Large text sizes: the abbreviation only, the name stays in the label. */
-  iconOnly?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const ui: Lang = i18n.language.startsWith("da") ? "da" : "en";
@@ -94,23 +91,21 @@ export function TranslationChooser({
 
   const label = `${t("nav.translation")}: ${current.abbreviation}, ${translationTitle(current)}`;
   const list = <TranslationList translations={translations} currentId={current.id} ui={ui} onPick={pick} />;
+  // The edition, quieter than the address it follows (persona panel
+  // 2026-11-15): the abbreviation, borderless and muted; the full name is
+  // its accessible name, its tooltip and its menu. A clear gap before it.
   const trigger = (
     <>
-      <span className="text-control font-medium tracking-[0.02em]">{current.abbreviation}</span>
-      {/* Wide screens: which Bible, in words (Sofie: "WEB" reads as "website") */}
-      {translationInfo(current.abbreviation) && !iconOnly && (
-        <span className="hidden text-control text-muted-foreground lg:inline">
-          · {translationInfo(current.abbreviation)?.shortName}
-        </span>
-      )}
-      <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+      <span className="font-mono text-control font-medium tracking-[0.02em]">{current.abbreviation}</span>
+      <ChevronDown className="size-4" aria-hidden />
     </>
   );
+  const triggerClass = "ml-1 shrink-0 gap-1 px-2 text-muted-foreground hover:text-foreground";
 
   if (isMobile) {
     return (
       <>
-        <Button variant="outline" size="sm" aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="sm" className={triggerClass} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
           {trigger}
         </Button>
         <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
@@ -130,7 +125,7 @@ export function TranslationChooser({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Hint label={translationTitle(current)} shortcut="T">
-        <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={label} />}>{trigger}</PopoverTrigger>
+        <PopoverTrigger render={<Button variant="ghost" size="sm" className={triggerClass} aria-label={label} />}>{trigger}</PopoverTrigger>
       </Hint>
       <PopoverContent align="start" className="w-90 max-w-[calc(100vw-2rem)] gap-0 p-0">
         <PanelHeader onClose={() => setOpen(false)} closeLabel={t("translations.close")}>

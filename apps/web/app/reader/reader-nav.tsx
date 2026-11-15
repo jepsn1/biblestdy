@@ -6,17 +6,13 @@ import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { usePwaInstall } from "~/hooks/use-pwa-install";
-import { useTextSize } from "~/lib/text-size";
 import { cn } from "~/lib/utils";
-import { SelectTrigger, SelectValue } from "~/components/ui/select";
-import { SidebarTrigger } from "~/components/ui/sidebar";
 import { AccountChip } from "./account-settings";
-import { BookSelect } from "./book-select";
-import { ChapterSelect } from "./chapter-select";
 import { PANEL_TOGGLE } from "./connections-panel";
 import { MoreSheet } from "./more-sheet";
 import { NAME_MIN_EM, useNavWraps } from "./nav-fit";
 import { PaletteTrigger } from "../palette/palette-trigger";
+import { PlaceChooser } from "./place-chooser";
 import { TranslationChooser } from "./translation-chooser";
 
 export function ReaderNav({
@@ -40,14 +36,11 @@ export function ReaderNav({
   onToggleConnections: () => void;
   annotationBoxesOpen: boolean;
   onToggleAnnotationBoxes: () => void;
-  /** The sheet's chapter strip shows (desktop, paged): no top-bar chapter chooser. */
+  /** The sheet's chapter strip shows (desktop, paged): the address opens on the books. */
   chapterInStrip?: boolean;
 }) {
   const { t } = useTranslation();
   const pwa = usePwaInstall();
-  // Large text (175%+): Notes, Search, More, Settings and the translation's
-  // name drop their words, so the row holds (or wraps less)
-  const iconOnly = useTextSize() >= 175;
   const rowRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLButtonElement>(null);
   const wraps = useNavWraps(rowRef, nameRef);
@@ -66,71 +59,54 @@ export function ReaderNav({
       <div
         ref={rowRef}
         className={cn(
-          "flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4",
+          // A container: the search field shows by the row's own width, not
+          // the viewport's (text size and panels count alike)
+          "@container/nav flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4",
           wraps ? "flex-wrap" : "flex-nowrap",
         )}
       >
-        <Hint label={t("nav.toggleSidebar")} shortcut="mod+B">
-          <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
-        </Hint>
-
-        <div className="h-4 w-px shrink-0 bg-border" />
-
-        {/* The address — Book · Chapter · Translation — each its own
-            chooser. Where the paged sheet shows the chapter strip, that is
-            the chapter part (no second chooser an inch away). */}
-        <BookSelect
+        {/* The address — "Salmerne 23 ⌄" — and the one pointer route to any
+            book and chapter (persona panel 2026-11-15). The name gives way
+            first when the row is short; the chapter number never. */}
+        <PlaceChooser
           ref={nameRef}
           book={book}
-          // Wrapped: the name stays on the first line (never alone below the
-          // sidebar button) and fills what that line leaves — its minimum
-          // plus the chooser's chevron and padding
-          style={wraps ? { flex: "1 1 0", minWidth: `calc(${NAME_MIN_EM}em + 2.25rem)` } : undefined}
+          chapter={chapter}
+          stripShown={chapterInStrip}
+          // Wrapped: the address stays on the first line and fills what that
+          // line leaves — its minimum plus number, chevron and padding
+          style={wraps ? { flex: "1 1 0", minWidth: `calc(${NAME_MIN_EM}em + 3.5rem)` } : undefined}
         />
 
-        {!chapterInStrip && (
-          <ChapterSelect book={book} chapter={chapter}>
-            <SelectTrigger aria-label={t("nav.chapter")} size="sm" className="shrink-0 font-mono">
-              <SelectValue />
-            </SelectTrigger>
-          </ChapterSelect>
-        )}
-
-        {/* Translation chooser (#11): marks live per translation — switching
-            re-reads the chapter in the chosen version */}
+        {/* The edition, part of the citation ("Salmerne 23 · BPH"): right
+            after the address, quieter than it, a clear gap between (#11) */}
         {translations.length > 1 && (
           <TranslationChooser
             translations={translations}
             translationId={translationId}
             onSwitch={onSwitchTranslation}
-            iconOnly={iconOnly}
           />
         )}
 
-        {/* Go to reference (#53): the worded field from lg, a search icon
-            below (and at large text sizes) */}
-        <PaletteTrigger iconOnly={iconOnly} />
+        {/* Search or go to (#53): the worded field where the row has room,
+            a worded "Search" button where it hasn't — never an icon alone */}
+        <PaletteTrigger />
 
-        {/* "Notes & topics" (#62, was the unexplained "Connections"): icon +
-            tooltip from sm, the word itself from 1180px. Phones reach it, the
-            margin-notes toggle and install through the labelled More sheet. */}
-        <Hint label={t("nav.connectionsToggle")} shortcut="mod+.">
+        {/* Notes on this chapter, beside the text (#62): always worded
+            (Birthe: no lone icons). The notes PAGE is "All notes" — never
+            just "Notes". Phones reach it through the labelled More sheet. */}
+        <Hint label={t("nav.connectionsLabel")} shortcut="mod+.">
           <Button
             variant={connectionsOpen ? "secondary" : "ghost"}
-            size="icon-sm"
-            className={cn(
-              "hidden gap-1.5 sm:inline-flex",
-              !iconOnly && "min-[1180px]:w-auto min-[1180px]:px-2.5",
-            )}
-            aria-label={t("nav.connectionsToggle")}
+            size="sm"
+            className="hidden shrink-0 gap-1.5 px-2.5 sm:inline-flex"
+            aria-label={t("nav.connectionsLabel")}
             aria-pressed={connectionsOpen}
             {...{ [PANEL_TOGGLE]: "connections" }}
             onClick={onToggleConnections}
           >
-            <NotebookText />
-            <span className={cn("hidden", !iconOnly && "min-[1180px]:inline")}>
-              {t("nav.connectionsToggle")}
-            </span>
+            <NotebookText aria-hidden />
+            {t("nav.connectionsToggle")}
           </Button>
         </Hint>
 
@@ -140,7 +116,6 @@ export function ReaderNav({
           annotationBoxesOpen={annotationBoxesOpen}
           onToggleAnnotationBoxes={onToggleAnnotationBoxes}
           pwa={pwa}
-          iconOnly={iconOnly}
         />
 
         {/* Install as app: real prompt on Chromium; iOS Safari has no install
@@ -195,7 +170,7 @@ export function ReaderNav({
 
         {/* Account chip (#17): settings surface — theme + language live in
             there now, keeping the nav row lean. From sm; phones use More. */}
-        <AccountChip iconOnly={iconOnly} />
+        <AccountChip />
       </div>
     </nav>
   );

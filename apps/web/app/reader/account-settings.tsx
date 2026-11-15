@@ -2,10 +2,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { HIGHLIGHT_COLORS, READER_STYLES, TEXT_SIZES } from "@biblestdy/shared";
-import { Monitor, Moon, Sun, UserRound } from "lucide-react";
+import { LogOut, Monitor, Moon, Sun, UserRound } from "lucide-react";
 import { Hint } from "~/components/hint";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -52,11 +53,12 @@ const chipClass =
  * surface. Popover on desktop, content-sized bottom drawer on phones; both
  * share the PanelHeader (#62). Delete account is an AlertDialog owned here,
  * outside the popover/drawer, so closing those never unmounts it. */
-export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
+export function AccountChip() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const chipRef = useRef<HTMLButtonElement>(null);
   // Where focus lands when the settings (or a dialog they open) close: the
   // chip, or the More trigger when opened from the More sheet
@@ -91,6 +93,13 @@ export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
     setDeleteOpen(true);
   }
 
+  /** Log out (moved here from the books sidebar): confirmed first — signing
+   * in again means fetching a new email code. */
+  function askSignOut() {
+    setOpen(false);
+    setSignOutOpen(true);
+  }
+
   /** Colour names: the settings close first, the dialog takes over (focus
    * comes back to the chip). */
   function showColorNames() {
@@ -107,6 +116,7 @@ export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
   const content = (
     <SettingsContent
       email={email}
+      onSignOut={askSignOut}
       onDelete={askDelete}
       onColorNames={showColorNames}
       onShortcuts={isMobile ? undefined : showShortcuts}
@@ -152,16 +162,15 @@ export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
                   className={cn(
                     // hidden below sm here too: the first render (isMobile
                     // not known yet) mustn't show, or measure, the chip
-                    "hidden shrink-0 items-center gap-2 rounded-full hover:bg-muted sm:flex",
-                    !iconOnly && "min-[1180px]:pr-2.5",
+                    "hidden shrink-0 items-center gap-2 rounded-full pr-2.5 hover:bg-muted sm:flex",
                   )}
                 />
               }
             >
               <span className={chipClass}>{initial}</span>
-              {/* Visible word next to the chip on wide screens (#62); not at
-                  large text sizes, like Notes and Search */}
-              <span className={cn("hidden text-control", !iconOnly && "min-[1180px]:inline")}>
+              {/* The word next to the chip, at every size (Birthe, persona
+                  panel 2026-11-15: no lone icons) */}
+              <span className="text-control">
                 {t("settings.short")}
               </span>
             </PopoverTrigger>
@@ -175,6 +184,7 @@ export function AccountChip({ iconOnly = false }: { iconOnly?: boolean }) {
         </Popover>
       )}
       <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} returnFocus={backTo} />
+      <SignOutDialog open={signOutOpen} onOpenChange={setSignOutOpen} returnFocus={backTo} />
     </>
   );
 }
@@ -251,11 +261,13 @@ function saveSize(size: Parameters<typeof saveTextSize>[0]) {
 
 function SettingsContent({
   email,
+  onSignOut,
   onDelete,
   onColorNames,
   onShortcuts,
 }: {
   email: string;
+  onSignOut: () => void;
   onDelete: () => void;
   onColorNames: () => void;
   /** Keyboard users only (desktop): opens the shortcuts list. */
@@ -271,9 +283,15 @@ function SettingsContent({
 
   return (
     <div className="flex flex-col text-control">
-      <div className="min-w-0 py-1">
-        <p className="text-meta text-muted-foreground">{t("settings.signedInAs")}</p>
-        <p className="truncate">{email}</p>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1">
+        <div className="min-w-0">
+          <p className="text-meta text-muted-foreground">{t("settings.signedInAs")}</p>
+          <p className="truncate">{email}</p>
+        </div>
+        <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 max-sm:h-10" aria-haspopup="dialog" onClick={onSignOut}>
+          <LogOut aria-hidden />
+          {t("settings.signOut")}
+        </Button>
       </div>
 
       <Separator className="my-2" />
@@ -469,6 +487,47 @@ function DeleteAccountDialog({
           >
             {busy ? t("settings.deleteBusy") : t("settings.deleteConfirm")}
           </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/** Log out, confirmed (#64; moved from the books sidebar): to sign in again
+ * takes a new email code. Unsaved note drafts stay with their owner. */
+function SignOutDialog({
+  open,
+  onOpenChange,
+  returnFocus,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  returnFocus: () => HTMLElement | null;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent finalFocus={returnFocus}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("settings.signOutTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("settings.signOutWarning")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("settings.signOutCancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() =>
+              void authClient
+                .signOut()
+                .then(() => {
+                  clearAllDrafts();
+                  return navigate("/signin");
+                })
+                .catch((e: unknown) => notifyError(e, { message: t("toast.signOutFailed") }))
+            }
+          >
+            {t("settings.signOut")}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

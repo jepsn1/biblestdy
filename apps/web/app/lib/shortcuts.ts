@@ -68,3 +68,19 @@ export function ignoreShortcut(event: ShortcutEvent, doc?: ElementLike["ownerDoc
   const d = doc ?? el?.ownerDocument ?? (typeof document !== "undefined" ? document : null);
   return d?.querySelector(OPEN_MODAL) != null;
 }
+
+/**
+ * Ctrl/⌘B opens the address chooser (was the books sidebar's key, so the
+ * habit "Ctrl+B = books" carries over). Never inside an editor — Ctrl+B is
+ * bold there — nor over another modal, nor when something else took it.
+ */
+export function opensPlaceChooser(event: ShortcutEvent & { shiftKey?: boolean }, doc?: ElementLike["ownerDocument"]): boolean {
+  if (event.defaultPrevented || event.isComposing) return false;
+  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return false;
+  if (event.key.toLowerCase() !== "b") return false;
+  if (isEditableTarget(event.target) && !(event.target as ElementLike).closest?.("[data-place-filter]")) return false;
+  const el = event.target as ElementLike | null;
+  const d = doc ?? el?.ownerDocument ?? (typeof document !== "undefined" ? document : null);
+  // Its own popover is a dialog too: Ctrl+B there closes it again
+  return d?.querySelector(`${OPEN_MODAL}, [role='dialog']:not(:has([data-place-filter]))`) == null;
+}

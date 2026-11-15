@@ -4,12 +4,11 @@ import type { Chapter } from "@biblestdy/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
-import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
-import { loadTextSize, useViewportFits } from "~/lib/text-size";
+import { loadTextSize } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { queryClient } from "~/lib/query";
 import { pathOf, requireAuth } from "~/lib/require-auth";
@@ -19,10 +18,8 @@ import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
 import { zoomLockHandle } from "~/lib/viewport";
-import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter, useChapterStrip } from "../reader/paginated-chapter";
-import { sidebarBeside } from "../reader/sheet-layout";
 import { ReaderError } from "../reader/reader-error";
 import { chapterQuery, loadChapter, prefetchNeighbours, readingPausedFor, retryWhenLimited } from "../reader/chapter-cache";
 import { ChapterSkeleton } from "../reader/chapter-skeleton";
@@ -123,7 +120,7 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
   };
 }
 
-/** Errors stay inside the reader's shell (sidebar + nav), with a way on. */
+/** Errors stay inside the reader's shell (the nav and its address), with a way on. */
 export function ErrorBoundary({ error, params }: Route.ErrorBoundaryProps) {
   return <ReaderError error={error} params={params} />;
 }
@@ -167,9 +164,8 @@ export default function Read({ loaderData, params }: Route.ComponentProps) {
 function ChapterPending({ loaderData, book, chapter }: { loaderData: ReadData; book: string; chapter: number }) {
   const noop = () => {};
   return (
-    <SidebarProvider className="h-dvh overflow-hidden">
-      <BooksSidebar book={book} />
-      <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">
+    <div className="flex h-dvh overflow-hidden">
+      <main className="relative flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <ReaderNav
           book={book}
           chapter={chapter}
@@ -182,8 +178,8 @@ function ChapterPending({ loaderData, book, chapter }: { loaderData: ReadData; b
           onToggleAnnotationBoxes={noop}
         />
         <ChapterSkeleton limited />
-      </SidebarInset>
-    </SidebarProvider>
+      </main>
+    </div>
   );
 }
 
@@ -330,17 +326,13 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
     snoozeSupport(userId); // back in 30 days (this device)
   }
 
-  // Large text on a smaller screen: the books sidebar opens over the page
-  // (closed on load) instead of squeezing the text to a few words a line
-  const sidebarOverlay = !useViewportFits(sidebarBeside);
   // The paged sheet heads its text with the chapter strip
   const chapterStrip = useChapterStrip();
 
   return (
-    <SidebarProvider overlay={sidebarOverlay} className="h-dvh overflow-hidden">
+    <div className="flex h-dvh overflow-hidden">
       <SkipToText />
-      <BooksSidebar book={chapter.book} />
-      <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden">
+      <main className="relative flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <ReaderNav
           book={chapter.book}
           chapter={chapter.chapter}
@@ -364,7 +356,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           annotationBoxesOpen={annotationBoxesOpen}
           placeRef={placeRef}
         />
-      </SidebarInset>
+      </main>
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <ColorNamesDialog open={colorNamesOpen} onOpenChange={setColorNamesOpen} returnTo={colorNamesReturn} />
       <LazyCommandPalette
@@ -388,6 +380,6 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
       {needsStyleChoice && !styleChosen && (
         <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
       )}
-    </SidebarProvider>
+    </div>
   );
 }

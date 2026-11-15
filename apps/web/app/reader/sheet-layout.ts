@@ -29,8 +29,6 @@ export const RAIL = 8;
  * (Literata's 0 ≈ 0.55em at text-reading), ~40 characters of prose. Below
  * it a line holds a handful of words (large text, #61). */
 export const MEASURE_MIN = 19;
-/** The books sidebar's width beside the reader (ui/sidebar SIDEBAR_WIDTH). */
-export const SIDEBAR = 16;
 /** Narrowest viewport that pages: both gutters + the minimum measure. */
 export const PAGED_MIN = 2 * GUTTER + MEASURE_MIN + 2 * PAD;
 
@@ -67,15 +65,6 @@ export function sheetLayout(paneRem: number, laneRem: number): SheetLayout {
  */
 export function pagedFits(viewportRem: number): boolean {
   return viewportRem >= PAGED_MIN;
-}
-
-/**
- * Books sidebar beside the reader (pushing it narrower) only when the sheet
- * keeps a proper single column next to it; else it opens over the page and
- * starts closed — large text never buys the sidebar with the measure.
- */
-export function sidebarBeside(viewportRem: number): boolean {
-  return viewportRem - SIDEBAR >= 2 * GUTTER + SINGLE_MIN + 2 * PAD;
 }
 
 /** Shortest window (rem) that heads the paged sheet with the chapter strip.

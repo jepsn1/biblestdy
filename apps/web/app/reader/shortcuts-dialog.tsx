@@ -53,6 +53,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         { keys: [["Home"], ["End"]], label: t("shortcuts.firstLast") },
         { keys: [["["], ["]"]], label: t("shortcuts.chapter") },
         { keys: [["mod", "K"], ["/"]], label: t("shortcuts.jump") },
+        { keys: [["mod", "B"]], label: t("shortcuts.place") },
         { keys: [["t"]], label: t("shortcuts.translation") },
       ],
     },
@@ -89,7 +90,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         { keys: [["F6"]], label: t("shortcuts.cycle") },
         { keys: [["mod", "Enter"]], label: t("shortcuts.closeNote") },
         { keys: [["Esc"]], label: t("shortcuts.closePanel") },
-        { keys: [["mod", "B"]], label: t("shortcuts.sidebar") },
+
         { keys: [["?"]], label: t("shortcuts.help") },
       ],
     },

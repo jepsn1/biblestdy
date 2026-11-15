@@ -74,14 +74,6 @@
   --font-serif: var(--font-reading);
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
   --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -154,7 +146,7 @@
   --destructive-foreground: oklch(0.98 0.008 90);
   --border: oklch(0.3 0.02 80 / 15%);
   --input: oklch(0.3 0.02 80 / 18%);
-  /* Focus ring: opaque, ≥ 3:1 on --background and --sidebar (WCAG 1.4.11).
+  /* Focus ring: opaque, ≥ 3:1 on --background and --popover (WCAG 1.4.11).
      Used at full strength — never with an alpha modifier */
   --ring: oklch(0.5 0.11 80);
   --chart-1: oklch(0.5 0.11 80);
@@ -163,16 +155,6 @@
   --chart-4: oklch(0.72 0.015 85);
   --chart-5: oklch(0.82 0.012 85);
   --radius: 0.5rem;
-  --sidebar: oklch(0.945 0.012 90);
-  --sidebar-foreground: oklch(0.26 0.02 80);
-  /* A shade under --primary: the current book is gold text on the
-     --sidebar-accent row, ≥ 4.5:1 there too */
-  --sidebar-primary: oklch(0.47 0.11 80);
-  --sidebar-primary-foreground: oklch(0.98 0.008 90);
-  --sidebar-accent: oklch(0.9 0.02 88);
-  --sidebar-accent-foreground: oklch(0.26 0.02 80);
-  --sidebar-border: oklch(0.3 0.02 80 / 15%);
-  --sidebar-ring: oklch(0.5 0.11 80);
 
   /* Pen: dark ballpoint blue, pressed into the page */
   --note-ink: oklch(0.38 0.2 264);
@@ -217,14 +199,6 @@
   --chart-3: oklch(0.5 0.02 85);
   --chart-4: oklch(0.4 0.015 85);
   --chart-5: oklch(0.3 0.012 85);
-  --sidebar: oklch(0.21 0.012 80);
-  --sidebar-foreground: oklch(0.92 0.015 90);
-  --sidebar-primary: oklch(0.83 0.1 85);
-  --sidebar-primary-foreground: oklch(0.22 0.02 85);
-  --sidebar-accent: oklch(0.28 0.02 85);
-  --sidebar-accent-foreground: oklch(0.92 0.015 90);
-  --sidebar-border: oklch(0.95 0.02 90 / 12%);
-  --sidebar-ring: oklch(0.83 0.1 85);
 
   /* Pen ink lightened for the dark page (additive screen physics) */
   --note-ink: oklch(0.74 0.16 255);
@@ -274,14 +248,6 @@
   --chart-3: oklch(0.65 0.012 286);
   --chart-4: oklch(0.75 0.01 286);
   --chart-5: oklch(0.85 0.006 286);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.21 0.006 286);
-  --sidebar-primary: oklch(0.21 0.006 286);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286);
-  --sidebar-accent-foreground: oklch(0.21 0.006 286);
-  --sidebar-border: oklch(0.92 0.004 286);
-  --sidebar-ring: oklch(0.55 0.014 286);
   --selection: oklch(0.62 0.12 255 / 22%);
 }
 
@@ -312,14 +278,6 @@
   --chart-3: oklch(0.55 0.014 286);
   --chart-4: oklch(0.4 0.01 286);
   --chart-5: oklch(0.3 0.006 286);
-  --sidebar: oklch(0.21 0.006 286);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.92 0.004 286);
-  --sidebar-primary-foreground: oklch(0.21 0.006 286);
-  --sidebar-accent: oklch(0.27 0.006 286);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.27 0.006 286);
-  --sidebar-ring: oklch(0.705 0.015 286);
   --selection: oklch(0.7 0.11 250 / 30%);
 }
 

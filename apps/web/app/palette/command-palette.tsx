@@ -24,7 +24,6 @@ import { modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { useSidebar } from "~/components/ui/sidebar";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { setHighlightFilter, useHighlightFilter } from "~/lib/highlight-filter";
 import { useColorName } from "~/lib/highlight-labels";
@@ -39,6 +38,7 @@ import { cn, focusTitle } from "~/lib/utils";
 import { OPEN_SHORTCUTS } from "../reader/shortcuts-dialog";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
+import { OPEN_PLACE } from "../reader/place-chooser";
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllHighlightsQuery } from "../reader/use-highlights";
 import { useAllNotesQuery } from "../reader/use-notes";
@@ -71,7 +71,6 @@ function useActions(r: ReaderActions) {
   const theme = useThemePref();
   const style = useReaderStyle();
   const size = useTextSize();
-  const sidebar = useSidebar();
   const navigate = useNavigate();
   const lang = i18n.language.startsWith("da") ? "da" : "en";
   const sizeIdx = TEXT_SIZES.indexOf(size);
@@ -111,11 +110,12 @@ function useActions(r: ReaderActions) {
       run: () => navigate("/notes"),
     },
     {
-      id: "sidebar",
-      label: t("nav.toggleSidebar"),
-      keywords: both("nav.toggleSidebar"),
+      id: "place",
+      label: t("place.choose"),
+      keywords: [...both("place.choose"), ...both("place.books")],
       shortcut: `${modKey()}B`,
-      run: sidebar.toggleSidebar,
+      opensDialog: true,
+      run: () => window.dispatchEvent(new Event(OPEN_PLACE)),
     },
     {
       id: "margin",
