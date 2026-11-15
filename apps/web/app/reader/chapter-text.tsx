@@ -31,6 +31,7 @@ import {
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
 import { NOTE_OPENER } from "./note-panel";
+import { noteEditor } from "./note-editor-loader";
 import { layoutChapter, openingLabel, sliceBlocks, type VerseSpan, type WordPiece } from "./chapter-layout";
 import {
   extendByVerse,
@@ -205,6 +206,10 @@ export function ChapterText({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<MenuState>(null);
+  // The menu offers Create note: have the editor chunk on its way (M8)
+  useEffect(() => {
+    if (menu) noteEditor.preload();
+  }, [menu]);
   // Tap-selection (mobile): a = the end fixed at tap, b = the dragged end.
   // Either handle may drag either end; buildAnchor normalizes the order.
   const [touchSel, setTouchSel] = useState<{ a: WordPos; b: WordPos } | null>(null);

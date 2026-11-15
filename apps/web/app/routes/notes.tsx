@@ -22,6 +22,7 @@ import { cn, focusRing } from "~/lib/utils";
 import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
 import { lastReadHref } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
+import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
 import type { Route } from "./+types/notes";
 
@@ -30,6 +31,8 @@ export function meta() {
 }
 
 export async function clientLoader() {
+  // The Notes page is for editing: fetch the editor chunk (M8) alongside
+  noteEditor.preload();
   const session = await requireAuth({ cached: true });
   await Promise.all([loadReaderStyle(session.user.id), loadTextSize(session.user.id)]);
   return null;

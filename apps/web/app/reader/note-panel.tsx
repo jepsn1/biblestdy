@@ -10,29 +10,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "~/components/ui/resizable";
-import {
-  BlockTypeSelect,
-  BoldItalicUnderlineToggles,
-  codeBlockPlugin,
-  codeMirrorPlugin,
-  CreateLink,
-  headingsPlugin,
-  InsertTable,
-  InsertThematicBreak,
-  linkDialogPlugin,
-  linkPlugin,
-  listsPlugin,
-  ListsToggle,
-  markdownShortcutPlugin,
-  MDXEditor,
-  quotePlugin,
-  tablePlugin,
-  thematicBreakPlugin,
-  toolbarPlugin,
-  UndoRedo,
-  type MDXEditorMethods,
-} from "@mdxeditor/editor";
-import "@mdxeditor/editor/style.css";
+import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Check, Maximize2, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -45,9 +23,10 @@ import { notifyError } from "~/lib/notify";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
-import { editorIcon } from "./editor-icons";
+import { noteEditor } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { useNoteTags } from "./use-tags";
+import { useLazyModule } from "~/lib/lazy-module";
 
 /** Marks a control that opens a note (margin chip, phone marker): the side
  * panel takes focus from it and hands it back on close (#63). */
@@ -185,6 +164,77 @@ function ReferencesTable({
 }
 
 /**
+ * Plain-text stand-in while the rich editor's chunk loads (M8): the note's
+ * markdown in a real textarea, styled like the editor body — readable at
+ * once and writable (the same body buffer, so autosave covers it). The
+ * toolbar row is a placeholder. A failed load keeps it as a plain-text
+ * editor and offers Retry (then Reload page — a deploy renames chunks).
+ */
+function FallbackEditor({
+  ref,
+  value,
+  onChange,
+  onActivity,
+  onComposing,
+  failed,
+  onRetry,
+  reload,
+  mobile,
+}: {
+  ref: React.Ref<HTMLTextAreaElement>;
+  value: string;
+  onChange: (value: string) => void;
+  /** Any input — the hand-over waits for a pause. */
+  onActivity: () => void;
+  onComposing: (composing: boolean) => void;
+  failed: boolean;
+  onRetry: () => void;
+  /** Retried already: offer a page reload instead. */
+  reload: boolean;
+  mobile: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div aria-hidden className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-2">
+        {Array.from({ length: mobile ? 3 : 6 }, (_, i) => (
+          <span key={i} className="h-5 w-12 rounded bg-muted" />
+        ))}
+      </div>
+      {failed ? (
+        <p role="status" className="flex flex-wrap items-center gap-x-2 border-b border-border px-3 py-1.5 text-meta text-muted-foreground">
+          {t("note.editorFailed")}
+          <Button variant="link" size="sm" className="h-auto p-0 text-meta" onClick={onRetry}>
+            {reload ? t("note.reloadPage") : t("note.retry")}
+          </Button>
+        </p>
+      ) : (
+        <span role="status" className="sr-only">
+          {t("note.editorLoading")}
+        </span>
+      )}
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => {
+          onActivity();
+          onChange(e.target.value);
+        }}
+        onKeyDown={onActivity}
+        onCompositionStart={() => onComposing(true)}
+        onCompositionEnd={() => {
+          onComposing(false);
+          onActivity();
+        }}
+        placeholder={t("note.bodyPlaceholder")}
+        aria-label={t("note.bodyLabel")}
+        className="min-h-0 flex-1 resize-none bg-transparent px-3 py-3 font-serif text-control leading-relaxed outline-none placeholder:text-muted-foreground"
+      />
+    </div>
+  );
+}
+
+/**
  * Side-by-side editor for a full note (issue #7): title + WYSIWYG markdown
  * body (MDXEditor — markdown stays the DB format, users never have to see
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
@@ -232,10 +282,70 @@ export function NotePanel({
   const { t } = useTranslation();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
+  // Which note `body` holds: on a note switch it's the old one's for a render
+  const [bodyFor, setBodyFor] = useState(note.id);
+  const liveBody = bodyFor === note.id ? body : note.body;
   const dark = useIsDark();
   const titleRef = useRef<HTMLInputElement>(null);
 
   const editorRef = useRef<MDXEditorMethods>(null);
+  // The editor is its own chunk (M8) — usually here already (idle preload)
+  const { value: Editor, error: editorError, retry: retryEditor } = useLazyModule(noteEditor);
+  const fallbackRef = useRef<HTMLTextAreaElement>(null);
+  const focusBody = () =>
+    editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true });
+  const focusFallback = () => {
+    const el = fallbackRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
+  // Plain textarea until the editor is here AND the writer pauses (~400ms,
+  // no IME composition) — then the editor takes over with the live text
+  const [handedOver, setHandedOver] = useState(() => !!noteEditor.peek());
+  const lastInput = useRef(0);
+  const composing = useRef(false);
+  const focusOnReady = useRef(false);
+  useEffect(() => {
+    if (!Editor || handedOver) return;
+    let timer = 0;
+    const check = () => {
+      const quiet = Date.now() - lastInput.current;
+      if (composing.current || quiet < 400) {
+        timer = window.setTimeout(check, composing.current ? 200 : 410 - quiet);
+        return;
+      }
+      // Writing in the textarea: the editor gets the focus (caret at the end)
+      focusOnReady.current = document.activeElement === fallbackRef.current;
+      setHandedOver(true);
+    };
+    timer = window.setTimeout(check, 0);
+    return () => window.clearTimeout(timer);
+  }, [Editor, handedOver]);
+  function onEditorReady() {
+    if (!focusOnReady.current) return;
+    focusOnReady.current = false;
+    // The textarea is gone, so focus fell to <body>: move it on. Anything
+    // the reader chose meanwhile keeps it.
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) focusBody();
+    });
+  }
+  // A failed editor download: Retry, then (a deploy renamed the chunk) a
+  // page reload — after saving what's written
+  const [editorRetries, setEditorRetries] = useState(0);
+  function retryOrReload() {
+    if (editorRetries === 0) {
+      setEditorRetries(1);
+      retryEditor();
+      return;
+    }
+    const l = latest.current;
+    const reload = () => window.location.reload();
+    if (l.dirty) void saveRef.current(l.id, { title: l.title, body: l.body }).finally(reload);
+    else reload();
+  }
 
   // Desktop side panel: focus moves to the note body on open (#65), ready to
   // write; closing returns it to what opened it — a note chip, or the verse
@@ -255,11 +365,12 @@ export function NotePanel({
     // A blank note starts at its title; one with words, at the end of them
     const blank = !note.title && !note.body;
     if (!aside?.contains(document.activeElement))
-      requestAnimationFrame(() =>
-        blank
-          ? titleRef.current?.focus({ preventScroll: true })
-          : editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true }),
-      );
+      requestAnimationFrame(() => {
+        if (blank) titleRef.current?.focus({ preventScroll: true });
+        else if (editorRef.current) focusBody();
+        // Editor chunk still loading: its plain-text stand-in, caret at the end
+        else focusFallback();
+      });
     if (!openerSel.current) return;
     const sel = openerSel.current;
     return () => {
@@ -316,6 +427,7 @@ export function NotePanel({
   useEffect(() => {
     setTitle(note.title);
     setBody(note.body);
+    setBodyFor(note.id);
     setFailed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
@@ -406,50 +518,34 @@ export function NotePanel({
       </div>
 
       {(() => {
-        const editor = (
-      <MDXEditor
-        ref={editorRef}
-        iconComponentFor={editorIcon}
-        key={note.id}
-        markdown={note.body}
-        onChange={setBody}
-        placeholder={t("note.bodyPlaceholder")}
-        className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
-        contentEditableClassName="font-serif text-control leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-title [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-reading [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
-        plugins={[
-          headingsPlugin(),
-          listsPlugin(),
-          quotePlugin(),
-          linkPlugin(),
-          linkDialogPlugin(),
-          tablePlugin(),
-          thematicBreakPlugin(),
-          codeBlockPlugin({ defaultCodeBlockLanguage: "" }),
-          codeMirrorPlugin({ codeBlockLanguages: { "": "Plain", js: "JavaScript" } }),
-          markdownShortcutPlugin(),
-          toolbarPlugin({
-            toolbarContents: () =>
-              mobile ? (
-                // Thumb-width toolbar: the essentials, one row
-                <>
-                  <UndoRedo />
-                  <BoldItalicUnderlineToggles />
-                  <ListsToggle />
-                </>
-              ) : (
-                <>
-                  <UndoRedo />
-                  <BoldItalicUnderlineToggles />
-                  <BlockTypeSelect />
-                  <ListsToggle />
-                  <CreateLink />
-                  <InsertTable />
-                  <InsertThematicBreak />
-                </>
-              ),
-          }),
-        ]}
-      />
+        const editor = Editor && handedOver ? (
+          <Editor.NoteEditor
+            key={note.id}
+            editorRef={editorRef}
+            // The live buffer: whatever was typed in the stand-in comes along
+            markdown={liveBody}
+            onChange={setBody}
+            onReady={onEditorReady}
+            placeholder={t("note.bodyPlaceholder")}
+            dark={dark}
+            mobile={mobile}
+          />
+        ) : (
+          <FallbackEditor
+            ref={fallbackRef}
+            value={liveBody}
+            onChange={setBody}
+            onActivity={() => {
+              lastInput.current = Date.now();
+            }}
+            onComposing={(c) => {
+              composing.current = c;
+            }}
+            failed={!!editorError}
+            onRetry={retryOrReload}
+            reload={editorRetries > 0}
+            mobile={mobile}
+          />
         );
         const references = (
           <ReferencesTable

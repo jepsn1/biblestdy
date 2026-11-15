@@ -41,8 +41,10 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   optimizeDeps: {
-    // Workspace package ships CJS; prebundle so named ESM imports work in dev
-    include: ["@biblestdy/shared"],
+    // Workspace package ships CJS; prebundle so named ESM imports work in dev.
+    // The note editor + Prism are lazy imports (M8): list them so a cold dev
+    // start doesn't find them late and reload the page on first note open
+    include: ["@biblestdy/shared", "prismjs", "@mdxeditor/editor"],
   },
   server: {
     // Reachable from LAN + via caddy at dev.biblestdy.com (basic_auth) — UFW blocks WAN
