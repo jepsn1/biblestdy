@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Note, NoteAnchor, Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ListSkeleton } from "~/components/list-skeleton";
 import { Button, buttonVariants } from "~/components/ui/button";
@@ -20,7 +20,7 @@ import { loadTextSize } from "~/lib/text-size";
 import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
 import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
-import { lastReadHref } from "../reader/chapter-nav";
+import { readingHref } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
@@ -68,7 +68,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const [sort, setSort] = useState<NoteSort>(() =>
     typeof localStorage !== "undefined" && localStorage.getItem(SORT_KEY) === "bible" ? "bible" : "recent",
   );
-  const { notes, loaded, failed, retry } = useAllNotesQuery(true);
+  const { notes, loaded, fetching, failed, retry } = useAllNotesQuery(true);
   const actions = useNoteActions();
   const { data: tags = [] } = useQuery({ queryKey: ["tags"], queryFn: () => api<Tag[]>("/api/tags") });
   const searchId = useId();
@@ -84,7 +84,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   if (frozen.key !== viewKey) setFrozen({ key: viewKey, ids: filtered.map((n) => n.id) });
   const shown = frozen.key === viewKey ? keepOrder(filtered, frozen.ids) : filtered;
   const open = params.id ? notes.find((n) => n.id === params.id) : undefined;
-  const back = lastReadHref(typeof localStorage !== "undefined" ? localStorage.getItem("lastRead") : null) ?? "/read/JHN/3";
+  const back = readingHref();
   // Keeps ?topic= while moving between notes
   const hrefOf = (id?: string) => `/notes${id ? `/${id}` : ""}${topic ? `?topic=${encodeURIComponent(topic)}` : ""}`;
 
@@ -112,11 +112,26 @@ export default function NotesPage({ params }: Route.ComponentProps) {
     navigate(`/read/${a.book}/${a.chapter}?v=${a.startVerse}&note=${note.id}&mark=${encodeURIComponent(`note:${note.id}:${a.id}`)}`);
   }
 
-  // A link to a note that's gone (deleted, another account): back to the list
+  // The note open here was deleted (its undo toast is up): back to the list.
+  // One that was never here (an old link, another account) says so instead.
+  const [seenId, setSeenId] = useState<string | null>(null);
+  if (open && seenId !== open.id) setSeenId(open.id);
+  const gone = Boolean(params.id && loaded && !failed && !open);
   useEffect(() => {
-    if (params.id && loaded && !failed && !open) navigate(hrefOf(), { replace: true });
+    if (gone && seenId === params.id) navigate(hrefOf(), { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id, loaded, failed, open]);
+  }, [gone, seenId, params.id]);
+  // …but only once a fresh list has landed: a note made a moment ago
+  // (reader → "Open in Notes") isn't in the cached one yet. An id not in the
+  // list gets one refetch of its own before it's called missing.
+  const [checkedId, setCheckedId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = params.id;
+    if (!id || !gone || seenId === id || checkedId === id) return;
+    void retry().then(() => setCheckedId(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gone, seenId, checkedId, params.id]);
+  const missing = gone && !fetching && checkedId === params.id && seenId !== params.id;
 
   const listPane = (
     <section
@@ -270,6 +285,8 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           onClose={() => navigate(hrefOf())}
         />
         </div>
+      ) : missing ? (
+        <MissingNote backHref={hrefOf()} />
       ) : params.id ? (
         <ListSkeleton sections={[1]} className="p-4" />
       ) : (
@@ -314,6 +331,25 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         {editorPane}
       </div>
     </main>
+  );
+}
+
+/** `/notes/<id>` for a note that isn't (or is no longer) there. Its heading
+ * takes focus: arriving from a link, that's the news. */
+function MissingNote({ backHref }: { backHref: string }) {
+  const { t } = useTranslation();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => headingRef.current?.focus({ preventScroll: true }), []);
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <h2 ref={headingRef} tabIndex={-1} className="font-serif text-title font-medium text-balance focus:outline-none">
+        {t("notes.missingTitle")}
+      </h2>
+      <p className="max-w-sm font-serif text-control text-pretty text-muted-foreground">{t("notes.missingBody")}</p>
+      <Link to={backHref} className={cn(buttonVariants({ variant: "outline" }), "mt-2 h-10 px-4")}>
+        {t("notes.backToList")}
+      </Link>
+    </div>
   );
 }
 

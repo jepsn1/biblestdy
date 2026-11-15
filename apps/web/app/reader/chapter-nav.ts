@@ -54,6 +54,13 @@ export function lastReadHref(stored: string | null): string | null {
   return chapterHref({ book: m[1], chapter: Number(m[2]) }, page);
 }
 
+/** Where "Back to reading" goes: the page last read, else the reader's
+ * default chapter (as the launch page, home.tsx). */
+export function readingHref(): string {
+  const stored = typeof localStorage !== "undefined" ? localStorage.getItem("lastRead") : null;
+  return lastReadHref(stored) ?? "/read/JHN/3";
+}
+
 /** The lastRead value for a place (0-based page). */
 export function lastReadValue(ref: ChapterRef, page: number): string {
   return chapterHref(ref, page).replace(/^\/read\//, "");

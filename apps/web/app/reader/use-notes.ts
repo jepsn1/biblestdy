@@ -41,7 +41,7 @@ export function useAllNotes(enabled: boolean) {
 /** All notes + whether they have loaded (first-use hint, #63) or failed
  * (the Notes page says so rather than showing an empty library). */
 export function useAllNotesQuery(enabled: boolean) {
-  const { data: notes = [], isFetched, isError, isSuccess, refetch } = useQuery({
+  const { data: notes = [], isFetched, isFetching, isError, isSuccess, refetch } = useQuery({
     queryKey: ["notes", "all"],
     queryFn: () => api<Note[]>("/api/notes"),
     enabled,
@@ -50,7 +50,7 @@ export function useAllNotesQuery(enabled: boolean) {
   useEffect(() => {
     if (isSuccess) pruneDrafts(new Set(notes.map((n) => n.id)));
   }, [isSuccess, notes]);
-  return { notes, loaded: isFetched, failed: isError, retry: refetch };
+  return { notes, loaded: isFetched, fetching: isFetching, failed: isError, retry: refetch };
 }
 
 /** One chapter's notes — shared with the neighbour prefetch. A failed load

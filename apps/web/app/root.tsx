@@ -2,13 +2,15 @@ import "~/lib/i18n";
 
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { BookOpen, RotateCw } from "lucide-react";
 import {
-  isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRevalidator,
 } from "react-router";
 
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -17,9 +19,16 @@ import { queryClient } from "~/lib/query";
 import { TEXT_SIZE_PREPAINT } from "~/lib/text-size-prepaint";
 import { THEME_PREPAINT } from "~/lib/theme-prepaint";
 import { watchSystemTheme } from "~/lib/theme";
+import { describeRouteError } from "~/lib/route-error";
+import { cn } from "~/lib/utils";
+import { ErrorScreen } from "~/components/error-page";
+import { Button, buttonVariants } from "~/components/ui/button";
 import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
+
+/** Reader style pre-paint (#45): Clean = .style-clean; Paper = none. */
+const READER_STYLE_PREPAINT = `try{if(localStorage.getItem("readerStyle")==="clean")document.documentElement.classList.add("style-clean")}catch(e){}`;
 
 // Fonts are self-hosted via @fontsource imports in app.css
 export const links: Route.LinksFunction = () => [];
@@ -54,11 +63,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_PREPAINT }} />
         {/* Same for the reader style (#45, Clean = .style-clean; Paper = none).
             Key/class mirror lib/reader-style.ts (not imported: root is SSR'd) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("readerStyle")==="clean")document.documentElement.classList.add("style-clean")}catch(e){}`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: READER_STYLE_PREPAINT }} />
         {/* And the text size (#61): root font-size, so text + chrome scale */}
         <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_PREPAINT }} />
         <Meta />
@@ -92,37 +97,62 @@ export default function App() {
   );
 }
 
+/** Last resort for an error no route handled (the reader has its own,
+ * inside its shell): a quiet localized page with Try again and a way back —
+ * never the router's raw text. Dev builds still show the stack. */
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const { t } = useTranslation();
-  let message = t("error.oops");
-  let details = t("error.unexpected");
-  let stack: string | undefined;
-
-  if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
-    details =
-      error.status === 404
-        ? (typeof error.data === "string" && error.data) || t("error.notFound")
-        : error.statusText || details;
-    // Reading quota (#29): the loader already localized the wait message
-    if (error.status === 429) {
-      message = t("readingLimit.title");
-      if (typeof error.data === "string" && error.data) details = error.data;
+  const revalidator = useRevalidator();
+  const online = typeof navigator === "undefined" || navigator.onLine;
+  const { kind, detail } = describeRouteError(error, online);
+  const stack = import.meta.env.DEV && error instanceof Error ? error.stack : undefined;
+  // An error in the first render makes React rebuild <html>, dropping what
+  // the pre-paint scripts set (dark theme, reader style, text size): rerun
+  // them, so the page doesn't flash to light/100% for a dark-mode reader
+  useEffect(() => {
+    for (const code of [THEME_PREPAINT, READER_STYLE_PREPAINT, TEXT_SIZE_PREPAINT]) {
+      const script = document.createElement("script");
+      script.textContent = code;
+      document.head.append(script);
+      script.remove();
     }
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
-    details = error.message;
-    stack = error.stack;
+  }, []);
+
+  // "Back to reading" is "/": it reopens the page last read (home.tsx).
+  // chapter-nav's readingHref would pull @biblestdy/shared into root, which
+  // is also evaluated at build (SPA prerender) where that import fails.
+  if (kind === "notFound") {
+    return (
+      <ErrorScreen title={t("error.notFoundTitle")} message={detail ?? t("error.notFoundBody")}>
+        <Link to="/" className={cn(buttonVariants({ size: "lg" }), "h-10 px-4")}>
+          <BookOpen aria-hidden />
+          {t("error.backToReading")}
+        </Link>
+      </ErrorScreen>
+    );
   }
 
+  const title =
+    kind === "offline" ? t("error.offlineTitle") : kind === "limit" ? t("readingLimit.title") : t("error.title");
+  const message = kind === "offline" ? t("error.offlineBody") : (detail ?? t("error.unexpected"));
+  // Offline, a reload would trade this page for the browser's own error;
+  // re-running the loaders keeps it and recovers once the network is back
+  const retry = () => (navigator.onLine ? window.location.reload() : void revalidator.revalidate());
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <ErrorScreen title={title} message={message}>
+      <Button size="lg" className="h-10 px-4" onClick={retry}>
+        <RotateCw aria-hidden className={cn(revalidator.state === "loading" && "animate-spin")} />
+        {t("error.tryAgain")}
+      </Button>
+      <Link to="/" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-10 px-4")}>
+        <BookOpen aria-hidden />
+        {t("error.backToReading")}
+      </Link>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre className="mt-6 max-w-3xl min-w-0 basis-full overflow-x-auto rounded-md bg-muted p-4 text-left text-meta">
           <code>{stack}</code>
         </pre>
       )}
-    </main>
+    </ErrorScreen>
   );
 }
