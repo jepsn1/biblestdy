@@ -12,11 +12,13 @@ import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { pathOf, requireAuth } from "~/lib/require-auth";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
+import { describeRouteError } from "~/lib/route-error";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
 import { PaginatedChapter } from "../reader/paginated-chapter";
 import { loadChapter, prefetchNeighbours } from "../reader/chapter-cache";
 import { sidebarBeside } from "../reader/sheet-layout";
+import { ReaderError } from "../reader/reader-error";
 import { ReaderNav } from "../reader/reader-nav";
 import { referenceLabel } from "../notes/note-list";
 import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
@@ -52,7 +54,12 @@ function pickTranslation(translations: Translation[]): Translation {
   return translations.find((t) => t.id === preferred) ?? translations[0];
 }
 
-export function meta({ params }: Route.MetaArgs) {
+export function meta({ params, error }: Route.MetaArgs) {
+  if (error) {
+    const { kind } = describeRouteError(error, typeof navigator === "undefined" || navigator.onLine);
+    const key = { notFound: "error.chapterNotFound", offline: "error.offlineTitle", limit: "readingLimit.title", unexpected: "error.title" }[kind];
+    return [{ title: `${i18n.t(key)} — biblestdy` }];
+  }
   const locale = bookLocale(i18n.language);
   const title = referenceLabel(
     { book: params.book.toUpperCase(), chapter: Number(params.chapter) },
@@ -106,6 +113,11 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
     needsStyleChoice: readerStyle === null,
     userId: session.user.id,
   };
+}
+
+/** Errors stay inside the reader's shell (sidebar + nav), with a way on. */
+export function ErrorBoundary({ error, params }: Route.ErrorBoundaryProps) {
+  return <ReaderError error={error} params={params} />;
 }
 
 export default function Read({ loaderData }: Route.ComponentProps) {
