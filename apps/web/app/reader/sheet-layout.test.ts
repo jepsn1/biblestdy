@@ -13,6 +13,7 @@ import {
   SIDEBAR,
   sheetLayout,
   sidebarBeside,
+  stripFits,
 } from "./sheet-layout";
 
 /** Everything the layout places must fit the pane: no sideways scroll. */
@@ -104,6 +105,20 @@ describe("large text: sidebar, paging, measure", () => {
         expect(text, `viewport ${viewport}rem, lane ${lane}`).toBeGreaterThanOrEqual(MEASURE_MIN);
       }
     }
+  });
+});
+
+describe("chapter strip", () => {
+  it("heads the sheet on every common screen up to 150% text", () => {
+    for (const h of [768, 800, 900, 1080]) {
+      for (const size of [100, 125, 150]) expect(stripFits(rem(h, size)), `${h}px ${size}%`).toBe(true);
+    }
+  });
+
+  it("steps aside where it would cost a short page a fifth of its lines", () => {
+    expect(stripFits(rem(900, 200))).toBe(false);
+    expect(stripFits(rem(800, 175))).toBe(false);
+    expect(stripFits(rem(1080, 200))).toBe(true);
   });
 });
 

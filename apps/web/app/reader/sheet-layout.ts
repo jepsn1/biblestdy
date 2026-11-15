@@ -78,6 +78,16 @@ export function sidebarBeside(viewportRem: number): boolean {
   return viewportRem - SIDEBAR >= 2 * GUTTER + SINGLE_MIN + 2 * PAD;
 }
 
+/** Shortest window (rem) that heads the paged sheet with the chapter strip.
+ * Strip + its air cost about two lines of the column: below this (large
+ * text on a short screen, 1440×900 at 200%) that is a fifth of the page, so
+ * the chapter stays a top-bar chooser instead. */
+export const STRIP_MIN_HEIGHT = 32;
+
+export function stripFits(viewportHeightRem: number): boolean {
+  return viewportHeightRem >= STRIP_MIN_HEIGHT;
+}
+
 /** A margin box never gets narrower than this (annotation-marks MIN_W)… */
 const BOX_MIN_PX = 90;
 /** …nor than this many rem (large text sizes, #61). */

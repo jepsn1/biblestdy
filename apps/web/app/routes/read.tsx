@@ -21,7 +21,7 @@ import { describeRouteError } from "~/lib/route-error";
 import { zoomLockHandle } from "~/lib/viewport";
 import { BooksSidebar } from "../reader/books-sidebar";
 import { adjacentChapter } from "../reader/chapter-nav";
-import { PaginatedChapter } from "../reader/paginated-chapter";
+import { PaginatedChapter, useChapterStrip } from "../reader/paginated-chapter";
 import { sidebarBeside } from "../reader/sheet-layout";
 import { ReaderError } from "../reader/reader-error";
 import { chapterQuery, loadChapter, prefetchNeighbours, readingPausedFor, retryWhenLimited } from "../reader/chapter-cache";
@@ -333,6 +333,8 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
   // Large text on a smaller screen: the books sidebar opens over the page
   // (closed on load) instead of squeezing the text to a few words a line
   const sidebarOverlay = !useViewportFits(sidebarBeside);
+  // The paged sheet heads its text with the chapter strip
+  const chapterStrip = useChapterStrip();
 
   return (
     <SidebarProvider overlay={sidebarOverlay} className="h-dvh overflow-hidden">
@@ -349,6 +351,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           onToggleConnections={toggleConnections}
           annotationBoxesOpen={annotationBoxesOpen}
           onToggleAnnotationBoxes={() => setAnnotationBoxesOpen((v) => !v)}
+          chapterInStrip={chapterStrip}
         />
         <PaginatedChapter
           chapter={chapter}
