@@ -30,7 +30,9 @@ import { ChapterText } from "./chapter-text";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
-import { NotePanel } from "./note-panel";
+import { NOTE_OPENER, NotePanel } from "./note-panel";
+import { noteEditor } from "./note-editor-loader";
+import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { PageFoot, type FootButton } from "./page-foot";
@@ -259,9 +261,26 @@ export function PaginatedChapter({
   // ?note=<id> (cross-chapter reference jump) claims the slot on arrival
   const wantedNote = searchParams.get("note");
   useEffect(() => {
-    if (wantedNote) onSideViewChange(wantedNote);
+    if (!wantedNote) return;
+    noteEditor.preload(); // in parallel with the notes list it waits on
+    onSideViewChange(wantedNote);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantedNote]);
+  // The note editor is its own chunk (M8): fetch it once the chapter has
+  // painted and the browser is idle, or at once when a note is about to open
+  // (pointer over / focus on a note chip) — opening one then feels instant
+  useEffect(() => preloadWhenIdle(noteEditor), []);
+  useEffect(() => {
+    const onIntent = (e: Event) => {
+      if ((e.target as Element | null)?.closest?.(`[${NOTE_OPENER}]`)) noteEditor.preload();
+    };
+    document.addEventListener("pointerover", onIntent, { passive: true });
+    document.addEventListener("focusin", onIntent);
+    return () => {
+      document.removeEventListener("pointerover", onIntent);
+      document.removeEventListener("focusin", onIntent);
+    };
+  }, []);
   // An open note may have no anchor here (opened, then detached from this
   // chapter) — the all-notes list still has it.
   const openNote =

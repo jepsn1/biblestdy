@@ -1,4 +1,3 @@
-import "~/lib/prism-global";
 import "~/lib/i18n";
 
 import { useEffect } from "react";

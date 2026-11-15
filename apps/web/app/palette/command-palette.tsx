@@ -42,17 +42,8 @@ import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-choos
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllHighlightsQuery } from "../reader/use-highlights";
 import { useAllNotesQuery } from "../reader/use-notes";
+import { paletteOpener, takeTypeahead } from "./open-palette";
 import { buildResults, matchRanges, type GroupId, type PaletteAction, type PaletteItem } from "./palette-results";
-
-/** Event name: the nav's search button opens the palette. */
-export const OPEN_PALETTE = "biblestdy:palette";
-
-/** Where focus was when the palette opened (Esc returns there). */
-let opener: HTMLElement | null = null;
-export function openPalette() {
-  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  window.dispatchEvent(new Event(OPEN_PALETTE));
-}
 
 /** What the reader lets the palette do (state lives in the read route). */
 export type ReaderActions = {
@@ -555,6 +546,7 @@ export function CommandPalette({
         finalFocus={() => {
           if (nextFocus.current === "none") return false;
           if (nextFocus.current === "text") return document.getElementById("chapter-text") ?? true;
+          const opener = paletteOpener();
           return opener?.isConnected ? opener : true;
         }}
         style={isMobile && vvh ? { height: vvh } : undefined}
@@ -588,6 +580,13 @@ export function CommandPalette({
             spellCheck={false}
             enterKeyHint="go"
             value={query}
+            // Keys typed before it had focus (open-palette.ts) come in here;
+            // writing carries on at their end
+            onFocus={(e) => {
+              const ahead = takeTypeahead();
+              if (ahead) setQuery((q) => q + ahead);
+              else e.currentTarget.setSelectionRange(query.length, query.length);
+            }}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             className={cn(

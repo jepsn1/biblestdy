@@ -163,6 +163,8 @@ export default {
     refPreview: "Enter adds {{ref}}",
     noReferences: "No passages yet. Type one below, or select words in the Bible text.",
     removeReferenceNamed: "Remove {{ref}} from this note",
+    editorLoading: "Loading the editor…",
+    editorFailed: "Couldn\u2019t load the editor.",
     openInNotes: "Open in Notes",
   },
   connections: {
@@ -443,6 +445,7 @@ export default {
   palette: {
     open: "Search or go to…",
     title: "Search or go to",
+    loadFailed: "Couldn\u2019t open search. Check your connection and try again.",
     placeholder: "Search, or go to John 3:16",
     backTo: "Close – back to {{ref}}",
     closest: "Closest match",

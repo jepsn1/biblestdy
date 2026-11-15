@@ -10,29 +10,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "~/components/ui/resizable";
-import {
-  BlockTypeSelect,
-  BoldItalicUnderlineToggles,
-  codeBlockPlugin,
-  codeMirrorPlugin,
-  CreateLink,
-  headingsPlugin,
-  InsertTable,
-  InsertThematicBreak,
-  linkDialogPlugin,
-  linkPlugin,
-  listsPlugin,
-  ListsToggle,
-  markdownShortcutPlugin,
-  MDXEditor,
-  quotePlugin,
-  tablePlugin,
-  thematicBreakPlugin,
-  toolbarPlugin,
-  UndoRedo,
-  type MDXEditorMethods,
-} from "@mdxeditor/editor";
-import "@mdxeditor/editor/style.css";
+import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Check, Maximize2, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -45,9 +23,10 @@ import { notifyError } from "~/lib/notify";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { TagChips } from "./tag-chips";
-import { editorIcon } from "./editor-icons";
+import { noteEditor } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { useNoteTags } from "./use-tags";
+import { useLazyModule } from "~/lib/lazy-module";
 
 /** Marks a control that opens a note (margin chip, phone marker): the side
  * panel takes focus from it and hands it back on close (#63). */
@@ -185,6 +164,58 @@ function ReferencesTable({
 }
 
 /**
+ * Stands in for the editor while its chunk loads (M8): the toolbar row and a
+ * few lines of text, so nothing jumps when it arrives. Focusable (the panel
+ * parks focus here) and busy for screen readers; a failed load says so and
+ * offers Retry instead of breaking the panel.
+ */
+function EditorSkeleton({
+  ref,
+  failed,
+  onRetry,
+  mobile,
+}: {
+  ref: React.Ref<HTMLDivElement>;
+  failed: boolean;
+  onRetry: () => void;
+  mobile: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      aria-busy={!failed}
+      className="flex min-h-0 flex-1 flex-col outline-none"
+    >
+      <div aria-hidden className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-2">
+        {Array.from({ length: mobile ? 3 : 6 }, (_, i) => (
+          <span key={i} className="h-5 w-12 rounded bg-muted" />
+        ))}
+      </div>
+      {failed ? (
+        <p className="flex items-center gap-2 px-3 py-3 font-serif text-control text-muted-foreground">
+          {t("note.editorFailed")}
+          <Button variant="link" size="sm" className="h-auto p-0 text-control" onClick={onRetry}>
+            {t("note.retry")}
+          </Button>
+        </p>
+      ) : (
+        <>
+          <span className="sr-only">{t("note.editorLoading")}</span>
+          <div aria-hidden className="flex flex-col gap-3 px-3 py-3 motion-safe:animate-pulse">
+            {["w-11/12", "w-full", "w-10/12", "w-full", "w-9/12", "w-1/2"].map((w, i) => (
+              <span key={i} className={`h-3.5 rounded bg-muted ${w}`} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * Side-by-side editor for a full note (issue #7): title + WYSIWYG markdown
  * body (MDXEditor — markdown stays the DB format, users never have to see
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
@@ -236,6 +267,21 @@ export function NotePanel({
   const titleRef = useRef<HTMLInputElement>(null);
 
   const editorRef = useRef<MDXEditorMethods>(null);
+  // The editor is its own chunk (M8) — usually here already (idle preload)
+  const { value: Editor, error: editorError, retry: retryEditor } = useLazyModule(noteEditor);
+  const skeletonRef = useRef<HTMLDivElement>(null);
+  const pendingBodyFocus = useRef(false);
+  const focusBody = () =>
+    editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true });
+  function onEditorReady() {
+    if (!pendingBodyFocus.current) return;
+    pendingBodyFocus.current = false;
+    // Only if focus is still where we parked it (the placeholder is gone now)
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) focusBody();
+    });
+  }
 
   // Desktop side panel: focus moves to the note body on open (#65), ready to
   // write; closing returns it to what opened it — a note chip, or the verse
@@ -255,11 +301,16 @@ export function NotePanel({
     // A blank note starts at its title; one with words, at the end of them
     const blank = !note.title && !note.body;
     if (!aside?.contains(document.activeElement))
-      requestAnimationFrame(() =>
-        blank
-          ? titleRef.current?.focus({ preventScroll: true })
-          : editorRef.current?.focus(undefined, { defaultSelection: "rootEnd", preventScroll: true }),
-      );
+      requestAnimationFrame(() => {
+        if (blank) titleRef.current?.focus({ preventScroll: true });
+        else if (editorRef.current) focusBody();
+        else {
+          // Editor chunk still loading: hold focus on its placeholder (in the
+          // panel, announced as loading); it moves on once the editor mounts
+          pendingBodyFocus.current = true;
+          skeletonRef.current?.focus({ preventScroll: true });
+        }
+      });
     if (!openerSel.current) return;
     const sel = openerSel.current;
     return () => {
@@ -406,50 +457,24 @@ export function NotePanel({
       </div>
 
       {(() => {
-        const editor = (
-      <MDXEditor
-        ref={editorRef}
-        iconComponentFor={editorIcon}
-        key={note.id}
-        markdown={note.body}
-        onChange={setBody}
-        placeholder={t("note.bodyPlaceholder")}
-        className={`min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
-        contentEditableClassName="font-serif text-control leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-title [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-reading [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
-        plugins={[
-          headingsPlugin(),
-          listsPlugin(),
-          quotePlugin(),
-          linkPlugin(),
-          linkDialogPlugin(),
-          tablePlugin(),
-          thematicBreakPlugin(),
-          codeBlockPlugin({ defaultCodeBlockLanguage: "" }),
-          codeMirrorPlugin({ codeBlockLanguages: { "": "Plain", js: "JavaScript" } }),
-          markdownShortcutPlugin(),
-          toolbarPlugin({
-            toolbarContents: () =>
-              mobile ? (
-                // Thumb-width toolbar: the essentials, one row
-                <>
-                  <UndoRedo />
-                  <BoldItalicUnderlineToggles />
-                  <ListsToggle />
-                </>
-              ) : (
-                <>
-                  <UndoRedo />
-                  <BoldItalicUnderlineToggles />
-                  <BlockTypeSelect />
-                  <ListsToggle />
-                  <CreateLink />
-                  <InsertTable />
-                  <InsertThematicBreak />
-                </>
-              ),
-          }),
-        ]}
-      />
+        const editor = Editor ? (
+          <Editor.NoteEditor
+            key={note.id}
+            editorRef={editorRef}
+            markdown={note.body}
+            onChange={setBody}
+            onReady={onEditorReady}
+            placeholder={t("note.bodyPlaceholder")}
+            dark={dark}
+            mobile={mobile}
+          />
+        ) : (
+          <EditorSkeleton
+            ref={skeletonRef}
+            failed={!!editorError}
+            onRetry={retryEditor}
+            mobile={mobile}
+          />
         );
         const references = (
           <ReferencesTable

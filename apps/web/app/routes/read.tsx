@@ -24,7 +24,8 @@ import { ColorNamesDialog, OPEN_COLOR_NAMES } from "../reader/color-names-dialog
 import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
 import { SupportNotice } from "../reader/support-notice";
-import { CommandPalette, OPEN_PALETTE } from "../palette/command-palette";
+import { LazyCommandPalette } from "../palette/lazy-palette";
+import { OPEN_PALETTE } from "../palette/open-palette";
 import { pushRecent } from "~/lib/recent-passages";
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
@@ -282,7 +283,7 @@ export default function Read({ loaderData }: Route.ComponentProps) {
       </SidebarInset>
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <ColorNamesDialog open={colorNamesOpen} onOpenChange={setColorNamesOpen} returnTo={colorNamesReturn} />
-      <CommandPalette
+      <LazyCommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         reader={{

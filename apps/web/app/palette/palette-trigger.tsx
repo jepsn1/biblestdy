@@ -5,7 +5,7 @@ import { Hint, modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
-import { openPalette as open } from "./command-palette";
+import { openPalette as open, palette } from "./open-palette";
 
 /**
  * The nav's "Search or go to…" (replaces the jump box, #53). Same place and
@@ -60,6 +60,10 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
           aria-label={t("palette.open")}
           aria-haspopup="dialog"
           aria-keyshortcuts="Meta+K Control+K /"
+          // The palette is its own chunk (M8): start it on the way in
+          onPointerEnter={palette.preload}
+          onPointerDown={palette.preload}
+          onFocus={palette.preload}
           onClick={() => {
             proxy.current?.focus();
             open();
@@ -78,6 +82,9 @@ export function PaletteTrigger({ iconOnly = false }: { iconOnly?: boolean }) {
         type="button"
         aria-haspopup="dialog"
         aria-keyshortcuts="Meta+K Control+K /"
+        // The palette is its own chunk (M8): start it on the way in
+        onPointerEnter={palette.preload}
+        onFocus={palette.preload}
         onClick={open}
         className={cn(
           "ml-auto hidden h-7 max-w-72 min-w-40 grow basis-0 items-center gap-2 rounded-md border border-input bg-transparent px-2 text-list text-muted-foreground hover:bg-muted",

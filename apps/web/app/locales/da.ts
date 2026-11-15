@@ -165,6 +165,8 @@ const da: typeof en = {
     refPreview: "Enter tilføjer {{ref}}",
     noReferences: "Ingen skriftsteder endnu. Skriv et herunder, eller markér ord i bibelteksten.",
     removeReferenceNamed: "Fjern {{ref}} fra noten",
+    editorLoading: "Indlæser editoren …",
+    editorFailed: "Editoren kunne ikke indlæses.",
     openInNotes: "Åbn i Noter",
   },
   connections: {
@@ -445,6 +447,7 @@ const da: typeof en = {
   palette: {
     open: "Søg eller gå til …",
     title: "Søg eller gå til",
+    loadFailed: "Søgningen kunne ikke åbnes. Tjek forbindelsen, og prøv igen.",
     placeholder: "Søg, eller gå til Joh 3,16",
     backTo: "Luk – tilbage til {{ref}}",
     closest: "Nærmeste match",
