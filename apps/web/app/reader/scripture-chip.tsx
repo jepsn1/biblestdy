@@ -111,9 +111,11 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
           if (pointer.current !== "mouse" || e.ctrlKey || e.metaKey) openPreview();
         }}
         className={cn(
+          // select-none: the browser never puts the caret inside the label
+          // (a click below the text would, and typing there is lost).
           // Mads (#160): sans 500 at 0.875em (12px floor), gold text on an 8%
           // tint with a 22% inset hairline; lines never spread or break
-          "cursor-pointer rounded-sm px-[0.3em] font-sans text-[max(12px,0.875em)] leading-[inherit] font-medium whitespace-nowrap text-primary not-italic",
+          "cursor-pointer rounded-sm px-[0.3em] select-none font-sans text-[max(12px,0.875em)] leading-[inherit] font-medium whitespace-nowrap text-primary not-italic",
           "bg-[color-mix(in_oklab,var(--primary)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent)]",
           "hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]",
           // Selected/open: a 2px ring 1px off (a shadow — the editor resets outlines)
