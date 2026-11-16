@@ -50,15 +50,20 @@ export function verseOptions(query: string, locale: BookLocale, limit = 6): Vers
  * The `@` query being typed, from the text before the caret (in one text
  * run); null when there is none. `@` opens only at the start of a word — an
  * email ("a@b.dk") never does. Once the query has a space and nothing
- * matches, it's ordinary text ("@ home", "@hello world") and the menu stays
+ * matches (no reference, nor `matches`), it's ordinary text ("@ home", "@hello world") and the menu stays
  * shut.
  */
-export function atQuery(before: string, locale: BookLocale): { query: string; start: number } | null {
+export function atQuery(
+  before: string,
+  locale: BookLocale,
+  /** Other hits that keep a spaced query open (a page mark's words, #191). */
+  matches?: (query: string) => boolean,
+): { query: string; start: number } | null {
   const m = /(^|[\s([{"'«»„“‘])@([^@\n]{0,40})$/u.exec(before);
   if (!m) return null;
   const query = m[2];
   if (/^\s/.test(query)) return null;
-  if (/\s/.test(query) && verseOptions(query, locale, 1).length === 0) return null;
+  if (/\s/.test(query) && verseOptions(query, locale, 1).length === 0 && !matches?.(query)) return null;
   return { query, start: m.index + m[1].length };
 }
 

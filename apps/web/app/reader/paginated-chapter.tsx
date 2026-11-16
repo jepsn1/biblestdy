@@ -1647,6 +1647,7 @@ export function PaginatedChapter({
               onShowAnchor={showAnchor}
               onReadRef={readRef}
               selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
+              place={chapter}
               onClose={closeNote}
             />
           </ResizablePanel>
@@ -1694,8 +1695,9 @@ export function PaginatedChapter({
                   onAttach={notesApi.attach}
                   onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
                   onShowAnchor={showAnchor}
-              onReadRef={readRef}
+                  onReadRef={readRef}
                   selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
+                  place={chapter}
                   onClose={closeNote}
                   mobile
                 />

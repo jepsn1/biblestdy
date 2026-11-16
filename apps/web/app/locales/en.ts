@@ -234,6 +234,10 @@ export default {
     typeaheadNone: "No verse found for \u201c{{q}}\u201d",
     typeaheadActive: "{{ref}}. Enter inserts it.",
     typeaheadBook: "{{book}}. Enter completes the name.",
+    typeaheadOnPage: "On this page",
+    typeaheadAll: "All verses",
+    typeaheadMark: "{{ref}}, {{kind}}, on this page. Enter inserts it.",
+    markHighlight: "Highlight ({{color}})",
   },
   connections: {
     title: "Notes",

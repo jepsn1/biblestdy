@@ -25,10 +25,19 @@ import { useTranslation } from "react-i18next";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { chipLabel, referenceLabel } from "~/lib/reference-label";
 import { cn } from "~/lib/utils";
+import { filterMarks, type PageMark } from "../notes/page-marks";
 import { atQuery, firstWords, verseOptions, type VerseOption } from "../notes/verse-resolver";
 import { mergeRegister } from "./lexical-util";
+import { MarkRow } from "./mark-row";
 import { ScriptureRefContext } from "./ref-context";
 import { $insertScriptureRef } from "./scripture-ref-node";
+import { useMarkKind, usePageMarks } from "./use-page-marks";
+
+/** A row: a passage marked on the page (#191), or a typed match. */
+type Option = { kind: "mark"; mark: PageMark } | VerseOption;
+
+/** A group's visible name ("On this page", "All verses"). */
+const groupHead = "px-2 pt-1 pb-0.5 font-sans text-meta font-medium text-muted-foreground";
 
 /** The `@` being typed: where it sits and what follows it. */
 type Match = { query: string; start: number; nodeKey: NodeKey; id: string };
@@ -42,6 +51,11 @@ type Match = { query: string; start: number; nodeKey: NodeKey; id: string };
  * (never scrolling the reader behind it into view) and the editor is its
  * combobox: aria-controls/activedescendant on the text, the result spoken in
  * a live region.
+ *
+ * Beside the reader, the passages marked on the open chapter lead (#191):
+ * all of them, in reading order, on a bare `@`; typing filters them (verse
+ * number, reference, their words or how they're marked) above the general
+ * matches.
  */
 export function RefTypeahead() {
   const editor = useCellValue(rootEditor$);
@@ -49,7 +63,15 @@ export function RefTypeahead() {
   const locale = bookLocale(i18n.language);
   const nameOf = useBookName();
   const qc = useQueryClient();
-  const { mobile } = useContext(ScriptureRefContext);
+  const { mobile, kit } = useContext(ScriptureRefContext);
+  const { ScrollArea } = kit;
+  const marks = usePageMarks();
+  const markKind = useMarkKind();
+  // The caret listener reads these without re-registering
+  const marksNow = useRef({ marks, markKind });
+  useEffect(() => {
+    marksNow.current = { marks, markKind };
+  });
   const listId = useId();
   const [match, setMatch] = useState<Match | null>(null);
   const [active, setActive] = useState(0);
@@ -65,7 +87,10 @@ export function RefTypeahead() {
         if (!$isRangeSelection(sel) || !sel.isCollapsed() || sel.anchor.type !== "text") return null;
         const node = sel.anchor.getNode();
         if (!$isTextNode(node) || !node.isSimpleText() || node.hasFormat("code")) return null;
-        const m = atQuery(node.getTextContent().slice(0, sel.anchor.offset), locale);
+        const { marks, markKind } = marksNow.current;
+        const m = atQuery(node.getTextContent().slice(0, sel.anchor.offset), locale, (q) =>
+          filterMarks(marks, q, locale, markKind).length > 0,
+        );
         if (!m) return null;
         return { ...m, nodeKey: node.getKey(), id: `${node.getKey()}:${m.start}` };
       });
@@ -86,12 +111,18 @@ export function RefTypeahead() {
     );
   }, [editor, locale]);
 
-  const options = useMemo(() => (match ? verseOptions(match.query, locale, 6) : []), [match, locale]);
+  const options = useMemo((): Option[] => {
+    if (!match) return [];
+    const onPage = filterMarks(marks, match.query, locale, markKind);
+    const taken = new Set(onPage.map((m) => m.href));
+    const general = verseOptions(match.query, locale, 6).filter((o) => o.kind !== "ref" || !taken.has(o.href));
+    return [...onPage.map((mark): Option => ({ kind: "mark", mark })), ...general];
+  }, [match, locale, marks, markKind]);
   useEffect(() => setActive(0), [match?.query]);
 
   /** First words of a passage, if its chapter is in the cache already —
    * where that translation numbers it (#163: Mal 4,2 is BPH Mal 3,20). */
-  const wordsOf = (o: VerseOption) => {
+  const wordsOf = (o: Option) => {
     if (o.kind !== "ref") return "";
     const translations = qc.getQueryData<Translation[]>(["translations"]);
     if (!translations) return "";
@@ -105,7 +136,7 @@ export function RefTypeahead() {
     return hit?.at ? firstWords(hit.q.state.data as Chapter, hit.at, 8) : "";
   };
 
-  function choose(o: VerseOption) {
+  function choose(o: Option) {
     if (!editor || !match) return;
     const m = match;
     editor.update(() => {
@@ -119,7 +150,10 @@ export function RefTypeahead() {
       $setSelection(range);
       // A book: its name, then the chapter is typed — the menu stays open
       if (o.kind === "book") range.insertText(`${o.name} `);
-      else $insertScriptureRef(o.href, chipLabel(o.ref, locale).replace(/ /g, " "));
+      else {
+        const ref = o.kind === "mark" ? o.mark.ref : o.ref;
+        $insertScriptureRef(o.kind === "mark" ? o.mark.href : o.href, chipLabel(ref, locale).replace(/ /g, " "));
+      }
     });
   }
 
@@ -212,10 +246,24 @@ export function RefTypeahead() {
     // Again once the menu is drawn: its real size decides the side
   }, [editor, match, options, placed]);
 
+  // The active row stays in sight — the menu's own scroll, never the page's
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const vp = viewportRef.current;
+    const el = shown ? document.getElementById(optionId(active)) : null;
+    if (!vp || !el) return;
+    // The first row: its group's heading too
+    const top = active === 0 ? 0 : el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
+    if (top < vp.scrollTop) vp.scrollTop = top;
+    else if (top + el.offsetHeight > vp.scrollTop + vp.clientHeight) vp.scrollTop = top + el.offsetHeight - vp.clientHeight;
+  });
+
   const activeOption = shown ? options[active] : undefined;
   const announce = !match
     ? ""
-    : activeOption?.kind === "ref"
+    : activeOption?.kind === "mark"
+      ? t("note.typeaheadMark", { ref: referenceLabel(activeOption.mark.ref, nameOf, locale), kind: markKind(activeOption.mark) })
+      : activeOption?.kind === "ref"
       ? t("note.typeaheadActive", { ref: referenceLabel(activeOption.ref, nameOf, locale) })
       : activeOption?.kind === "book"
         ? t("note.typeaheadBook", { book: activeOption.name })
@@ -223,16 +271,17 @@ export function RefTypeahead() {
           ? t("note.typeaheadNone", { q: match.query.trim() })
           : t("note.typeaheadHint");
 
+  const marked = options.flatMap((o, i) => (o.kind === "mark" ? [{ o, i }] : []));
   const refs = options.flatMap((o, i) => (o.kind === "ref" ? [{ o, i }] : []));
   const books = options.flatMap((o, i) => (o.kind === "book" ? [{ o, i }] : []));
-  const row = (o: VerseOption, i: number) => {
-    const words = wordsOf(o);
+  const row = (o: Option, i: number) => {
+    const words = o.kind === "mark" ? "" : wordsOf(o);
     return (
       // The editor keeps focus and the keys (aria-activedescendant): rows
       // are only pointed at, never focused
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
       <div
-        key={o.kind === "ref" ? o.href : o.book}
+        key={o.kind === "mark" ? `m:${o.mark.href}` : o.kind === "ref" ? o.href : o.book}
         id={optionId(i)}
         role="option"
         aria-selected={i === active}
@@ -246,7 +295,9 @@ export function RefTypeahead() {
           i === active && "bg-accent text-accent-foreground",
         )}
       >
-        {o.kind === "ref" ? (
+        {o.kind === "mark" ? (
+          <MarkRow mark={o.mark} locale={locale} kind={markKind(o.mark)} />
+        ) : o.kind === "ref" ? (
           <>
             <span className="font-sans font-medium whitespace-nowrap">{chipLabel(o.ref, locale)}</span>
             {words && <span className="min-w-0 truncate font-serif text-list text-muted-foreground">{words}</span>}
@@ -266,24 +317,47 @@ export function RefTypeahead() {
       {match &&
         pos &&
         createPortal(
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- only keeps the caret in the note
           <div
             ref={menuRef}
+            // Keep the caret in the note (the scrollbar too)
+            onMouseDown={(e) => e.preventDefault()}
             className="absolute z-50 max-w-[min(24rem,calc(100%-0.5rem))] min-w-[min(18rem,calc(100%-0.5rem))] rounded-md bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
             style={{ top: pos.top, left: pos.left }}
           >
             {shown ? (
-              <div role="listbox" id={listId} aria-label={t("note.typeaheadLabel")}>
-                {refs.length > 0 && (
-                  <div role="group" aria-label={t("note.typeaheadPassages")}>
-                    {refs.map(({ o, i }) => row(o, i))}
-                  </div>
-                )}
-                {books.length > 0 && (
-                  <div role="group" aria-label={t("note.typeaheadBooks")} className={refs.length ? "mt-1 border-t border-border pt-1" : undefined}>
-                    {books.map(({ o, i }) => row(o, i))}
-                  </div>
-                )}
-              </div>
+              <ScrollArea viewportRef={viewportRef} viewportClassName="max-h-[min(20rem,50dvh)]">
+                <div role="listbox" id={listId} aria-label={t("note.typeaheadLabel")}>
+                  {marked.length > 0 && (
+                    <div role="group" aria-labelledby={`${listId}-page`}>
+                      <div id={`${listId}-page`} role="presentation" className={groupHead}>
+                        {t("note.typeaheadOnPage")}
+                      </div>
+                      {marked.map(({ o, i }) => row(o, i))}
+                    </div>
+                  )}
+                  {refs.length > 0 && (
+                    <div
+                      role="group"
+                      aria-labelledby={marked.length ? `${listId}-all` : undefined}
+                      aria-label={marked.length ? undefined : t("note.typeaheadPassages")}
+                      className={marked.length ? "mt-1 border-t border-border pt-1" : undefined}
+                    >
+                      {marked.length > 0 && (
+                        <div id={`${listId}-all`} role="presentation" className={groupHead}>
+                          {t("note.typeaheadAll")}
+                        </div>
+                      )}
+                      {refs.map(({ o, i }) => row(o, i))}
+                    </div>
+                  )}
+                  {books.length > 0 && (
+                    <div role="group" aria-label={t("note.typeaheadBooks")} className={refs.length || marked.length ? "mt-1 border-t border-border pt-1" : undefined}>
+                      {books.map(({ o, i }) => row(o, i))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             ) : (
               <p aria-hidden className="px-2 py-1.5 text-list text-muted-foreground">
                 {announce}

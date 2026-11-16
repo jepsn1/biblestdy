@@ -8,8 +8,11 @@ function ScrollArea({
   viewportClassName,
   children,
   orientation = "vertical",
+  viewportRef,
   ...props
 }: ScrollAreaPrimitive.Root.Props & {
+  /** The scrolling element (to keep a row in sight by hand). */
+  viewportRef?: React.Ref<HTMLDivElement>
   orientation?: "vertical" | "horizontal" | "both"
   /** Extra classes for the inner viewport — needed for max-h clamps, since
    * the viewport's h-full cannot resolve against a max-height-only root. */
@@ -22,6 +25,7 @@ function ScrollArea({
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
         data-slot="scroll-area-viewport"
         className={cn(
           "size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1",

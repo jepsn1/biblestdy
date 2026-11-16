@@ -275,6 +275,10 @@ const da: typeof en = {
     typeaheadNone: "Intet bibelvers fundet for \u00bb{{q}}\u00ab",
     typeaheadActive: "{{ref}}. Enter indsætter det.",
     typeaheadBook: "{{book}}. Enter fuldfører navnet.",
+    typeaheadOnPage: "På siden",
+    typeaheadAll: "Alle vers",
+    typeaheadMark: "{{ref}}, {{kind}}, på siden. Enter indsætter det.",
+    markHighlight: "Fremhævning ({{color}})",
   },
   connections: {
     title: "Noter",

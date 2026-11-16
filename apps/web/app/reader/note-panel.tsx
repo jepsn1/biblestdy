@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
 import { Popover, PopoverContent } from "~/components/ui/popover";
-import type { EditorKit } from "./ref-context";
+import { ScrollArea } from "~/components/ui/scroll-area";
+import type { EditorKit, PagePlace } from "./ref-context";
 import type { VersePickerProps } from "./verse-picker";
 import { bookLocale } from "~/lib/book-name";
 import { chipLabel } from "~/lib/reference-label";
@@ -50,7 +51,7 @@ function ReferencesOverview(props: ReferencesOverviewProps) {
 }
 
 /** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
-const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker };
+const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker, ScrollArea };
 /** What the notes tours' chunk borrows from here (tour-host.tsx). */
 export const TOUR_KIT: TourKit = { Popover, PopoverContent, Button };
 
@@ -171,6 +172,7 @@ export function NotePanel({
   onClose,
   onOpenInNotes,
   page = false,
+  place,
   mobile = false,
 }: {
   note: Note;
@@ -192,6 +194,8 @@ export function NotePanel({
   onOpenInNotes?: () => void;
   /** On the Notes page (not beside the text): Esc doesn't close it. */
   page?: boolean;
+  /** The chapter open beside it (reader): its marks lead the `@` menu (#191). */
+  place?: PagePlace;
   /** Drawer build (#13): stacked layout, touch targets, slim toolbar —
    * feature parity with the desktop split, not a squeezed clone of it. */
   mobile?: boolean;
@@ -575,6 +579,7 @@ export function NotePanel({
             onReady={onEditorReady}
             onReadRef={onReadRef}
             kit={EDITOR_KIT}
+            page={place}
             placeholder={t("note.bodyPlaceholder")}
             dark={dark}
             mobile={mobile}
