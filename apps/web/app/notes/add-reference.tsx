@@ -46,6 +46,8 @@ export function VerseField({
   submitLabel,
   inputRef,
   mobile = false,
+  onTextChange,
+  onArrowDown,
 }: {
   onPick: (ref: ScriptureRef, label: string) => Promise<string | null> | string | null;
   label: string;
@@ -55,6 +57,10 @@ export function VerseField({
   submitLabel: string;
   inputRef?: Ref<HTMLInputElement>;
   mobile?: boolean;
+  /** Each change of the typed text (the dialog filters its page marks, #191). */
+  onTextChange?: (text: string) => void;
+  /** ↓ in the field: on to what's listed below it. */
+  onArrowDown?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
@@ -80,7 +86,10 @@ export function VerseField({
     try {
       const why = await onPick(hit, preview);
       if (why) setProblem(why);
-      else setText("");
+      else {
+        setText("");
+        onTextChange?.("");
+      }
     } catch {
       setProblem(t("note.refLoadFailed"));
     } finally {
@@ -106,6 +115,7 @@ export function VerseField({
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            onTextChange?.(e.target.value);
             setProblem(null);
           }}
           onKeyDown={(e) => {
@@ -114,7 +124,12 @@ export function VerseField({
               e.preventDefault();
               e.stopPropagation();
               setText("");
+              onTextChange?.("");
               setProblem(null);
+            }
+            if (e.key === "ArrowDown" && onArrowDown) {
+              e.preventDefault();
+              onArrowDown();
             }
           }}
           placeholder={placeholder}

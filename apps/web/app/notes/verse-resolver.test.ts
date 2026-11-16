@@ -48,6 +48,10 @@ describe("atQuery (when @ opens the typeahead)", () => {
     expect(atQuery("@joh 3,16 og", "da")).toBeNull();
     expect(atQuery("@joh ", "da")).not.toBeNull();
   });
+  it("other hits keep a spaced query open (page marks' words, #191)", () => {
+    expect(atQuery("@gud elsk", "da", (q) => q === "gud elsk")).toEqual({ query: "gud elsk", start: 0 });
+    expect(atQuery("@gud elsk", "da", () => false)).toBeNull();
+  });
 });
 
 describe("chip labels", () => {

@@ -11,6 +11,7 @@ import { INSERT_VERSE, noteEditorMounted } from "./dialog-events";
 import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext } from "./ref-context";
 import { $insertScriptureRef, $restoreSelection, saveSelection } from "./scripture-ref-node";
+import { useMarkKind, usePageMarks } from "./use-page-marks";
 
 /** Mod+Shift+E (Kasper): free in MDXEditor and the browsers' page keys. By
  * physical key, so any layout's E works. */
@@ -35,6 +36,9 @@ export function VerseButton() {
   const { mobile, kit } = useContext(ScriptureRefContext);
   const { Hint, VersePicker } = kit;
   const [open, setOpen] = useState(false);
+  // Beside the reader: the page's marks, listed in the dialog (#191)
+  const marks = usePageMarks();
+  const markKind = useMarkKind();
   const saved = useRef<BaseSelection | null>(null);
 
   const start = () => {
@@ -116,7 +120,7 @@ export function VerseButton() {
           {t("note.verseButton")}
         </button>
       </Hint>
-      <VersePicker open={open} mobile={mobile} onClose={close} />
+      <VersePicker open={open} mobile={mobile} onClose={close} marks={marks} describe={markKind} />
     </>
   );
 }
