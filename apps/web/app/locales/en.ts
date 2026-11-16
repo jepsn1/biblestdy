@@ -246,7 +246,7 @@ export default {
     verifying: "Verifying…",
     codeError: "That code didn't match. Check it, or use the link in your email.",
     differentEmail: "← Use a different email",
-    operatedBy: "Operated by {{name}} · CVR {{cvr}}",
+    operatedBy: "Run by {{name}} · {{country}}",
   },
   theme: {
     light: "Light",
@@ -393,7 +393,7 @@ export default {
     faq: {
       who: {
         q: "Who is behind biblestdy?",
-        a: "Hi, I\u2019m Marcus. I build biblestdy on my own, in Denmark \u2014 run through my small company MJK Holding ApS, so there is someone accountable behind it. Follow along on Instagram, or write to marcus@jepsn.com.",
+        a: "Hi, I\u2019m Marcus. I build and run biblestdy on my own, as a private person in Denmark \u2014 no company, no ads, nothing for sale. Follow along on Instagram, or write to marcus@jepsn.com.",
       },
       new: {
         q: "I\u2019m new to the Bible (or haven\u2019t read it in years). Is this for me?",
@@ -570,7 +570,7 @@ export default {
       "You can delete your account at any time from the settings inside the app. Deletion is immediate and removes everything you ever stored.",
     operatorTitle: "Who runs biblestdy",
     operatorBody:
-      "biblestdy is run by {{name}} (CVR {{cvr}}), {{country}}, which is responsible for your data (the data controller).",
+      "biblestdy is run by {{name}}, a private person in {{country}}, who is responsible for your data (the data controller). Contact: {{email}}.",
     contactTitle: "Questions or help",
     contactBody: "Write us — support and privacy questions alike:",
     backToApp: "Back to biblestdy",

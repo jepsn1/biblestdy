@@ -286,7 +286,7 @@ const da: typeof en = {
     verifying: "Bekræfter…",
     codeError: "Koden passede ikke. Tjek den, eller brug linket i din e-mail.",
     differentEmail: "← Brug en anden e-mail",
-    operatedBy: "Drives af {{name}} · CVR {{cvr}}",
+    operatedBy: "Drives af {{name}} · Danmark",
   },
   theme: {
     light: "Lys",
@@ -433,7 +433,7 @@ const da: typeof en = {
     faq: {
       who: {
         q: "Hvem står bag biblestdy?",
-        a: "Hej, jeg hedder Marcus. Jeg bygger biblestdy selv, i Danmark \u2014 drevet gennem mit lille selskab MJK Holding ApS så der er en ansvarlig bag. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
+        a: "Hej, jeg hedder Marcus. Jeg bygger og driver biblestdy selv, som privatperson i Danmark \u2014 intet firma, ingen reklamer, intet til salg. Følg med på Instagram, eller skriv til marcus@jepsn.com.",
       },
       new: {
         q: "Ny i Bibelen? Er det her for mig?",
@@ -610,7 +610,7 @@ const da: typeof en = {
       "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt du nogensinde har gemt.",
     operatorTitle: "Hvem står bag biblestdy",
     operatorBody:
-      "biblestdy drives af {{name}} (CVR {{cvr}}), Danmark, som er dataansvarlig for dine data.",
+      "biblestdy drives af {{name}}, privatperson i Danmark, som er dataansvarlig for dine data. Kontakt: {{email}}.",
     contactTitle: "Spørgsmål eller hjælp",
     contactBody: "Skriv til os — support- og privatlivsspørgsmål i samme indbakke:",
     backToApp: "Tilbage til biblestdy",
