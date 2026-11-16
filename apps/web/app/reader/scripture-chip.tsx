@@ -4,14 +4,13 @@ import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, typ
 import { ArrowRight } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { modKey } from "~/components/hint";
-import { Popover, PopoverContent } from "~/components/ui/popover";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { noteView } from "~/lib/fums";
 import { ApiError, api } from "~/lib/query";
 import { chipLabel, referenceLabel } from "~/lib/reference-label";
 import { cn, focusRing } from "~/lib/utils";
 import { readingTranslationId } from "../notes/add-reference";
+import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext } from "./ref-context";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
 
@@ -40,6 +39,7 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
   const chipRef = useRef<HTMLSpanElement>(null);
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
+  const { kit } = useContext(ScriptureRefContext);
 
   useEffect(() => {
     const read = () =>
@@ -72,8 +72,7 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
   function close(restore: boolean) {
     setOpen(false);
     if (!restore) return;
-    editor.update(() => $restoreSelection(saved.current));
-    editor.focus();
+    focusEditor(editor, () => $restoreSelection(saved.current));
   }
 
   /** A plain click: the caret on the nearer side of the chip. */
@@ -85,7 +84,7 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
       if (rect && clientX < rect.left + rect.width / 2) node.selectPrevious();
       else node.selectNext(0, 0);
     });
-    editor.focus();
+    focusEditor(editor);
   }
 
   return (
@@ -95,19 +94,20 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <span
         ref={chipRef}
-        title={t("note.refChipTitle", { ref: full, mod: modKey() })}
-        data-selected={selected || open ? "" : undefined}
+        title={t("note.refChipTitle", { ref: full, mod: kit.modKey() })}
+        data-selected={selected || open ? "true" : undefined}
         onPointerDown={(e) => {
           pointer.current = e.pointerType;
         }}
         onMouseDown={(e) => {
           if (pointer.current !== "mouse" || e.button !== 0) return;
           e.preventDefault();
-          if (e.ctrlKey || e.metaKey) openPreview();
-          else placeCaret(e.clientX);
+          if (!(e.ctrlKey || e.metaKey)) placeCaret(e.clientX);
         }}
-        onClick={() => {
-          if (pointer.current !== "mouse") openPreview();
+        // On click, not press: the press would count as outside the
+        // preview that it opens
+        onClick={(e) => {
+          if (pointer.current !== "mouse" || e.ctrlKey || e.metaKey) openPreview();
         }}
         className={cn(
           // Mads (#160): sans 500 at 0.875em (12px floor), gold text on an 8%
@@ -115,7 +115,8 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
           "cursor-pointer rounded-sm px-[0.3em] font-sans text-[max(12px,0.875em)] leading-[inherit] font-medium whitespace-nowrap text-primary not-italic",
           "bg-[color-mix(in_oklab,var(--primary)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent)]",
           "hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]",
-          "data-selected:outline-2 data-selected:outline-offset-1 data-selected:outline-ring",
+          // Selected/open: a 2px ring 1px off (a shadow — the editor resets outlines)
+          "data-selected:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent),0_0_0_1px_var(--background),0_0_0_3px_var(--ring)]",
         )}
       >
         <span aria-hidden>{label}</span>
@@ -135,7 +136,7 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
               node.selectPrevious();
               node.remove();
             });
-            editor.focus();
+            focusEditor(editor);
           }}
         />
       )}
@@ -175,7 +176,8 @@ function RefPreview({
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
   const nameOf = useBookName();
-  const { onRead, mobile } = useContext(ScriptureRefContext);
+  const { onRead, mobile, kit } = useContext(ScriptureRefContext);
+  const { Popover, PopoverContent } = kit;
   const readRef = useRef<HTMLButtonElement>(null);
   const translationId = useReadingTranslationId();
   const translations = useQuery({
@@ -222,8 +224,8 @@ function RefPreview({
       >
         <p className="text-list">
           <span className="font-medium text-foreground">{label}</span>
-          {abbr && <span className="text-muted-foreground"> · {abbr}</span>}
-          {resolved?.bridged && (
+          {abbr && !resolved?.bridged && <span className="text-muted-foreground"> · {abbr}</span>}
+          {abbr && resolved?.bridged && (
             <span className="text-muted-foreground">
               {" "}
               · {t("note.refIn", { abbr, ref: `${scripture.chapter}${sep}${resolved.printedStart}–${resolved.printedEnd}` })}

@@ -1,17 +1,14 @@
 import { formatScriptureHref, type ScriptureRef } from "@biblestdy/shared";
-import { Button as ToolbarButton, rootEditor$, useCellValue } from "@mdxeditor/editor";
+import { rootEditor$, useCellValue } from "@mdxeditor/editor";
 import { COMMAND_PRIORITY_HIGH, KEY_DOWN_COMMAND, type BaseSelection } from "lexical";
 import { Plus } from "lucide-react";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Hint } from "~/components/hint";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "~/components/ui/drawer";
 import { bookLocale } from "~/lib/book-name";
 import { chipLabel } from "~/lib/reference-label";
-import { cn } from "~/lib/utils";
-import { VerseField } from "../notes/add-reference";
+import { cn, focusRing } from "~/lib/utils";
 import { INSERT_VERSE, noteEditorMounted } from "./dialog-events";
+import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext } from "./ref-context";
 import { $insertScriptureRef, $restoreSelection, saveSelection } from "./scripture-ref-node";
 
@@ -25,7 +22,8 @@ export function isVerseShortcut(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "met
  * "+ Bibelvers" / "+ Verse" (#160): the word-labelled way to put a
  * reference in the text, first after undo/redo on every screen (`@` is the
  * shortcut, said in its tooltip). A ghost button — "+ Ny note" owns the only
- * fill. Opens the forgiving verse input in a dialog (a drawer on phones),
+ * fill. Opens the forgiving verse input in a dialog (a drawer on phones;
+ * verse-picker.tsx),
  * keeping the editor's selection across the trip (iOS drops focus on a
  * toolbar tap): the chip lands where the caret was, else at the end. Also
  * opened by Mod+Shift+E in the editor and the palette's "Insert verse".
@@ -34,10 +32,10 @@ export function VerseButton() {
   const editor = useCellValue(rootEditor$);
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
-  const { mobile } = useContext(ScriptureRefContext);
+  const { mobile, kit } = useContext(ScriptureRefContext);
+  const { Hint, VersePicker } = kit;
   const [open, setOpen] = useState(false);
   const saved = useRef<BaseSelection | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const start = () => {
     if (!editor) return;
@@ -78,33 +76,23 @@ export function VerseButton() {
   function close(ref?: ScriptureRef) {
     setOpen(false);
     if (!editor) return;
-    editor.update(() => {
-      $restoreSelection(saved.current);
-      const href = ref && formatScriptureHref(ref);
-      if (ref && href) $insertScriptureRef(href, chipLabel(ref, locale).replace(/ /g, " "));
-    });
-    requestAnimationFrame(() => editor.focus());
+    const sel = saved.current;
+    // After the dialog has let go of focus
+    requestAnimationFrame(() =>
+      focusEditor(editor, () => {
+        $restoreSelection(sel);
+        const href = ref && formatScriptureHref(ref);
+        if (ref && href) $insertScriptureRef(href, chipLabel(ref, locale).replace(/\u00a0/g, " "));
+      }),
+    );
   }
-
-  const field = (
-    <VerseField
-      inputRef={inputRef}
-      onPick={(ref) => {
-        close(ref);
-        return null;
-      }}
-      label={t("note.insertVerseLabel")}
-      placeholder={t("note.insertVersePlaceholder")}
-      previewKey="note.insertPreview"
-      submitLabel={t("note.insert")}
-      mobile={mobile}
-    />
-  );
 
   return (
     <>
       <Hint label={t("note.verseHint")} shortcut="mod+Shift+E">
-        <ToolbarButton
+        {/* Its own tab stop (not in the toolbar's arrow-key group): the
+            one control here with a word, found by Tab from the note */}
+        <button
           type="button"
           // Before the click moves focus: the caret as it stood
           onPointerDown={() => editor && (saved.current = saveSelection(editor))}
@@ -114,35 +102,16 @@ export function VerseButton() {
             if (keep) saved.current = keep;
           }}
           className={cn(
-            "!inline-flex !h-7 !w-auto items-center gap-1 !rounded-md border border-border !bg-transparent !px-2 text-list font-medium text-foreground hover:!bg-accent pointer-coarse:!h-11",
-            mobile && "!h-11",
+            "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border bg-transparent px-2 text-list font-medium whitespace-nowrap text-foreground hover:bg-accent pointer-coarse:h-11",
+            mobile && "h-11",
+            focusRing,
           )}
         >
-          <Plus className="!size-3.5 text-muted-foreground" aria-hidden />
+          <Plus className="size-3.5 !text-muted-foreground" aria-hidden />
           {t("note.verseButton")}
-        </ToolbarButton>
+        </button>
       </Hint>
-      {mobile ? (
-        <Drawer open={open} onOpenChange={(o) => !o && close()}>
-          <DrawerContent className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]" initialFocus={inputRef} finalFocus={false}>
-            <DrawerHeader className="px-0">
-              <DrawerTitle>{t("note.insertVerseTitle")}</DrawerTitle>
-              <DrawerDescription>{t("note.insertVerseDescription")}</DrawerDescription>
-            </DrawerHeader>
-            {field}
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={open} onOpenChange={(o) => !o && close()}>
-          <DialogContent initialFocus={inputRef} finalFocus={false}>
-            <DialogHeader>
-              <DialogTitle>{t("note.insertVerseTitle")}</DialogTitle>
-              <DialogDescription>{t("note.insertVerseDescription")}</DialogDescription>
-            </DialogHeader>
-            {field}
-          </DialogContent>
-        </Dialog>
-      )}
+      <VersePicker open={open} mobile={mobile} onClose={close} />
     </>
   );
 }

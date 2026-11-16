@@ -27,7 +27,7 @@ import { useEffect, useMemo, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { editorIcon } from "./editor-icons";
 import { editorTranslation } from "./editor-strings";
-import { ScriptureRefContext } from "./ref-context";
+import { ScriptureRefContext, type EditorKit } from "./ref-context";
 import { scriptureRefPlugin } from "./scripture-ref-node";
 import { VerseButton } from "./verse-button";
 
@@ -47,6 +47,7 @@ export function NoteEditor({
   dark,
   mobile,
   onReadRef,
+  kit,
 }: {
   editorRef: Ref<MDXEditorMethods>;
   markdown: string;
@@ -58,10 +59,12 @@ export function NoteEditor({
   mobile: boolean;
   /** A chip's "Read here" (in another translation for "Read in WEB"). */
   onReadRef?: (ref: ScriptureRef, translationId?: string) => void;
+  /** Dialogs, popovers, tooltips — from the panel (see EditorKit). */
+  kit: EditorKit;
 }) {
   const { i18n } = useTranslation();
   const translation = useMemo(() => editorTranslation(i18n.language), [i18n.language]);
-  const refs = useMemo(() => ({ onRead: onReadRef, mobile }), [onReadRef, mobile]);
+  const refs = useMemo(() => ({ onRead: onReadRef, mobile, kit }), [onReadRef, mobile, kit]);
   useEffect(() => {
     onReady?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount

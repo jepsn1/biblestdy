@@ -604,11 +604,18 @@ export function PaginatedChapter({
     else navigate(`/read/${a.book}/${a.chapter}?note=${openNoteId}&mark=${markId}`);
   }
 
-  /** An inline reference's "Read here" (#160): its verses flash, the note
-   * stays open; "Read in WEB" switches translation on the way. */
+  /** An inline reference's "Read here" (#160): its verses flash; the note
+   * stays open beside the text (a phone's note drawer would cover them, so
+   * it closes there). "Read in WEB" switches translation on the way. */
   function readRef(ref: ScriptureRef, translationId?: string) {
     if (translationId) localStorage.setItem("translationId", translationId);
-    navigate(readHref(ref, openNoteId ?? undefined));
+    if (!sideInDrawer) {
+      navigate(readHref(ref, openNoteId ?? undefined));
+      return;
+    }
+    // The drawer holds the page's scroll while it's open: jump once it's gone
+    setOpenNoteId(null);
+    window.setTimeout(() => navigate(readHref(ref)), 500);
   }
 
   // Consume ?mark once the chapter's marks are rendered and measured.

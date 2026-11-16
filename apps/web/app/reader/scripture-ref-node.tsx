@@ -208,8 +208,9 @@ export function saveSelection(editor: LexicalEditor): BaseSelection | null {
   return editor.getEditorState().read(() => $getSelection()?.clone() ?? null);
 }
 
-/** Puts a saved selection back if what it points at is still there; else
- * the caret goes to the end of the note. Call inside editor.update. */
+/** Puts a saved selection back if what it points at is still there (a
+ * selected chip: the caret after it); else the caret goes to the end of the
+ * note. Call inside editor.update. */
 export function $restoreSelection(saved: BaseSelection | null): void {
   if ($isRangeSelection(saved)) {
     const ok = [saved.anchor, saved.focus].every((p) => {
@@ -226,11 +227,10 @@ export function $restoreSelection(saved: BaseSelection | null): void {
       return;
     }
   } else if ($isNodeSelection(saved)) {
-    const keys = saved.getNodes().filter((n) => n.isAttached()).map((n) => n.getKey());
-    if (keys.length) {
-      const sel = $createNodeSelection();
-      for (const k of keys) sel.add(k);
-      $setSelection(sel);
+    // A selected chip: the caret right after it (typing goes on from there)
+    const last = saved.getNodes().filter((n) => n.isAttached()).at(-1);
+    if (last) {
+      last.selectNext(0, 0);
       return;
     }
   }

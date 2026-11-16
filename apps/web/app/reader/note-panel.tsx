@@ -16,7 +16,10 @@ import { Check, Maximize2, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
-import { Hint } from "~/components/hint";
+import { Hint, modKey } from "~/components/hint";
+import { Popover, PopoverContent } from "~/components/ui/popover";
+import type { EditorKit } from "./ref-context";
+import type { VersePickerProps } from "./verse-picker";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { AddReference } from "../notes/add-reference";
 import { anchorLabel, referenceLabel } from "../notes/note-list";
@@ -31,7 +34,18 @@ import { noteEditor } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { LoadError } from "./marks-load-error";
 import { useNoteTags } from "./use-tags";
-import { useLazyModule } from "~/lib/lazy-module";
+import { lazyModule, preloadWhenIdle, useLazyModule } from "~/lib/lazy-module";
+
+/** "+ Verse"'s dialog/drawer: its own chunk, fetched when idle. */
+const versePicker = lazyModule(() => import("./verse-picker"));
+function VersePicker(props: VersePickerProps) {
+  useEffect(() => preloadWhenIdle(versePicker), []);
+  const { value } = useLazyModule(versePicker, props.open);
+  return value ? <value.VersePicker {...props} /> : null;
+}
+
+/** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
+const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker };
 
 /** Marks a control that opens a note (margin chip, phone marker): the side
  * panel takes focus from it and hands it back on close (#63). */
@@ -627,6 +641,7 @@ export function NotePanel({
             onChange={setBody}
             onReady={onEditorReady}
             onReadRef={onReadRef}
+            kit={EDITOR_KIT}
             placeholder={t("note.bodyPlaceholder")}
             dark={dark}
             mobile={mobile}

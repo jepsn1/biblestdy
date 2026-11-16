@@ -1,5 +1,6 @@
 import { rootEditor$, useCellValue } from "@mdxeditor/editor";
 import {
+  $getNodeByKey,
   $getSelection,
   $isElementNode,
   $isNodeSelection,
@@ -29,10 +30,15 @@ function $besideCaret(sel: RangeSelection, back: boolean): LexicalNode | null {
   return null;
 }
 
+/** Keys a selected chip handles itself (or Lexical does, arrows). */
+const CHIP_KEYS = new Set(["Backspace", "Delete", "Enter", "Escape", "ArrowLeft", "ArrowRight", "Tab", "Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock"]);
+
 /**
  * Keys on chips (#160): Backspace (or Delete) next to a chip selects it
  * first, the second press removes it — the toast offers Undo. Enter on a
- * selected chip opens its preview.
+ * selected chip opens its preview. Any other key (typing, End, ↑↓) first
+ * puts the caret after the chip — a selected chip has no DOM caret, and the
+ * browser would act at the start of the note.
  */
 export function ScriptureRefKeys() {
   const editor = useCellValue(rootEditor$);
@@ -60,7 +66,25 @@ export function ScriptureRefKeys() {
       }
       return false;
     };
+    const caretAfterChip = (e: KeyboardEvent) => {
+      if (e.isComposing || CHIP_KEYS.has(e.key)) return;
+      // Ctrl/⌘ + a letter is a command (copy, cut, undo, Shift+E)
+      if ((e.ctrlKey || e.metaKey) && e.key.length === 1) return;
+      const chip = editor.getEditorState().read(() => {
+        const sel = $getSelection();
+        if (!$isNodeSelection(sel)) return null;
+        const nodes = sel.getNodes();
+        return nodes.length > 0 && nodes.every($isScriptureRefNode) ? nodes[nodes.length - 1].getKey() : null;
+      });
+      if (!chip) return;
+      // Synchronously, before the browser acts on the key
+      editor.update(() => $getNodeByKey(chip)?.selectNext(0, 0), { discrete: true });
+    };
     return mergeRegister(
+      editor.registerRootListener((root, prev) => {
+        prev?.removeEventListener("keydown", caretAfterChip, true);
+        root?.addEventListener("keydown", caretAfterChip, true);
+      }),
       editor.registerCommand(KEY_BACKSPACE_COMMAND, remove(true), COMMAND_PRIORITY_HIGH),
       editor.registerCommand(KEY_DELETE_COMMAND, remove(false), COMMAND_PRIORITY_HIGH),
       editor.registerCommand(
