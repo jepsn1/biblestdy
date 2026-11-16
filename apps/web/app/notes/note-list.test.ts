@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { bookName, parseReference, type Chapter, type Note } from "@biblestdy/shared";
-import { anchorForReference, anchorLabel, filterNotes, keepOrder, noteTitle, referenceLabel } from "./note-list";
+import {
+  anchorForReference,
+  anchorLabel,
+  cutSnippet,
+  filterNotes,
+  keepOrder,
+  noteRefLabels,
+  noteTitle,
+  overviewRows,
+  referenceLabel,
+  refSnippet,
+  snippetChapters,
+} from "./note-list";
 
 const T = "2026-11-01T00:00:00.000Z";
 const anchor = (book: string, chapter: number, startVerse: number, endVerse = startVerse) => ({
@@ -86,6 +98,11 @@ describe("filterNotes", () => {
   ];
   const base = { query: "", topic: null, sort: "recent" as const, bookName: da, locale: "da" as const };
 
+  it("finds and orders notes by the references in their text too", () => {
+    const withInline = [...notes, note("d", { title: "Psalm", body: "See [Sl 23,1](bible:PSA.23.1)" })];
+    expect(filterNotes(withInline, { ...base, query: "salme 23" }).map((n) => n.id)).toEqual(["d"]);
+    expect(filterNotes(withInline, { ...base, sort: "bible" }).map((n) => n.id)).toEqual(["b", "d", "a", "c"]);
+  });
   it("keeps the API's order (last edit first) with no filter", () => {
     expect(filterNotes(notes, base).map((n) => n.id)).toEqual(["a", "b", "c"]);
   });
@@ -158,5 +175,88 @@ describe("keepOrder", () => {
   });
   it("a note new since the view was entered comes first; deleted ones drop out", () => {
     expect(keepOrder([n("new"), n("a"), n("c")], ["a", "b", "c"]).map((x) => x.id)).toEqual(["new", "a", "c"]);
+  });
+});
+
+describe("overviewRows", () => {
+  const body = "See [Rom 8,28](bible:ROM.8.28) and [Joh 3,16](bible:JHN.3.16), again [x](bible:ROM.8.28).";
+  it("lists text refs in text order, once each, then marked passages in Bible order", () => {
+    const rows = overviewRows(body, [anchor("JHN", 3, 14), anchor("GEN", 1, 1)]);
+    expect(rows.map((r) => (r.kind === "text" ? `t ${r.ref.book}${r.ref.chapter}:${r.ref.verse}` : `m ${r.anchor.book}`))).toEqual([
+      "t ROM8:28",
+      "t JHN3:16",
+      "m GEN",
+      "m JHN",
+    ]);
+  });
+  it("keeps a marked passage that a text ref also cites (they are different things)", () => {
+    expect(overviewRows("[Joh 3,16](bible:JHN.3.16)", [anchor("JHN", 3, 16)])).toHaveLength(2);
+  });
+  it("has unique keys", () => {
+    const rows = overviewRows(body, [anchor("JHN", 3, 16)]);
+    expect(new Set(rows.map((r) => r.key)).size).toBe(rows.length);
+  });
+  it("ignores refs inside code", () => {
+    expect(overviewRows("`[a](bible:JHN.3.16)`", [])).toEqual([]);
+  });
+});
+
+describe("snippetChapters", () => {
+  it("text refs quote the reading translation, anchors their own; each chapter once", () => {
+    const rows = overviewRows("[a](bible:JHN.3.16) [b](bible:JHN.3.18)", [{ ...anchor("JHN", 3, 14), translationId: "BPH" }]);
+    expect(snippetChapters(rows, "WEB")).toEqual([
+      { translationId: "WEB", book: "JHN", chapter: 3 },
+      { translationId: "BPH", book: "JHN", chapter: 3 },
+    ]);
+  });
+  it("fetches the first 10 distinct chapters only, plus the ones asked for", () => {
+    const body = Array.from({ length: 12 }, (_, i) => `[x](bible:PSA.${i + 1})`).join(" ");
+    const rows = overviewRows(body, []);
+    expect(snippetChapters(rows, "WEB")).toHaveLength(10);
+    const asked = new Set(["WEB/PSA/12"]);
+    expect(snippetChapters(rows, "WEB", { asked }).map((c) => c.chapter)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12]);
+  });
+  it("waits for the reading translation for text refs", () => {
+    expect(snippetChapters(overviewRows("[a](bible:JHN.3.16)", []), undefined)).toEqual([]);
+  });
+});
+
+describe("cutSnippet", () => {
+  it("leaves short text alone", () => {
+    expect(cutSnippet("For God so loved", 40)).toBe("For God so loved");
+  });
+  it("cuts on a word boundary with an ellipsis, dropping trailing punctuation", () => {
+    expect(cutSnippet("For God so loved the world, that he gave", 28)).toBe("For God so loved the world…");
+    expect(cutSnippet("For God so loved the world", 20)).toBe("For God so loved the…");
+  });
+  it("cuts a single overlong word rather than showing nothing", () => {
+    expect(cutSnippet("abcdefghijklmnopqrstuvwxyz", 10)).toBe("abcdefghij…");
+  });
+});
+
+describe("refSnippet", () => {
+  const ch = (verses: { verse: number; label?: string; text: string }[]): Chapter => ({
+    translationId: "BPH",
+    book: "JHN",
+    chapter: 3,
+    verses,
+    fumsToken: "",
+  }) as unknown as Chapter;
+  it("quotes the whole bridge a verse sits in", () => {
+    const r = refSnippet({ book: "JHN", chapter: 3, verse: 15 }, ch([{ verse: 14, label: "14–15", text: "Som Moses" }, { verse: 16, text: "For så" }]));
+    expect(r).not.toBe("notInTranslation");
+    if (r !== "notInTranslation") {
+      expect(r.text).toBe("Som Moses");
+      expect(r.at.bridged).toBe(true);
+    }
+  });
+  it("says when the translation lacks it", () => {
+    expect(refSnippet({ book: "MAL", chapter: 4, verse: 1 }, null)).toBe("notInTranslation");
+  });
+});
+
+describe("noteRefLabels", () => {
+  it("counts inline refs too (a note cited only in its text has passages)", () => {
+    expect(noteRefLabels(note("a", { body: "[Joh 3,16](bible:JHN.3.16)" }), da, "da")).toEqual(["Johannes 3,16"]);
   });
 });
