@@ -1,30 +1,27 @@
-import type { Annotation, Chapter, Highlight } from "@biblestdy/shared";
+import type { Annotation, Chapter, Highlight, Translation } from "@biblestdy/shared";
 import { canonicalRef } from "@biblestdy/shared/versification";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useContext, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useColorName } from "~/lib/highlight-labels";
 import { pageMarks, type MarkKind, type PageMark } from "../notes/page-marks";
-import { useTranslations } from "./localizer";
 import { ScriptureRefContext } from "./ref-context";
-import { annotationsQuery } from "./use-annotations";
-import { highlightsQuery } from "./use-highlights";
 
 /**
  * The open chapter's marks for the note's `@` menu and "+ Verse" (#191) —
- * from the reader's own caches (loaded already; never refetched here). Off
- * the reader: none.
+ * from the reader's own caches (loaded already; never fetched here — by
+ * key, not by importing the reader's hooks, which would split /read's
+ * first-paint chunks). Off the reader: none.
  */
 export function usePageMarks(): PageMark[] {
   const { page } = useContext(ScriptureRefContext);
   const tid = page?.translationId ?? "";
   const book = page?.book ?? "";
   const ch = page?.chapter ?? 0;
-  const opts = { enabled: !!page, staleTime: Infinity, refetchOnMount: false } as const;
-  const highlights = useQuery({ ...highlightsQuery(tid, book, ch), ...opts }).data;
-  const annotations = useQuery({ ...annotationsQuery(tid, book, ch), ...opts }).data;
+  const highlights = useQuery<Highlight[]>({ queryKey: ["highlights", tid, book, ch], enabled: false }).data;
+  const annotations = useQuery<Annotation[]>({ queryKey: ["annotations", tid, book, ch], enabled: false }).data;
   const chapter = useQuery<Chapter>({ queryKey: ["chapter", tid, book, ch], enabled: false }).data;
-  const { data: translations } = useTranslations();
+  const translations = useQuery<Translation[]>({ queryKey: ["translations"], enabled: false }).data;
   const abbr = translations?.find((tr) => tr.id === tid)?.abbreviation ?? "";
   return useMemo(
     () => (page ? pageMarks(highlights ?? EMPTY_H, annotations ?? EMPTY_A, chapter, (r) => canonicalRef(r, abbr)) : []),
