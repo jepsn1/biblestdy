@@ -3,6 +3,7 @@ import {
   adjacentChapter,
   chapterHref,
   lastReadHref,
+  lastReadPlace,
   lastReadValue,
   parsePageParam,
   resolvePage,
@@ -66,5 +67,11 @@ describe("hrefs", () => {
     expect(lastReadHref("1JN/2")).toBe("/read/1JN/2");
     expect(lastReadHref("javascript:alert(1)")).toBeNull();
     expect(lastReadHref(null)).toBeNull();
+  });
+
+  it("names the place kept (the notes page's way back, #148)", () => {
+    expect(lastReadPlace("PSA/23?p=2")).toEqual({ book: "PSA", chapter: 23, page: 1 });
+    expect(lastReadPlace("1CO/13")).toEqual({ book: "1CO", chapter: 13, page: 0 });
+    expect(lastReadPlace("nope")).toBeNull();
   });
 });

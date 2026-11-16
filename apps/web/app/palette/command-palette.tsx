@@ -10,6 +10,7 @@ import {
   Hash,
   Highlighter,
   History,
+  Sprout,
   NotebookText,
   PenLine,
   Search,
@@ -38,7 +39,7 @@ import { cn, focusTitle } from "~/lib/utils";
 import { OPEN_SHORTCUTS } from "../reader/dialog-events";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
-import { OPEN_PLACE } from "../reader/place-chooser";
+import { openPlace } from "../reader/place-chooser";
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllHighlightsQuery } from "../reader/use-highlights";
 import { ScriptureCredit } from "../reader/scripture-credit";
@@ -116,7 +117,7 @@ function useActions(r: ReaderActions) {
       keywords: [...both("place.choose"), ...both("place.books")],
       shortcut: `${modKey()}B`,
       opensDialog: true,
-      run: () => window.dispatchEvent(new Event(OPEN_PLACE)),
+      run: () => openPlace(),
     },
     {
       id: "margin",
@@ -191,6 +192,7 @@ function useActions(r: ReaderActions) {
 
 const GROUP_LABEL: Record<GroupId, string> = {
   recent: "palette.groupRecent",
+  start: "place.start",
   passage: "palette.groupPassage",
   books: "palette.groupBooks",
   actions: "palette.groupActions",
@@ -206,6 +208,7 @@ const GROUP_LABEL: Record<GroupId, string> = {
  * (a highlight's own colour dot stands in), so a mixed list reads at a glance. */
 const GROUP_ICON: Record<GroupId, LucideIcon | null> = {
   recent: History,
+  start: Sprout,
   passage: BookOpen,
   books: BookText,
   actions: SlidersHorizontal,
@@ -330,6 +333,9 @@ export function CommandPalette({
         colorDetail: (n) => t("palette.colorDetail", { count: n }),
         untitled: t("palette.untitled"),
         mark: t("palette.kindMark"),
+        continueAt: (place, page) =>
+          page ? t("place.continueAtPage", { place, page: page + 1 }) : t("place.continueAt", { place }),
+        startLine: (line) => t(`place.lines.${line}`),
       },
     });
     // actions is rebuilt each render; its labels follow the state it reads

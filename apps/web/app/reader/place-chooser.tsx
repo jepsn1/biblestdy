@@ -10,20 +10,27 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/compone
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import { placesToOffer, readRecent, START_PLACES } from "~/lib/recent-passages";
+import { referenceLabel } from "~/lib/reference-label";
 import { opensPlaceChooser } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { PanelHeader, panelTitleClass } from "./panel-header";
-import { filterPlaces, placeLabel } from "./place-filter";
+import { chapterHref } from "./chapter-nav";
+import { canonGroups, filterPlaces, placeLabel } from "./place-filter";
 
 type Step = "books" | "chapters";
 
 /** Event name: anything (the command palette) can open the address chooser. */
 export const OPEN_PLACE = "biblestdy:place";
 
-const TESTAMENTS = [
-  { key: "place.oldTestament", ids: new Set<string>(BOOKS.slice(0, 39).map((b) => b.id)) },
-  { key: "place.newTestament", ids: new Set<string>(BOOKS.slice(39).map((b) => b.id)) },
-] as const;
+/** OPEN_PLACE's detail: open on this book's chapters (the strip's "All
+ * chapters", #147), focus back on `from` when it closes. */
+export type OpenPlace = { step?: "chapters"; from?: HTMLElement | null };
+
+/** Open the address chooser from anywhere. */
+export function openPlace(detail: OpenPlace = {}) {
+  window.dispatchEvent(new CustomEvent<OpenPlace>(OPEN_PLACE, { detail }));
+}
 
 /** The current place, one mark everywhere (the strip's): ink, weight, a 2px
  * rule under it in --primary (gold in Paper, ink in Clean). Never a fill. */
@@ -43,18 +50,16 @@ const CURRENT = "font-semibold text-foreground underline decoration-primary deco
 export function PlaceChooser({
   book,
   chapter,
+  chapterTo = null,
   stripShown = false,
-  ref,
-  style,
 }: {
   /** "" when the route's book is unknown (error shell). */
   book: string;
   chapter: number;
+  /** The spread runs on to this chapter (#146): "Salmerne 23–24". */
+  chapterTo?: number | null;
   /** The paged sheet's chapter strip shows: open on the books. */
   stripShown?: boolean;
-  /** The row's flexible part (nav-fit measures everything else). */
-  ref?: React.Ref<HTMLButtonElement>;
-  style?: React.CSSProperties;
 }) {
   const { t } = useTranslation();
   const nameOf = useBookName();
@@ -64,9 +69,12 @@ export function PlaceChooser({
   const open = isOpen;
   // How it was opened decides the first step and where focus starts
   const [start, setStart] = useState<{ step: Step; typing: boolean }>({ step: "books", typing: false });
+  // Opened from elsewhere (the strip): focus goes back there on close
+  const returnTo = useRef<HTMLElement | null>(null);
 
-  function show(typing: boolean) {
-    setStart({ step: typing || stripShown || !known ? "books" : "chapters", typing });
+  function show(typing: boolean, step?: Step) {
+    if (!step) returnTo.current = null;
+    setStart({ step: step ?? (typing || stripShown || !known ? "books" : "chapters"), typing });
     setOpen(true);
   }
 
@@ -77,7 +85,13 @@ export function PlaceChooser({
       if (isOpen) setOpen(false);
       else show(true);
     }
-    const open = () => show(true);
+    const open = (e: Event) => {
+      const detail = (e as CustomEvent<OpenPlace | null>).detail;
+      if (detail?.step === "chapters" && known) {
+        returnTo.current = detail.from ?? null;
+        show(false, "chapters");
+      } else show(true);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener(OPEN_PLACE, open);
     return () => {
@@ -86,14 +100,17 @@ export function PlaceChooser({
     };
   });
 
-  const place = known ? `${nameOf(book)} ${chapter}` : t("place.noBook");
+  const span = chapterTo && chapterTo > chapter ? `${chapter}–${chapterTo}` : String(chapter);
+  // Said in words ("23 to 24"): a dash isn't read the same by every reader
+  const spoken = chapterTo && chapterTo > chapter ? t("place.span", { from: chapter, to: chapterTo }) : String(chapter);
+  const place = known ? `${nameOf(book)} ${spoken}` : t("place.noBook");
   const label = t("place.label", { place });
   const trigger = (
     <>
       {known ? (
         <>
           <span className="min-w-0 truncate font-serif font-medium">{nameOf(book)}</span>
-          <span className="shrink-0 font-serif font-medium tabular-nums">{chapter}</span>
+          <span className="shrink-0 font-serif font-medium tabular-nums">{span}</span>
         </>
       ) : (
         <span className="min-w-0 truncate">{place}</span>
@@ -101,13 +118,22 @@ export function PlaceChooser({
       <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </>
   );
-  const triggerClass = "-ml-1 min-w-0 justify-start gap-1.5 pl-1.5 text-control";
+  // The row's give: grows from 0 up to its own width and shrinks to 5em of
+  // name (+ number, chevron, padding) — so the row wraps (last resort) only
+  // when even that won't fit, never because the full name doesn't (#144)
+  // (A short name — "Job", "Ruth" — is already that short: it keeps its width.)
+  const short = !known || nameOf(book).length <= 8;
+  const triggerClass = cn(
+    "-ml-1 justify-start gap-1.5 pl-1.5 text-control",
+    short ? "shrink-0" : "min-w-[calc(5em+3.5rem)] max-w-max shrink grow basis-0",
+  );
   const panel = (
     <PlacePanel
       book={known ? book : ""}
       chapter={chapter}
+      offerOnChapters={isMobile}
       startStep={start.step}
-      focusFilter={!isMobile || start.typing}
+      focusFilter={start.typing || (!isMobile && !returnTo.current)}
       onDone={() => setOpen(false)}
     />
   );
@@ -125,13 +151,11 @@ export function PlaceChooser({
         <PopoverTrigger
           render={
             <Button
-              ref={ref}
               variant="ghost"
               size="sm"
               data-nav-book=""
               aria-label={label}
               aria-haspopup="dialog"
-              style={style}
               className={triggerClass}
             />
           }
@@ -140,7 +164,11 @@ export function PlaceChooser({
         </PopoverTrigger>
       </Hint>
       {!isMobile && (
-        <PopoverContent align="start" className="w-[44rem] max-w-[calc(100vw-2rem)] gap-0 p-0">
+        <PopoverContent
+          align="start"
+          finalFocus={() => (returnTo.current?.isConnected ? returnTo.current : true)}
+          className="w-[44rem] max-w-[calc(100vw-2rem)] gap-0 p-0"
+        >
           <PopoverTitle className="sr-only">{t("place.choose")}</PopoverTitle>
           {panel}
         </PopoverContent>
@@ -163,12 +191,15 @@ export function PlaceChooser({
 function PlacePanel({
   book,
   chapter,
+  offerOnChapters,
   startStep,
   focusFilter,
   onDone,
 }: {
   book: string;
   chapter: number;
+  /** Phones open on the chapters: Recent sits above them too (#142). */
+  offerOnChapters: boolean;
   startStep: Step;
   focusFilter: boolean;
   onDone: () => void;
@@ -275,6 +306,32 @@ function PlacePanel({
     links[Math.max(0, Math.min(links.length - 1, to))]?.focus();
   }
 
+  /** One book: a combobox option (the filter keeps focus, aria-activedescendant
+   * points here): keys live on the input, so no tab stop or key handler. */
+  const option = (id: string) => {
+    const current = id === book;
+    return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
+      <div
+        key={id}
+        id={`${ids}-${id}`}
+        role="option"
+        data-book={id}
+        aria-selected={id === activeId}
+        onClick={() => pickBook(id)}
+        onPointerMove={() => id !== activeId && setActive(id)}
+        className={cn(
+          "flex min-h-8 cursor-pointer break-inside-avoid items-center rounded-sm px-2 font-serif text-control max-sm:min-h-11",
+          id === activeId && query ? "bg-muted" : "hover:bg-muted",
+          current && CURRENT,
+        )}
+      >
+        {nameOf(id)}
+        {current && <span className="sr-only"> ({t("place.current")})</span>}
+      </div>
+    );
+  };
+
   const hint = filter.passage
     ? placeLabel(filter.passage, locale)
     : step === "books" && activeId && query
@@ -323,44 +380,37 @@ function PlacePanel({
       <div ref={viewport} className="flex min-h-0 flex-1 flex-col">
         <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-[min(80dvh,46rem)] max-sm:max-h-[60dvh]">
           {step === "books" ? (
+            <>
+            {!query && <PlacesOffer book={book} chapter={chapter} onDone={onDone} />}
             <div id={`${ids}-books`} role="listbox" tabIndex={-1} aria-label={t("place.books")} className="@container px-2 pt-1 pb-3 outline-none">
               {filter.books.length === 0 && (
                 <p role="presentation" className="px-2 py-3 text-control text-muted-foreground">
                   {t("place.noMatch", { q: query.trim() })}
                 </p>
               )}
-              {TESTAMENTS.map(({ key, ids: inTestament }) => {
-                const books = filter.books.filter((id) => inTestament.has(id));
-                if (books.length === 0) return null;
+              {canonGroups(filter.books).map(({ testament, groups }) => {
+                const tid = `${ids}-${testament}`;
                 return (
-                  <div key={key} role="group" aria-labelledby={`${ids}-${key}`}>
-                    <div id={`${ids}-${key}`} className="eyebrow sticky top-0 z-10 bg-popover px-2 pt-3 pb-1">
-                      {t(key)}
+                  <div key={testament} role="presentation">
+                    <div id={tid} className="eyebrow sticky top-0 z-10 bg-popover px-2 pt-3 pb-1">
+                      {t(testament === "old" ? "place.oldTestament" : "place.newTestament")}
                     </div>
-                    {/* Columns read downwards like a contents page, and ↑/↓ follow them */}
+                    {/* Columns read downwards like a contents page, and ↑/↓
+                        follow them. The canon's groups (#143) flow in them,
+                        each under a quiet label; a one-book group (Acts,
+                        Revelation) is its own label: just the gap */}
                     <div className="columns-2 gap-x-1 @min-[30rem]:columns-3 @min-[40rem]:columns-4">
-                      {books.map((id) => {
-                        const current = id === book;
+                      {groups.map(({ key, ids: books }, gi) => {
+                        const gid = `${ids}-g-${key}`;
                         return (
-                          // Combobox options (the filter keeps focus, aria-activedescendant
-                          // points here): keys live on the input, so no tab stop or key handler
-                          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
-                          <div
-                            key={id}
-                            id={`${ids}-${id}`}
-                            role="option"
-                            data-book={id}
-                            aria-selected={id === activeId}
-                            onClick={() => pickBook(id)}
-                            onPointerMove={() => id !== activeId && setActive(id)}
-                            className={cn(
-                              "flex min-h-8 cursor-pointer break-inside-avoid items-center rounded-sm px-2 font-serif text-control max-sm:min-h-11",
-                              id === activeId && query ? "bg-muted" : "hover:bg-muted",
-                              current && CURRENT,
-                            )}
-                          >
-                            {nameOf(id)}
-                            {current && <span className="sr-only"> ({t("place.current")})</span>}
+                          <div key={key} role="group" aria-labelledby={`${tid} ${gid}`} className={cn(gi > 0 && "mt-3")}>
+                            <div
+                              id={gid}
+                              className={cn("break-after-avoid px-2 py-0.5 text-meta text-muted-foreground", books.length === 1 && "sr-only")}
+                            >
+                              {t(`place.groups.${key}`)}
+                            </div>
+                            {books.map(option)}
                           </div>
                         );
                       })}
@@ -369,7 +419,10 @@ function PlacePanel({
                 );
               })}
             </div>
+            </>
           ) : (
+            <>
+            {offerOnChapters && <PlacesOffer book={book} chapter={chapter} onDone={onDone} />}
             <nav aria-label={t("reader.stripLabel", { book: nameOf(stepBook) })} className="px-3 pt-2 pb-4">
               {/* The grid's arrow keys (the links stay plain links in a list) */}
               <div role="presentation" onKeyDown={onGridKey}>
@@ -410,9 +463,73 @@ function PlacePanel({
               </ul>
               </div>
             </nav>
+            </>
           )}
         </ScrollArea>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Where you were and where to start (#142), on top of the chooser while the
+ * filter is empty: "Continue: John 3, page 2" (the newest place that isn't
+ * this one) and up to four more read lately, as one line of worded links;
+ * for a newcomer (under 3 chapters read), four good places to start, each
+ * with a plain line that quotes the text or names the kind of book. This
+ * device only (its label says so). Links, in Tab order after the filter.
+ */
+function PlacesOffer({ book, chapter, onDone }: { book: string; chapter: number; onDone: () => void }) {
+  const { t, i18n } = useTranslation();
+  const locale = bookLocale(i18n.language);
+  const nameOf = useBookName();
+  const id = useId();
+  // Read once when the chooser opens (client only: it opens on a click)
+  const [offer] = useState(() => placesToOffer(readRecent(), book ? { book, chapter } : null));
+  const label = (r: { book: string; chapter: number }) => referenceLabel(r, nameOf, locale);
+  const recent = offer.continueAt ? [offer.continueAt, ...offer.recent] : [];
+  const starts = offer.start ? START_PLACES.filter((s) => s.book !== book || s.chapter !== chapter) : [];
+  if (recent.length === 0 && starts.length === 0) return null;
+  const link = cn("rounded-sm font-serif text-control hover:underline underline-offset-4", focusRing);
+  return (
+    <div className="flex flex-col gap-3 border-b border-border px-4 pt-3 pb-3">
+      {recent.length > 0 && (
+        <section aria-labelledby={`${id}-recent`}>
+          <h2 id={`${id}-recent`} className="eyebrow pb-1">
+            {t("place.recent")}
+          </h2>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            {recent.map((r, i) => (
+              <li key={`${r.book}/${r.chapter}`}>
+                <Link to={chapterHref(r, r.page ?? 0)} onClick={onDone} className={cn(link, "inline-flex min-h-8 items-center max-sm:min-h-11", i === 0 && "font-medium")}>
+                  {i === 0
+                    ? r.page
+                      ? t("place.continueAtPage", { place: label(r), page: r.page + 1 })
+                      : t("place.continueAt", { place: label(r) })
+                    : label(r)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {starts.length > 0 && (
+        <section aria-labelledby={`${id}-start`} className="@container">
+          <h2 id={`${id}-start`} className="eyebrow pb-1">
+            {t("place.start")}
+          </h2>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-1 @min-[30rem]:grid-cols-4">
+            {starts.map((s) => (
+              <li key={`${s.book}/${s.chapter}`}>
+                <Link to={chapterHref(s)} onClick={onDone} className={cn(link, "flex min-h-11 flex-col justify-center py-1")}>
+                  {label(s)}
+                  <span className="font-sans text-meta text-muted-foreground">{t(`place.lines.${s.line}`)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

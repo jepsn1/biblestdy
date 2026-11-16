@@ -2,7 +2,7 @@ import type { Translation } from "@biblestdy/shared";
 import { bookName } from "@biblestdy/shared";
 import type { Chapter } from "@biblestdy/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
@@ -18,7 +18,7 @@ import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
 import { zoomLockHandle } from "~/lib/viewport";
 import { adjacentChapter } from "../reader/chapter-nav";
-import { PaginatedChapter, useChapterStrip } from "../reader/paginated-chapter";
+import { PaginatedChapter, useChapterStrip, useScrollMode } from "../reader/paginated-chapter";
 import { ReaderError } from "../reader/reader-error";
 import { chapterQuery, loadChapter, prefetchNeighbours, readingPausedFor, retryWhenLimited } from "../reader/chapter-cache";
 import { ChapterSkeleton } from "../reader/chapter-skeleton";
@@ -300,6 +300,12 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
 
   // The paged sheet heads its text with the chapter strip
   const chapterStrip = useChapterStrip();
+  const scrollMode = useScrollMode();
+  // The last chapter the spread shows when chapters run on (#146), per chapter
+  const [spread, setSpread] = useState<{ key: string; end: number | null }>({ key: "", end: null });
+  const chapterKey = `${chapter.book}.${chapter.chapter}`;
+  const onSpreadEnd = useCallback((end: number | null) => setSpread({ key: chapterKey, end }), [chapterKey]);
+  const spreadEnd = spread.key === chapterKey ? spread.end : null;
 
   return (
     <div className="flex h-dvh overflow-hidden">
@@ -316,6 +322,8 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           annotationBoxesOpen={annotationBoxesOpen}
           onToggleAnnotationBoxes={() => setAnnotationBoxesOpen((v) => !v)}
           chapterInStrip={chapterStrip}
+          chapterTo={spreadEnd}
+          scrollMode={scrollMode}
         />
         <PaginatedChapter
           chapter={chapter}
@@ -327,6 +335,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           onSideViewChange={setSideView}
           annotationBoxesOpen={annotationBoxesOpen}
           placeRef={placeRef}
+          onSpreadEnd={onSpreadEnd}
         />
       </main>
       {d && (
