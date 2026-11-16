@@ -13,17 +13,12 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import { opensPlaceChooser } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { PanelHeader, panelTitleClass } from "./panel-header";
-import { filterPlaces, placeLabel } from "./place-filter";
+import { canonGroups, filterPlaces, placeLabel } from "./place-filter";
 
 type Step = "books" | "chapters";
 
 /** Event name: anything (the command palette) can open the address chooser. */
 export const OPEN_PLACE = "biblestdy:place";
-
-const TESTAMENTS = [
-  { key: "place.oldTestament", ids: new Set<string>(BOOKS.slice(0, 39).map((b) => b.id)) },
-  { key: "place.newTestament", ids: new Set<string>(BOOKS.slice(39).map((b) => b.id)) },
-] as const;
 
 /** The current place, one mark everywhere (the strip's): ink, weight, a 2px
  * rule under it in --primary (gold in Paper, ink in Clean). Never a fill. */
@@ -275,6 +270,32 @@ function PlacePanel({
     links[Math.max(0, Math.min(links.length - 1, to))]?.focus();
   }
 
+  /** One book: a combobox option (the filter keeps focus, aria-activedescendant
+   * points here): keys live on the input, so no tab stop or key handler. */
+  const option = (id: string) => {
+    const current = id === book;
+    return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
+      <div
+        key={id}
+        id={`${ids}-${id}`}
+        role="option"
+        data-book={id}
+        aria-selected={id === activeId}
+        onClick={() => pickBook(id)}
+        onPointerMove={() => id !== activeId && setActive(id)}
+        className={cn(
+          "flex min-h-8 cursor-pointer break-inside-avoid items-center rounded-sm px-2 font-serif text-control max-sm:min-h-11",
+          id === activeId && query ? "bg-muted" : "hover:bg-muted",
+          current && CURRENT,
+        )}
+      >
+        {nameOf(id)}
+        {current && <span className="sr-only"> ({t("place.current")})</span>}
+      </div>
+    );
+  };
+
   const hint = filter.passage
     ? placeLabel(filter.passage, locale)
     : step === "books" && activeId && query
@@ -329,38 +350,29 @@ function PlacePanel({
                   {t("place.noMatch", { q: query.trim() })}
                 </p>
               )}
-              {TESTAMENTS.map(({ key, ids: inTestament }) => {
-                const books = filter.books.filter((id) => inTestament.has(id));
-                if (books.length === 0) return null;
+              {canonGroups(filter.books).map(({ testament, groups }) => {
+                const tid = `${ids}-${testament}`;
                 return (
-                  <div key={key} role="group" aria-labelledby={`${ids}-${key}`}>
-                    <div id={`${ids}-${key}`} className="eyebrow sticky top-0 z-10 bg-popover px-2 pt-3 pb-1">
-                      {t(key)}
+                  <div key={testament} role="presentation">
+                    <div id={tid} className="eyebrow sticky top-0 z-10 bg-popover px-2 pt-3 pb-1">
+                      {t(testament === "old" ? "place.oldTestament" : "place.newTestament")}
                     </div>
-                    {/* Columns read downwards like a contents page, and ↑/↓ follow them */}
+                    {/* Columns read downwards like a contents page, and ↑/↓
+                        follow them. The canon's groups (#143) flow in them,
+                        each under a quiet label; a one-book group (Acts,
+                        Revelation) is its own label: just the gap */}
                     <div className="columns-2 gap-x-1 @min-[30rem]:columns-3 @min-[40rem]:columns-4">
-                      {books.map((id) => {
-                        const current = id === book;
+                      {groups.map(({ key, ids: books }, gi) => {
+                        const gid = `${ids}-g-${key}`;
                         return (
-                          // Combobox options (the filter keeps focus, aria-activedescendant
-                          // points here): keys live on the input, so no tab stop or key handler
-                          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
-                          <div
-                            key={id}
-                            id={`${ids}-${id}`}
-                            role="option"
-                            data-book={id}
-                            aria-selected={id === activeId}
-                            onClick={() => pickBook(id)}
-                            onPointerMove={() => id !== activeId && setActive(id)}
-                            className={cn(
-                              "flex min-h-8 cursor-pointer break-inside-avoid items-center rounded-sm px-2 font-serif text-control max-sm:min-h-11",
-                              id === activeId && query ? "bg-muted" : "hover:bg-muted",
-                              current && CURRENT,
-                            )}
-                          >
-                            {nameOf(id)}
-                            {current && <span className="sr-only"> ({t("place.current")})</span>}
+                          <div key={key} role="group" aria-labelledby={`${tid} ${gid}`} className={cn(gi > 0 && "mt-3")}>
+                            <div
+                              id={gid}
+                              className={cn("break-after-avoid px-2 py-0.5 text-meta text-muted-foreground", books.length === 1 && "sr-only")}
+                            >
+                              {t(`place.groups.${key}`)}
+                            </div>
+                            {books.map(option)}
                           </div>
                         );
                       })}

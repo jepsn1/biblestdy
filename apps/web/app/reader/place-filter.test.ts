@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterPlaces, placeLabel } from "./place-filter";
+import { canonGroups, filterPlaces, placeLabel } from "./place-filter";
 
 describe("filterPlaces", () => {
   it("empty: every book, nothing picked", () => {
@@ -51,5 +51,25 @@ describe("placeLabel", () => {
   it("Danish comma, English colon", () => {
     expect(placeLabel({ href: "", book: "JHN", chapter: 3, verse: 16 }, "da")).toBe("Johannes 3,16");
     expect(placeLabel({ href: "", book: "PSA", chapter: 23 }, "en")).toBe("Psalms 23");
+  });
+});
+
+describe("canonGroups", () => {
+  it("every book: the canon's eight groups, in order, nothing lost", () => {
+    const all = canonGroups(filterPlaces("", "da").books);
+    expect(all.map((t) => t.testament)).toEqual(["old", "new"]);
+    expect(all.flatMap((t) => t.groups.map((g) => g.key))).toEqual([
+      "law", "history", "wisdom", "prophets", "gospels", "acts", "letters", "revelation",
+    ]);
+    expect(all[0].groups.map((g) => g.ids.length)).toEqual([5, 12, 5, 17]);
+    expect(all[1].groups.map((g) => g.ids.length)).toEqual([4, 1, 21, 1]);
+    expect(all.flatMap((t) => t.groups.flatMap((g) => g.ids))).toHaveLength(66);
+  });
+
+  it("filtered: only the groups with matches", () => {
+    expect(canonGroups(["PSA", "PHP", "PHM"])).toEqual([
+      { testament: "old", groups: [{ key: "wisdom", ids: ["PSA"] }] },
+      { testament: "new", groups: [{ key: "letters", ids: ["PHP", "PHM"] }] },
+    ]);
   });
 });
