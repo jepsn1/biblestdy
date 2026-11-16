@@ -1,20 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Check, Link2, Mail, MessageCircle, Share2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { apiBase } from "~/lib/api-base";
 import { bookLocale } from "~/lib/book-name";
 import { shareLinks, shareTarget, type ShareTarget } from "~/lib/share";
-import { cn } from "~/lib/utils";
+import { cn, focusRing } from "~/lib/utils";
 
 /**
  * "Share with a friend" (#182) — a quiet link the reader chooses, never a
  * prompt (lib/support.ts). Where the device has a share sheet
  * (`navigator.share`: phones, some desktops) it opens that — Instagram,
- * Messages and the rest are there. Else a small menu: Copy link, Facebook
- * or Messenger, WhatsApp, Email.
+ * Messages and the rest are there. Else a small popover: Copy link, Facebook
+ * or Messenger, WhatsApp, Email (a plain list, no menu code on first paint).
  */
 
 /** What this page shares (lib/share.ts), and the device's share sheet. */
@@ -73,7 +72,10 @@ function useCopy(url: string) {
   return { copied, copy, live };
 }
 
-const ITEM = "min-h-11 gap-2.5 px-2.5 text-control [&_svg]:text-muted-foreground";
+const ITEM = cn(
+  "flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-control hover:bg-muted [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+  focusRing,
+);
 
 /**
  * The share link's trigger, styled by the place it sits in (`className`).
@@ -95,6 +97,7 @@ export function ShareMenu({
   const { t } = useTranslation();
   const { target, native } = useShare();
   const { copied, copy, live } = useCopy(target.url);
+  const firstChoice = useRef<HTMLButtonElement>(null);
   const links = shareLinks(target);
 
   if (native) {
@@ -119,45 +122,87 @@ export function ShareMenu({
   }
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<button type="button" aria-label={name} className={className} />}>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent side={side} align={align} className="w-auto min-w-56" aria-label={t("share.menuTitle")}>
-          <DropdownMenuItem
-            className={ITEM}
-            // Stays open: "Copied" shows where the reader is looking
-            closeOnClick={false}
-            onClick={() => void copy()}
-          >
-            {copied ? <Check aria-hidden /> : <Link2 aria-hidden />}
-            {copied ? t("share.copied") : t("share.copy")}
-          </DropdownMenuItem>
-          <ShareLink href={links.facebook} icon={<Share2 aria-hidden />} label={t("share.facebook")} />
-          <ShareLink href={links.whatsapp} icon={<MessageCircle aria-hidden />} label={t("share.whatsapp")} />
-          <ShareLink href={links.email} icon={<Mail aria-hidden />} label={t("share.email")} mail />
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Popover>
+        <PopoverTrigger render={<button type="button" aria-label={name} className={className} />}>{children}</PopoverTrigger>
+        <PopoverContent
+          side={side}
+          align={align}
+          // Its own Esc: the Settings panel it may sit in stays open
+          data-share-choices=""
+          initialFocus={() => firstChoice.current}
+          className="w-auto min-w-56 gap-0 p-1"
+        >
+          <PopoverTitle className="sr-only">{t("share.menuTitle")}</PopoverTitle>
+          <ShareChoices copy={copy} copied={copied} links={links} itemClassName={ITEM} firstRef={firstChoice} />
+        </PopoverContent>
+      </Popover>
       {live}
     </>
   );
 }
 
-function ShareLink({ href, icon, label, mail = false }: { href: string; icon: React.ReactNode; label: string; mail?: boolean }) {
+/** ↑/↓ between the choices (Tab works too). */
+function arrows(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const list = e.currentTarget.closest("ul");
+  if (!list) return;
+  const all = [...list.querySelectorAll<HTMLElement>("a, button")];
+  const at = all.indexOf(e.currentTarget);
+  e.preventDefault();
+  all[(at + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]!.focus();
+}
+
+/**
+ * Copy link, Facebook or Messenger, WhatsApp, Email: real buttons and links
+ * (Tab, or the arrow keys, between them). Copy link stays put and says
+ * "Copied" where the reader is looking (and reads it out).
+ */
+function ShareChoices({
+  copy,
+  copied,
+  links,
+  itemClassName,
+  firstRef,
+  id,
+}: {
+  copy: () => Promise<void>;
+  copied: boolean;
+  links: ReturnType<typeof shareLinks>;
+  itemClassName: string;
+  firstRef?: React.Ref<HTMLButtonElement>;
+  id?: string;
+}) {
   const { t } = useTranslation();
+  const choices = [
+    [links.facebook, <Share2 key="f" aria-hidden />, t("share.facebook")],
+    [links.whatsapp, <MessageCircle key="w" aria-hidden />, t("share.whatsapp")],
+    [links.email, <Mail key="e" aria-hidden />, t("share.email")],
+  ] as const;
   return (
-    <MenuPrimitive.LinkItem
-      href={href}
-      closeOnClick
-      label={label}
-      {...(mail ? {} : { target: "_blank", rel: "noopener noreferrer" })}
-      className={cn(
-        "flex cursor-default items-center rounded-md outline-hidden select-none focus:bg-accent focus:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0",
-        ITEM,
-      )}
+    <ul
+      id={id}
+      aria-label={t("share.menuTitle")}
+      className="flex flex-col"
     >
-      {icon}
-      {label}
-      {!mail && <span className="sr-only"> {t("copyright.newTab")}</span>}
-    </MenuPrimitive.LinkItem>
+      <li>
+        <button ref={firstRef} type="button" className={itemClassName} onKeyDown={arrows} onClick={() => void copy()}>
+          {copied ? <Check aria-hidden /> : <Link2 aria-hidden />}
+          {copied ? t("share.copied") : t("share.copy")}
+        </button>
+      </li>
+      {choices.map(([href, icon, label]) => {
+        const mail = href.startsWith("mailto:");
+        return (
+          <li key={label}>
+            <a href={href} className={itemClassName} onKeyDown={arrows} {...(mail ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
+              {icon}
+              {label}
+              {!mail && <span className="sr-only"> {t("copyright.newTab")}</span>}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -191,34 +236,7 @@ export function ShareRows({ rowClassName, onShared }: { rowClassName: string; on
           <span className="text-meta text-muted-foreground">{hint}</span>
         </span>
       </button>
-      {!native && open && (
-        <ul id="more-share-options" aria-label={t("share.menuTitle")} className="flex flex-col">
-          <li>
-            <button type="button" className={sub} onClick={() => void copy()}>
-              {copied ? <Check /> : <Link2 />}
-              {copied ? t("share.copied") : t("share.copy")}
-            </button>
-          </li>
-          {(
-            [
-              [links.facebook, <Share2 key="f" />, t("share.facebook")],
-              [links.whatsapp, <MessageCircle key="w" />, t("share.whatsapp")],
-              [links.email, <Mail key="e" />, t("share.email")],
-            ] as const
-          ).map(([href, icon, label]) => {
-            const mail = href.startsWith("mailto:");
-            return (
-              <li key={href}>
-                <a href={href} className={sub} {...(mail ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
-                  {icon}
-                  {label}
-                  {!mail && <span className="sr-only"> {t("copyright.newTab")}</span>}
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {!native && open && <ShareChoices id="more-share-options" copy={copy} copied={copied} links={links} itemClassName={sub} />}
       {live}
     </div>
   );
