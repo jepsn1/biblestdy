@@ -20,7 +20,7 @@ import { loadTextSize } from "~/lib/text-size";
 import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
 import { zoomLockHandle } from "~/lib/viewport";
-import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
+import { filterNotes, keepOrder, noteRefLabels, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
 import { readHref } from "../notes/verse-resolver";
 import { readingHref, readingPlace } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
@@ -232,7 +232,8 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         ) : (
           <ul className="flex flex-col p-1.5" aria-labelledby={listHeadingId}>
             {shown.map((n) => {
-              const refs = [...n.anchors].sort(compareAnchors);
+              // In the text and marked in the Bible (#161: inline-only notes too)
+              const refs = noteRefLabels(n, nameOf, locale);
               const current = n.id === params.id;
               return (
                 <li key={n.id}>
@@ -252,7 +253,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
                       <span className={cn("shrink-0 text-meta tabular-nums", current ? "text-foreground" : "text-muted-foreground")}>{editedOn(n.updatedAt, i18n.language)}</span>
                     </span>
                     <span className={cn("block truncate text-meta tabular-nums", refs.length ? (current ? "text-foreground" : "text-primary") : current ? "text-foreground italic" : "text-muted-foreground italic")}>
-                      {refs.length ? refs.map((a) => anchorLabel(a, nameOf, locale)).join(" · ") : t("notes.noPassages")}
+                      {refs.length ? refs.join(" · ") : t("notes.noPassages")}
                     </span>
                     {(n.tags?.length ?? 0) > 0 && (
                       <span className={cn("block truncate text-meta", current ? "text-foreground" : "text-muted-foreground")}>
@@ -287,7 +288,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           mobile={mobile}
           onEdit={actions.edit}
           onRemove={(id) => void actions.remove(id)}
-          onDetach={(id, anchorId) => void actions.detach(id, anchorId)}
+          onDetach={actions.detach}
           onAttach={actions.attach}
           onShowAnchor={(a) => readAnchor(open, a)}
           onReadRef={(r, translationId) => {

@@ -137,8 +137,9 @@ export function useNotes(translationId: string, book: string, chapter: number) {
 
   /** Removes one anchor; the note leaves this chapter's list when nothing
    * else ties it here (an anchor in any translation, or an inline ref). The
-   * API refuses to remove a note's last anchor. */
-  async function detach(noteId: string, anchorId: string) {
+   * API refuses to remove a note's last anchor. Resolves to the updated
+   * note, null when it failed. */
+  async function detach(noteId: string, anchorId: string): Promise<Note | null> {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
     }).catch(toastFail);
@@ -150,6 +151,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       );
       invalidateAll();
     }
+    return updated;
   }
 
   return { notes, failed: isError, retry: refetch, add, edit, remove, restore, attach, detach };
@@ -233,8 +235,9 @@ export function useNoteActions() {
     return updated;
   }
 
-  /** Drops one reference — the last one too (the note stays, unlinked). */
-  async function detach(noteId: string, anchorId: string) {
+  /** Drops one reference — the last one too (the note stays, unlinked).
+   * Resolves to the updated note, null when it failed (toast said so). */
+  async function detach(noteId: string, anchorId: string): Promise<Note | null> {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
     }).catch(toastFail);
@@ -242,6 +245,7 @@ export function useNoteActions() {
       put(updated);
       invalidateAll();
     }
+    return updated;
   }
 
   return { create, edit, remove, restore, attach, detach };

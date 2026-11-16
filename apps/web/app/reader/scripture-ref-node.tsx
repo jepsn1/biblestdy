@@ -33,6 +33,7 @@ import {
 import type { ReactNode } from "react";
 import { ScriptureChip } from "./scripture-chip";
 import { ScriptureRefKeys } from "./ref-keys";
+import { RefBridge } from "./ref-bridge";
 import { RefRemovalToast } from "./ref-removal";
 import { RefTypeahead } from "./ref-typeahead";
 
@@ -161,7 +162,8 @@ export const LexicalScriptureRefVisitor: ExportVisitor = {
 };
 
 /** The registered MDXEditor plugin: node, markdown visitors, the `@`
- * typeahead, Backspace/Enter on chips, the "removed · Undo" toast. */
+ * typeahead, Backspace/Enter on chips, the "removed · Undo" toast, the
+ * references overview's "Show/Insert in text" (#161). */
 export const scriptureRefPlugin = realmPlugin({
   init(realm) {
     realm.pubIn({
@@ -169,7 +171,7 @@ export const scriptureRefPlugin = realmPlugin({
       [addLexicalNode$]: ScriptureRefNode,
       [addImportVisitor$]: MdastScriptureRefVisitor,
       [addExportVisitor$]: LexicalScriptureRefVisitor,
-      [addComposerChild$]: [ScriptureRefKeys, RefTypeahead, RefRemovalToast],
+      [addComposerChild$]: [ScriptureRefKeys, RefTypeahead, RefRemovalToast, RefBridge],
     });
   },
 });

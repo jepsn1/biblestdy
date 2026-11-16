@@ -77,3 +77,12 @@ export const OPEN_COMPARE = "biblestdy:compare";
 export function openCompare(request: CompareRequest = {}) {
   window.dispatchEvent(new CustomEvent<CompareRequest>(OPEN_COMPARE, { detail: request }));
 }
+
+/** Event names the references overview (#161) sends its note's own editor,
+ * dispatched on the note panel's <aside> (so only that editor hears):
+ * SHOW_REF selects, scrolls to and flashes the first chip of `href`;
+ * INSERT_REF puts a chip of `href` at the caret (else the note's end). The
+ * editor sets `done` — still false, the plain-text stand-in has the note. */
+export const SHOW_REF = "biblestdy:show-ref";
+export const INSERT_REF = "biblestdy:insert-ref";
+export type RefEventDetail = { href: string; text: string; done: boolean };
