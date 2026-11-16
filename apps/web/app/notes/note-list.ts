@@ -1,5 +1,6 @@
 import {
   bookIndex,
+  formatScriptureHref,
   refsInMarkdown,
   resolveInChapter,
   toScriptureRef,
@@ -72,7 +73,7 @@ export type OverviewRow =
  */
 export function overviewRows(body: string, anchors: readonly NoteAnchor[]): OverviewRow[] {
   const text = refsInMarkdown(body).map(
-    (ref): OverviewRow => ({ kind: "text", key: `t:${ref.book}.${ref.chapter}.${ref.verse ?? ""}-${ref.endChapter ?? ""}.${ref.endVerse ?? ""}`, ref }),
+    (ref): OverviewRow => ({ kind: "text", key: `t:${formatScriptureHref(ref) ?? ""}`, ref }),
   );
   const marked = [...anchors].sort(compareAnchors).map((anchor): OverviewRow => ({ kind: "marked", key: `m:${anchor.id}`, anchor }));
   return [...text, ...marked];

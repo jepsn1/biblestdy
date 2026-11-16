@@ -125,14 +125,18 @@ export function ReferencesOverview({
 
   // Focus after a removal: the next row, else the previous, else "+ Verse"
   const sectionRef = useRef<HTMLElement>(null);
-  const focusAfter = (key: string | null) =>
-    requestAnimationFrame(() => {
-      const root = sectionRef.current;
-      const el =
-        (key && root?.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)) ||
-        root?.querySelector<HTMLElement>("[data-add-verse]");
-      el?.focus({ preventScroll: true });
-    });
+  // (after the list has re-rendered without the row)
+  const [focusNext, setFocusNext] = useState<{ key: string | null } | null>(null);
+  useEffect(() => {
+    if (!focusNext) return;
+    const root = sectionRef.current;
+    const el =
+      (focusNext.key && root?.querySelector<HTMLElement>(`[data-row="${CSS.escape(focusNext.key)}"]`)) ||
+      root?.querySelector<HTMLElement>("[data-add-verse]");
+    el?.focus({ preventScroll: true });
+    setFocusNext(null);
+  }, [focusNext, rows]);
+  const focusAfter = (key: string | null) => setFocusNext({ key });
   async function remove(a: NoteAnchor) {
     const at = marked.findIndex((r) => r.anchor.id === a.id);
     const next = marked[at + 1] ?? marked[at - 1] ?? text.at(-1);
@@ -172,6 +176,21 @@ export function ReferencesOverview({
     return () => ro.disconnect();
   }, [collapsed, empty]);
 
+  // A pane too narrow for one line per row (large text, a slim panel):
+  // the phone's two lines. Width in rem, so 200% text gets there too
+  const [narrow, setNarrow] = useState(false);
+  useLayoutEffect(() => {
+    const section = sectionRef.current;
+    if (!section || mobile) return;
+    const ro = new ResizeObserver(() => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setNarrow(section.clientWidth / rem < 36);
+    });
+    ro.observe(section);
+    return () => ro.disconnect();
+  }, [mobile]);
+  const stacked = mobile || narrow;
+
   // Said to a screen reader when "Show in text" has moved focus to a chip
   const [said, setSaid] = useState("");
 
@@ -205,6 +224,7 @@ export function ReferencesOverview({
       <button
         type="button"
         aria-expanded={false}
+        data-refs-collapsed=""
         // Keeps the editor's focus (and the phone keyboard) while it opens
         onMouseDown={(e) => e.preventDefault()}
         onClick={onExpand}
@@ -227,6 +247,8 @@ export function ReferencesOverview({
     let label: string;
     let full: string;
     let snippet = "";
+    // A note about the text, not its words: UI font
+    let plain = false;
     let source = "";
     let read: () => void;
     let readName = t("note.readPassage");
@@ -248,6 +270,7 @@ export function ReferencesOverview({
       const got = chapter !== undefined ? refSnippet(r, chapter, SNIPPET_MAX) : null;
       if (got === "notInTranslation") {
         snippet = t("note.notInShort", { abbr: readingAbbr });
+        plain = true;
         if (web) {
           source = t("note.readIn", { abbr: web.abbreviation });
           readName = source;
@@ -322,16 +345,16 @@ export function ReferencesOverview({
 
     const labelEl = <span className="font-sans text-list font-medium whitespace-nowrap text-primary tabular-nums">{label}</span>;
     // Quoted scripture: roman, never italic (Mads)
-    const snippetEl = <span className="min-w-0 truncate font-serif text-list text-muted-foreground">{snippet}</span>;
+    const face = plain ? "font-sans" : "font-serif";
+    const snippetEl = <span className={cn("min-w-0 truncate text-list text-muted-foreground", face)}>{snippet}</span>;
     const sourceEl = <span className="font-sans text-meta whitespace-nowrap text-muted-foreground">{source}</span>;
 
-    return mobile ? (
-      // Phone: two lines (label · translation / snippet), fixed height
-      <li key={row.key} className={cn("group flex items-center gap-1 rounded", pressed ? "bg-accent" : "active:bg-accent")}>
+    return stacked ? (
+      // Phone, or a narrow pane (large text): two lines (label · translation / snippet), fixed height
+      <li key={row.key} className={cn("group flex items-center gap-1 rounded", pressed ? "bg-accent" : mobile ? "active:bg-accent" : "hover:bg-accent")}>
         <button
           type="button"
           data-row={row.key}
-          aria-label={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}
           className={cn("flex h-13 min-w-0 flex-1 flex-col justify-center rounded px-1.5 text-left", focusRing)}
@@ -340,7 +363,8 @@ export function ReferencesOverview({
             {labelEl}
             {source && <span className="truncate font-sans text-meta text-muted-foreground">· {source}</span>}
           </span>
-          <span className="block h-5 min-w-0 truncate font-serif text-list text-muted-foreground">{snippet}</span>
+          <span className={cn("block h-5 min-w-0 truncate text-list text-muted-foreground", face)}>{snippet}</span>
+          <span className="sr-only">. {readName}</span>
         </button>
         {showText}
         {action}
@@ -353,15 +377,19 @@ export function ReferencesOverview({
         <button
           type="button"
           data-row={row.key}
-          title={readName}
-          aria-label={`${full}: ${readName}`}
+          title={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}
           className={cn("col-span-3 grid h-8 grid-cols-subgrid items-baseline rounded px-1.5 text-left pointer-coarse:h-11", focusRing)}
         >
+          {/* Named by what it shows (label, words, translation), then what
+              it does */}
           {labelEl}
           {snippetEl}
-          {sourceEl}
+          <span className="flex items-baseline">
+            {sourceEl}
+            <span className="sr-only">. {readName}</span>
+          </span>
         </button>
         <span className="flex items-center justify-end">
           {showText}
@@ -374,17 +402,22 @@ export function ReferencesOverview({
 
   const group = (title: string, items: OverviewRow[]) => {
     const list = (
-      <ul aria-label={both ? undefined : t("note.references")} className={cn(!mobile && "col-span-full grid grid-cols-subgrid", mobile && "flex flex-col")}>
+      <ul aria-label={both ? undefined : t("note.references")} className={cn(!stacked && "col-span-full grid grid-cols-subgrid", stacked && "flex flex-col")}>
         {items.map(renderRow)}
       </ul>
     );
-    return both ? (
-      <div key={title} role="group" aria-label={title} className={cn(!mobile && "col-span-full grid grid-cols-subgrid")}>
-        <h4 className="col-span-full px-1.5 pt-1.5 pb-0.5 font-sans text-meta text-muted-foreground">{title}</h4>
+    // One shape either way (the subhead comes and goes): React keeps the
+    // rows, and focus in them, when a group appears or empties
+    return (
+      <div
+        key={title}
+        role={both ? "group" : undefined}
+        aria-label={both ? title : undefined}
+        className={cn(!stacked && "col-span-full grid grid-cols-subgrid")}
+      >
+        {both && <h4 className="col-span-full px-1.5 pt-1.5 pb-0.5 font-sans text-meta text-muted-foreground">{title}</h4>}
         {list}
       </div>
-    ) : (
-      <div key={title} className={cn(!mobile && "col-span-full grid grid-cols-subgrid")}>{list}</div>
     );
   };
 
@@ -402,11 +435,11 @@ export function ReferencesOverview({
           </p>
         ) : (
           <ScrollArea className="min-h-0 flex-1" viewportClassName={mobile ? "max-h-[inherit]" : undefined}>
-            <div data-measure="body">
+            <div data-measure="body" className={cn(stacked && "pr-2.5")}>
               <div
                 className={cn(
-                  !mobile && "grid grid-cols-[minmax(5.5rem,auto)_minmax(0,1fr)_auto_auto_auto] gap-x-2.5",
-                  mobile && "flex flex-col",
+                  !stacked && "grid grid-cols-[minmax(5.5rem,auto)_minmax(0,1fr)_auto_auto_auto] gap-x-2.5",
+                  stacked && "flex flex-col",
                 )}
               >
                 {text.length > 0 && group(t("note.groupText"), text)}
