@@ -102,6 +102,7 @@ export class ApiBibleProvider implements ScriptureProvider {
       copyright: data.copyright?.trim() || undefined,
       // Kept with the cached chapter: every later view of it reports this
       fumsToken: meta?.fumsToken || undefined,
+      source: 'api.bible',
     };
   }
 

@@ -491,15 +491,15 @@ const da: typeof en = {
     },
   },
   support: {
-    follow: "Følg @{{handle}}",
-    chat: "Kom med i gruppechatten",
+    follow: "Følg på Instagram (@{{handle}})",
+    chat: "Kom med i gruppechatten på Instagram",
     settings: "Støt biblestdy",
   },
   copyright: {
     metaTitle: "Ophavsret — biblestdy",
     title: "Bibeltekst og ophavsret",
     intro:
-      "biblestdy viser disse bibeloversættelser uændret, med tilladelse fra rettighedshaverne. Her er hver enkelts ophavsretsoplysning, med rettighedshaverens egne ord:",
+      "biblestdy viser disse bibeloversættelser uændret, med tilladelse fra rettighedshaverne. Her er hver oversættelses oplysning, med rettighedshaverens egen tekst citeret som den er givet (på engelsk):",
     loading: "Henter…",
     loadError: "Kunne ikke hente de fulde ophavsretsoplysninger. Prøv igen om lidt.",
     quotations: "Skriftsteder mærket {{abbr}} er fra {{name}}.",
@@ -515,6 +515,7 @@ const da: typeof en = {
       "Licenserne tillader at kopiere eller udskrive op til 100 vers ad gangen. Når et kapitel vises, får API.Bible anonymt besked om hvilket, så rettighedshaverne kan se hvordan deres tekst bliver læst (se Privatliv).",
     newTab: "(åbner i en ny fane)",
     back: "Tilbage",
+    backTo: "Tilbage til {{ref}}",
     link: "Ophavsret",
     linkFor: "Ophavsret og kilder for {{abbr}}",
     via: "Tekst via API.Bible",
@@ -599,8 +600,11 @@ const da: typeof en = {
     trackBody:
       "Ingen sporing, ingen analyse, ingen reklamer, ingen cookies ud over sessionen der holder dig logget ind. Dine data sælges aldrig. Intet om dig deles med nogen — de anonyme læsetal herunder er det eneste der sendes videre.",
     fumsTitle: "Bibeltekst og læsetal",
+    fumsLead: "Vi fortæller API.Bible hvilke kapitler der bliver læst — aldrig hvem der læser dem.",
+    fumsWhy:
+      "Den licenserede bibeltekst kommer fra API.Bible (American Bible Society, USA). Deres vilkår kræver at hvert kapitel der vises, bliver talt, så rettighedshaverne kan se hvordan deres oversættelse bliver læst.",
     fumsBody:
-      "Den licenserede bibeltekst kommer fra API.Bible (American Bible Society, USA). Deres vilkår kræver at hvert kapitel der vises, bliver talt, så rettighedshaverne kan se hvordan deres oversættelse bliver læst. Vores server — ikke din browser — fortæller API.Bibles Fair Use-system at et kapitel er vist: en kode for kapitlet og to tilfældige id'er som serveren danner ud fra dit login (ét pr. enhed, ét pr. dag), og som ingen andre kan føre tilbage til dig. Aldrig din e-mail, dit navn, din IP-adresse eller noget du skriver, og intet gemmes på din enhed til det. Retsgrundlag: vores legitime interesse i at måtte vise teksten.",
+      "Vores server — ikke din browser — fortæller API.Bibles Fair Use-system at et kapitel er vist: en kode for kapitlet og to tilfældige id'er som serveren danner ud fra dit login (ét pr. enhed, ét pr. dag), og som ingen andre kan føre tilbage til dig. Aldrig din e-mail, dit navn, din IP-adresse eller noget du skriver, og intet gemmes på din enhed til det. Retsgrundlag: vores legitime interesse i at måtte vise teksten.",
     deleteTitle: "Sletning af dine data",
     deleteBody:
       "Du kan til enhver tid slette din konto fra indstillingerne inde i appen. Sletningen sker med det samme og fjerner alt du nogensinde har gemt.",
@@ -671,7 +675,7 @@ const da: typeof en = {
     undoFailed: "Kunne ikke fortryde \u2014 det er måske slettet for altid",
     signOutFailed: "Kunne ikke logge ud \u2014 tjek din forbindelse",
     copyFailed: "Kunne ikke kopiere",
-    copyLimit: "Du kan kopiere op til 100 vers ad gangen \u2014 oversættelsens licens tillader ikke mere. Markér et kortere stykke.",
+    copyLimit: "Du kan kopiere op til 100 vers ad gangen \u2014 vilkårene for bibelteksten her tillader ikke mere. Markér et kortere stykke.",
   },
   error: {
     title: "Noget gik galt",

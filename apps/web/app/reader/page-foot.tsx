@@ -59,7 +59,7 @@ export function PageFoot({
   credit?: string[];
   /** Where the credit leads: the translation's entry on the copyright page
    * (ToS §7.2), and its accessible name's tail. */
-  creditLink?: { href: string; more: string };
+  creditLink?: { href: string; more: string; from?: string };
   /** The text's source, cited last on the credit line as an outside link
    * (API.Bible Starter plan). Never dropped for room. */
   source?: { label: string; href: string; more: string };
@@ -186,9 +186,13 @@ export function CreditParts({
   parts,
   link,
   source,
+  ownLine = false,
 }: {
+  /** Phones: the source on a line of its own, a target apart from the
+   * credit (a mis-tap there leaves the app). */
+  ownLine?: boolean;
   parts: string[];
-  link?: { href: string; more: string };
+  link?: { href: string; more: string; from?: string };
   source?: { label: string; href: string; more: string };
 }) {
   // Parts kept whole, except the last (a long copyright wraps inside
@@ -203,17 +207,23 @@ export function CreditParts({
     <>
       {parts.length > 0 &&
         (link ? (
-          <Link to={link.href} className={CREDIT_LINK}>
+          <Link to={link.href} state={link.from ? { from: link.from } : undefined} className={CREDIT_LINK}>
+            {/* What it leads to first, then the notice (a links list reads the start) */}
+            <span className="sr-only">{link.more}: </span>
             {own}
-            <span className="sr-only"> — {link.more}</span>
           </Link>
         ) : (
           own
         ))}
       {source && (
         <>
-          {parts.length > 0 && "\u00a0·\u00a0"}
-          <a href={source.href} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap")}>
+          {parts.length > 0 && !ownLine && "\u00a0·\u00a0"}
+          <a
+            href={source.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(CREDIT_LINK, "whitespace-nowrap", ownLine && "mt-2 block w-fit py-1")}
+          >
             {source.label}
             <span className="sr-only"> {source.more}</span>
           </a>
@@ -223,8 +233,12 @@ export function CreditParts({
   );
 }
 
-/** Quiet as the line it sits in: underlined on hover/focus only. */
-const CREDIT_LINK = cn("rounded-sm underline-offset-2 hover:text-foreground hover:underline", focusRing);
+/** Quiet as the line it sits in: underlined on hover with a mouse; on
+ * touch (no hover to find it) a faint underline always shows it's a link. */
+const CREDIT_LINK = cn(
+  "rounded-sm box-decoration-clone underline-offset-2 hover:text-foreground hover:underline pointer-coarse:underline pointer-coarse:decoration-muted-foreground/40",
+  focusRing,
+);
 
 /** "a · b": each part kept whole when the line wraps (after a dot); a
  * part longer than the line (`wrapLong`) wraps inside itself instead. */

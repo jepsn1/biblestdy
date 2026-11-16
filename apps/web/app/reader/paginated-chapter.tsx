@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
+import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, translationInfo, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
@@ -913,16 +913,22 @@ export function PaginatedChapter({
   const copyright = chapter.copyright && /^public domain$/i.test(chapter.copyright.trim())
     ? t("reader.publicDomain")
     : chapter.copyright;
-  const credit = [translation.name, copyright].filter((part): part is string => !!part);
+  // The name only where the notice doesn't already say it (NIV's and NKJV's
+  // do; BPH's "© 2015 by Biblica" and "Public domain" don't): one wording
+  // at every width
+  const named = (n: string) => !!chapter.copyright && chapter.copyright.toLowerCase().includes(n.toLowerCase());
+  const nameInNotice = named(translationInfo(translation.abbreviation)?.name ?? translation.name) || named(translation.name);
+  const credit = [nameInNotice ? null : translation.name, copyright].filter((part): part is string => !!part);
   // The credit leads to the translation's full copyright entry (ToS §7.2);
   // the text's source is cited after it (API.Bible Starter plan)
   const creditLink = {
     href: `/copyright#${encodeURIComponent(translation.abbreviation)}`,
     more: t("copyright.linkFor", { abbr: translation.abbreviation }),
+    // The copyright page's Back names it: "Back to John 3"
+    from: `${nameOf(chapter.book)} ${chapter.chapter}`,
   };
-  // (a FUMS token = the text came from API.Bible; fixtures carry none)
-  const source = chapter.fumsToken
-    ? { label: "API.Bible", href: API_BIBLE_URL, more: t("copyright.newTab") }
+  const source = chapter.source === "api.bible"
+    ? { label: t("copyright.via"), href: API_BIBLE_URL, more: t("copyright.newTab") }
     : undefined;
   /** ":1–11" — the verses on this page (one verse: ":16"); "," in Danish. */
   const verseSpan = pageVerses
@@ -1222,7 +1228,7 @@ export function PaginatedChapter({
    * (their foot has no credit line). The foot's Next goes on. */
   const chapterEnd = (
     <p className="mt-10 font-sans text-meta text-muted-foreground">
-      <CreditParts parts={credit} link={creditLink} source={source} />
+      <CreditParts parts={credit} link={creditLink} source={source} ownLine />
     </p>
   );
 

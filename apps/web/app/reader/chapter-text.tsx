@@ -14,6 +14,7 @@ import { authClient } from "~/lib/auth-client";
 import { bookLocale } from "~/lib/book-name";
 import type { ReaderTool } from "./tool-palette";
 import { notifyCopied, notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
+import { showVerses } from "~/lib/print-limit";
 import { cn, focusField, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { anchorReferenceLabel, canCopy, formatCopy } from "./copy-attribution";
@@ -268,6 +269,8 @@ export function ChapterText({
       words: new Map(shown.map((v) => [v.verse, words(v.text).length])),
     };
   }, [chapter, spanFrom, spanTo]);
+  // The print limit counts what this block shows (lib/print-limit)
+  useEffect(() => showVerses(verseIdx.order.length), [verseIdx]);
   const tabVerse =
     rovingVerse !== null && verseIdx.words.has(rovingVerse) ? rovingVerse : verseIdx.order[0];
   /** Verse whose number has keyboard focus (focus-visible): its words get a

@@ -7,6 +7,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { API_BIBLE_URL } from "~/lib/app-info";
 import i18n from "~/lib/i18n";
 import { api } from "~/lib/query";
+import { cn, focusRing } from "~/lib/utils";
 
 /**
  * Public copyright page (API.Bible ToS §7.1) — NO auth: the landing page's
@@ -31,6 +32,9 @@ const FALLBACK: Translation[] = Object.entries(TRANSLATION_INFO).map(([abbreviat
   name: info.name,
   abbreviation,
   language: abbreviation === "BPH" ? "da" : "en",
+  // Offline: the terms' short form ("NIV © Biblica 2011"); the full lines
+  // come from the metadata
+  copyright: info.rights.en === "Public domain" ? "PUBLIC DOMAIN" : `${abbreviation} ${info.rights.en}`,
 }));
 
 export default function Copyright() {
@@ -50,24 +54,55 @@ export default function Copyright() {
   );
 
   // Arriving from a credit line (#NIV): bring that entry into view
-  const hash = decodeURIComponent(location.hash.slice(1));
+  // (and focus its heading, so a screen reader starts there too); no hash:
+  // focus the page's heading. A mangled hash is just no hash.
+  let hash = "";
+  try {
+    hash = decodeURIComponent(location.hash.slice(1));
+  } catch {
+    // keep ""
+  }
   useEffect(() => {
-    if (!hash || sorted.length === 0) return;
-    document.getElementById(hash)?.scrollIntoView({ block: "start" });
+    if (sorted.length === 0) return;
+    const entry = hash ? document.getElementById(hash) : null;
+    entry?.scrollIntoView({ block: "start" });
+    const heading = entry?.querySelector<HTMLElement>("h2") ?? document.getElementById("copyright-title");
+    heading?.focus({ preventScroll: true });
   }, [hash, sorted.length]);
 
-  // Came here from inside the app: back returns there (the reader's place)
+  // Came here from inside the app: back returns there (the reader's place,
+  // named when the credit line passed it: "Back to John 3")
   const inApp = location.key !== "default";
+  const from = (location.state as { from?: unknown } | null)?.from;
+  const back = inApp ? (
+    <button
+      type="button"
+      onClick={() => void navigate(-1)}
+      className={cn("-ml-2 inline-flex min-h-11 items-center rounded-md px-2 text-control text-muted-foreground hover:text-foreground", focusRing)}
+    >
+      ← {typeof from === "string" ? t("copyright.backTo", { ref: from }) : t("copyright.back")}
+    </button>
+  ) : (
+    <Link to="/" className={cn("-ml-2 inline-flex min-h-11 items-center rounded-md px-2 text-control text-muted-foreground hover:text-foreground", focusRing)}>
+      ← {t("privacy.backToApp")}
+    </Link>
+  );
 
   return (
     <main className="h-dvh overflow-hidden">
       <ScrollArea className="h-full">
         <div className="mx-auto max-w-xl px-6 py-12">
-          <Link to="/" className="mb-10 flex select-none items-baseline gap-1.5">
-            <span className="font-mono text-reading font-semibold tracking-tight text-primary">biblestdy</span>
-          </Link>
+          {/* The way back first: a tap on a credit line lands here */}
+          <div className="mb-8 flex items-center justify-between gap-4">
+            {back}
+            <Link to="/" className="flex select-none items-baseline gap-1.5">
+              <span className="font-mono text-reading font-semibold tracking-tight text-primary">biblestdy</span>
+            </Link>
+          </div>
 
-          <h1 className="font-serif text-title font-medium">{t("copyright.title")}</h1>
+          <h1 id="copyright-title" tabIndex={-1} className="font-serif text-title font-medium outline-none">
+            {t("copyright.title")}
+          </h1>
           <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("copyright.intro")}</p>
 
           {query.isPending && (
@@ -85,8 +120,14 @@ export default function Copyright() {
             const info = translationInfo(tr.abbreviation);
             const vars = { abbr: tr.abbreviation, name: tr.name };
             return (
-              <section key={tr.id} id={tr.abbreviation} className="mt-8 scroll-mt-6">
-                <h2 className="font-serif text-reading font-medium">
+              // The entry the credit line led to is marked (a rule, no motion)
+              <section
+                key={tr.id}
+                id={tr.abbreviation}
+                data-current={tr.abbreviation === hash || undefined}
+                className="mt-8 scroll-mt-6 data-current:-ml-4 data-current:border-l-2 data-current:border-primary data-current:pl-3.5"
+              >
+                <h2 tabIndex={-1} className="font-serif text-reading font-medium outline-none">
                   {info?.name ?? tr.name} <span className="font-mono text-control text-muted-foreground">({tr.abbreviation})</span>
                 </h2>
                 {isPublicDomain(tr) ? (
@@ -96,10 +137,15 @@ export default function Copyright() {
                 ) : (
                   <>
                     <p className="mt-2 text-control leading-relaxed text-muted-foreground">
-                      {t("copyright.quotations", vars)}{" "}
-                      {/* The holder's own words, as the metadata gives them */}
-                      {tr.copyright && <span lang="en">{tr.copyright}</span>}
+                      {t("copyright.quotations", vars)}
                     </p>
+                    {/* The holder's own words, verbatim from the metadata —
+                        set apart from our sentences around them */}
+                    {tr.copyright && (
+                      <blockquote lang="en" className="mt-2 border-l-2 border-border pl-3 text-control leading-relaxed text-foreground">
+                        {tr.copyright}
+                      </blockquote>
+                    )}
                     <p className="mt-2 text-control leading-relaxed text-muted-foreground">
                       {/* The template's "Used by permission. All rights
                           reserved." unless the holder's line says it already */}
@@ -144,19 +190,7 @@ export default function Copyright() {
             <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("copyright.limits")}</p>
           </section>
 
-          {inApp ? (
-            <button
-              type="button"
-              onClick={() => void navigate(-1)}
-              className="mt-12 block text-meta text-muted-foreground hover:text-foreground"
-            >
-              ← {t("copyright.back")}
-            </button>
-          ) : (
-            <Link to="/" className="mt-12 block text-meta text-muted-foreground hover:text-foreground">
-              ← {t("privacy.backToApp")}
-            </Link>
-          )}
+          <div className="mt-12">{back}</div>
         </div>
       </ScrollArea>
     </main>

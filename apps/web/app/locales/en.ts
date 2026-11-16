@@ -451,15 +451,15 @@ export default {
     },
   },
   support: {
-    follow: "Follow @{{handle}}",
-    chat: "Join the group chat",
+    follow: "Follow on Instagram (@{{handle}})",
+    chat: "Join the group chat on Instagram",
     settings: "Support biblestdy",
   },
   copyright: {
     metaTitle: "Copyright — biblestdy",
     title: "Bible text and copyright",
     intro:
-      "biblestdy shows these Bible translations unaltered, by permission of their rights holders. Each one's copyright notice, in the holder's own words:",
+      "biblestdy shows these Bible translations unaltered, by permission of their rights holders. Each translation's notice, with its rights holder's own line quoted as given:",
     loading: "Loading…",
     loadError: "Couldn’t load the full copyright notices. Try again in a moment.",
     quotations: "Scripture quotations marked {{abbr}} are taken from the {{name}}.",
@@ -475,6 +475,7 @@ export default {
       "The licences allow copying or printing up to 100 verses at a time. When a chapter is shown, API.Bible is told anonymously which one, so the rights holders can see how their text is read (see Privacy).",
     newTab: "(opens in a new tab)",
     back: "Back",
+    backTo: "Back to {{ref}}",
     link: "Copyright",
     linkFor: "{{abbr}} copyright and sources",
     via: "Text via API.Bible",
@@ -559,8 +560,11 @@ export default {
     trackBody:
       "No tracking, no analytics, no advertising, no cookies beyond the session that keeps you signed in. Your data is never sold. Nothing about you is shared with anyone — the anonymous reading counts below are all that leaves.",
     fumsTitle: "Bible text and reading counts",
+    fumsLead: "We tell API.Bible which chapters are read — never who reads them.",
+    fumsWhy:
+      "The licensed Bible text comes from API.Bible (American Bible Society, USA). Its terms require that each chapter shown is counted, so the rights holders can see how their translation is read.",
     fumsBody:
-      "The licensed Bible text comes from API.Bible (American Bible Society, USA). Its terms require that each chapter shown is counted, so the rights holders can see how their translation is read. Our server — not your browser — tells API.Bible's Fair Use system that a chapter was shown: a code for the chapter and two random IDs our server derives from your sign-in (one per device, one per day), which no one else can link to you. Never your email, name, IP address or anything you write, and nothing is stored on your device for it. Legal basis: our legitimate interest in being allowed to show the text.",
+      "Our server — not your browser — tells API.Bible's Fair Use system that a chapter was shown: a code for the chapter and two random IDs our server derives from your sign-in (one per device, one per day), which no one else can link to you. Never your email, name, IP address or anything you write, and nothing is stored on your device for it. Legal basis: our legitimate interest in being allowed to show the text.",
     deleteTitle: "Deleting your data",
     deleteBody:
       "You can delete your account at any time from the settings inside the app. Deletion is immediate and removes everything you ever stored.",
@@ -631,7 +635,7 @@ export default {
     undoFailed: "Couldn\u2019t undo \u2014 it may have been deleted for good",
     signOutFailed: "Couldn\u2019t log out \u2014 check your connection",
     copyFailed: "Couldn\u2019t copy",
-    copyLimit: "You can copy up to 100 verses at a time \u2014 the translation\u2019s licence allows no more. Select a shorter passage.",
+    copyLimit: "You can copy up to 100 verses at a time \u2014 the terms for the Bible text here allow no more. Select a shorter passage.",
   },
   error: {
     title: "Something went wrong",

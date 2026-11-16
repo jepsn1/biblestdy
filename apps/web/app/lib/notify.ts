@@ -139,7 +139,7 @@ export function notifyCopied(reference: string, translation: string) {
 /** Copy refused: over the licences' 100-verse limit (ToS §12). Calm, no
  * error styling — nothing went wrong. */
 export function notifyCopyLimit() {
-  toast(i18n.t("toast.copyLimit"));
+  toast(i18n.t("toast.copyLimit"), { duration: 8000 }); // long enough to read
 }
 
 /** Copy failed (clipboard blocked / no permission). */

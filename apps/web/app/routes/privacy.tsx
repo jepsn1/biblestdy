@@ -47,12 +47,12 @@ export default function Privacy() {
 
           <section className="mt-8">
             <h2 className="font-serif text-reading font-medium">{t("privacy.fumsTitle")}</h2>
-            <p className="mt-2 text-control leading-relaxed text-muted-foreground">
-              {t("privacy.fumsBody")}{" "}
-              <Link to="/copyright" className="text-primary hover:underline">
-                {t("copyright.title")}
-              </Link>
-            </p>
+            <p className="mt-2 text-control leading-relaxed text-foreground">{t("privacy.fumsLead")}</p>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("privacy.fumsWhy")}</p>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("privacy.fumsBody")}</p>
+            <Link to="/copyright" className="mt-2 inline-block text-control text-primary hover:underline">
+              {t("copyright.title")} →
+            </Link>
           </section>
 
           <section className="mt-8">

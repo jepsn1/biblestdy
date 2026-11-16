@@ -23,6 +23,7 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 
 /** Queue a view; returns whether it counted (false = same view). */
 export function noteView(token: string, now = Date.now()): boolean {
+  for (const [t, at] of lastReported) if (now - at >= SAME_VIEW_MS) lastReported.delete(t);
   const last = lastReported.get(token);
   if (last !== undefined && now - last < SAME_VIEW_MS) return false;
   lastReported.set(token, now);
@@ -53,7 +54,19 @@ function flush() {
 export function useFumsView(chapter: Pick<Chapter, "fumsToken"> | null | undefined) {
   const token = chapter?.fumsToken;
   useEffect(() => {
-    if (token) noteView(token);
+    if (!token) return;
+    // A tab opened in the background isn't read yet: count it once seen
+    if (!document.hidden) {
+      noteView(token);
+      return;
+    }
+    const onShow = () => {
+      if (document.hidden) return;
+      document.removeEventListener("visibilitychange", onShow);
+      noteView(token);
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
   }, [token]);
 }
 

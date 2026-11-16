@@ -30,7 +30,7 @@ import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { notifyError } from "~/lib/notify";
-import { cn } from "~/lib/utils";
+import { cn, focusRing } from "~/lib/utils";
 import { api } from "~/lib/query";
 import { openColorNames } from "./color-names-dialog";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
@@ -401,15 +401,15 @@ function SettingsContent({
       {/* Muted footer line (#62); real bundle version + channel arrive with OTA (#19) */}
       <p className="pt-1 text-meta text-muted-foreground">
         {t("settings.version")} {appVersion} · {appChannel} ·{" "}
-        <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
+        <Link to="/privacy" className={FOOT_LINK}>
           {t("settings.privacy")}
         </Link>{" "}
         ·{" "}
-        <Link to="/copyright" className="underline-offset-2 hover:text-foreground hover:underline">
+        <Link to="/copyright" className={FOOT_LINK}>
           {t("copyright.link")}
         </Link>{" "}
         ·{" "}
-        <a href={API_BIBLE_URL} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">
+        <a href={API_BIBLE_URL} target="_blank" rel="noopener noreferrer" className={FOOT_LINK}>
           {t("copyright.via")}
           <span className="sr-only"> {t("copyright.newTab")}</span>
         </a>
@@ -417,6 +417,9 @@ function SettingsContent({
     </div>
   );
 }
+
+/** Settings' muted footer links: whole items, real targets on phones. */
+const FOOT_LINK = cn("rounded-sm whitespace-nowrap underline-offset-2 hover:text-foreground hover:underline max-sm:inline-block max-sm:py-1.5", focusRing);
 
 /** Delete account (App Store 5.1.1(v)), #62: an AlertDialog that keeps the
  * typed confirm — DELETE /api/account → sign out → /signin. Focus starts in

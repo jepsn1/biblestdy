@@ -64,4 +64,7 @@ export interface Chapter {
    * time the chapter is actually shown (ToS §3.3). Absent = nothing to report
    * (fixtures, other providers). */
   fumsToken?: string
+  /** Where the text came from: 'api.bible' = cite and link API.Bible
+   * wherever it's shown (Starter plan). Absent = fixtures. */
+  source?: 'api.bible'
 }
