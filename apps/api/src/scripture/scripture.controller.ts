@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   NotFoundException,
+  Optional,
   Param,
   ParseIntPipe,
   Req,
@@ -21,6 +22,7 @@ import {
 } from './provider';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import { ReadingQuotaService } from '../reading-quota/service';
+import { fumsSessionKey, IssuedTokens } from '../fums/fums.guard';
 
 /** 429 body: machine-readable reason + wait (PRD #25 API contract). */
 export interface ReadingLimitBody {
@@ -39,6 +41,8 @@ export class ScriptureController {
   constructor(
     @Inject(SCRIPTURE_PROVIDER) private readonly provider: ScriptureProvider,
     private readonly quota: ReadingQuotaService,
+    // Absent in tests that don't exercise FUMS
+    @Optional() @Inject(IssuedTokens) private readonly issued?: IssuedTokens,
   ) {}
 
   @Get('translations')
@@ -83,7 +87,16 @@ export class ScriptureController {
     // Lets the reader read ahead only while the bucket has room (#flow)
     res.setHeader('RateLimit-Remaining', String(outcome.remaining));
     try {
-      return await this.provider.getChapter(translationId, book.id, chapter);
+      const text = await this.provider.getChapter(
+        translationId,
+        book.id,
+        chapter,
+      );
+      // Its views may be reported by this session only (fums.guard.ts)
+      if (text.fumsToken) {
+        this.issued?.record(fumsSessionKey(req.user), text.fumsToken);
+      }
+      return text;
     } catch (err) {
       if (err instanceof ChapterNotFoundError)
         throw new NotFoundException(err.message);

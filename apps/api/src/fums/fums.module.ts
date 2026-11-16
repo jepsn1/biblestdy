@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { Logger, Module } from '@nestjs/common';
 import { FumsController } from './fums.controller';
+import { FumsPacer, IssuedTokens } from './fums.guard';
 import { FumsReporter } from './fums.reporter';
 
 @Module({
@@ -18,6 +19,10 @@ import { FumsReporter } from './fums.reporter';
         });
       },
     },
+    { provide: FumsPacer, useFactory: () => new FumsPacer() },
+    // One ledger: the scripture controller records, the relay checks
+    { provide: IssuedTokens, useFactory: () => new IssuedTokens() },
   ],
+  exports: [IssuedTokens],
 })
 export class FumsModule {}

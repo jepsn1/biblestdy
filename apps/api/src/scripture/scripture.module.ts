@@ -1,5 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { db } from '../db';
+import { FumsModule } from '../fums/fums.module';
 import { DrizzleQuotaStore } from '../reading-quota/drizzle.store';
 import { QuotaPruneSchedule } from '../reading-quota/prune.schedule';
 import { ReadingQuotaService } from '../reading-quota/service';
@@ -12,6 +13,7 @@ import { SCRIPTURE_PROVIDER } from './provider';
 import { ScriptureController } from './scripture.controller';
 
 @Module({
+  imports: [FumsModule],
   controllers: [ScriptureController, CopyrightController, CacheAdminController],
   providers: [
     {
