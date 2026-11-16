@@ -10,6 +10,7 @@ import {
   type Reference,
   type Tag,
 } from "@biblestdy/shared";
+import { referenceLabel } from "~/lib/reference-label";
 import { referenceHref } from "../reader/chapter-nav";
 import { bookQuery, findPassages, reversedBook, typoBooks, type PassageHit } from "./passage-query";
 
@@ -182,16 +183,11 @@ function passageMatch(q: string): string {
   return q.match(/\p{L}+|\d+/gu)?.join(" ") ?? "";
 }
 
+/** A passage as the reader's language writes it ("Salme 23", "Johannes
+ * 3,16"): the app's one reference formatter, so a row reads as the Notes
+ * page and the reader do. */
 function refLabel(ctx: PaletteContext, ref: Reference): string {
-  const name = ctx.bookName(ref.book);
-  if (ref.chapter === undefined) return name;
-  if (ref.verse === undefined) return `${name} ${ref.chapter}`;
-  const sep = ctx.locale === "da" ? "," : ":";
-  let out = `${name} ${ref.chapter}${sep}${ref.verse}`;
-  if (ref.endVerse !== undefined) {
-    out += ref.endChapter !== undefined && ref.endChapter !== ref.chapter ? `–${ref.endChapter}${sep}${ref.endVerse}` : `–${ref.endVerse}`;
-  }
-  return out;
+  return referenceLabel(ref, ctx.bookName, ctx.locale);
 }
 
 /** The anchor a row shows and opens: the one that matched the typed passage,
