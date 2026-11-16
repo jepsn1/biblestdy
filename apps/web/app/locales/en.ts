@@ -99,8 +99,6 @@ export default {
     nextInto: "Next: {{ref}}",
     pageOf: "Page {{page}} of {{count}}",
     announce: "{{ref}}, page {{page}} of {{count}}",
-    otherVersions_one: "{{count}} note in other translations",
-    otherVersions_other: "{{count}} notes in other translations",
     publicDomain: "Public domain",
   },
   tools: {
@@ -216,6 +214,7 @@ export default {
     topics: "Topics here",
     newNote: "New note",
     allNotes: "All notes",
+    writtenIn: "Written in {{abbr}}",
   },
   tags: {
     add: "+ Add topic",

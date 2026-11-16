@@ -44,8 +44,9 @@ import { ChapterStrip } from "./chapter-strip";
 import { notePage } from "~/lib/recent-passages";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
-import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
-import { markStartSelector } from "./spotlight";
+import { noteMarksInChapter } from "./note-marks";
+import { useAllNotesQuery, useNotes } from "./use-notes";
+import { markStartSelector, noteMarkId } from "./spotlight";
 import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
 import { turnStill } from "./turn-still";
@@ -143,6 +144,7 @@ export function useScrollMode() {
 export function PaginatedChapter({
   chapter,
   translation,
+  translations,
   heading,
   prevChapter,
   nextChapter,
@@ -154,6 +156,8 @@ export function PaginatedChapter({
 }: {
   chapter: Chapter;
   translation: Translation;
+  /** Every translation (names "Written in WEB" in the Notes panel, #159). */
+  translations: Translation[];
   heading: string;
   /** Neighbouring chapters, across book boundaries (#52); null at the ends. */
   prevChapter: ChapterRef | null;
@@ -277,17 +281,7 @@ export function PaginatedChapter({
   const placePage = useRef<number | null>(null);
   const restoring = useRef(false);
   const layoutSig = useRef("");
-  const noteMarks = noteMarksInChapter(
-    notesApi.notes,
-    chapter.translationId,
-    chapter.book,
-    chapter.chapter,
-  );
-  const otherVersionCounts = useOtherVersionCounts(
-    chapter.translationId,
-    chapter.book,
-    chapter.chapter,
-  );
+  const noteMarks = noteMarksInChapter(notesApi.notes, chapter);
   // ?note=<id> keeps the panel open across chapter navigation (references
   // table jumps); ?mark=<mark id> flips to the linked span and flashes it.
   const openNoteId = sideView !== null && sideView !== "connections" ? sideView : null;
@@ -595,10 +589,11 @@ export function PaginatedChapter({
       setSelectedMarkId(null);
       return;
     }
+    // Another translation's anchor here is drawn at verse level (#159)
     const here =
-      a.translationId === chapter.translationId &&
       a.book === chapter.book &&
-      a.chapter === chapter.chapter;
+      a.chapter === chapter.chapter &&
+      (a.translationId === chapter.translationId || noteMarks.some((m) => noteMarkId(m) === markId));
     // A mark in the verses the page before carried (#flow): open the
     // chapter whole, where it is
     if (here && (flowFrom === null || a.startVerse >= flowFrom)) jumpToMark(markId);
@@ -1263,7 +1258,6 @@ export function PaginatedChapter({
       annotations={annotationsApi.annotations}
       noteMarks={noteMarks}
       allNotes={allNotes}
-      otherVersionCounts={otherVersionCounts}
       activeAnnotationId={activeAnnotationId}
       selectedMarkId={selectedMarkId}
       mobile={scrollMode}
@@ -1596,6 +1590,7 @@ export function PaginatedChapter({
           <ResizablePanel id="connections" defaultSize="24%" minSize="16rem" maxSize="40%">
             <ConnectionsPanel
               translationId={chapter.translationId}
+              translations={translations}
               book={chapter.book}
               chapter={chapter.chapter}
               onOpenNote={setOpenNoteId}
@@ -1642,6 +1637,7 @@ export function PaginatedChapter({
             >
               <ConnectionsPanel
                 translationId={chapter.translationId}
+                translations={translations}
                 book={chapter.book}
                 chapter={chapter.chapter}
                 onOpenNote={setOpenNoteId}

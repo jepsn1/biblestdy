@@ -30,7 +30,7 @@ import {
   SELECTION_UI_ATTR,
   type VirtualAnchor,
 } from "./selection-menu";
-import type { NoteMark } from "./use-notes";
+import type { NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
@@ -104,7 +104,6 @@ export function ChapterText({
   annotations,
   noteMarks,
   allNotes,
-  otherVersionCounts,
   activeAnnotationId,
   selectedMarkId,
   onAddHighlight,
@@ -146,8 +145,6 @@ export function ChapterText({
   noteMarks: NoteMark[];
   /** Every note of the user — the attach-an-existing-note picker. */
   allNotes: Note[];
-  /** verse -> count of the user's notes on OTHER translations (#11). */
-  otherVersionCounts: Map<number, number>;
   activeAnnotationId: string | null;
   /** Mark of the reference selected in the note panel — the rest of the page
    * dims slightly so the spotlight state is legible. */
@@ -226,8 +223,11 @@ export function ChapterText({
     chapter.verses,
     [
       ...annotations.map((n) => ({ ...n, value: { id: n.id } })),
-      // Per-anchor identity — a note anchored twice here is two distinct marks
-      ...noteMarks.map((m) => ({ ...m, value: { id: `note:${m.noteId}:${m.id}` } })),
+      // Per-anchor identity — a note anchored twice here is two distinct marks.
+      // Verse-level marks (#159) own no words: only their chip opens them.
+      ...noteMarks
+        .filter((m) => !m.verseLevel)
+        .map((m) => ({ ...m, value: { id: `note:${m.noteId}:${m.id}` } })),
     ].sort((a, b) => spanSize(a) - spanSize(b)),
   );
 
@@ -1016,15 +1016,6 @@ export function ChapterText({
                         <FileText className="size-3" />
                       </button>
                     ))}
-                  {piece.showNumber && (otherVersionCounts.get(v.verse) ?? 0) > 0 && (
-                    // Notes live on their home translation; this bridges versions
-                    <sup
-                      title={t("reader.otherVersions", { count: otherVersionCounts.get(v.verse) })}
-                      className="mr-1 select-none align-super font-sans text-[0.55em] text-muted-foreground"
-                    >
-                      ⁘{otherVersionCounts.get(v.verse)}
-                    </sup>
-                  )}
                   {groupByAnnotation(v.verse, piece.words, annotationCoverage).map((seg, si) => {
                     const active = seg.annotation && seg.annotation.id === activeAnnotationId;
                     const wordSpans = seg.words.map(({ i, text, cut }) => {

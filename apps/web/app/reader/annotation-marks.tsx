@@ -7,7 +7,7 @@ import { cn, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import { lineRuns, placeRailChips, type Rect } from "./ink-geometry";
-import type { NoteMark } from "./use-notes";
+import type { NoteMark } from "./note-marks";
 import { NOTE_OPENER } from "./note-panel";
 import { sameData, useMeasure, useSameData } from "./use-measure";
 import {
@@ -532,8 +532,10 @@ export function AnnotationMarks({
     for (const mark of noteMarks) {
       const markId = `note:${mark.noteId}:${mark.id}`;
       const segs = geo.anchors[markId] ?? [];
-      for (const g of segs)
-        penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: edgeOf(g), colSide: g.side, shape: shapeOf(null, g.lines) });
+      // A verse-level mark (#159) is its chip alone: no ink on the words
+      if (!mark.verseLevel)
+        for (const g of segs)
+          penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: edgeOf(g), colSide: g.side, shape: shapeOf(null, g.lines) });
       const m = onPage(segs)[0];
       if (m) tabs.push({ mark, box: m.box, lines: m.lines, colSide: m.side, firstLineY: m.firstLineY });
     }
