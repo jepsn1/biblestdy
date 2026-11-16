@@ -51,6 +51,7 @@ import { useLocalizer } from "./localizer";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
 import { markStartSelector, noteMarkId, useSpotlightEnd } from "./spotlight";
+import { pageSpan, placeSelector, reflowPage, type Place } from "./reading-place";
 import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
 import { turnStill } from "./turn-still";
@@ -298,8 +299,9 @@ export function PaginatedChapter({
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);
   /** Verses with words on the current page (folio range, #66). */
   const [pageVerses, setPageVerses] = useState<{ first: number; last: number } | null>(null);
-  /** Reading place across reflows (#66): see the effect near the keys. */
-  const readingVerse = useRef<number | null>(null);
+  /** Reading place across reflows (#66): see the effect near the keys. A
+   * word (#203): the page's first verse can start on the page before. */
+  const readingPlace = useRef<Place | null>(null);
   const placePage = useRef<number | null>(null);
   const restoring = useRef(false);
   const layoutSig = useRef("");
@@ -317,6 +319,20 @@ export function PaginatedChapter({
     onSideViewChange(
       id ?? (localStorage.getItem("connectionsOpen") === "1" ? "connections" : null),
     );
+  };
+  /** Open a note from its mark on the page (margin label, the marked words,
+   * a phone marker), at the clicked word or the mark's first (#203). Opening
+   * narrows the sheet to one column: the place moves there first, so the
+   * reflow turns to the page that holds it rather than the old spread's first
+   * verse — and closing (the reflow back) returns to that same spread. */
+  const openNoteAt = (id: string, at?: Place) => {
+    if (at && !scrollMode) {
+      readingPlace.current = at;
+      // The reader moved on from a ?v= target or a ?p=last arrival
+      wantedVerse.current = null;
+      if (wantedPage.current === "last") wantedPage.current = null;
+    }
+    setOpenNoteId(id);
   };
   // ?note=<id> (cross-chapter reference jump) claims the slot on arrival
   const wantedNote = searchParams.get("note");
@@ -698,7 +714,7 @@ export function PaginatedChapter({
     setAnimate(false);
     setPage(wanted === "last" ? 0 : wanted);
     setRovingVerse(null);
-    readingVerse.current = null;
+    readingPlace.current = null;
     placePage.current = null;
     // The reference spotlight ends with its chapter (#190)
     setFlash(null);
@@ -1204,26 +1220,27 @@ export function PaginatedChapter({
     // Arriving backwards (?p=last) holds the LAST page through reflows — the
     // marks loading in widen the lanes and add pages after the first resolve
     const holdLast = wantedPage.current === "last";
-    if (reflow && !holdLast && readingVerse.current !== null && wantedVerse.current === null && !focusedVerse) {
-      const el = verseEl(readingVerse.current);
-      const target = el ? pageOf(el, stride) : null;
-      if (target !== null && target !== page) {
-        const p = Math.min(target, pageCount - 1);
+    if (reflow && !holdLast && readingPlace.current !== null && wantedVerse.current === null && !focusedVerse) {
+      const el = mainRef.current?.querySelector(placeSelector(readingPlace.current));
+      const p = reflowPage(el ? pageOf(el, stride) : null, page, pageCount);
+      if (p !== null) {
         if (typeof wantedPage.current === "number") wantedPage.current = p;
         restoring.current = true;
         setPage(p);
         return;
       }
     }
-    let first: number | null = null;
-    let last: number | null = null;
     const pageAt = pageReader(content, stride);
-    for (const el of mainRef.current?.querySelectorAll<HTMLElement>("[data-verse][data-word]") ?? []) {
-      if (pageAt?.(el) !== page) continue;
-      const v = Number(el.dataset.verse);
-      if (first === null) first = v;
-      last = v;
-    }
+    const span = pageSpan(
+      Array.from(mainRef.current?.querySelectorAll<HTMLElement>("[data-verse][data-word]") ?? [], (el) => ({
+        verse: Number(el.dataset.verse),
+        word: Number(el.dataset.word),
+        page: pageAt?.(el),
+      })),
+      page,
+    );
+    const first = span?.first.verse ?? null;
+    const last = span?.lastVerse ?? null;
     setPageVerses((pv) =>
       first === null || last === null
         ? null
@@ -1234,13 +1251,14 @@ export function PaginatedChapter({
     // A page the reader chose (not our own reflow correction) sets the place:
     // its first verse, or the verse jumped to (?v=) while it is on this page,
     // so switching translation again goes from there (#174: Mal 3,19 → 4:1)
-    if (first !== null && (readingVerse.current === null || (!reflow && !restoring.current && page !== placePage.current))) {
+    if (span && first !== null && (readingPlace.current === null || (!reflow && !restoring.current && page !== placePage.current))) {
       const jumped = wantedVerse.current;
-      readingVerse.current = jumped !== null && last !== null && jumped >= first && jumped <= last ? jumped : first;
+      readingPlace.current =
+        jumped !== null && last !== null && jumped > first && jumped <= last ? { verse: jumped, word: 0 } : span.first;
     }
     placePage.current = page;
     restoring.current = false;
-    if (placeRef) placeRef.current = readingVerse.current;
+    if (placeRef) placeRef.current = readingPlace.current?.verse ?? null;
   }, [scrollMode, stride, resolvedKey, chapterKey, pageCount, layout.columns, textSize, inlineAnnotations, annotationsApi.annotations.length, page, placeRef, fontTick]);
 
   // Off-page controls are inert (no Tab stop on a hidden page); the verse
@@ -1319,7 +1337,7 @@ export function PaginatedChapter({
       onDismissHint={dismissHint}
       onAddNote={(anchor) => void addNote(anchor)}
       onAttachNote={(noteId, anchor) => void notesApi.attach(noteId, anchor)}
-      onOpenNote={setOpenNoteId}
+      onOpenNote={openNoteAt}
       onFocusAnnotation={setActiveAnnotationId}
       tool={scrollMode ? undefined : tool}
       verses={flowFrom !== null ? { from: flowFrom, to: Number.MAX_SAFE_INTEGER } : undefined}
@@ -1393,7 +1411,7 @@ export function PaginatedChapter({
         onEdit={annotationsApi.edit}
         onRemove={annotationsApi.remove}
         onPlace={annotationsApi.place}
-        onOpenNote={setOpenNoteId}
+        onOpenNote={openNoteAt}
       />
     </div>
   );

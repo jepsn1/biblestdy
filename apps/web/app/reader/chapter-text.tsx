@@ -49,6 +49,7 @@ import {
   VERSE_FOCUS,
   verseSel,
 } from "./keyboard-selection";
+import type { Place } from "./reading-place";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -171,7 +172,8 @@ export function ChapterText({
   onRemoveAnnotation: (id: string) => void;
   onAddNote: (anchor: Anchor) => void;
   onAttachNote: (noteId: string, anchor: Anchor) => void;
-  onOpenNote: (id: string) => void;
+  /** `at`: the word the note was opened from — the reader keeps it in view (#203). */
+  onOpenNote: (id: string, at?: Place) => void;
   onFocusAnnotation: (id: string | null) => void;
   /** Desktop tool palette: a tool acts on each selection directly (no menu). */
   tool?: ReaderTool;
@@ -801,7 +803,7 @@ export function ChapterText({
     }
     if (markId?.startsWith("note:")) {
       event.stopPropagation();
-      onOpenNote(markId.split(":")[1]); // "note:<noteId>:<anchorId>" — open the note panel
+      onOpenNote(markId.split(":")[1], { verse: pos.verse, word: pos.word }); // "note:<noteId>:<anchorId>" — open the note panel
       return;
     }
     const plain = markId ? annotations.find((a) => a.id === markId && !a.text) : undefined;
@@ -1092,7 +1094,7 @@ export function ChapterText({
                         title={m.title || t("note.untitled")}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onOpenNote(m.noteId);
+                          onOpenNote(m.noteId, { verse: m.startVerse, word: m.startWord });
                         }}
                         className={cn(
                           // 24px to see, 44px to touch (an invisible ring round it)

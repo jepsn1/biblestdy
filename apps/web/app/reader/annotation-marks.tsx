@@ -20,6 +20,7 @@ import {
   scribblePath,
   underlinePath,
 } from "./scribble";
+import type { Place } from "./reading-place";
 
 /**
  * Pen annotations: every annotation is a circled span plus a draggable, resizable
@@ -313,7 +314,8 @@ export function AnnotationMarks({
     id: string,
     patch: { offsetX?: number; offsetY?: number; width?: number; mark?: AnnotationMark | null },
   ) => void;
-  onOpenNote: (id: string) => void;
+  /** `at`: the mark's first word — the reader keeps it in view (#203). */
+  onOpenNote: (id: string, at?: Place) => void;
 }) {
   // Rebuilt by the caller on every render: only new data re-measures
   const annotations = useSameData(annotationsProp);
@@ -654,7 +656,7 @@ export function AnnotationMarks({
               {...{ [NOTE_OPENER]: m.mark.id }}
               aria-label={t("reader.openNoteNamed", { title })}
               title={title}
-              onClick={() => onOpenNote(m.mark.noteId)}
+              onClick={() => onOpenNote(m.mark.noteId, { verse: m.mark.startVerse, word: m.mark.startWord })}
               className={cn(
                 // 44px to touch on coarse pointers (an invisible ring round it)
                 "pointer-events-auto absolute flex h-6 items-center pointer-coarse:before:absolute pointer-coarse:before:-inset-x-1 pointer-coarse:before:-inset-y-2.5 pointer-coarse:before:content-['']",
