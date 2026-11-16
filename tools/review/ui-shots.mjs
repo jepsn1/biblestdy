@@ -333,15 +333,16 @@ await shot("C4-phone-menu-150", { ...PH, textSize: 150 }, R, async (p) => { awai
 await shot("C4b-compare-phone-150", { ...PH, textSize: 150 }, R, cmpOpenMenu(true));
 await shot("C5-compare-200", { textSize: 200 }, R, async (p) => { await cmpOpenKey(p); }, true);
 await shot("C6-compare-bph-psalm", { lang: "da" }, R, async (p) => {
-  await p.evaluate(() => localStorage.setItem("translationId", "20c3695eb7339cca-01")); await p.goto(BASE + "/read/PSA/51?v=3"); await p.waitForTimeout(2500);
+  await p.context().addInitScript(() => localStorage.setItem("translationId", "20c3695eb7339cca-01")); await p.goto(BASE + "/read/PSA/51?v=3"); await p.waitForTimeout(2500);
   await p.locator('[data-verse-focus="3"]').first().click(); await p.waitForTimeout(900); await p.getByRole("menuitem", { name: CMP }).first().click(); await p.waitForTimeout(3500);
-  must(/Versene har andre numre her: 51,3 i BPH/.test(await cmpDialog(p).innerText()), "no numbering note");
+  const txt = await cmpDialog(p).innerText(); must(/Versene har andre numre her: 51,3 i BPH/.test(txt), `no numbering note: ${txt.replace(/\n/g, " | ").slice(0, 400)}`);
 }, true);
 await shot("C7-compare-limit", {}, R, async (p) => {
   await p.route("**/api/passages/63097d2a0a2f7db3-01/**", (r) => r.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ reason: "daily", retryAfterSeconds: 40000 }) }));
   await cmpOpenKey(p);
   must(/NKJV can.t be shown right now\. Try again tomorrow\./.test(await cmpDialog(p).innerText()), "no limit message in the NKJV block");
   must((await cmpDialog(p).locator("section h3", { hasText: "NIV" }).count()) === 1, "other blocks gone");
+  await cmpDialog(p).locator("section", { hasText: "can’t be shown" }).scrollIntoViewIfNeeded(); await p.waitForTimeout(400);
 }, true);
 await shot("C8-palette-compare", {}, R, async (p) => {
   await palette("compare rom 8:28")(p); await snap(p, "C8a-palette-compare-row"); await p.keyboard.press("Enter"); await p.waitForTimeout(3500);

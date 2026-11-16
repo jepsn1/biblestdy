@@ -29,7 +29,9 @@ export function PassageText({
   useEffect(() => showVerses(count), [count]);
 
   return (
-    <div data-scripture lang={language} className="max-w-[62ch] font-serif text-reading leading-[1.6] text-foreground">
+    // No native selection (as in the reader): copying goes through Copy /
+    // Copy all, which carry the reference, the rights line and the 100-verse cap
+    <div data-scripture lang={language} className="max-w-[62ch] font-serif text-reading leading-[1.6] text-foreground select-none">
       {parts.map((part, pi) => {
         const newChapter = pi > 0 && parts[pi - 1].chapter.chapter !== part.chapter.chapter;
         return passageLines(part.chapter, { from: part.from, to: part.to }).map((block, bi) => (

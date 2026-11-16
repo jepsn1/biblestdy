@@ -143,7 +143,7 @@ export function ActionMenu({
 /** A bottom fade while a scroll area has more below (Base UI sets
  * data-overflow-y-end until it's scrolled to the end). */
 const OVERFLOW_FADE =
-  "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-10 after:h-10 after:bg-linear-to-t after:from-popover after:to-transparent after:opacity-0 after:transition-opacity data-overflow-y-end:after:opacity-100 motion-reduce:after:transition-none";
+  "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-10 after:h-8 after:bg-linear-to-t after:from-popover after:to-transparent after:opacity-0 after:transition-opacity data-overflow-y-end:after:opacity-100 motion-reduce:after:transition-none";
 
 const mobileItem =
   "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-phone hover:bg-accent [&_svg]:size-5 [&_svg]:shrink-0";
