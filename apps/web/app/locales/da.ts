@@ -557,6 +557,10 @@ const da: typeof en = {
     selected: "Valgt",
     switched: "Du læser nu {{name}}. Dine fremhævninger, annoteringer og noter i {{prev}} er gemt.",
     back: "Tilbage til {{abbr}}",
+    renumbered: "Versene har andre numre her: {{from}} i {{prev}} er {{to}}.",
+    psalmTitle: "Salmens overskrift har intet versnummer i {{abbr}}, så du er ved vers 1.",
+    nearest: "{{abbr}} har ikke {{ref}}, så du er ved det nærmeste vers.",
+    switchFailed: "Kunne ikke skifte til {{abbr}}. Tjek forbindelsen, og prøv igen.",
   },
   palette: {
     open: "Søg eller gå til…",

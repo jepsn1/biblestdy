@@ -1,4 +1,4 @@
-import { getBook } from "@biblestdy/shared";
+import { chapterCount, type Scheme } from "@biblestdy/shared";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -35,6 +35,7 @@ export function ChapterStrip({
   book,
   chapter,
   spreadEnd = null,
+  scheme = "eng",
   className,
 }: {
   book: string;
@@ -42,11 +43,13 @@ export function ChapterStrip({
   /** The spread also shows the chapters up to this one (#146): each gets
    * the same mark — you are reading them all. */
   spreadEnd?: number | null;
+  /** The translation's numbering: BPH's Joel has 4 chapters, Malachi 3. */
+  scheme?: Scheme;
   className?: string;
 }) {
   const { t } = useTranslation();
   const nameOf = useBookName();
-  const count = getBook(book)?.chapters ?? 1;
+  const count = chapterCount(book, scheme) || 1;
   const navRef = useRef<HTMLElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState(0);

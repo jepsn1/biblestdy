@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOOKS } from './books.js'
+import { BOOKS, chapterCount } from './books.js'
 import type { ScriptureRef } from './scripture-href.js'
 import type { ChapterVerses, VerseUnit } from './scripture-resolve.js'
 import { translationInfo } from './translation-info.js'
@@ -60,6 +60,12 @@ describe('translation versification', () => {
     // Only Joel and Malachi differ in chapter count
     const differ = BOOKS.filter((b) => schemeChapterCount(b.id, 'org') !== b.chapters).map((b) => b.id)
     expect(differ).toEqual(['JOL', 'MAL'])
+    // books.ts's first-load copy (chapterCount) agrees with the data
+    for (const b of BOOKS) {
+      for (const scheme of ['eng', 'org'] as const) {
+        expect(chapterCount(b.id, scheme), `${scheme} ${b.id}`).toBe(schemeChapterCount(b.id, scheme))
+      }
+    }
   })
 })
 

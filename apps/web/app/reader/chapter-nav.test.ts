@@ -25,6 +25,15 @@ describe("adjacentChapter", () => {
     expect(adjacentChapter({ book: "EXO", chapter: 1 }, -1)).toEqual({ book: "GEN", chapter: 50 });
   });
 
+  it("follows the translation's chapter counts (BPH: Joel 4, Malachi 3)", () => {
+    expect(adjacentChapter({ book: "JOL", chapter: 3 }, 1, "org")).toEqual({ book: "JOL", chapter: 4 });
+    expect(adjacentChapter({ book: "JOL", chapter: 3 }, 1)).toEqual({ book: "AMO", chapter: 1 });
+    expect(adjacentChapter({ book: "AMO", chapter: 1 }, -1, "org")).toEqual({ book: "JOL", chapter: 4 });
+    expect(adjacentChapter({ book: "MAL", chapter: 3 }, 1, "org")).toEqual({ book: "MAT", chapter: 1 });
+    expect(adjacentChapter({ book: "MAT", chapter: 1 }, -1, "org")).toEqual({ book: "MAL", chapter: 3 });
+    expect(adjacentChapter({ book: "MAT", chapter: 1 }, -1)).toEqual({ book: "MAL", chapter: 4 });
+  });
+
   it("stops at both ends of the Bible and on unknown books", () => {
     expect(adjacentChapter({ book: "GEN", chapter: 1 }, -1)).toBeNull();
     expect(adjacentChapter({ book: "REV", chapter: 22 }, 1)).toBeNull();

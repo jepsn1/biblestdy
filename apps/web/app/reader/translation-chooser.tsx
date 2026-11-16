@@ -3,7 +3,6 @@ import { translationInfo } from "@biblestdy/shared";
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
@@ -45,8 +44,8 @@ export function groupTranslations(translations: Translation[], ui: Lang) {
  * translation grouped by language, full names that wrap (never cut off), a
  * plain-language line + rights line from the static catalog. Popover on
  * desktop, bottom sheet on phones. `t` opens it; ↑/↓ move, Enter picks.
- * Switching keeps the chapter; a toast says the old version's marks are kept
- * and offers the way back.
+ * Switching lands on the same text in the new version (mapped across verse
+ * numberings, #174); the reader's toast says where and offers the way back.
  */
 export function TranslationChooser({
   translations,
@@ -82,11 +81,7 @@ export function TranslationChooser({
   function pick(tr: Translation) {
     setOpen(false);
     if (tr.id === current.id) return;
-    const prev = current;
     onSwitch(tr.id);
-    toast(t("translations.switched", { name: translationTitle(tr), prev: prev.abbreviation }), {
-      action: { label: t("translations.back", { abbr: prev.abbreviation }), onClick: () => onSwitch(prev.id) },
-    });
   }
 
   const label = `${t("nav.translation")}: ${current.abbreviation}, ${translationTitle(current)}`;

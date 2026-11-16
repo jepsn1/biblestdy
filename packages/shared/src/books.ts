@@ -134,6 +134,18 @@ export function getBook(id: string): Book | undefined {
   return BOOKS.find((b) => b.id === id)
 }
 
+/** Chapters the original-language numbering (BPH) gives a book where it
+ * differs from English: Joel 3 is Joel 4, Malachi 4 is Malachi 3,19–24.
+ * Kept here (tiny, first-load safe) rather than read from the versification
+ * data; versification.test.ts checks it against that data. */
+const ORG_CHAPTERS: Readonly<Record<string, number>> = { JOL: 4, MAL: 3 }
+
+/** Chapters of a book in a versification scheme (`eng` = English, the
+ * default; `org` = original-language, as BPH). 0 for an unknown book. */
+export function chapterCount(id: string, scheme: 'eng' | 'org' = 'eng'): number {
+  return (scheme === 'org' ? ORG_CHAPTERS[id] : undefined) ?? getBook(id)?.chapters ?? 0
+}
+
 export function bookIndex(id: string): number {
   return BOOKS.findIndex((b) => b.id === id)
 }

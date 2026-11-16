@@ -3,7 +3,9 @@ import { bookName } from "@biblestdy/shared";
 import type { Chapter } from "@biblestdy/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParams } from "react-router";
+import { data, type ShouldRevalidateFunctionArgs, useNavigate, useRevalidator, useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
@@ -17,7 +19,9 @@ import { ignoreShortcut, loadSingleKeys } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
 import { zoomLockHandle } from "~/lib/viewport";
-import { adjacentChapter } from "../reader/chapter-nav";
+import { adjacentChapter, schemeOf } from "../reader/chapter-nav";
+import { translationTitle } from "../reader/translation-chooser";
+import type { Landing, Place } from "../reader/switch-place";
 import { PaginatedChapter, useChapterStrip, useScrollMode } from "../reader/paginated-chapter";
 import { ReaderError } from "../reader/reader-error";
 import { chapterQuery, loadChapter, prefetchNeighbours, readingPausedFor, retryWhenLimited } from "../reader/chapter-cache";
@@ -34,6 +38,18 @@ import { lazyModule, useLazyModule, whenIdle } from "~/lib/lazy-module";
 
 /** Shortcuts, colour names, the first-run style choice: none is first paint. */
 const dialogs = lazyModule(() => import("../reader/reader-dialogs"));
+/** The versification map (#174): only fetched when the translation switches. */
+const switchPlace = () => import("../reader/switch-place");
+
+interface PendingSwitch {
+  to: string;
+  from: Translation;
+  /** Where the reader was, in `from`'s numbering. */
+  source: Place;
+  landing: Landing;
+  /** Checks the landing against the loaded chapter (a verse it leaves out). */
+  check: ((landing: Landing, chapter: Chapter) => Landing) | null;
+}
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
 
@@ -188,41 +204,88 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
   const { chapter, translation, translations, needsStyleChoice, userId } = loaderData;
   const [styleChosen, setStyleChosen] = useState(false);
   const revalidator = useRevalidator();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const nameOf = useBookName();
   // The verse the reader is at: a switch lands on it in the new version
   // (page numbers differ between translations)
   const placeRef = useRef<number | null>(null);
   const [, setSearchParams] = useSearchParams();
-  const switchVerse = useRef<number | null>(null);
-  function switchTranslation(id: string) {
+  const switching = useRef<PendingSwitch | null>(null);
+  /** Switches the reading translation and lands on the same text there:
+   * mapped across verse numberings (#174: WEB Mal 4:1 → BPH Mal 3,19), never
+   * kept by number. `back` = a place already in that translation's numbering
+   * (the toast's way back restores where you were). */
+  async function switchTranslation(id: string, back?: Place) {
+    const to = translations.find((tr) => tr.id === id);
+    if (!to || to.id === translation.id) return;
+    const source = { book: chapter.book, chapter: chapter.chapter, verse: placeRef.current ?? 1 };
+    let landing: Landing = { ...(back ?? source), note: null };
+    let check: ((l: Landing, c: Chapter) => Landing) | null = null;
+    if (!back) {
+      try {
+        const m = await switchPlace();
+        landing = m.switchLanding(source, translation.abbreviation, to.abbreviation);
+        check = m.checkLanding;
+      } catch {
+        toast.error(t("translations.switchFailed", { abbr: to.abbreviation }));
+        return;
+      }
+    }
     localStorage.setItem("translationId", id);
-    switchVerse.current = placeRef.current;
-    void revalidator.revalidate(); // reloads the chapter in the new version
+    switching.current = { to: to.id, from: translation, source, landing, check };
+    if (landing.book === chapter.book && landing.chapter === chapter.chapter) void revalidator.revalidate();
+    else void navigate(chapterHref(landing), { replace: true }); // the loader reads the new version
   }
-  // …then lands on the same verse there (?v= picks its page)
+  const switchRef = useRef(switchTranslation);
+  switchRef.current = switchTranslation;
+  // …then lands on the verse there (?v= picks its page) and says where
   useEffect(() => {
-    const verse = switchVerse.current;
-    if (verse === null) return;
-    switchVerse.current = null;
+    const p = switching.current;
+    if (!p || p.to !== translation.id) return;
+    switching.current = null;
+    const landing = p.check ? p.check(p.landing, chapter) : p.landing;
     setSearchParams(
       (params) => {
         params.delete("p");
-        params.set("v", String(verse));
+        params.set("v", String(landing.verse));
         return params;
       },
       { replace: true },
     );
-  }, [translation.id, setSearchParams]);
-  const nameOf = useBookName();
+    const locale = bookLocale(i18n.language);
+    const label = (place: Place) => referenceLabel(place, nameOf, locale);
+    const prev = p.from.abbreviation;
+    const note =
+      landing.note === "renumbered"
+        ? t("translations.renumbered", { from: label(p.source), prev, to: label(landing) })
+        : landing.note === "title"
+          ? t("translations.psalmTitle", { abbr: translation.abbreviation })
+          : landing.note === "nearest"
+            ? t("translations.nearest", {
+                abbr: translation.abbreviation,
+                ref: label(p.landing.note === "nearest" ? p.source : landing),
+              })
+            : undefined;
+    // A sonner toast is a polite live region: the note is read out too
+    toast(t("translations.switched", { name: translationTitle(translation), prev }), {
+      description: note,
+      duration: note ? 10_000 : undefined,
+      action: { label: t("translations.back", { abbr: prev }), onClick: () => void switchRef.current(p.from.id, p.source) },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translation.id, chapter, setSearchParams]);
   const heading = `${nameOf(chapter.book)} ${chapter.chapter}`; // UI-language name (#53)
   // Prev/next continue across books (#52): John 21 → Acts 1
-  const prevChapter = adjacentChapter(chapter, -1);
-  const nextChapter = adjacentChapter(chapter, 1);
+  const scheme = schemeOf(translation.abbreviation); // BPH: Joel 4, Malachi 3
+  const prevChapter = adjacentChapter(chapter, -1, scheme);
+  const nextChapter = adjacentChapter(chapter, 1, scheme);
   // Read ahead (both ways) once the reader has settled on this chapter, so
   // the next turn renders from memory. A short wait first: skimming through
   // chapters with [ / ] fetches nothing extra.
   useEffect(() => {
-    const prev = adjacentChapter(chapter, -1);
-    const next = adjacentChapter(chapter, 1);
+    const prev = adjacentChapter(chapter, -1, scheme);
+    const next = adjacentChapter(chapter, 1, scheme);
     let idle = 0;
     const timer = window.setTimeout(() => {
       const run = () => prefetchNeighbours(translation.id, [next, prev]);
@@ -233,7 +296,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
       window.clearTimeout(timer);
       if (idle) window.cancelIdleCallback(idle);
     };
-  }, [chapter, translation.id]);
+  }, [chapter, translation.id, scheme]);
   // ONE side slot, content switches: 'connections' | a note id | null.
   // Connections open/closed is the sticky ambient preference; a note borrows
   // the slot and closing it falls back to that preference.
