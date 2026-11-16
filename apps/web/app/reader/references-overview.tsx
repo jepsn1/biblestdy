@@ -276,9 +276,14 @@ export function ReferencesOverview({
     let readName = t("note.readPassage");
     let action: ReactNode = null;
     let pressed: boolean | undefined;
+    // The pressed row's tint: gold and grey fall short of 4.5:1 on it (#196)
+    const on = row.kind !== "text" && row.anchor.id === selectedAnchorId;
+    const muted = on ? "text-accent-foreground" : "text-muted-foreground";
+    const gold = on ? "text-accent-foreground" : "text-primary";
 
     const actionClass = cn(
-      "rounded-sm px-1 text-meta font-medium whitespace-nowrap text-primary hover:underline",
+      "rounded-sm px-1 text-meta font-medium whitespace-nowrap hover:underline",
+      gold,
       mobile ? "min-h-11" : "min-h-6 pointer-coarse:min-h-11",
       !mobile && "invisible group-focus-within:visible group-hover:visible pointer-coarse:visible",
       focusRing,
@@ -327,7 +332,7 @@ export function ReferencesOverview({
       const a = row.anchor;
       label = anchorChip(a, locale);
       full = anchorLabel(a, nameOf, locale);
-      pressed = a.id === selectedAnchorId;
+      pressed = on;
       if (pressed) readName = t("note.deselect");
       read = () => onShowAnchor(a);
       if (chapter) snippet = anchorSnippet(chapter, a, SNIPPET_MAX);
@@ -366,7 +371,8 @@ export function ReferencesOverview({
           title={t("note.removeReference")}
           onClick={() => void remove(row.anchor)}
           className={cn(
-            "inline-flex items-center justify-center rounded text-muted-foreground hover:text-destructive",
+            "inline-flex items-center justify-center rounded hover:text-destructive",
+            muted,
             mobile ? "size-11" : "size-6 pointer-coarse:size-11",
             !mobile && "invisible group-focus-within:visible group-hover:visible pointer-coarse:visible",
             focusRing,
@@ -378,11 +384,11 @@ export function ReferencesOverview({
         <span />
       );
 
-    const labelEl = <span className="font-sans text-list font-medium whitespace-nowrap text-primary tabular-nums">{label}</span>;
+    const labelEl = <span className={cn("font-sans text-list font-medium whitespace-nowrap tabular-nums", gold)}>{label}</span>;
     // Quoted scripture: roman, never italic (Mads)
     const face = plain ? "font-sans" : "font-serif";
-    const snippetEl = <span className={cn("min-w-0 truncate text-list text-muted-foreground", face)}>{snippet}</span>;
-    const sourceEl = <span className="font-sans text-meta whitespace-nowrap text-muted-foreground">{source}</span>;
+    const snippetEl = <span className={cn("min-w-0 truncate text-list", muted, face)}>{snippet}</span>;
+    const sourceEl = <span className={cn("font-sans text-meta whitespace-nowrap", muted)}>{source}</span>;
 
     return stacked ? (
       // Phone, or a narrow pane (large text): two lines (label · translation / snippet), fixed height
@@ -396,9 +402,9 @@ export function ReferencesOverview({
         >
           <span className="flex min-w-0 items-baseline gap-1.5">
             {labelEl}
-            {source && <span className="truncate font-sans text-meta text-muted-foreground">· {source}</span>}
+            {source && <span className={cn("truncate font-sans text-meta", muted)}>· {source}</span>}
           </span>
-          <span className={cn("block h-5 min-w-0 truncate text-list text-muted-foreground", face)}>{snippet}</span>
+          <span className={cn("block h-5 min-w-0 truncate text-list", muted, face)}>{snippet}</span>
           <span className="sr-only">. {readName}</span>
         </button>
         {showText}
