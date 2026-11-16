@@ -2,7 +2,7 @@
 
 **Scope:** how a note puts scripture references *inline* in its text (`@` + a toolbar button), what the bottom references list becomes, how references behave across translations, and how a notes tour teaches it — so builders can start without guessing.
 **Owner's request (transcribed):** (1) `@` + text opens a search for any reference; picking inserts it inline and adds it to the note's list; (2) a button for it, since `@` isn't discoverable; (3) remove the bottom "Add passage" area — the list becomes an overview "of all references without having to read the note"; (4) references are translation-agnostic (book/chapter/verse) and resolve in the reader's translation; a combined verse (BPH 14–15) is simply picked up; (5) a click-through tooltip tour for the whole notes section; (6) anything else the panel adds.
-**Panel (6, `REVIEW-PROCESS.md`: study features + onboarding + engineering):** Elias, Ruth, Sofie, Jonas, Birthe, Freja. Not on it: Mads (no typographic question beyond the chip), Kasper (quick capture unaffected).
+**Panel: all 8 (owner's call).** Round 1, full findings: Elias, Ruth, Sofie, Jonas, Birthe, Freja. Round 2: Mads and Kasper got the decisions brief and answered each item with ok, objection or pick, using the nav follow-ups pattern. See "Round 2" below.
 **Evidence:** dev server on the branch base (658867f), seeded WEB John 3 note "The bronze serpent" on 3:14–15; shots in scratchpad `inlinerefs-pack/` (reader note panel, reader Notes panel in WEB and BPH/da, Notes page en/da, phone list/editor/drawer). Not committed (BPH text on screen).
 
 ## What exists today (verified)
@@ -75,6 +75,31 @@
 - Owner: a click-through tooltip tour of the whole notes section. Sofie/Jonas: tours get skipped; teach with empty states and contextual hints. Freja/Birthe/Elias/Ruth: a tour is fine if short.
 - **Decision:** two mini-tours, each started by the task, not the visit: **note** (first time a note opens: write here → "+ Bibelvers", which waits until one is inserted → the overview) and **Notes page** (first visit: search → sort → "+ Ny note"). ≤ 4 steps each, "1 af 3", "Næste" + "Spring over" with words, Esc closes, focus moves to the target, no motion under reduced motion, never under the phone keyboard, steps with no visible target are skipped. Replay: Settings ("Vis rundvisningen igen") and a palette action. Teaches the button; `@` only as "eller skriv @". Built on the existing Popover, no tour library, lazy chunk. "Seen" stored on this device ★ (localStorage; account sync later). Empty states carry the rest.
 
+## Round 2 — Mads + Kasper (decisions brief)
+
+Both said **ok** to D1–D7 and to the four owner-question defaults. Their objections and additions changed the issues; each change is in an "Amendment" section of the issue body.
+
+| Change | Who | Issue |
+|---|---|---|
+| Colour roles written down: gold `--primary` = references/navigation, `--note-ink*` = the user's pen, `--passage` = scripture headings only; no new colours | Mads | #160, #161 |
+| Chip spec: sans 500, `0.875em` (12 px floor), `--primary` text, 8% tint and 22% inset hairline, `--radius-sm`, inherited line-height, nowrap, no icon. Clean dark: tint, never a filled pill | Mads, Kasper | #160 |
+| Popover, typeahead and button specs. The button is a ghost with a hairline, not gold-filled ("+ Ny note" owns the only fill) | Mads | #160 |
+| Parsed match preselected, so one Enter inserts; the words preview never blocks the insert; Esc returns the caret | Kasper | #160 |
+| Mod-based shortcut for "+ Bibelvers" shown in its tooltip, a palette action "Indsæt bibelvers", and the dialog autofocuses its input | Kasper | #160 |
+| Undo toast in the corner, no focus steal, same effect as Ctrl+Z | Kasper | #160 |
+| **One name everywhere**: "Bibelvers" replaces "Skriftsted(er)" across the da UI (list heading, Notes search placeholder, leftovers) | Kasper | #161 |
+| **Objection, adopted:** per-row "i teksten" / "markeret i Bibelen" badges become two group subheads, shown only when both groups exist | Mads | #161 |
+| The overview pane hugs its content (cap ~40%, internal scroll), with no hollow band where the add field was | Mads | #161 |
+| Quoted scripture in chrome is set roman, not italic (overview, popover, typeahead) | Mads | #160, #161 |
+| Snippets loading never steal focus or reflow the text being typed | Kasper | #161 |
+| **Objection, adopted:** the note tour is non-modal and keeps focus in the editor; typing snoozes it; step 2 doesn't wait; "Spring over" turns off both tours | Kasper | #162 |
+| Tour look: no scrim or spotlight, a ring outline on the target, secondary "Næste" (not gold), at most a 120 ms fade | Mads | #162 |
+| "Skrevet i WEB" is plain muted text, not a pill; the verse-level mark is the same quiet note chip | Mads | #159 |
+
+**Conflict resolved:** in round 1, Sofie and Freja wanted the tour's "+ Bibelvers" step to move focus and wait until the user acts. Kasper objected that this hijacks the first quick capture. Decision: the note tour keeps focus in the editor and advances when a reference is inserted *or* on Næste. The Notes-page tour still moves focus, since no writing happens there.
+**Later:** sync "tour seen" to the account (Kasper).
+**#158 (foundation) is unchanged by round 2.**
+
 ## Not adopted / later
 
 - Freja: book → chapter → verse grid picker inside the dialog — later (typing + suggestions first; reuse the place chooser when it comes).
@@ -88,7 +113,7 @@
 
 1. Keep a small "+ Bibelvers" in the overview heading and empty state? **Default: yes** (no input field).
 2. Deleting a chip removes the reference from the list (with an Undo toast)? **Default: yes** ★.
-3. Button/list name: "+ Bibelvers" / "+ Verse"? **Default: yes** ★ (alt. "Skriftsted").
+3. Button/list name: "+ Bibelvers" / "+ Verse", replacing "Skriftsteder" everywhere in the da UI? **Default: yes** ★ (Mads and Kasper agree; the alternative is "Skriftsted").
 4. Tour as two short task-triggered mini-tours rather than one long tour on first visit? **Default: yes.**
 
 ## Issues
