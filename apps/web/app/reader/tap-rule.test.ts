@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isTap, movePress, startPress, TAP_MAX_MS, TAP_SLOP_PX } from "./tap-rule";
+import { isTap, movePress, SCROLL_SETTLE_MS, startPress, TAP_MAX_MS, TAP_SLOP_PX } from "./tap-rule";
 
 describe("tap vs scroll on the text (#195)", () => {
   const down = startPress(100, 400, 1000);
@@ -28,6 +28,13 @@ describe("tap vs scroll on the text (#195)", () => {
   it("a hold is no tap", () => {
     expect(isTap(down, 100, 400, 1000 + TAP_MAX_MS)).toBe(true);
     expect(isTap(down, 100, 400, 1000 + TAP_MAX_MS + 1)).toBe(false);
+  });
+
+  it("a touch on moving text stops the fling — no tap", () => {
+    const onFling = startPress(100, 400, 1000, 1000 - 16); // scrolled a frame ago
+    expect(isTap(onFling, 100, 400, 1060)).toBe(false);
+    const settled = startPress(100, 400, 1000, 1000 - SCROLL_SETTLE_MS);
+    expect(isTap(settled, 100, 400, 1060)).toBe(true);
   });
 
   it("travel only grows", () => {

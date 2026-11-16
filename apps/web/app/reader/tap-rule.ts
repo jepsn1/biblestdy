@@ -10,13 +10,32 @@
  * does fire pointerup for that last one — which is how scrolling kept
  * opening the note drawer. This rule is the second fence, for the presses
  * a browser still turns into a click (a slow drag under its own slop, a
- * long hold).
+ * long hold, a touch just as a fling runs out).
  */
+
+let lastScrollAt = -Infinity;
+let watchers = 0;
+const onScroll = (e: Event) => {
+  lastScrollAt = e.timeStamp;
+};
+/** When the page or anything in it last scrolled (event.timeStamp). */
+export const lastScroll = () => lastScrollAt;
+/** Track scrolling (capture: element scrolls don't bubble); returns the stop. */
+export function watchScroll(doc: Document = document): () => void {
+  if (watchers++ === 0) doc.addEventListener("scroll", onScroll, { capture: true, passive: true });
+  return () => {
+    if (--watchers === 0) doc.removeEventListener("scroll", onScroll, { capture: true });
+  };
+}
 
 /** How far a tap may wander (CSS px) — a fingertip's wobble, not a scroll. */
 export const TAP_SLOP_PX = 10;
 /** How long a tap may last (ms) — longer is a hold, not a tap. */
 export const TAP_MAX_MS = 500;
+/** A press this soon (ms) after the text last scrolled lands on moving
+ * text: it stops a fling, it is no tap. Scroll events come every frame
+ * while a fling runs. */
+export const SCROLL_SETTLE_MS = 120;
 
 export interface Press {
   x: number;
@@ -25,9 +44,18 @@ export interface Press {
   at: number;
   /** Farthest the pointer got from (x, y) while down. */
   travel: number;
+  /** Pressed on moving text (a fling under way)? */
+  onMoving: boolean;
 }
 
-export const startPress = (x: number, y: number, at: number): Press => ({ x, y, at, travel: 0 });
+/** `lastScrollAt`: event.timeStamp of the text's last scroll event. */
+export const startPress = (x: number, y: number, at: number, lastScrollAt = -Infinity): Press => ({
+  x,
+  y,
+  at,
+  travel: 0,
+  onMoving: at - lastScrollAt < SCROLL_SETTLE_MS,
+});
 
 /** The press, with the pointer now at (x, y). */
 export const movePress = (p: Press, x: number, y: number): Press => ({
@@ -38,5 +66,5 @@ export const movePress = (p: Press, x: number, y: number): Press => ({
 /** Is a press released (or clicked) at (x, y), time `at`, a tap? */
 export function isTap(p: Press, x: number, y: number, at: number): boolean {
   const travel = movePress(p, x, y).travel;
-  return travel <= TAP_SLOP_PX && at - p.at <= TAP_MAX_MS;
+  return !p.onMoving && travel <= TAP_SLOP_PX && at - p.at <= TAP_MAX_MS;
 }

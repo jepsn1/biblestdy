@@ -33,7 +33,7 @@ import {
 import type { NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
-import { isTap, movePress, startPress, type Press } from "./tap-rule";
+import { isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
 import { compareDialog } from "./compare-loader";
@@ -318,6 +318,7 @@ export function ChapterText({
   /** The pointer press under way (#195): a touch counts as a tap on the
    * words only when it passes the tap rule (tap-rule.ts). */
   const press = useRef<(Press & { mouse: boolean }) | null>(null);
+  useEffect(() => watchScroll(), []);
 
   /** Where focus was when a menu opened (inside the text, e.g. #65's verse
    * focus) — a keyboard close returns there, else to the text itself. */
@@ -718,7 +719,7 @@ export function ChapterText({
    * possible) — a mouse drag paints the same word-snapped wash the phone
    * handles do, and the release opens the menu. */
   function onPointerDown(event: React.PointerEvent) {
-    press.current = { ...startPress(event.clientX, event.clientY, event.timeStamp), mouse: event.pointerType === "mouse" };
+    press.current = { ...startPress(event.clientX, event.clientY, event.timeStamp, lastScroll()), mouse: event.pointerType === "mouse" };
     if (mobile || event.button !== 0) return;
     const pos = wordPosOf(event.target);
     if (!pos) return;
