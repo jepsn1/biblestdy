@@ -30,7 +30,16 @@ import { ReadingLimited, readingLimitRouteError } from "../reader/reading-limit"
 import { ReaderNav } from "../reader/reader-nav";
 import { referenceLabel } from "../notes/note-list";
 import { OPEN_COLOR_NAMES, OPEN_COMPARE, OPEN_SHORTCUTS, type CompareAnchor, type CompareRequest } from "../reader/dialog-events";
-import { compareDialog } from "../reader/compare-loader";
+import { compareDialog, type CompareKit } from "../reader/compare-loader";
+import { passageLines } from "../reader/chapter-layout";
+import { groupTranslations } from "../reader/translation-chooser";
+import { formatWait } from "../reader/reading-limit";
+import { referenceLabel as uiReferenceLabel } from "~/lib/reference-label";
+import { useFumsView } from "~/lib/fums";
+import { useTextSize } from "~/lib/text-size";
+import { showVerses } from "~/lib/print-limit";
+import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
+import { notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
 import { compareTargetOr } from "../reader/compare-target";
 import { SkipToText } from "../reader/skip-link";
 import { LazyCommandPalette } from "../palette/lazy-palette";
@@ -56,6 +65,25 @@ interface PendingSwitch {
 }
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
+
+/** Handed to the Compare dialog (see CompareKit). */
+const compareKit: CompareKit = {
+  chapterQuery,
+  retryWhenLimited,
+  notifyCopyFailed,
+  notifyCopyLimit,
+  passageLines,
+  groupTranslations,
+  translationTitle,
+  formatWait,
+  referenceLabel: uiReferenceLabel,
+  useFumsView,
+  useTextSize,
+  showVerses,
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+};
 
 /** How long a chapter must stay open before its neighbours are fetched. */
 const PREFETCH_DELAY_MS = 300;
@@ -484,6 +512,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           translations={translations}
           current={translation}
           switchTranslation={switchTranslation}
+          kit={compareKit}
         />
       )}
       {d && choosingStyle && <d.StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />}

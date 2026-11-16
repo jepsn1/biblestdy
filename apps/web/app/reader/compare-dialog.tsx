@@ -9,18 +9,16 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { bookLocale } from "~/lib/book-name";
-import { useFumsView } from "~/lib/fums";
+import i18n from "~/lib/i18n";
+// Its own words come with this chunk (bundle budget)
+import "../locales/compare";
 import { MAX_COPY_VERSES } from "~/lib/licence-limits";
-import { notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
 import { queryClient } from "~/lib/query";
-import { referenceLabel } from "~/lib/reference-label";
-import { useTextSize } from "~/lib/text-size";
 import { cn, focusTitle } from "~/lib/utils";
-import { chapterQuery, retryWhenLimited } from "./chapter-cache";
+import type { CompareKit } from "./compare-loader";
 import {
   blockView,
   canCopyAll,
@@ -34,14 +32,13 @@ import {
   type BlockNote,
   type BlockView,
   type ChapterRef,
+  isLimited,
   type Loaded,
   versesCopy,
 } from "./compare-blocks";
 import { compareCap, initialPicks, readPicks, savePicks, togglePick } from "./compare-picks";
 import type { CompareAnchor, CompareRange } from "./dialog-events";
 import { PassageText } from "./passage-text";
-import { formatWait, ReadingLimited } from "./reading-limit";
-import { groupTranslations, translationTitle } from "./translation-chooser";
 import { ScriptureCredit } from "./scripture-credit";
 
 /** Where Continue in / Back go: a chapter, and the verse there if known. */
@@ -60,10 +57,13 @@ function shortRef(ref: ScriptureRef, locale: BookLocale): string {
   return out;
 }
 
-/** A reference in a translation's own style: "Salme 51,3" / "Psalm 51:1". */
-function ownLabel(ref: ScriptureRef, language: string): string {
-  const locale = bookLocale(language);
-  return referenceLabel(ref, (id) => bookName(id, locale), locale);
+/** A reference in the UI language: "Salme 51,3" / "Psalm 51:1" (the
+ * numbers are the translation's own). */
+/** Set from the kit on render (see CompareKit). */
+let labelOf: CompareKit["referenceLabel"] = () => "";
+function ownLabel(ref: ScriptureRef): string {
+  const locale = bookLocale(i18n.language);
+  return labelOf(ref, (id) => bookName(id, locale), locale);
 }
 
 const keyOf = (id: string, c: ChapterRef) => `${id}/${c.book}.${c.chapter}`;
@@ -96,7 +96,7 @@ function refChapters(ref: ScriptureRef): ChapterRef[] {
   return out;
 }
 
-async function writeClipboard(text: string, html: string): Promise<boolean> {
+async function writeClipboard(text: string, html: string, notifyCopyFailed: (e: unknown) => void): Promise<boolean> {
   try {
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -117,7 +117,7 @@ async function writeClipboard(text: string, html: string): Promise<boolean> {
 }
 
 /** FUMS for one shown chapter (one per token, mounted while it shows). */
-function FumsView({ token }: { token: string }) {
+function FumsView({ token, useFumsView }: { token: string; useFumsView: CompareKit["useFumsView"] }) {
   useFumsView({ fumsToken: token });
   return null;
 }
@@ -141,6 +141,7 @@ export function CompareDialog({
   translations,
   current,
   switchTranslation,
+  kit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -150,10 +151,14 @@ export function CompareDialog({
   finalFocus: () => HTMLElement | false;
   translations: Translation[];
   current: Translation;
+  /** Reader helpers (see CompareKit). */
+  kit: CompareKit;
   /** Switch the reading translation, landing on `to` (its own numbering). */
   switchTranslation: (id: string, to: { book: string; chapter: number; verse: number }, opts: { long: boolean }) => unknown;
 }) {
   const { t, i18n } = useTranslation();
+  const { chapterQuery, retryWhenLimited, notifyCopyFailed, notifyCopyLimit, groupTranslations, translationTitle, formatWait, useTextSize, Drawer, DrawerContent, DrawerTitle } = kit;
+  labelOf = kit.referenceLabel;
   const ui = i18n.language.startsWith("da") ? "da" : "en";
   const isMobile = useIsMobile();
   const textSize = useTextSize();
@@ -167,7 +172,7 @@ export function CompareDialog({
   // Picker order: the chooser's (UI language first, most read first)
   const others = useMemo(
     () => groupTranslations(translations, ui).flatMap(([, items]) => items).filter((tr) => tr.id !== current.id),
-    [translations, ui, current.id],
+    [translations, ui, current.id, groupTranslations],
   );
   const otherIds = useMemo(() => others.map((tr) => tr.id), [others]);
   const cap = compareCap(translations.length);
@@ -245,7 +250,7 @@ export function CompareDialog({
         ? { status: "ok", chapter: r.data }
         : r.status === "error"
           ? { status: "error", error: r.error }
-          : { status: "pending", limited: r.failureReason instanceof ReadingLimited },
+          : { status: "pending", limited: isLimited(r.failureReason) },
     );
   });
   const retry = (id: string, chapters: ChapterRef[]) => {
@@ -269,8 +274,8 @@ export function CompareDialog({
   }, [missingKey]);
 
   // ---- labels ----
-  const curLocale = bookLocale(current.language);
-  const title = base ? ownLabel(base.ref, current.language) : "";
+  const curLocale = bookLocale(i18n.language);
+  const title = base ? ownLabel(base.ref) : "";
   const problems = blocks.flatMap(({ tr, view }) => (view.kind === "problem" ? [problemText(view, tr.abbreviation)] : []));
   function problemText(view: Extract<BlockView, { kind: "problem" }>, abbr: string) {
     if (view.error === "daily") return t("compare.daily", { abbr });
@@ -282,7 +287,7 @@ export function CompareDialog({
       case "renumbered":
         return t("compare.renumbered", { ref: shortRef(n.source, curLocale), abbr: current.abbreviation });
       case "moved":
-        return t("compare.moved", { ref: ownLabel(n.ref, tr.language) });
+        return t("compare.moved", { ref: ownLabel(n.ref) });
       case "absent":
         return t("compare.absent", { n: n.verses.join(", ") });
       case "psalmTitle":
@@ -295,7 +300,7 @@ export function CompareDialog({
   // ---- copy ----
   const copyBlocks = blocks.flatMap(({ tr, slices, view }) =>
     view.kind === "ready" && view.parts.length
-      ? [{ abbr: tr.abbreviation, ref: numberingDiffers(slices) && view.ref ? ownLabel(view.ref, tr.language) : undefined, parts: view.parts, own: view.ref }]
+      ? [{ abbr: tr.abbreviation, ref: numberingDiffers(slices) && view.ref ? ownLabel(view.ref) : undefined, parts: view.parts, own: view.ref }]
       : [],
   );
   const allCount = copyAllCount(copyBlocks);
@@ -305,14 +310,14 @@ export function CompareDialog({
       notifyCopyLimit();
       return;
     }
-    const label = view.ref ? ownLabel(view.ref, tr.language) : title;
+    const label = view.ref ? ownLabel(view.ref) : title;
     const { text, html } = versesCopy(view.parts, label, tr.abbreviation);
-    if (await writeClipboard(text, html)) toast(t("compare.copied", { ref: label, abbr: tr.abbreviation }));
+    if (await writeClipboard(text, html, notifyCopyFailed)) toast(t("compare.copied", { ref: label, abbr: tr.abbreviation }));
   }
   async function copyAll() {
     if (!allowAll || !copyBlocks.length) return;
     const { text, html } = formatCopyAll(title, copyBlocks);
-    if (await writeClipboard(text, html)) toast(t("compare.copied", { ref: title, abbr: copyBlocks.map((b) => b.abbr).join(" · ") }));
+    if (await writeClipboard(text, html, notifyCopyFailed)) toast(t("compare.copied", { ref: title, abbr: copyBlocks.map((b) => b.abbr).join(" · ") }));
   }
 
   // ---- jump ----
@@ -381,7 +386,7 @@ export function CompareDialog({
             tabIndex={-1}
             className={cn("font-serif text-title leading-tight font-semibold text-foreground", focusTitle)}
           >
-            <span lang={current.language}>{title}</span>
+            {title}
           </DrawerTitle>
         ) : (
           <DialogTitle
@@ -389,7 +394,7 @@ export function CompareDialog({
             tabIndex={-1}
             className={cn("font-serif text-title leading-tight font-semibold", focusTitle)}
           >
-            <span lang={current.language}>{title}</span>
+            {title}
           </DialogTitle>
         )}
         {base?.partial && <p className="mt-0.5 text-meta text-muted-foreground">{t("compare.wholeVerses")}</p>}
@@ -424,6 +429,7 @@ export function CompareDialog({
           onRetry={() => retry(tr.id, sliceChapters(slices))}
           onCopy={() => view.kind === "ready" && void copyBlock(tr, view)}
           onJump={(to) => jump(tr, to)}
+          kit={kit}
         />
       ))}
     </>
@@ -467,7 +473,7 @@ export function CompareDialog({
       <div aria-live="polite" className="sr-only">
         {problems.join(" ")}
       </div>
-      {open && tokens.map((tk) => <FumsView key={tk} token={tk} />)}
+      {open && tokens.map((tk) => <FumsView key={tk} token={tk} useFumsView={kit.useFumsView} />)}
     </>
   );
 
@@ -508,6 +514,7 @@ function CompareBlock({
   onRetry,
   onCopy,
   onJump,
+  kit,
 }: {
   first: boolean;
   tr: Translation;
@@ -519,11 +526,13 @@ function CompareBlock({
   onRetry: () => void;
   onCopy: () => void;
   onJump: (to: Place) => void;
+  kit: CompareKit;
 }) {
   const { t } = useTranslation();
   const hid = useId();
+  const { translationTitle, passageLines, showVerses } = kit;
   const name = translationTitle(tr);
-  const locale = bookLocale(tr.language);
+  const locale = bookLocale(i18n.language);
   // Own reference: what it shows, else what the map says it will
   const target = jumpTarget(slices);
   const planned = slices.filter((s) => s.kind !== "unmapped" && s.startVerse > 0);
@@ -538,9 +547,9 @@ function CompareBlock({
       })()
     : null;
   const own = view.kind === "ready" ? view.ref ?? plannedRef : plannedRef;
-  const ownText = own ? ownLabel(own, tr.language) : null;
+  const ownText = own ? ownLabel(own) : null;
   const jumpTo: Place | null = view.kind === "ready" && view.ref ? { book: view.ref.book, chapter: view.ref.chapter, verse: view.ref.verse } : target;
-  const jumpRef = jumpTo ? ownLabel({ book: jumpTo.book, chapter: jumpTo.chapter, verse: jumpTo.verse }, tr.language) : "";
+  const jumpRef = jumpTo ? ownLabel({ book: jumpTo.book, chapter: jumpTo.chapter, verse: jumpTo.verse }) : "";
   const copyright = view.kind === "ready" ? [...new Set(view.parts.map((p) => p.chapter.copyright?.trim()).filter(Boolean))] : [];
 
   return (
@@ -556,7 +565,7 @@ function CompareBlock({
             <span className="text-meta text-muted-foreground">{name}</span>
           </h3>
           {ownText && (
-            <p lang={tr.language} className="text-list font-medium">
+            <p className="text-list font-medium">
               {ownText}
             </p>
           )}
@@ -612,7 +621,7 @@ function CompareBlock({
         </div>
       )}
       {view.kind === "ready" && view.parts.length > 0 && (
-        <PassageText parts={view.parts} language={tr.language} numberSep={locale === "da" ? "," : ":"} />
+        <PassageText passageLines={passageLines} showVerses={showVerses} parts={view.parts} language={tr.language} numberSep={locale === "da" ? "," : ":"} />
       )}
       {copyright.length > 0 && (
         <p className="mt-3 font-sans text-meta leading-[1.45] text-muted-foreground">{copyright.join(" · ")}</p>

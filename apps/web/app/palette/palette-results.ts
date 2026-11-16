@@ -178,15 +178,8 @@ export function matchRanges(text: string, query: string): [number, number][] {
   return hits;
 }
 
-/** Markdown → plain text, enough for matching and snippets. */
-export function plainText(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[*_~`>#]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { plainText } from "~/lib/plain-text";
+import { plainText } from "~/lib/plain-text";
 
 /** A passage row's words to bold: letters and numbers apart ("j3" → "j 3":
  * the J of John, the 3). */

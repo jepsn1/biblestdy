@@ -1,8 +1,8 @@
 import type { Chapter } from "@biblestdy/shared";
 import { Fragment, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { showVerses } from "~/lib/print-limit";
-import { passageLines } from "./chapter-layout";
+import type { showVerses as ShowVerses } from "~/lib/print-limit";
+import type { passageLines as PassageLines } from "./chapter-layout";
 
 /**
  * A passage as the reader sets it, outside the page (Compare translations,
@@ -12,10 +12,15 @@ import { passageLines } from "./chapter-layout";
  * no measuring — plain flow. Never imports chapter-text.
  */
 export function PassageText({
+  passageLines,
+  showVerses,
   parts,
   language,
   numberSep,
 }: {
+  /** The reader's layout step (handed over: see CompareKit). */
+  passageLines: typeof PassageLines;
+  showVerses: typeof ShowVerses;
   /** Whole verse units per chapter (stored numbers), in order. */
   parts: readonly { chapter: Chapter; from: number; to: number }[];
   /** The translation's language (BCP 47): the text is voiced in it. */
@@ -26,7 +31,7 @@ export function PassageText({
   const { t, i18n } = useTranslation();
   // The print limit counts what this shows (lib/print-limit)
   const count = parts.reduce((n, p) => n + p.chapter.verses.filter((v) => v.verse >= p.from && v.verse <= p.to).length, 0);
-  useEffect(() => showVerses(count), [count]);
+  useEffect(() => showVerses(count), [count, showVerses]);
 
   return (
     // No native selection (as in the reader): copying goes through Copy /

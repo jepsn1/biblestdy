@@ -38,6 +38,8 @@ import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { cn, focusTitle } from "~/lib/utils";
 import { INSERT_VERSE, openCompare, OPEN_SHORTCUTS, useNoteEditorOpen, type CompareAnchor } from "../reader/dialog-events";
 import { referenceLabel } from "~/lib/reference-label";
+// Its Compare rows' words (shared with the Compare chunk, #167)
+import "../locales/compare";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
 import { openPlace } from "../reader/place-chooser";
@@ -106,7 +108,7 @@ function useActions(r: ReaderActions) {
                 lang,
               ),
             }),
-            keywords: [...both("compare.title"), ...both("menu.compareHint"), ...both("nav.translation")],
+            keywords: [...both("menu.compare"), ...both("menu.compareHint"), ...both("nav.translation")],
             opensDialog: true,
             run: () => openCompare({ anchor: at, returnTo: paletteOpener() }),
           },

@@ -1,7 +1,7 @@
 import type { Chapter, MappedSlice, ScriptureRef, TargetUnits } from "@biblestdy/shared";
 import { targetUnits } from "@biblestdy/shared/versification";
 import { MAX_COPY_VERSES } from "~/lib/licence-limits";
-import { ReadingLimited } from "./reading-limit";
+import type { ReadingLimited } from "./reading-limit";
 
 /**
  * Compare translations (#167), the pure part: what each translation's block
@@ -18,8 +18,14 @@ export type BlockError = "limited-short" | "limited-long" | "daily" | "unavailab
 /** A chapter fetch's failure as a block reads it. `loadChapter` throws
  * ReadingLimited (429) or react-router `data()` payloads (404/502 — not
  * Errors); anything else is a plain failure. */
+/** A reading-quota refusal (reading-limit.ts' ReadingLimited) — by shape,
+ * so this chunk doesn't import the reader's module (bundle budget). */
+export function isLimited(err: unknown): err is ReadingLimited {
+  return err instanceof Error && err.name === "ReadingLimited" && "limit" in err;
+}
+
 export function blockError(err: unknown): BlockError {
-  if (err instanceof ReadingLimited) {
+  if (isLimited(err)) {
     if (err.limit.reason === "daily") return "daily";
     return err.shortWait ? "limited-short" : "limited-long";
   }
@@ -31,7 +37,7 @@ export function blockError(err: unknown): BlockError {
 
 /** Seconds a limited block waits (for "Try again in about …"). */
 export function blockWait(err: unknown): number | undefined {
-  return err instanceof ReadingLimited ? err.limit.retryAfterSeconds : undefined;
+  return isLimited(err) ? err.limit.retryAfterSeconds : undefined;
 }
 
 // ---- chapters ------------------------------------------------------------
