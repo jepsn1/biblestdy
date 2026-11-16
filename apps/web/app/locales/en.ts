@@ -184,6 +184,8 @@ export default {
     showInText: "Show in text",
     insertInText: "Insert in text",
     shownInText: "{{ref}} selected in the text",
+    /** Phone (#195): the note drawer, folded down while its reference is shown in the text */
+    backToNote: "Back to note",
     showText: "Show text",
     notInShort: "Not in {{abbr}}",
     removeReference: "Remove this passage",

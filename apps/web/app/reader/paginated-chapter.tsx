@@ -11,7 +11,8 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import { useFumsView } from "~/lib/fums";
 import { useTextSize, useViewportFits } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
-import { cn } from "~/lib/utils";
+import { ChevronUp } from "lucide-react";
+import { cn, focusRing } from "~/lib/utils";
 import {
   adjacentChapter,
   type ChapterRef,
@@ -236,6 +237,22 @@ export function PaginatedChapter({
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   // The reference selected in the note panel — only its mark stays drawn
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
+  /** Phone (#195): the note drawer folded down to a bar, so the reference
+   * it just spotlit in the text shows. The note stays mounted (nothing is
+   * lost); the bar's tap brings it back up. */
+  const [notePeek, setNotePeek] = useState(false);
+  const peekRef = useRef<HTMLButtonElement>(null);
+  // Folding hides the row that had focus: focus goes to the bar (one tap,
+  // or Enter, back to the note); unfolding hands it back to that row
+  const foldedFrom = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (notePeek) peekRef.current?.focus({ preventScroll: true });
+  }, [notePeek]);
+  function unfoldNote() {
+    setNotePeek(false);
+    requestAnimationFrame(() => foldedFrom.current?.focus({ preventScroll: true }));
+  }
+
   const {
     highlights: allHighlights,
     loaded: highlightsLoaded,
@@ -295,10 +312,12 @@ export function PaginatedChapter({
   const openNoteId = sideView !== null && sideView !== "connections" ? sideView : null;
   /** Opening a note borrows the side slot; closing falls back to the sticky
    * connections preference. */
-  const setOpenNoteId = (id: string | null) =>
+  const setOpenNoteId = (id: string | null) => {
+    setNotePeek(false);
     onSideViewChange(
       id ?? (localStorage.getItem("connectionsOpen") === "1" ? "connections" : null),
     );
+  };
   // ?note=<id> (cross-chapter reference jump) claims the slot on arrival
   const wantedNote = searchParams.get("note");
   useEffect(() => {
@@ -560,6 +579,11 @@ export function PaginatedChapter({
     }
     setFlash(null); // another reference replaces the verse spotlight
     setSelectedMarkId(markId);
+    // Phones: the note drawer would cover the spotlit words — fold it down
+    if (sideInDrawer) {
+      foldedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setNotePeek(true);
+    }
   }
 
   /** A note reference's first word, in this chapter's own text (a page can
@@ -1661,12 +1685,36 @@ export function PaginatedChapter({
             </DrawerContent>
           </Drawer>
 
-          <Drawer open={!!openNote} onOpenChange={(open) => !open && closeNote()} showSwipeHandle>
+          <Drawer
+            open={!!openNote}
+            onOpenChange={(open) => !open && closeNote()}
+            showSwipeHandle
+            // Folded (#195): the text is the reader's again — scroll it, tap
+            // it (ends the spotlight, #190), the bar stays
+            modal={!notePeek}
+            disablePointerDismissal={notePeek}
+          >
             <DrawerContent
               aria-label={openNote?.title || t("note.untitled")}
-              style={{ "--drawer-height": "92dvh" } as React.CSSProperties}
+              style={{ "--drawer-height": notePeek ? "auto" : "92dvh" } as React.CSSProperties}
             >
+              {openNote && notePeek && (
+                <button
+                  ref={peekRef}
+                  type="button"
+                  onClick={unfoldNote}
+                  className={cn(
+                    "mx-3 mt-1 mb-[max(env(safe-area-inset-bottom),0.75rem)] flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent",
+                    focusRing,
+                  )}
+                >
+                  <ChevronUp aria-hidden className="size-4 shrink-0" />
+                  <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
+                  <span className="min-w-0 truncate text-muted-foreground">{openNote.title || t("note.untitled")}</span>
+                </button>
+              )}
               {openNote && (
+                <div className={cn("flex min-h-0 flex-1 flex-col", notePeek && "hidden")}>
                 <NotePanel
                   // One panel per note: no text carries over to the next
                   key={openNote.id}
@@ -1683,6 +1731,7 @@ export function PaginatedChapter({
                   onClose={closeNote}
                   mobile
                 />
+                </div>
               )}
             </DrawerContent>
           </Drawer>
