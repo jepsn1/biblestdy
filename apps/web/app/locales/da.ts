@@ -245,6 +245,7 @@ const da: typeof en = {
     new: "Ny note",
     backToReading: "Bibelen",
     backToList: "Alle noter",
+    backToPlace: "Tilbage til {{ref}}",
     listLabel: "Dine noter",
     editorLabel: "Note",
     search: "Søg i noter",

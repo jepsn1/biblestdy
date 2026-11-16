@@ -21,7 +21,7 @@ import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
 import { zoomLockHandle } from "~/lib/viewport";
 import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
-import { readingHref } from "../reader/chapter-nav";
+import { readingHref, readingPlace } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
@@ -89,6 +89,10 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const shown = frozen.key === viewKey ? keepOrder(filtered, frozen.ids) : filtered;
   const open = params.id ? notes.find((n) => n.id === params.id) : undefined;
   const back = readingHref();
+  // The way back names the place (#148): "← Back to Psalm 23", on the page
+  // last read (lastRead keeps it across reloads); "Bible" before any
+  const backPlace = readingPlace();
+  const backRef = backPlace && referenceLabel({ book: backPlace.book, chapter: backPlace.chapter }, nameOf, locale);
   // Keeps ?topic= while moving between notes
   const hrefOf = (id?: string) => `/notes${id ? `/${id}` : ""}${topic ? `?topic=${encodeURIComponent(topic)}` : ""}`;
 
@@ -316,9 +320,24 @@ export default function NotesPage({ params }: Route.ComponentProps) {
             {t("notes.backToList")}
           </Link>
         ) : (
-          <Link to={back} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-muted-foreground max-md:h-10")}>
-            <BookOpen aria-hidden />
-            {t("notes.backToReading")}
+          <Link
+            to={back}
+            // Phones: the arrow + place say it ("Tilbage til" would push the
+            // place off the row); the name stays whole
+            aria-label={backRef ? t("notes.backToPlace", { ref: backRef }) : undefined}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-w-0 shrink text-muted-foreground max-md:h-10")}
+          >
+            {backRef ? <ArrowLeft aria-hidden /> : <BookOpen aria-hidden />}
+            {backRef ? (
+              <>
+                <span className="truncate max-sm:hidden">{t("notes.backToPlace", { ref: backRef })}</span>
+                {/* The book name gives way, never the chapter number */}
+                <span className="truncate sm:hidden">{nameOfRef(backRef)[0]}</span>
+                <span className="shrink-0 sm:hidden">{nameOfRef(backRef)[1]}</span>
+              </>
+            ) : (
+              t("notes.backToReading")
+            )}
           </Link>
         )}
         <h1 className={cn("min-w-0 flex-1 truncate font-serif text-title font-medium", params.id && mobile && "sr-only")}>
@@ -428,4 +447,10 @@ function TopicChapters({ name, onClear }: { name: string; onClear: () => void })
       )}
     </div>
   );
+}
+
+/** "Salme 23" → ["Salme", "23"]: the name may truncate, the number never. */
+function nameOfRef(ref: string): [string, string] {
+  const at = ref.lastIndexOf(" ");
+  return at < 0 ? [ref, ""] : [ref.slice(0, at), ref.slice(at + 1)];
 }

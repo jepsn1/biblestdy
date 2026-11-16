@@ -46,19 +46,37 @@ export function chapterHref(ref: ChapterRef, page: number | "last" = 0): string 
   return page > 0 ? `${base}?p=${page + 1}` : base;
 }
 
-/** Launch page from the stored lastRead ("JHN/3" or "JHN/3?p=2"), else null. */
-export function lastReadHref(stored: string | null): string | null {
+/** The place in a stored lastRead ("JHN/3" or "JHN/3?p=2"; page 0-based), else null. */
+export function lastReadPlace(stored: string | null): (ChapterRef & { page: number }) | null {
   const m = /^([A-Z0-9]{3})\/(\d+)(?:\?p=(\d+))?$/.exec(stored ?? "");
   if (!m) return null;
-  const page = m[3] ? Number(m[3]) - 1 : 0;
-  return chapterHref({ book: m[1], chapter: Number(m[2]) }, page);
+  return { book: m[1], chapter: Number(m[2]), page: m[3] ? Number(m[3]) - 1 : 0 };
+}
+
+/** Launch page from the stored lastRead ("JHN/3" or "JHN/3?p=2"), else null. */
+export function lastReadHref(stored: string | null): string | null {
+  const place = lastReadPlace(stored);
+  return place && chapterHref(place, place.page);
+}
+
+function storedLastRead(): string | null {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage.getItem("lastRead") : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Where "Back to reading" goes: the page last read, else the reader's
  * default chapter (as the launch page, home.tsx). */
 export function readingHref(): string {
-  const stored = typeof localStorage !== "undefined" ? localStorage.getItem("lastRead") : null;
-  return lastReadHref(stored) ?? "/read/JHN/3";
+  return lastReadHref(storedLastRead()) ?? "/read/JHN/3";
+}
+
+/** The chapter last read (its page in `page`), null before any (#148: the
+ * notes page's "← Back to Psalm 23" names it). */
+export function readingPlace(): (ChapterRef & { page: number }) | null {
+  return lastReadPlace(storedLastRead());
 }
 
 /** The lastRead value for a place (0-based page). */

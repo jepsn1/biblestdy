@@ -205,6 +205,7 @@ export default {
     new: "New note",
     backToReading: "Bible",
     backToList: "All notes",
+    backToPlace: "Back to {{ref}}",
     listLabel: "Your notes",
     editorLabel: "Note",
     search: "Search notes",
