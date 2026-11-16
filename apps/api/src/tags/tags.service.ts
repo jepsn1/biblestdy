@@ -103,6 +103,7 @@ export class TagsService {
     if (!tag) return null;
     const noteIds = await this.tags.noteIdsWithTag(tag.id);
     const anchors = await this.notes.anchorsFor(noteIds);
+    const refs = await this.notes.refsFor(noteIds);
     const notes: Note[] = [];
     for (const id of noteIds) {
       const row = await this.notes.getNote(userId, id);
@@ -111,6 +112,7 @@ export class TagsService {
           toNote(
             row,
             anchors.filter((a) => a.noteId === id),
+            refs.filter((r) => r.noteId === id),
           ),
         );
     }

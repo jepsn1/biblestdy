@@ -33,12 +33,8 @@ describe('NotesController', () => {
       listForChapter: vi.fn().mockResolvedValue([]),
     });
     await controller.list(req, 'WEB', 'JHN', '3');
-    expect(service.listForChapter).toHaveBeenCalledWith(
-      'user-1',
-      'WEB',
-      'JHN',
-      3,
-    );
+    // The reading translation no longer filters (#158)
+    expect(service.listForChapter).toHaveBeenCalledWith('user-1', 'JHN', 3);
   });
 
   it('lists ALL notes when no chapter is given', async () => {

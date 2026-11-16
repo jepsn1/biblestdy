@@ -23,7 +23,9 @@ export class NotesController {
   constructor(private readonly notes: NotesService) {}
 
   /** No query params: ALL the user's notes (attach-picker). With
-   * translation+book+chapter: notes anchored somewhere in that chapter. */
+   * translation+book+chapter: notes touching that chapter in ANY translation
+   * (anchor or inline ref, #158) — `translation` is still required (the
+   * reading translation; clients key caches by it) but doesn't filter. */
   @Get()
   async list(
     @Req() req: AuthedRequest,
@@ -40,12 +42,7 @@ export class NotesController {
         'translation, book and chapter are required',
       );
     }
-    return this.notes.listForChapter(
-      req.user.id,
-      translationId,
-      book,
-      chapterNum,
-    );
+    return this.notes.listForChapter(req.user.id, book, chapterNum);
   }
 
   /** Per-verse counts of notes anchored here in OTHER translations (#11). */
