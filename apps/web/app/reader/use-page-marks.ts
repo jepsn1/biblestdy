@@ -1,6 +1,6 @@
 import type { Annotation, Chapter, Highlight, Translation } from "@biblestdy/shared";
 import { canonicalRef } from "@biblestdy/shared/versification";
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useCallback, useContext, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useColorName } from "~/lib/highlight-labels";
@@ -18,10 +18,10 @@ export function usePageMarks(): PageMark[] {
   const tid = page?.translationId ?? "";
   const book = page?.book ?? "";
   const ch = page?.chapter ?? 0;
-  const highlights = useQuery<Highlight[]>({ queryKey: ["highlights", tid, book, ch], enabled: false }).data;
-  const annotations = useQuery<Annotation[]>({ queryKey: ["annotations", tid, book, ch], enabled: false }).data;
-  const chapter = useQuery<Chapter>({ queryKey: ["chapter", tid, book, ch], enabled: false }).data;
-  const translations = useQuery<Translation[]>({ queryKey: ["translations"], enabled: false }).data;
+  const highlights = useQuery<Highlight[]>({ queryKey: ["highlights", tid, book, ch], queryFn: skipToken }).data;
+  const annotations = useQuery<Annotation[]>({ queryKey: ["annotations", tid, book, ch], queryFn: skipToken }).data;
+  const chapter = useQuery<Chapter>({ queryKey: ["chapter", tid, book, ch], queryFn: skipToken }).data;
+  const translations = useQuery<Translation[]>({ queryKey: ["translations"], queryFn: skipToken }).data;
   const abbr = translations?.find((tr) => tr.id === tid)?.abbreviation ?? "";
   return useMemo(
     () => (page ? pageMarks(highlights ?? EMPTY_H, annotations ?? EMPTY_A, chapter, (r) => canonicalRef(r, abbr)) : []),

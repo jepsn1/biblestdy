@@ -55,7 +55,8 @@ type Match = { query: string; start: number; nodeKey: NodeKey; id: string };
  * Beside the reader, the passages marked on the open chapter lead (#191):
  * all of them, in reading order, on a bare `@`; typing filters them (verse
  * number, reference, their words or how they're marked) above the general
- * matches.
+ * matches. A whole reference typed stays preselected (one Enter inserts it)
+ * unless it is a mark itself.
  */
 export function RefTypeahead() {
   const editor = useCellValue(rootEditor$);
@@ -111,14 +112,19 @@ export function RefTypeahead() {
     );
   }, [editor, locale]);
 
-  const options = useMemo((): Option[] => {
-    if (!match) return [];
+  const { options, initial } = useMemo(() => {
+    if (!match) return { options: [] as Option[], initial: 0 };
     const onPage = filterMarks(marks, match.query, locale, markKind);
     const taken = new Set(onPage.map((m) => m.href));
-    const general = verseOptions(match.query, locale, 6).filter((o) => o.kind !== "ref" || !taken.has(o.href));
-    return [...onPage.map((mark): Option => ({ kind: "mark", mark })), ...general];
+    const typed = verseOptions(match.query, locale, 6);
+    const general = typed.filter((o) => o.kind !== "ref" || !taken.has(o.href));
+    // A whole reference typed ("joh 3,16") that no mark is: still one
+    // Enter inserts it, the marks above it or not
+    const exact = typed[0]?.kind === "ref" && !typed[0].fuzzy && /\p{L}/u.test(match.query) && /\d/.test(match.query);
+    const initial = exact && general[0] === typed[0] ? onPage.length : 0;
+    return { options: [...onPage.map((mark): Option => ({ kind: "mark", mark })), ...general], initial };
   }, [match, locale, marks, markKind]);
-  useEffect(() => setActive(0), [match?.query]);
+  useEffect(() => setActive(initial), [match?.query]); // eslint-disable-line react-hooks/exhaustive-deps -- per query
 
   /** First words of a passage, if its chapter is in the cache already —
    * where that translation numbers it (#163: Mal 4,2 is BPH Mal 3,20). */
@@ -145,7 +151,7 @@ export function RefTypeahead() {
       const sel = $getSelection();
       const end = $isRangeSelection(sel) && sel.anchor.key === m.nodeKey ? sel.anchor.offset : m.start + 1 + m.query.length;
       const range = $createRangeSelection();
-      range.anchor.set(m.nodeKey, o.kind === "ref" ? m.start : m.start + 1, "text");
+      range.anchor.set(m.nodeKey, o.kind === "book" ? m.start + 1 : m.start, "text");
       range.focus.set(m.nodeKey, end, "text");
       $setSelection(range);
       // A book: its name, then the chapter is typed — the menu stays open
@@ -296,7 +302,7 @@ export function RefTypeahead() {
         )}
       >
         {o.kind === "mark" ? (
-          <MarkRow mark={o.mark} locale={locale} kind={markKind(o.mark)} />
+          <MarkRow mark={o.mark} locale={locale} kind={markKind(o.mark)} active={i === active} />
         ) : o.kind === "ref" ? (
           <>
             <span className="font-sans font-medium whitespace-nowrap">{chipLabel(o.ref, locale)}</span>

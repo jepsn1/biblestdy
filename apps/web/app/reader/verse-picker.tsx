@@ -65,7 +65,7 @@ export function VersePicker({ open, mobile, onClose, marks = [], describe = () =
                 type="button"
                 onClick={() => close(m.ref)}
                 className={cn(
-                  "flex min-h-11 w-full items-center rounded-md px-2 py-1.5 text-list hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent",
+                  "flex min-h-11 w-full items-center rounded-md px-2 py-1.5 text-list hover:bg-accent/60",
                   !mobile && "pointer-fine:min-h-9",
                   focusRing,
                 )}

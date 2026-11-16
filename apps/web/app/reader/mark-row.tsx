@@ -1,5 +1,6 @@
 import type { BookLocale } from "@biblestdy/shared";
 import { chipLabel } from "~/lib/reference-label";
+import { cn } from "~/lib/utils";
 import type { PageMark } from "../notes/page-marks";
 import { HIGHLIGHT_SWATCH, NOTE_INK } from "./highlight-colors";
 
@@ -8,8 +9,10 @@ import { HIGHLIGHT_SWATCH, NOTE_INK } from "./highlight-colors";
  * the pen's stroke, beside its name in words), the chip it becomes, the
  * marked words. The `@` menu's option and the "+ Verse" dialog's button.
  */
-export function MarkRow({ mark, locale, kind }: { mark: PageMark; locale: BookLocale; kind: string }) {
+export function MarkRow({ mark, locale, kind, active = false }: { mark: PageMark; locale: BookLocale; kind: string; active?: boolean }) {
   const first = mark.kinds[0];
+  // On the active row's tint the muted grey falls short of 4.5:1
+  const muted = active ? "text-accent-foreground" : "text-muted-foreground";
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
       <span className="flex min-w-0 items-center gap-2">
@@ -21,9 +24,9 @@ export function MarkRow({ mark, locale, kind }: { mark: PageMark; locale: BookLo
           </svg>
         )}
         <span className="font-sans font-medium whitespace-nowrap">{chipLabel(mark.ref, locale)}</span>
-        <span className="min-w-0 truncate font-sans text-meta text-muted-foreground">{kind}</span>
+        <span className={cn("min-w-0 truncate font-sans text-meta", muted)}>{kind}</span>
       </span>
-      {mark.snippet && <span className="min-w-0 truncate pl-5 font-serif text-list text-muted-foreground">{mark.snippet}</span>}
+      {mark.snippet && <span className={cn("min-w-0 truncate pl-5 font-serif text-list", muted)}>{mark.snippet}</span>}
     </span>
   );
 }

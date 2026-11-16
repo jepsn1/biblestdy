@@ -95,6 +95,8 @@ export function pageMarks(
     byHref.set(href, row);
     out.push(row);
   }
+  // Highlights first: the row's swatch is its first kind
+  for (const r of out) r.kinds.sort((a, b) => Number(a.type === "pen") - Number(b.type === "pen"));
   return out;
 }
 
