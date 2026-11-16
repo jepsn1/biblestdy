@@ -612,7 +612,6 @@ const da: typeof en = {
   /** Sammenlign oversættelser (#167). */
   compare: {
     title: "Sammenlign oversættelser",
-    hint: "Se de samme vers i andre oversættelser",
     reading: "Du læser i: {{abbr}} · {{name}}",
     group: "Sammenlign med:",
     cap: "Du kan sammenligne op til {{n}} ad gangen",
@@ -636,8 +635,6 @@ const da: typeof en = {
     copyCap: "For langt til at kopiere på én gang ({{count}} vers, højst 100)",
     jump: "Læs videre i {{abbr}}",
     jumpWhere: ", {{name}}, {{ref}}",
-    nowReading: "Du læser nu {{abbr}}",
-    backTo: "Tilbage til {{prev}}",
     close: "Luk",
     verse: "vers {{n}}",
     verses: "vers {{from}} til {{to}}",

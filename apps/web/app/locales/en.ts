@@ -573,7 +573,6 @@ export default {
   /** Compare translations (#167). */
   compare: {
     title: "Compare translations",
-    hint: "See the same verses in other translations",
     reading: "You’re reading: {{abbr}} · {{name}}",
     group: "Compare with:",
     cap: "You can compare up to {{n}} at a time",
@@ -597,8 +596,6 @@ export default {
     copyCap: "Too long to copy at once ({{count}} verses, max 100)",
     jump: "Continue in {{abbr}}",
     jumpWhere: ", {{name}}, {{ref}}",
-    nowReading: "Now reading {{abbr}}",
-    backTo: "Back to {{prev}}",
     close: "Close",
     verse: "verse {{n}}",
     verses: "verses {{from}} to {{to}}",
