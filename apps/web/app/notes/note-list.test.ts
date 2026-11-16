@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bookName, parseReference, type Chapter, type Note } from "@biblestdy/shared";
+import { bookName, parseReference, type Chapter, type Note, type ScriptureRef } from "@biblestdy/shared";
+import * as vz from "@biblestdy/shared/versification";
 import {
   anchorForReference,
   anchorLabel,
@@ -218,6 +219,11 @@ describe("snippetChapters", () => {
   });
   it("waits for the reading translation for text refs", () => {
     expect(snippetChapters(overviewRows("[a](bible:JHN.3.16)", []), undefined)).toEqual([]);
+  });
+  it("text refs fetch the chapter they are in here (#163: English Mal 4 is BPH Mal 3); none without a counterpart", () => {
+    const rows = overviewRows("[a](bible:MAL.4.5) [b](bible:NEH.7.68)", []);
+    const local = (r: ScriptureRef) => vz.localRef(r, "BPH")?.ref ?? null;
+    expect(snippetChapters(rows, "BPH", { localize: local })).toEqual([{ translationId: "BPH", book: "MAL", chapter: 3 }]);
   });
 });
 

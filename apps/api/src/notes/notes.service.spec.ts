@@ -51,7 +51,7 @@ describe('NotesService (note↔anchor graph)', () => {
       ['JHN', 3],
       ['GEN', 1],
     ] as const) {
-      const listed = await svc.listForChapter('u1', book, chapter);
+      const listed = await svc.listForChapter('u1', 'WEB', book, chapter);
       expect(listed).toHaveLength(1);
       expect(listed[0].id).toBe(note.id);
       expect(listed[0].anchors).toHaveLength(2);
@@ -74,8 +74,8 @@ describe('NotesService (note↔anchor graph)', () => {
     const after = await svc.removeAnchor('u1', note.id, genAnchor.id);
     expect(after).toMatchObject({ id: note.id });
     expect((after as { anchors: unknown[] }).anchors).toHaveLength(1);
-    expect(await svc.listForChapter('u1', 'GEN', 1)).toHaveLength(0);
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(1);
+    expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toHaveLength(0);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(1);
   });
 
   it('removes the last anchor too; the note lives on without passages', async () => {
@@ -83,7 +83,7 @@ describe('NotesService (note↔anchor graph)', () => {
     const note = await svc.create('u1', jhn3);
     const after = await svc.removeAnchor('u1', note.id, note.anchors[0].id);
     expect(after && after.anchors).toEqual([]);
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(0);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(0);
     expect((await svc.listAll('u1')).map((n) => n.id)).toEqual([note.id]);
   });
 
@@ -92,10 +92,10 @@ describe('NotesService (note↔anchor graph)', () => {
     const note = await svc.create('u1', { title: 'Sermon', body: '# Outline' });
     expect(note.anchors).toEqual([]);
     expect(note.title).toBe('Sermon');
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(0);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(0);
     const later = await svc.addAnchor('u1', note.id, jhn3);
     expect(later?.anchors).toHaveLength(1);
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(1);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(1);
   });
 
   it('adding or removing a reference counts as an edit (list order)', async () => {
@@ -137,8 +137,8 @@ describe('NotesService (note↔anchor graph)', () => {
     const note = await svc.create('u1', jhn3);
     await svc.addAnchor('u1', note.id, gen1);
     await svc.remove('u1', note.id);
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(0);
-    expect(await svc.listForChapter('u1', 'GEN', 1)).toHaveLength(0);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(0);
+    expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toHaveLength(0);
   });
 
   it('a deleted note is invisible everywhere until restored, anchors intact (#64)', async () => {
@@ -150,8 +150,8 @@ describe('NotesService (note↔anchor graph)', () => {
     expect(await svc.remove('u1', note.id)).toBe(true);
 
     expect(await svc.listAll('u1')).toEqual([]);
-    expect(await svc.listForChapter('u1', 'GEN', 1)).toEqual([]);
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toEqual([]);
+    expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toEqual([]);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toEqual([]);
     expect(await svc.update('u1', note.id, { title: 'x' })).toBeNull();
     expect(await svc.addAnchor('u1', note.id, psa23)).toBeNull();
     expect(await svc.remove('u1', note.id)).toBe(false);
@@ -159,7 +159,7 @@ describe('NotesService (note↔anchor graph)', () => {
     const restored = await svc.restore('u1', note.id);
     expect(restored?.title).toBe('Grace');
     expect(restored?.anchors).toHaveLength(3);
-    expect(await svc.listForChapter('u1', 'GEN', 1)).toHaveLength(1);
+    expect(await svc.listForChapter('u1', 'WEB', 'GEN', 1)).toHaveLength(1);
   });
 
   it('restore only brings back a deleted note of the same user', async () => {
@@ -180,7 +180,7 @@ describe('NotesService (note↔anchor graph)', () => {
       startVerse: 18,
       endVerse: 18,
     });
-    const listed = await svc.listForChapter('u1', 'JHN', 3);
+    const listed = await svc.listForChapter('u1', 'WEB', 'JHN', 3);
     expect(listed).toHaveLength(1);
     expect(listed[0].anchors).toHaveLength(2);
   });
@@ -265,10 +265,10 @@ describe('inline references (note_ref, #158)', () => {
       body: '[Rom 8,28](bible:ROM.8.28)',
     });
     await svc.remove('u1', note.id);
-    expect(await svc.listForChapter('u1', 'ROM', 8)).toEqual([]);
+    expect(await svc.listForChapter('u1', 'WEB', 'ROM', 8)).toEqual([]);
     const restored = await svc.restore('u1', note.id);
     expect(hrefs(restored)).toEqual(['bible:ROM.8.28']);
-    expect(await svc.listForChapter('u1', 'ROM', 8)).toHaveLength(1);
+    expect(await svc.listForChapter('u1', 'WEB', 'ROM', 8)).toHaveLength(1);
   });
 
   it('anchor edits keep the refs on the returned note', async () => {
@@ -288,8 +288,7 @@ describe('listForChapter across translations (#158)', () => {
   it('finds a WEB-anchored note when the reader is in BPH — the translation no longer filters', async () => {
     const svc = make();
     const note = await svc.create('u1', { ...jhn3, title: 'In WEB' });
-    // The controller still takes ?translation=BPH; the service ignores it
-    const listed = await svc.listForChapter('u1', 'JHN', 3);
+    const listed = await svc.listForChapter('u1', 'BPH', 'JHN', 3);
     expect(listed.map((n) => n.id)).toEqual([note.id]);
     expect(listed[0].anchors[0].translationId).toBe('WEB');
   });
@@ -299,10 +298,10 @@ describe('listForChapter across translations (#158)', () => {
     const note = await svc.create('u1', {
       body: 'God so loved: [Joh 3,16](bible:JHN.3.16)',
     });
-    expect((await svc.listForChapter('u1', 'JHN', 3)).map((n) => n.id)).toEqual(
-      [note.id],
-    );
-    expect(await svc.listForChapter('u1', 'JHN', 4)).toEqual([]);
+    expect(
+      (await svc.listForChapter('u1', 'WEB', 'JHN', 3)).map((n) => n.id),
+    ).toEqual([note.id]);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 4)).toEqual([]);
   });
 
   it('a cross-chapter ref (ROM.8.28-9.5) is found in every chapter it spans', async () => {
@@ -316,7 +315,7 @@ describe('listForChapter across translations (#158)', () => {
       [9, true],
       [10, false],
     ] as const) {
-      const ids = (await svc.listForChapter('u1', 'ROM', chapter)).map(
+      const ids = (await svc.listForChapter('u1', 'WEB', 'ROM', chapter)).map(
         (n) => n.id,
       );
       expect(ids, `ROM ${chapter}`).toEqual(found ? [note.id] : []);
@@ -327,6 +326,73 @@ describe('listForChapter across translations (#158)', () => {
     const svc = make();
     await svc.create('u1', { ...jhn3, body: '[Joh 3,17](bible:JHN.3.17)' });
     await svc.create('u2', { body: '[Joh 3,17](bible:JHN.3.17)' });
-    expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(1);
+    expect(await svc.listForChapter('u1', 'WEB', 'JHN', 3)).toHaveLength(1);
+  });
+});
+
+describe('listForChapter maps versification (#163)', () => {
+  const cite = (svc: NotesService, href: string) =>
+    svc.create('u1', { body: `[x](${href})` });
+  const ids = async (
+    svc: NotesService,
+    translation: string,
+    book: string,
+    chapter: number,
+  ) =>
+    (await svc.listForChapter('u1', translation, book, chapter)).map(
+      (n) => n.id,
+    );
+
+  it('BPH Mal 3 lists a ref stored as Mal 4:5 (BPH 3,23); WEB keeps it in Mal 4', async () => {
+    const svc = make();
+    const note = await cite(svc, 'bible:MAL.4.5');
+    expect(await ids(svc, 'BPH', 'MAL', 3)).toEqual([note.id]);
+    expect(await ids(svc, 'WEB', 'MAL', 4)).toEqual([note.id]);
+    expect(await ids(svc, 'WEB', 'MAL', 3)).toEqual([]);
+  });
+
+  it('Joel: English 2:30 is BPH 3,3, English 2:1 stays in BPH 2, English 3 is BPH 4', async () => {
+    const svc = make();
+    const late = await cite(svc, 'bible:JOL.2.30');
+    const early = await cite(svc, 'bible:JOL.2.1');
+    const three = await cite(svc, 'bible:JOL.3.1');
+    expect(await ids(svc, 'BPH', 'JOL', 2)).toEqual([early.id]);
+    expect(await ids(svc, 'BPH', 'JOL', 3)).toEqual([late.id]);
+    expect(await ids(svc, 'BPH', 'JOL', 4)).toEqual([three.id]);
+    expect((await ids(svc, 'WEB', 'JOL', 2)).sort()).toEqual(
+      [late.id, early.id].sort(),
+    );
+  });
+
+  it('an anchor made in WEB Mal 4 shows in BPH Mal 3; one made in BPH Mal 3,23 in WEB Mal 4', async () => {
+    const svc = make();
+    const inWeb = await svc.create('u1', {
+      ...jhn3,
+      book: 'MAL',
+      chapter: 4,
+      startVerse: 5,
+      endVerse: 5,
+    });
+    const inBph = await svc.create('u1', {
+      ...jhn3,
+      translationId: 'BPH',
+      book: 'MAL',
+      chapter: 3,
+      startVerse: 23,
+      endVerse: 23,
+    });
+    expect((await ids(svc, 'BPH', 'MAL', 3)).sort()).toEqual(
+      [inWeb.id, inBph.id].sort(),
+    );
+    expect((await ids(svc, 'WEB', 'MAL', 4)).sort()).toEqual(
+      [inWeb.id, inBph.id].sort(),
+    );
+    expect(await ids(svc, 'WEB', 'MAL', 3)).toEqual([]);
+  });
+
+  it('an unknown translation numbers the English way', async () => {
+    const svc = make();
+    const note = await cite(svc, 'bible:MAL.4.5');
+    expect(await ids(svc, 'XYZ', 'MAL', 4)).toEqual([note.id]);
   });
 });

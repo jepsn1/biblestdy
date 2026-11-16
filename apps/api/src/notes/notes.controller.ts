@@ -24,8 +24,8 @@ export class NotesController {
 
   /** No query params: ALL the user's notes (attach-picker). With
    * translation+book+chapter: notes touching that chapter in ANY translation
-   * (anchor or inline ref, #158) — `translation` is still required (the
-   * reading translation; clients key caches by it) but doesn't filter. */
+   * (anchor or inline ref, #158) — `translation` is the reading one: the
+   * chapter is in its numbering (BPH Mal 3 holds English Mal 4, #163). */
   @Get()
   async list(
     @Req() req: AuthedRequest,
@@ -42,7 +42,12 @@ export class NotesController {
         'translation, book and chapter are required',
       );
     }
-    return this.notes.listForChapter(req.user.id, book, chapterNum);
+    return this.notes.listForChapter(
+      req.user.id,
+      translationId,
+      book,
+      chapterNum,
+    );
   }
 
   /** With an anchor (made from a selection) or without (a draft written on

@@ -20,12 +20,13 @@
  *   mapRange(ref, from, to)             → target slices, each with a kind
  *   targetUnits(fetchedChapter, slice)  → the units to show / what's absent
  * Notes (#163): stored refs are canonical (English), so
- *   mapRange(ref, CANONICAL, abbr) → per slice resolveInChapter / targetUnits.
+ *   localRef(ref, abbr) / resolveMapped(ref, chapter, abbr) for where one
+ *   shows, canonicalRef(ref, abbr) before writing a `bible:` href.
  */
 import { ENG_TO_ORG, ENG_VERSES, ORG_VERSES } from './versification-data.js'
 import { translationInfo } from './translation-info.js'
-import { resolveInChapter, unitEnd, type ChapterVerses, type VerseUnit } from './scripture-resolve.js'
-import type { ScriptureRef } from './scripture-href.js'
+import { resolveInChapter, unitEnd, type ChapterVerses, type ResolvedRange, type VerseUnit } from './scripture-resolve.js'
+import { refTouchesChapter, type ScriptureRef } from './scripture-href.js'
 import { words } from './anchor.js'
 
 /** `eng` = English Bibles (KJV tradition); `org` = original-language
@@ -409,6 +410,96 @@ export function mapRange(range: ScriptureRef, from: NumberingLike, to: Numbering
     }
   }
   return out
+}
+
+// ---- stored refs in a translation (#163) ------------------------------
+
+/** A reference in some translation's own numbering. `renumbered`: the
+ * numbers differ from the ones asked (English Mal 4:5 is BPH Mal 3,23). */
+export interface LocalRef {
+  ref: ScriptureRef
+  renumbered: boolean
+}
+
+const posBefore = (a: MappedSlice, b: MappedSlice) =>
+  a.chapter < b.chapter || (a.chapter === b.chapter && a.startVerse < b.startVerse)
+const endBefore = (a: MappedSlice, b: MappedSlice) =>
+  a.chapter < b.chapter || (a.chapter === b.chapter && a.endVerse < b.endVerse)
+
+/**
+ * A reference (default: a stored one, canonical numbering) in `to`'s own
+ * numbering: the span of everything it maps to. An unnumbered psalm title
+ * has no verse to point at and is left out; null when nothing maps (Neh
+ * 7:68 in BPH, a title alone) — say so, never fall back to the same number.
+ * A whole chapter that stays a whole chapter keeps that shape (Ps 51 is Ps
+ * 51 in BPH too, title and all); `same` everywhere returns `ref` itself.
+ */
+export function localRef(ref: ScriptureRef, to: NumberingLike, from: NumberingLike = CANONICAL): LocalRef | null {
+  const slices = mapRange(ref, from, to)
+  const useful = slices.filter((s) => s.kind !== 'unmapped' && s.startVerse > 0)
+  if (useful.length === 0) return null
+  if (useful.length === slices.length && useful.every((s) => s.kind === 'same')) return { ref, renumbered: false }
+  const renumbered = useful.some((s) => s.kind !== 'same')
+  if (ref.verse === undefined && useful.every((s) => s.chapter === ref.chapter) && ref.endChapter === undefined) {
+    return { ref, renumbered: false }
+  }
+  let first = useful[0]
+  let last = useful[0]
+  for (const s of useful) {
+    if (posBefore(s, first)) first = s
+    if (endBefore(last, s)) last = s
+  }
+  const out: ScriptureRef = { book: ref.book, chapter: first.chapter, verse: first.startVerse }
+  if (last.chapter !== first.chapter) {
+    out.endChapter = last.chapter
+    out.endVerse = last.endVerse
+  } else if (last.endVerse > first.startVerse) out.endVerse = last.endVerse
+  return { ref: out, renumbered }
+}
+
+/** A reference in a translation's own numbering → canonical (what a
+ * `bible:` href stores): BPH Mal 3,23 → Mal 4:5. Null = no counterpart
+ * (a psalm title alone). */
+export function canonicalRef(ref: ScriptureRef, from: NumberingLike): ScriptureRef | null {
+  return localRef(ref, CANONICAL, from)?.ref ?? null
+}
+
+/** Whether a reference (canonical by default) lands in this chapter of
+ * `to` — what lists a note under a chapter. Nothing mapped: by number, so
+ * the plain "isn't in BPH" has a place to show. */
+export function refTouchesChapterIn(
+  ref: ScriptureRef,
+  to: NumberingLike,
+  book: string,
+  chapter: number,
+  from: NumberingLike = CANONICAL,
+): boolean {
+  if (ref.book !== book) return false
+  const local = localRef(ref, to, from)
+  return refTouchesChapter(local ? local.ref : ref, book, chapter)
+}
+
+/** resolveInChapter plus whether the numbers changed on the way. */
+export type MappedResolution = (ResolvedRange & { renumbered: boolean }) | 'notInTranslation'
+
+/**
+ * Where a reference (canonical by default) lands in a loaded chapter of
+ * translation `to`: mapped first (#166's table), then resolved for bridges
+ * and gaps. Null = it doesn't touch this chapter; `notInTranslation` = it
+ * would, but this translation has nothing for it.
+ */
+export function resolveMapped(
+  ref: ScriptureRef,
+  chapter: ChapterVerses | null | undefined,
+  to: NumberingLike,
+  from: NumberingLike = CANONICAL,
+): MappedResolution | null {
+  if (!chapter) return 'notInTranslation'
+  const local = localRef(ref, to, from)
+  if (!local) return refTouchesChapter(ref, chapter.book, chapter.chapter) ? 'notInTranslation' : null
+  const r = resolveInChapter(local.ref, chapter)
+  if (r === null || r === 'notInTranslation') return r
+  return { ...r, renumbered: local.renumbered }
 }
 
 /** Kinds that can share a slice, weakest first. */

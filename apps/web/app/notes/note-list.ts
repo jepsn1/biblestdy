@@ -83,9 +83,16 @@ export function overviewRows(body: string, anchors: readonly NoteAnchor[]): Over
  * translation, word-precise anchors their home translation. */
 export type SnippetChapter = { translationId: string; book: string; chapter: number };
 
-export function snippetChapterOf(row: OverviewRow, readingId: string | undefined): SnippetChapter | null {
+/** A text ref in the reading translation's numbering (#163: English Mal 4
+ * is BPH Mal 3); null = no counterpart there, or not known yet. */
+export type LocalizeRef = (ref: ScriptureRef) => ScriptureRef | null;
+
+const asIs: LocalizeRef = (ref) => ref;
+
+export function snippetChapterOf(row: OverviewRow, readingId: string | undefined, localize: LocalizeRef = asIs): SnippetChapter | null {
   if (row.kind === "marked") return { translationId: row.anchor.translationId, book: row.anchor.book, chapter: row.anchor.chapter };
-  return readingId ? { translationId: readingId, book: row.ref.book, chapter: row.ref.chapter } : null;
+  const at = readingId ? localize(row.ref) : null;
+  return at && readingId ? { translationId: readingId, book: at.book, chapter: at.chapter } : null;
 }
 
 export const chapterKey = (c: SnippetChapter) => `${c.translationId}/${c.book}/${c.chapter}`;
@@ -102,12 +109,16 @@ export const SNIPPET_CHAPTER_CAP = 10;
 export function snippetChapters(
   rows: readonly OverviewRow[],
   readingId: string | undefined,
-  { cap = SNIPPET_CHAPTER_CAP, asked = new Set<string>() }: { cap?: number; asked?: ReadonlySet<string> } = {},
+  {
+    cap = SNIPPET_CHAPTER_CAP,
+    asked = new Set<string>(),
+    localize = asIs,
+  }: { cap?: number; asked?: ReadonlySet<string>; localize?: LocalizeRef } = {},
 ): SnippetChapter[] {
   const seen = new Map<string, SnippetChapter>();
   const out: SnippetChapter[] = [];
   for (const row of rows) {
-    const c = snippetChapterOf(row, readingId);
+    const c = snippetChapterOf(row, readingId, localize);
     if (!c) continue;
     const key = chapterKey(c);
     if (seen.has(key)) continue;

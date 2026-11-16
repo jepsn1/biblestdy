@@ -1,8 +1,4 @@
-import {
-  refTouchesChapter,
-  type Anchor,
-  type ScriptureRef,
-} from '@biblestdy/shared';
+import { type Anchor, type ScriptureRef } from '@biblestdy/shared';
 import type { AnchorRow, NoteRow, NoteStore, RefRow } from './notes.store';
 import { refOf } from './notes.service';
 
@@ -118,19 +114,28 @@ export class InMemoryNoteStore implements NoteStore {
     );
   }
 
-  notesInChapter(userId: string, book: string, chapter: number) {
+  notesInChapters(userId: string, book: string, chapters: readonly number[]) {
+    const lo = Math.min(...chapters);
+    const hi = Math.max(...chapters);
     return Promise.resolve(
       this.live().filter(
         (n) =>
           n.userId === userId &&
           (this.anchors.some(
             (a) =>
-              a.noteId === n.id && a.book === book && a.chapter === chapter,
+              a.noteId === n.id &&
+              a.book === book &&
+              chapters.includes(a.chapter),
           ) ||
-            this.refs.some(
-              (r) =>
-                r.noteId === n.id && refTouchesChapter(refOf(r), book, chapter),
-            )),
+            this.refs.some((r) => {
+              if (r.noteId !== n.id) return false;
+              const ref = refOf(r);
+              return (
+                ref.book === book &&
+                ref.chapter <= hi &&
+                (ref.endChapter ?? ref.chapter) >= lo
+              );
+            })),
       ),
     );
   }

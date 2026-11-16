@@ -1,4 +1,5 @@
-import type { Chapter } from "@biblestdy/shared";
+import type { Chapter, Translation } from "@biblestdy/shared";
+import { localRef } from "@biblestdy/shared/versification";
 import { rootEditor$, useCellValue } from "@mdxeditor/editor";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -88,18 +89,20 @@ export function RefTypeahead() {
   const options = useMemo(() => (match ? verseOptions(match.query, locale, 6) : []), [match, locale]);
   useEffect(() => setActive(0), [match?.query]);
 
-  /** First words of a passage, if its chapter is in the cache already. */
+  /** First words of a passage, if its chapter is in the cache already —
+   * where that translation numbers it (#163: Mal 4,2 is BPH Mal 3,20). */
   const wordsOf = (o: VerseOption) => {
     if (o.kind !== "ref") return "";
+    const translations = qc.getQueryData<Translation[]>(["translations"]);
+    if (!translations) return "";
+    const here = (id: unknown) => localRef(o.ref, translations.find((tr) => tr.id === id)?.abbreviation ?? "")?.ref;
     const stored = typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
-    const exact = stored ? qc.getQueryData<Chapter>(["chapter", stored, o.ref.book, o.ref.chapter]) : undefined;
-    const any =
-      exact ??
-      (qc
-        .getQueryCache()
-        .findAll({ queryKey: ["chapter"] })
-        .find((q) => q.queryKey[2] === o.ref.book && q.queryKey[3] === o.ref.chapter && q.state.data)?.state.data as Chapter | undefined);
-    return firstWords(any, o.ref, 8);
+    const cached = qc.getQueryCache().findAll({ queryKey: ["chapter"] });
+    const hit = [...cached]
+      .sort((a, b) => Number(b.queryKey[1] === stored) - Number(a.queryKey[1] === stored))
+      .map((q) => ({ q, at: here(q.queryKey[1]) }))
+      .find(({ q, at }) => at && q.queryKey[2] === at.book && q.queryKey[3] === at.chapter && q.state.data);
+    return hit?.at ? firstWords(hit.q.state.data as Chapter, hit.at, 8) : "";
   };
 
   function choose(o: VerseOption) {
