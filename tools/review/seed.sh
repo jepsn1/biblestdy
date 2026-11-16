@@ -9,8 +9,15 @@ case "$EMAIL" in delivered@resend.dev|delivered+*@resend.dev) ;; *) echo "EMAIL 
 JAR=${1:-cookies.txt}; B=${BASE:-http://localhost:5173}/api; O=${ORIGIN:-http://localhost:5173}
 H=(-b "$JAR" -H "Origin: $O" -H "Content-Type: application/json")
 curl -s -H "Origin: $O" -H "Content-Type: application/json" -X POST "$B/auth/email-otp/send-verification-otp" -d "{\"email\":\"$EMAIL\",\"type\":\"sign-in\"}" >/dev/null
-sleep 1
-OTP=$(docker exec infra-postgres psql -U postgres -d biblestdy_dev -tAc "select value from verification order by created_at desc limit 1" | cut -d: -f1)
+# This user's code only (better-auth: identifier "sign-in-otp-<email>"): parallel
+# workers send codes at the same time, and the newest of anyone's is someone else's
+otp() {
+  echo "select value from verification where identifier = 'sign-in-otp-' || :'email' order by created_at desc limit 1" |
+    docker exec -i infra-postgres psql -U postgres -d biblestdy_dev -v email="$EMAIL" -tA | cut -d: -f1
+}
+OTP=""
+for _ in 1 2 3 4 5; do sleep 1; OTP=$(otp); [ -n "$OTP" ] && break; done
+[ -n "$OTP" ] || { echo "no sign-in code for $EMAIL"; exit 1; }
 curl -s -c "$JAR" -H "Origin: $O" -H "Content-Type: application/json" -X POST "$B/auth/sign-in/email-otp" -d "{\"email\":\"$EMAIL\",\"otp\":\"$OTP\"}" >/dev/null
 A='"translationId":"9879dbb7cfe39e4d-01","book":"JHN","chapter":3'
 curl -s "${H[@]}" -X POST "$B/highlights" -d "{$A,\"startVerse\":16,\"startWord\":0,\"endVerse\":16,\"endWord\":12,\"color\":\"gold\"}" >/dev/null
