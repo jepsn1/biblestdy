@@ -63,7 +63,7 @@ const da: typeof en = {
     installIosStep1: "Tryk p\u00e5 Del-knappen i Safaris v\u00e6rkt\u00f8jslinje",
     installIosStep2: "V\u00e6lg \u00bbF\u00f8j til hjemmesk\u00e6rm\u00ab",
     installIosWhy: "biblestdy \u00e5bner i fuld sk\u00e6rm som en rigtig app \u2014 uden browserens knapper og adresselinje.",
-    settingsHint: "Tema, tekststørrelse, sprog og din konto",
+    settingsHint: "Tema, tekststørrelse, sprog, genveje og din konto",
     jumpOpen: "Gå til skriftsted",
     jumpClose: "Luk",
     jumpInvalid: "Ukendt skriftsted — prøv »Joh 3,16« eller »Rom 8«",
@@ -657,6 +657,11 @@ const da: typeof en = {
     highlightColor: "Farve (mens overstregningspennen er valgt)",
     help: "Denne liste",
     or: "eller",
+    singleKeys: "Genveje med én tast",
+    singleKeysOn: "Taster som t, / og [ ] alene. Slå dem fra hvis stemmestyring eller et hjælpemiddel trykker på dem ved en fejl.",
+    singleKeysOff: "Slået fra: kun genveje med Ctrl/⌘, piletasterne og Esc virker.",
+    offIntro: "Genveje med én tast er slået fra, så listen viser kun de taster der stadig virker.",
+    saveFailed: "Kunne ikke gemme indstillingen for genveje",
   },
   /** Shared UI chrome (components/ui): the generic dialog/sheet close. */
   common: {

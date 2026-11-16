@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { modKey } from "~/components/hint";
 import {
@@ -9,6 +9,10 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Switch } from "~/components/ui/switch";
+import { notifyError } from "~/lib/notify";
+import { isCharacterShortcut, saveSingleKeys, useSingleKeys } from "~/lib/shortcuts";
+import { cn } from "~/lib/utils";
 
 /** Event name: anything (the settings menu) can open the list. */
 export const OPEN_SHORTCUTS = "biblestdy:shortcuts";
@@ -39,13 +43,51 @@ function Keys({ keys }: { keys: string[][] }) {
   );
 }
 
+function save(on: boolean) {
+  saveSingleKeys(on).catch((e: unknown) => notifyError(e, { retry: () => save(on) }));
+}
+
+/**
+ * The single-key shortcuts switch (#145, WCAG 2.1.4), in Settings (every
+ * device: an iPad with a keyboard fires them too) and atop the `?` list —
+ * one account setting. Label + a description that says what off means.
+ */
+export function SingleKeysSwitch({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  const ids = useId();
+  const on = useSingleKeys();
+  return (
+    <div className={cn("flex items-start justify-between gap-4 py-2", className)}>
+      <div className="min-w-0">
+        <label htmlFor={`${ids}-switch`} id={`${ids}-label`} className="text-control">
+          {t("shortcuts.singleKeys")}
+        </label>
+        <p id={`${ids}-desc`} className="text-meta text-muted-foreground">
+          {t(on ? "shortcuts.singleKeysOn" : "shortcuts.singleKeysOff")}
+        </p>
+      </div>
+      <Switch
+        id={`${ids}-switch`}
+        checked={on}
+        onCheckedChange={save}
+        aria-labelledby={`${ids}-label`}
+        aria-describedby={`${ids}-desc`}
+        // Off reads by its grey track (WCAG 1.4.11); bigger on a phone
+        className="mt-0.5 origin-right max-sm:mt-1.5 max-sm:scale-125"
+      />
+    </div>
+  );
+}
+
 /**
  * `?` overlay (#65): every keyboard shortcut of the reader in one list.
  * Opened by `?` (read route) or the settings menu's "Keyboard shortcuts".
+ * Single-key shortcuts off (#145): only the keys that still work are listed.
  */
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useTranslation();
-  const groups: { title: string; rows: Row[] }[] = [
+  const singleKeys = useSingleKeys();
+  const all: { title: string; rows: Row[] }[] = [
     {
       title: t("shortcuts.reading"),
       rows: [
@@ -95,13 +137,22 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
       ],
     },
   ];
+  const groups = all
+    .map((g) => ({
+      ...g,
+      rows: g.rows
+        .map((r) => ({ ...r, keys: r.keys.filter((combo) => singleKeys || !isCharacterShortcut(combo.join("+"))) }))
+        .filter((r) => r.keys.length > 0),
+    }))
+    .filter((g) => g.rows.length > 0);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("shortcuts.title")}</DialogTitle>
-          <DialogDescription>{t("shortcuts.intro")}</DialogDescription>
+          <DialogDescription>{t(singleKeys ? "shortcuts.intro" : "shortcuts.offIntro")}</DialogDescription>
         </DialogHeader>
+        <SingleKeysSwitch className="rounded-lg bg-muted px-3" />
         <ScrollArea className="-mr-3 pr-3" viewportClassName="max-h-[70dvh]">
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
           {groups.map((g) => (

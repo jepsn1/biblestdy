@@ -24,6 +24,7 @@ describe('Preferences API (#45 reader style)', () => {
       textSize: null,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -35,6 +36,7 @@ describe('Preferences API (#45 reader style)', () => {
         textSize: null,
         supportNoticeDismissed: false,
         highlightLabels: {},
+        singleKeyShortcuts: true,
       },
     );
     expect(await controller.get(as('u1'))).toEqual({
@@ -42,6 +44,7 @@ describe('Preferences API (#45 reader style)', () => {
       textSize: null,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -54,6 +57,7 @@ describe('Preferences API (#45 reader style)', () => {
       textSize: null,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -65,6 +69,7 @@ describe('Preferences API (#45 reader style)', () => {
       textSize: null,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -80,6 +85,7 @@ describe('Preferences API (#45 reader style)', () => {
       textSize: null,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -100,12 +106,14 @@ describe('Preferences API (#61 text size)', () => {
       textSize: 150,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: 150,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -119,6 +127,7 @@ describe('Preferences API (#61 text size)', () => {
       textSize: 200,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -137,6 +146,7 @@ describe('Preferences API (#61 text size)', () => {
       textSize: null,
       supportNoticeDismissed: false,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
   });
 
@@ -161,6 +171,7 @@ describe('Preferences API (#61 text size)', () => {
       textSize: 125,
       supportNoticeDismissed: true,
       highlightLabels: {},
+      singleKeyShortcuts: true,
     });
     expect((await controller.get(as('u2'))).supportNoticeDismissed).toBe(false);
   });
@@ -174,6 +185,7 @@ describe('Preferences API (#61 text size)', () => {
       make().controller.update(as('u1'), {
         supportNoticeDismissed: false,
         highlightLabels: {},
+        singleKeyShortcuts: true,
       } as unknown as UpdatePreferencesDto),
     ).rejects.toThrow(BadRequestException);
   });
@@ -223,5 +235,29 @@ describe('Preferences API (highlight colour names)', () => {
       (await validate(plainToInstance(UpdatePreferencesDto, body))).length;
     expect(await errs({ highlightLabels: { blue: 'God speaking' } })).toBe(0);
     expect(await errs({ highlightLabels: 'blue' })).toBeGreaterThan(0);
+  });
+});
+
+describe('Preferences API (#145 single-key shortcuts)', () => {
+  it('on until turned off; turned off follows the account', async () => {
+    const { controller } = make();
+    expect((await controller.get(as('u1'))).singleKeyShortcuts).toBe(true);
+    await controller.update(as('u1'), { singleKeyShortcuts: false });
+    expect((await controller.get(as('u1'))).singleKeyShortcuts).toBe(false);
+    expect((await controller.get(as('u2'))).singleKeyShortcuts).toBe(true);
+    await controller.update(as('u1'), { singleKeyShortcuts: true });
+    expect((await controller.get(as('u1'))).singleKeyShortcuts).toBe(true);
+  });
+
+  it('wants a boolean', async () => {
+    const errs = async (body: object) =>
+      (await validate(plainToInstance(UpdatePreferencesDto, body))).length;
+    expect(await errs({ singleKeyShortcuts: false })).toBe(0);
+    expect(await errs({ singleKeyShortcuts: 'off' })).toBeGreaterThan(0);
+    await expect(
+      make().controller.update(as('u1'), {
+        singleKeyShortcuts: 'off',
+      } as unknown as UpdatePreferencesDto),
+    ).rejects.toThrow(BadRequestException);
   });
 });

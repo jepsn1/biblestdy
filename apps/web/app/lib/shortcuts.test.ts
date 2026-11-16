@@ -1,5 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { ignoreShortcut, opensPlaceChooser, type ShortcutEvent } from "./shortcuts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  ignoreShortcut,
+  isCharacterKey,
+  isCharacterShortcut,
+  liveShortcut,
+  opensPalette,
+  opensPlaceChooser,
+  saveSingleKeys,
+  singleKeyOff,
+  singleKeysOn,
+  type ShortcutEvent,
+} from "./shortcuts";
+
+// The switch persists to the account; no network in tests
+const save = vi.hoisted(() => vi.fn<(patch: unknown) => Promise<void>>(() => Promise.resolve()));
+vi.mock("./preferences", () => ({ loadPreferences: () => Promise.resolve(null), savePreferences: save }));
 
 /** Minimal element: `closest` answers from the selectors its ancestry matches. */
 function el(matches: (selector: string) => boolean, extra: { isContentEditable?: boolean } = {}) {
@@ -105,5 +120,89 @@ describe("opensPlaceChooser (Ctrl/⌘B)", () => {
   it("not over another dialog, nor when already handled", () => {
     expect(opensPlaceChooser(key("b", body, { ctrlKey: true }), modalOpen)).toBe(false);
     expect(opensPlaceChooser(key("b", body, { ctrlKey: true, defaultPrevented: true }), noModal)).toBe(false);
+  });
+});
+
+describe("single-key shortcuts switch (#145, WCAG 2.1.4)", () => {
+  beforeEach(() => save.mockClear());
+  afterEach(async () => {
+    await saveSingleKeys(true);
+  });
+
+  it("a character key is one character without Ctrl/⌘/Alt — Shift included", () => {
+    for (const k of ["t", "/", "?", "[", "]", "v", "H", "1", "h"]) expect(isCharacterKey(key(k, body))).toBe(true);
+    for (const k of ["ArrowLeft", "PageDown", "Home", "Escape", "Enter", " ", "F6", "Unidentified"])
+      expect(isCharacterKey(key(k, body))).toBe(false);
+    expect(isCharacterKey(key("k", body, { ctrlKey: true }))).toBe(false);
+    expect(isCharacterKey(key("/", body, { altKey: true }))).toBe(false);
+  });
+
+  it("on by default: page keys go through", () => {
+    expect(singleKeysOn()).toBe(true);
+    expect(singleKeyOff(key("t", body))).toBe(false);
+    expect(ignoreShortcut(key("[", body), noModal)).toBe(false);
+  });
+
+  it("off: every character key is ignored, named keys still work, and it's saved", async () => {
+    await saveSingleKeys(false);
+    expect(save).toHaveBeenCalledWith({ singleKeyShortcuts: false });
+    for (const k of ["t", "/", "?", "[", "]", "v", "H", "1", "6"]) {
+      expect(singleKeyOff(key(k, body))).toBe(true);
+      expect(ignoreShortcut(key(k, body), noModal)).toBe(true);
+    }
+    for (const k of ["ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", "Escape"])
+      expect(ignoreShortcut(key(k, body), noModal)).toBe(false);
+  });
+
+  it("a failed save puts the switch back", async () => {
+    save.mockRejectedValueOnce(new Error("offline"));
+    await expect(saveSingleKeys(false)).rejects.toThrow("offline");
+    expect(singleKeysOn()).toBe(true);
+  });
+
+  it("knows which shown keys are single-key ones", () => {
+    for (const s of ["T", "t", "/", "?", "[", "Shift+H", "1", "1–6", "V"]) expect(isCharacterShortcut(s)).toBe(true);
+    for (const s of ["mod+K", "mod+B", "mod+.", "Meta+K", "Control+K", "Esc", "←", "→", "ArrowLeft", "PageUp", "F6", "Shift+←"])
+      expect(isCharacterShortcut(s)).toBe(false);
+  });
+
+  it("hints and aria-keyshortcuts drop dead keys while off (none left = nothing)", () => {
+    expect(liveShortcut("Meta+K Control+K /", true)).toBe("Meta+K Control+K /");
+    expect(liveShortcut("Meta+K Control+K /", false)).toBe("Meta+K Control+K");
+    expect(liveShortcut("T", false)).toBeUndefined();
+    expect(liveShortcut("Shift+H", false)).toBeUndefined();
+    expect(liveShortcut("ArrowLeft PageUp", false)).toBe("ArrowLeft PageUp");
+    expect(liveShortcut("mod+B", false)).toBe("mod+B");
+    expect(liveShortcut(undefined, false)).toBeUndefined();
+  });
+});
+
+describe("opensPalette (search: Ctrl/⌘K, Alt+/, /)", () => {
+  afterEach(async () => {
+    await saveSingleKeys(true);
+  });
+  const input = el((s) => s === "input");
+
+  it("Ctrl/⌘K and Alt+/ from anywhere, a field too", () => {
+    expect(opensPalette(key("k", body, { ctrlKey: true }), noModal)).toBe(true);
+    expect(opensPalette(key("K", input, { metaKey: true }), noModal)).toBe(true);
+    expect(opensPalette(key("÷", input, { altKey: true, code: "Slash" }), noModal)).toBe(true);
+  });
+
+  it("/ on the page, not in a field", () => {
+    expect(opensPalette(key("/", body), noModal)).toBe(true);
+    expect(opensPalette(key("/", input), noModal)).toBe(false);
+  });
+
+  it("single-key shortcuts off: / does nothing, Ctrl/⌘K and Alt+/ still open", async () => {
+    await saveSingleKeys(false);
+    expect(opensPalette(key("/", body), noModal)).toBe(false);
+    expect(opensPalette(key("k", body, { ctrlKey: true }), noModal)).toBe(true);
+    expect(opensPalette(key("÷", body, { altKey: true, code: "Slash" }), noModal)).toBe(true);
+  });
+
+  it("never over another modal", () => {
+    expect(opensPalette(key("k", body, { ctrlKey: true }), modalOpen)).toBe(false);
+    expect(opensPalette(key("/", body), modalOpen)).toBe(false);
   });
 });

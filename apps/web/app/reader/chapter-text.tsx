@@ -15,6 +15,7 @@ import { bookLocale } from "~/lib/book-name";
 import type { ReaderTool } from "./tool-palette";
 import { notifyCopied, notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
 import { showVerses } from "~/lib/print-limit";
+import { singleKeyOff } from "~/lib/shortcuts";
 import { cn, focusField, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { anchorReferenceLabel, canCopy, formatCopy } from "./copy-attribution";
@@ -426,7 +427,7 @@ export function ChapterText({
     const m = menuRef.current;
     // Shortcut letters inside the open action menu act like its items
     if (m && (m.kind === "selection" || m.kind === "highlight") && target?.closest(`[${SELECTION_UI_ATTR}]`)) {
-      if (e.shiftKey) return;
+      if (e.shiftKey || singleKeyOff(e)) return; // off (#145): the menu's own typeahead
       const anchor = m.kind === "highlight" ? m.highlight : m.anchor;
       const willCompose = e.key === "m" && m.kind === "selection";
       if (keyAction(e.key, anchor, m.kind === "highlight" ? m.highlight : null)) {
@@ -476,7 +477,7 @@ export function ChapterText({
         setTouchSel(null);
         return handled();
       default:
-        if (e.shiftKey) return;
+        if (e.shiftKey || singleKeyOff(e)) return;
         if (keyAction(e.key, keyTarget(cursor), null)) {
           if (e.key !== "m") setTouchSel(null);
           handled();

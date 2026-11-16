@@ -9,7 +9,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { userPreference } from '../db/schema';
 
-/** Persistence for per-account preferences (#45, #61, colour names). */
+/** Persistence for per-account preferences (#45, #61, colour names, #145). */
 export interface PreferencesStore {
   /** Fields are null when there is no row / never chosen. */
   get(userId: string): Promise<Preferences>;
@@ -28,6 +28,7 @@ export class DrizzlePreferencesStore implements PreferencesStore {
         textSize: userPreference.textSize,
         supportNoticeDismissedAt: userPreference.supportNoticeDismissedAt,
         highlightLabels: userPreference.highlightLabels,
+        singleKeyShortcuts: userPreference.singleKeyShortcuts,
       })
       .from(userPreference)
       .where(eq(userPreference.userId, userId))
@@ -38,6 +39,7 @@ export class DrizzlePreferencesStore implements PreferencesStore {
       supportNoticeDismissed: !!row?.supportNoticeDismissedAt,
       // A stored map that no longer parses (a colour retired) reads as defaults
       highlightLabels: parseHighlightLabels(row?.highlightLabels ?? {}) ?? {},
+      singleKeyShortcuts: row?.singleKeyShortcuts ?? true,
     };
   }
 

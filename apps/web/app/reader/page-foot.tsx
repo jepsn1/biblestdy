@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
+import { useLiveShortcut } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { lineWidth, partsThatFit } from "./sheet-layout";
 
@@ -256,6 +257,7 @@ function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "ne
   // Mouse turns on press, like a page under the finger; touch keeps click
   // (a press may be a scroll), keyboard keeps Enter/Space (detail 0)
   const pressed = useRef(false);
+  const live = useLiveShortcut();
   return (
     <Hint label={button.name} shortcut={button.hintKey} side="top">
       <Button
@@ -266,7 +268,7 @@ function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "ne
         focusableWhenDisabled
         data-foot-end
         aria-label={button.name === button.label ? undefined : button.name}
-        aria-keyshortcuts={button.keys}
+        aria-keyshortcuts={live(button.keys)}
         onPointerDown={(e) => {
           pressed.current = e.pointerType === "mouse" && e.button === 0 && !button.disabled;
           if (pressed.current) button.onClick();
