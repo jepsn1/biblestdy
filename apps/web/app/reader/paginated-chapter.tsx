@@ -148,6 +148,7 @@ export function PaginatedChapter({
   onSideViewChange,
   annotationBoxesOpen,
   placeRef,
+  onSpreadEnd,
 }: {
   chapter: Chapter;
   translation: Translation;
@@ -162,6 +163,9 @@ export function PaginatedChapter({
   annotationBoxesOpen: boolean;
   /** Out: the verse the reader is at (the translation switch lands on it). */
   placeRef?: React.MutableRefObject<number | null>;
+  /** Out (#146): the last chapter this spread shows when chapters run on
+   * (Salme 23's last spread also holds 24 → 24), else null. */
+  onSpreadEnd?: (lastChapter: number | null) => void;
 }) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -945,6 +949,12 @@ export function PaginatedChapter({
       ? `${chapter.chapter}${sep}${pageVerses.first}–${runsOn.ref.chapter}${sep}${runsOn.runOn.toLabel}`
       : `${chapter.chapter}${verseSpan}`;
   const rangeLabel = `${nameOf(chapter.book)} ${shortRange}`;
+  /** Every chapter on this spread (#146): the strip marks them all, the
+   * address says "Salmerne 23–24". */
+  const spreadEnd = runsOn ? runsOn.ref.chapter : null;
+  useEffect(() => {
+    onSpreadEnd?.(spreadEnd);
+  }, [spreadEnd, onSpreadEnd]);
 
   // Running foot ends: just "‹ Previous" / "Next ›" — crossing into the
   // next chapter is one more page turn (the accessible name says where it
@@ -1435,6 +1445,7 @@ export function PaginatedChapter({
                     <ChapterStrip
                       book={chapter.book}
                       chapter={chapter.chapter}
+                      spreadEnd={spreadEnd}
                       className="-ml-2 mb-[calc(var(--spacing-sheet-air)/2)] shrink-0"
                     />
                   )}

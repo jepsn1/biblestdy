@@ -47,6 +47,7 @@ const CURRENT = "font-semibold text-foreground underline decoration-primary deco
 export function PlaceChooser({
   book,
   chapter,
+  chapterTo = null,
   stripShown = false,
   ref,
   style,
@@ -54,6 +55,8 @@ export function PlaceChooser({
   /** "" when the route's book is unknown (error shell). */
   book: string;
   chapter: number;
+  /** The spread runs on to this chapter (#146): "Salmerne 23–24". */
+  chapterTo?: number | null;
   /** The paged sheet's chapter strip shows: open on the books. */
   stripShown?: boolean;
   /** The row's flexible part (nav-fit measures everything else). */
@@ -99,14 +102,17 @@ export function PlaceChooser({
     };
   });
 
-  const place = known ? `${nameOf(book)} ${chapter}` : t("place.noBook");
+  const span = chapterTo && chapterTo > chapter ? `${chapter}–${chapterTo}` : String(chapter);
+  // Said in words ("23 to 24"): a dash isn't read the same by every reader
+  const spoken = chapterTo && chapterTo > chapter ? t("place.span", { from: chapter, to: chapterTo }) : String(chapter);
+  const place = known ? `${nameOf(book)} ${spoken}` : t("place.noBook");
   const label = t("place.label", { place });
   const trigger = (
     <>
       {known ? (
         <>
           <span className="min-w-0 truncate font-serif font-medium">{nameOf(book)}</span>
-          <span className="shrink-0 font-serif font-medium tabular-nums">{chapter}</span>
+          <span className="shrink-0 font-serif font-medium tabular-nums">{span}</span>
         </>
       ) : (
         <span className="min-w-0 truncate">{place}</span>

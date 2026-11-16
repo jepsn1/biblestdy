@@ -27,6 +27,7 @@ export function ReaderNav({
   annotationBoxesOpen,
   onToggleAnnotationBoxes,
   chapterInStrip = false,
+  chapterTo = null,
 }: {
   book: string;
   chapter: number;
@@ -39,6 +40,8 @@ export function ReaderNav({
   onToggleAnnotationBoxes: () => void;
   /** The sheet's chapter strip shows (desktop, paged): the address opens on the books. */
   chapterInStrip?: boolean;
+  /** The spread runs on to this chapter (#146). */
+  chapterTo?: number | null;
 }) {
   const { t } = useTranslation();
   const pwa = usePwaInstall();
@@ -83,6 +86,7 @@ export function ReaderNav({
           ref={nameRef}
           book={book}
           chapter={chapter}
+          chapterTo={chapterTo}
           stripShown={chapterInStrip}
           // Wrapped: the address stays on the first line and fills what that
           // line leaves — its minimum plus number, chevron and padding

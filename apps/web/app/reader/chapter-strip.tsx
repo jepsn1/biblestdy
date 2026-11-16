@@ -31,7 +31,19 @@ const ITEM = "[data-strip-item]";
  * book must not spend the reading quota (#29).
  * Chrome, not page: it stays put while the page turns (turn-still.ts).
  */
-export function ChapterStrip({ book, chapter, className }: { book: string; chapter: number; className?: string }) {
+export function ChapterStrip({
+  book,
+  chapter,
+  spreadEnd = null,
+  className,
+}: {
+  book: string;
+  chapter: number;
+  /** The spread also shows the chapters up to this one (#146): each gets
+   * the same mark — you are reading them all. */
+  spreadEnd?: number | null;
+  className?: string;
+}) {
   const { t } = useTranslation();
   const nameOf = useBookName();
   const count = getBook(book)?.chapters ?? 1;
@@ -101,6 +113,7 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
             );
           }
           const current = item.n === chapter;
+          const alsoHere = !current && spreadEnd !== null && item.n > chapter && item.n <= spreadEnd;
           return (
             <Link
               key={item.n}
@@ -109,11 +122,11 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
               // One tab stop: the current chapter; arrows reach the rest
               tabIndex={current ? 0 : -1}
               aria-current={current ? "page" : undefined}
-              aria-label={t("reader.stripChapter", { n: item.n })}
+              aria-label={t(alsoHere ? "reader.stripAlsoHere" : "reader.stripChapter", { n: item.n })}
               className={cn(
                 STRIP_ITEM,
                 "tabular-nums",
-                current
+                current || alsoHere
                   ? "font-semibold text-foreground after:absolute after:inset-x-1.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}

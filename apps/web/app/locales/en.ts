@@ -32,6 +32,7 @@ export default {
   place: {
     choose: "Choose book and chapter",
     label: "{{place}} — choose book and chapter",
+    span: "{{from}} to {{to}}",
     noBook: "Choose a book",
     close: "Close",
     filter: "Find a book or passage",
@@ -76,6 +77,7 @@ export default {
     chaptersNav: "Chapters",
     stripLabel: "Chapters of {{book}}",
     stripChapter: "Chapter {{n}}",
+    stripAlsoHere: "Chapter {{n}}, also on this page",
     allChapters: "All chapters",
     prevChapter: "Previous chapter",
     nextChapter: "Next chapter",

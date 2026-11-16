@@ -72,6 +72,7 @@ const da: typeof en = {
   place: {
     choose: "Vælg bog og kapitel",
     label: "{{place}} — vælg bog og kapitel",
+    span: "{{from}} til {{to}}",
     noBook: "Vælg en bog",
     close: "Luk",
     filter: "Find en bog eller et skriftsted",
@@ -116,6 +117,7 @@ const da: typeof en = {
     chaptersNav: "Kapitler",
     stripLabel: "Kapitler i {{book}}",
     stripChapter: "Kapitel {{n}}",
+    stripAlsoHere: "Kapitel {{n}}, også på denne side",
     allChapters: "Alle kapitler",
     prevChapter: "Forrige kapitel",
     nextChapter: "Næste kapitel",
