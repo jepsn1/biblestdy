@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { GROUP_CHAT_URL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from "~/lib/support";
+import { COFFEE_URL, GROUP_CHAT_URL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from "~/lib/support";
 import { cn, focusRing } from "~/lib/utils";
 
 const LINK = cn(
@@ -8,13 +8,19 @@ const LINK = cn(
   focusRing,
 );
 
-/** "Support biblestdy" in Settings: two quiet text links (new tab — the
+/** "Support biblestdy" in Settings: quiet text links (new tab — the
  * reading page stays). Found when looked for, never pushed. */
 export function SupportLinks() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col py-1">
       <p className="text-control font-medium">{t("support.settings")}</p>
+      <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className={LINK}>
+        <span aria-hidden>☕</span>
+        {t("support.coffee")}
+        <ExternalLink className="size-3.5" aria-hidden />
+        <span className="sr-only">{t("copyright.newTab")}</span>
+      </a>
       <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className={LINK}>
         {t("support.follow", { handle: INSTAGRAM_HANDLE })}
         <ExternalLink className="size-3.5" aria-hidden />

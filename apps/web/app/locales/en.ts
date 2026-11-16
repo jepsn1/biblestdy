@@ -477,6 +477,7 @@ export default {
     },
   },
   support: {
+    coffee: "Buy me a coffee",
     follow: "Follow on Instagram (@{{handle}})",
     chat: "Join the group chat on Instagram",
     settings: "Support biblestdy",

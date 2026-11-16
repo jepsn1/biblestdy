@@ -10,3 +10,6 @@ export const INSTAGRAM_HANDLE = "marcusjepsn";
 export const INSTAGRAM_URL = `https://www.instagram.com/${INSTAGRAM_HANDLE}/`;
 /** Instagram group chat invite (swap for the channel once there is one). */
 export const GROUP_CHAT_URL = "https://ig.me/j/d4-wBd5KNzCY959L/";
+/** "☕ Buy me a coffee" target. Instagram until there is a donation page —
+ * donations to Marcus personally only (a company recipient makes it commercial). */
+export const COFFEE_URL = INSTAGRAM_URL;
