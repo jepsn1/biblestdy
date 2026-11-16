@@ -5,8 +5,9 @@
  * non-intrusive links" only; "interstitials or disruptive messaging ... are
  * strictly prohibited"). "☕ Buy me a coffee" also sits in the landing
  * footer and the reader's running foot below the text (reader/page-foot.tsx):
- * plain muted text like the credit line, no colour or motion, shown only in
- * spare room (the first thing dropped; never crowds the credit/source).
+ * plain muted text like the credit line, no colour or motion — at the
+ * credit line's end where it fits, else on a small line of its own under it
+ * (never crowds the credit/source).
  */
 
 export const INSTAGRAM_HANDLE = "marcusjepsn";
