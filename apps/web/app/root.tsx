@@ -46,6 +46,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content={VIEWPORT_OPEN} />
         <script dangerouslySetInnerHTML={{ __html: VIEWPORT_PREPAINT }} />
         <meta name="theme-color" content="#211d18" />
+        {/* Tab icon: the home-screen book, redrawn bolder for 16px */}
+        <link rel="icon" href="/favicon.ico" sizes="32x32" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         {/* Install-only service worker (#13, no offline) — prod build ships /sw.js */}
