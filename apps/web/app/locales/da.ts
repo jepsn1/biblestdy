@@ -635,7 +635,7 @@ const da: typeof en = {
     copyAll: "Kopiér det hele",
     copyCap: "For langt til at kopiere på én gang ({{count}} vers, højst 100)",
     jump: "Læs videre i {{abbr}}",
-    jumpLabel: "Læs videre i {{name}}, {{ref}}",
+    jumpWhere: ", {{name}}, {{ref}}",
     nowReading: "Du læser nu {{abbr}}",
     backTo: "Tilbage til {{prev}}",
     close: "Luk",

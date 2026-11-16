@@ -571,10 +571,12 @@ function CompareBlock({
               variant="ghost"
               size="sm"
               className="pointer-coarse:h-11"
-              aria-label={t("compare.jumpLabel", { name, ref: jumpRef })}
               onClick={() => onJump(jumpTo)}
             >
+              {/* Named "Continue in NIV, New International Version, Salme 51,3":
+                  the visible words first (WCAG 2.5.3), then where it goes */}
               {t("compare.jump", { abbr: tr.abbreviation })}
+              <span className="sr-only">{t("compare.jumpWhere", { name, ref: jumpRef })}</span>
             </Button>
           )}
           {view.kind === "ready" && view.parts.length > 0 && (

@@ -40,7 +40,7 @@ export function PassageText({
             style={
               block.kind === "poetry"
                 ? { paddingLeft: `${block.level + 2}em`, textIndent: "-2em" }
-                : block.kind === "paragraph" && !block.opening
+                : block.kind === "paragraph" && !block.opening && !(bi === 0 && pi === 0)
                   ? { textIndent: "1em" }
                   : undefined
             }
@@ -48,6 +48,7 @@ export function PassageText({
             {block.pieces.map((piece, i) => {
               const v = piece.verse;
               const printed = v.label ?? String(v.verse);
+              // A quote opens flush, like the start of a page
               const first = bi === 0 && i === 0;
               const label = newChapter && first ? `${part.chapter.chapter}${numberSep}${printed}` : printed;
               const bridge = v.label ? /^(\d+)\D+(\d+)$/.exec(v.label) : null;

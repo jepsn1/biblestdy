@@ -596,7 +596,7 @@ export default {
     copyAll: "Copy all",
     copyCap: "Too long to copy at once ({{count}} verses, max 100)",
     jump: "Continue in {{abbr}}",
-    jumpLabel: "Continue reading in {{name}}, {{ref}}",
+    jumpWhere: ", {{name}}, {{ref}}",
     nowReading: "Now reading {{abbr}}",
     backTo: "Back to {{prev}}",
     close: "Close",
