@@ -77,3 +77,16 @@ export {
   type ResolvedRange,
   type Resolution,
 } from './scripture-resolve.js'
+// Versification (#166): types only here. The functions + data live at
+// '@biblestdy/shared/versification' so they stay out of the first-load bundle.
+export type {
+  Scheme,
+  SliceKind,
+  MappedSlice,
+  Numbering,
+  NumberingLike,
+  Override,
+  TargetUnits,
+  SourceAnchor,
+  UnionTarget,
+} from './versification.js'

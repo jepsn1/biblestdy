@@ -64,6 +64,49 @@ describe('ScriptureController (with fake provider)', () => {
   });
 });
 
+describe('ScriptureController chapter bound per versification (#166)', () => {
+  // BPH numbers the OT the Hebrew way: Joel has 4 chapters there, 3 in NIV
+  const provider: ScriptureProvider = {
+    listTranslations: () =>
+      Promise.resolve([
+        { id: 'bph-id', name: 'BPH', abbreviation: 'BPH', language: 'da' },
+        { id: 'niv-id', name: 'NIV', abbreviation: 'NIV', language: 'en' },
+      ]),
+    getChapter: (translationId, book, chapter) =>
+      Promise.resolve({ translationId, book, chapter, verses: [] }),
+  };
+  const controller = new ScriptureController(
+    provider,
+    new ReadingQuotaService({ store: new InMemoryQuotaStore() }),
+  );
+  const req = { user: { id: 'reader-2' } } as AuthedRequest;
+  const res = { setHeader: () => undefined } as unknown as Response;
+  const get = (id: string, book: string, chapter: number) =>
+    controller.getChapter(req, res, id, book, chapter);
+
+  it('serves BPH Joel 4 (its own numbering)', async () => {
+    await expect(get('bph-id', 'JOL', 4)).resolves.toMatchObject({
+      book: 'JOL',
+      chapter: 4,
+    });
+  });
+
+  it('still rejects NIV Joel 4 and chapters past both schemes', async () => {
+    await expect(get('niv-id', 'JOL', 4)).rejects.toThrow(BadRequestException);
+    await expect(get('bph-id', 'JOL', 5)).rejects.toThrow(BadRequestException);
+    await expect(get('unknown-id', 'JOL', 4)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('lets BPH Malachi 4 through to the provider (a real 404 there)', async () => {
+    // The bound is the max of both schemes: English Mal has 4 chapters
+    await expect(get('bph-id', 'MAL', 4)).resolves.toMatchObject({
+      chapter: 4,
+    });
+  });
+});
+
 describe('parseChapterContent (API.Bible json content)', () => {
   it('flattens verse tags + text nodes into ordered verses', () => {
     const { verses } = parseChapterContent([

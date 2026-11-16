@@ -54,7 +54,7 @@ export interface ResolvedRange {
 export type Resolution = ResolvedRange | 'notInTranslation'
 
 /** Last printed number a unit covers ("14–15" → 15). */
-function unitEnd(u: VerseUnit): number {
+export function unitEnd(u: VerseUnit): number {
   const m = u.label ? /(\d+)\D*$/.exec(u.label) : null
   const n = m ? Number(m[1]) : u.verse
   return n > u.verse ? n : u.verse

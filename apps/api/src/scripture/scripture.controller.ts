@@ -14,7 +14,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { getBook, type Chapter, type Translation } from '@biblestdy/shared';
+import {
+  getBook,
+  translationInfo,
+  type Chapter,
+  type Translation,
+} from '@biblestdy/shared';
+import { chapterLimit } from '@biblestdy/shared/versification';
 import {
   ChapterNotFoundError,
   SCRIPTURE_PROVIDER,
@@ -60,7 +66,11 @@ export class ScriptureController {
   ): Promise<Chapter> {
     const book = getBook(bookId.toUpperCase());
     if (!book) throw new BadRequestException(`Unknown book '${bookId}'`);
-    if (chapter < 1 || chapter > book.chapters) {
+    if (
+      chapter < 1 ||
+      (chapter > book.chapters &&
+        chapter > (await this.chapterBound(translationId, book.id)))
+    ) {
       throw new BadRequestException(
         `${book.name} has ${book.chapters} chapters`,
       );
@@ -102,5 +112,18 @@ export class ScriptureController {
         throw new NotFoundException(err.message);
       throw err;
     }
+  }
+
+  /** Chapters a book may have in this translation's own versification
+   * (#166): BPH numbers the OT the Hebrew way, so it has Joel 4. Only looked
+   * up past the English count, so normal reads never list translations. */
+  private async chapterBound(translationId: string, bookId: string) {
+    const translation = (await this.provider.listTranslations()).find(
+      (t) => t.id === translationId,
+    );
+    const scheme = translation
+      ? translationInfo(translation.abbreviation)?.versification
+      : undefined;
+    return chapterLimit(bookId, scheme ?? 'eng');
   }
 }
