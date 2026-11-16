@@ -151,7 +151,7 @@ describe('NotesService (note↔anchor graph)', () => {
 
     expect(await svc.listAll('u1')).toEqual([]);
     expect(await svc.listForChapter('u1', 'GEN', 1)).toEqual([]);
-    expect(await svc.otherVersionNoteCounts('u1', 'WEB', 'JHN', 3)).toEqual([]);
+    expect(await svc.listForChapter('u1', 'JHN', 3)).toEqual([]);
     expect(await svc.update('u1', note.id, { title: 'x' })).toBeNull();
     expect(await svc.addAnchor('u1', note.id, psa23)).toBeNull();
     expect(await svc.remove('u1', note.id)).toBe(false);
@@ -328,50 +328,5 @@ describe('listForChapter across translations (#158)', () => {
     await svc.create('u1', { ...jhn3, body: '[Joh 3,17](bible:JHN.3.17)' });
     await svc.create('u2', { body: '[Joh 3,17](bible:JHN.3.17)' });
     expect(await svc.listForChapter('u1', 'JHN', 3)).toHaveLength(1);
-  });
-});
-
-describe('otherVersionNoteCounts (cross-version correlation, #11)', () => {
-  const web2 = { ...jhn3, translationId: 'WEB2' };
-
-  it('counts notes per verse from OTHER translations only', async () => {
-    const svc = make();
-    await svc.create('u1', jhn3); // home translation -> not counted
-    await svc.create('u1', web2); // v16
-    await svc.create('u1', { ...web2, startVerse: 18, endVerse: 18 });
-
-    const counts = await svc.otherVersionNoteCounts('u1', 'WEB', 'JHN', 3);
-    expect(counts).toEqual([
-      { verse: 16, count: 1 },
-      { verse: 18, count: 1 },
-    ]);
-  });
-
-  it('a span covers every verse it touches; two anchors of one note count once', async () => {
-    const svc = make();
-    const note = await svc.create('u1', { ...web2, endVerse: 17 }); // v16-17
-    await svc.addAnchor('u1', note.id, { ...web2, startWord: 3 }); // v16 again
-
-    const counts = await svc.otherVersionNoteCounts('u1', 'WEB', 'JHN', 3);
-    expect(counts).toEqual([
-      { verse: 16, count: 1 },
-      { verse: 17, count: 1 },
-    ]);
-  });
-
-  it('correlates by canonical reference across the graph, per user', async () => {
-    const svc = make();
-    // Same note anchored in WEB2 JHN 3 and elsewhere; only JHN 3 correlates
-    const note = await svc.create('u1', web2);
-    await svc.addAnchor('u1', note.id, gen1);
-    await svc.create('u2', web2); // someone else's note
-
-    expect(await svc.otherVersionNoteCounts('u1', 'WEB', 'JHN', 3)).toEqual([
-      { verse: 16, count: 1 },
-    ]);
-    // Viewing WEB2 itself: nothing on other versions
-    expect(await svc.otherVersionNoteCounts('u1', 'WEB2', 'JHN', 3)).toEqual(
-      [],
-    );
   });
 });

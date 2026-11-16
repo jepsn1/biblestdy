@@ -45,28 +45,6 @@ export class NotesController {
     return this.notes.listForChapter(req.user.id, book, chapterNum);
   }
 
-  /** Per-verse counts of notes anchored here in OTHER translations (#11). */
-  @Get('other-versions')
-  otherVersions(
-    @Req() req: AuthedRequest,
-    @Query('translation') translationId?: string,
-    @Query('book') book?: string,
-    @Query('chapter') chapter?: string,
-  ): Promise<{ verse: number; count: number }[]> {
-    const chapterNum = Number(chapter);
-    if (!translationId || !book || !Number.isInteger(chapterNum)) {
-      throw new BadRequestException(
-        'translation, book and chapter are required',
-      );
-    }
-    return this.notes.otherVersionNoteCounts(
-      req.user.id,
-      translationId,
-      book,
-      chapterNum,
-    );
-  }
-
   /** With an anchor (made from a selection) or without (a draft written on
    * the Notes page) — never half an anchor. */
   @Post()
