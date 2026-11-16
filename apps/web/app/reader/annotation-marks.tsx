@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { cn, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
-import { lineRuns, placeRailChips, type Rect } from "./ink-geometry";
+import { columnOf, lineRuns, pageOfColumn, sideOfSpan, placeRailChips, type PagedFlow, type Rect } from "./ink-geometry";
 import type { NoteMark } from "./note-marks";
 import { NOTE_OPENER } from "./note-panel";
 import { sameData, useMeasure, useSameData } from "./use-measure";
@@ -390,7 +390,6 @@ export function AnnotationMarks({
       const flowRect = flowEl.getBoundingClientRect();
       const ox = flowEl.offsetLeft;
       const oy = flowEl.offsetTop;
-      const pageOfX = (x: number) => (stride > 0 ? Math.max(0, Math.floor((x - ox) / stride)) : 0);
       /** Content-box center of page n — which column a span sits in. */
       const midOf = (n: number) => n * stride + content.offsetWidth / 2;
 
@@ -400,7 +399,7 @@ export function AnnotationMarks({
       const colCount = Number(flowStyle.columnCount) || 1;
       const colGap = parseFloat(flowStyle.columnGap) || 0;
       const colStride = (flowEl.clientWidth - colGap * (colCount - 1)) / colCount + colGap;
-      const colOfX = (x: number) => (colStride > 0 ? Math.max(0, Math.floor((x - ox + 1) / colStride)) : 0);
+      const flow: PagedFlow = { x: ox, colStride, pageStride: stride };
       const colWidth = colStride - colGap;
       /** An anchor's words, one segment per page (box + line count),
        * measured straight from the [data-verse][data-word] spans —
@@ -427,7 +426,7 @@ export function AnnotationMarks({
               right: (vr.right - flowRect.left) / s + ox,
               bottom: (vr.bottom - flowRect.top) / s + oy,
             };
-            const n = colOfX(r.left);
+            const n = columnOf(r, flow);
             byPage.set(n, [...(byPage.get(n) ?? []), r]);
           }
         }
@@ -439,7 +438,8 @@ export function AnnotationMarks({
           // Distinct (line, column) clusters — same top in the other column of
           // the spread is a different line
           const runs = lineRuns(rects);
-          const page = pageOfX(left);
+          // By the column, not the words' left edge (#164)
+          const page = pageOfColumn(n, flow);
           return {
             col: n,
             page,
@@ -448,7 +448,7 @@ export function AnnotationMarks({
             runs,
             edgeL: ox + n * colStride,
             edgeR: ox + n * colStride + colWidth,
-            side: compact || (left + right) / 2 < midOf(page) ? "left" : "right",
+            side: compact ? "left" : sideOfSpan(left, right, midOf(page)),
             colSide: compact || ox + n * colStride + colWidth / 2 < midOf(page) - colWidth / 4 ? "left" : "right",
             firstLineY: (runs[0].top + runs[0].bottom) / 2,
           };

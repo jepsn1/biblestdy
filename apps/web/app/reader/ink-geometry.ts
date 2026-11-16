@@ -50,6 +50,34 @@ export function clampToColumn(run: Rect, flow: ColumnFlow): Rect {
   return { ...run, left, right: Math.max(left, Math.min(run.right, colRight)) };
 }
 
+/** A paged CSS-column flow: text columns every `colStride` from `x`, pages
+ * every `pageStride` (a spread holds two columns; 0 = one scroll column). */
+export type PagedFlow = { x: number; colStride: number; pageStride: number };
+
+/** The text column a word sits in — by its middle: a glyph may start a hair
+ * left of its column's edge. */
+export function columnOf(rect: Rect, flow: PagedFlow): number {
+  if (flow.colStride <= 0) return 0;
+  return Math.max(0, Math.floor(((rect.left + rect.right) / 2 - flow.x) / flow.colStride));
+}
+
+/** The page a text column is on — by the column's middle, never a word's
+ * left edge: on single-column pages every line starts right on the page
+ * boundary, and a sub-pixel left of it read as the page before (#164). */
+export function pageOfColumn(col: number, flow: PagedFlow): number {
+  if (flow.pageStride <= 0) return 0;
+  return Math.max(0, Math.floor(((col + 0.5) * flow.colStride) / flow.pageStride));
+}
+
+/** Which margin a span's bracket and chip take: the side of the page's
+ * middle its own middle lies on. A span the column's full width (a
+ * single-column page) sits on the middle: sub-pixel noise must not flip it
+ * page to page, so near-ties go right — clear of the tool palette (#164). */
+export function sideOfSpan(left: number, right: number, pageMid: number): "left" | "right" {
+  return (left + right) / 2 < pageMid - SIDE_TIE ? "left" : "right";
+}
+const SIDE_TIE = 4;
+
 /** The line of `rects` that `ref` sits on, as one rect — what a menu
  * anchors to. Falls back to `ref` alone. */
 export function lineOf(rects: Rect[], ref: Rect): Rect {
