@@ -287,6 +287,7 @@ export default {
     open: "Account & settings",
     title: "Settings",
     short: "Settings",
+    loading: "Loading settings\u2026",
     close: "Close settings",
     signedInAs: "Signed in as",
     signOut: "Log out",
@@ -627,6 +628,8 @@ export default {
   /** Shared UI chrome (components/ui): the generic dialog/sheet close. */
   common: {
     close: "Close",
+    /** A code-split sheet (phones) that didn't download. */
+    loadFailed: "Couldn\u2019t open this. Check your connection and try again.",
   },
   toast: {
     undo: "Undo",

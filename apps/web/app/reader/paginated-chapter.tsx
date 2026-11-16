@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Drawer, DrawerContent } from "~/components/ui/drawer";
+import { Drawer, DrawerContent } from "~/components/lazy-drawer";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { useFumsView } from "~/lib/fums";

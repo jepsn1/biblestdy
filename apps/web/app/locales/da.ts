@@ -327,6 +327,7 @@ const da: typeof en = {
     open: "Konto og indstillinger",
     title: "Indstillinger",
     short: "Indstillinger",
+    loading: "Indlæser indstillinger\u2026",
     close: "Luk indstillinger",
     signedInAs: "Logget ind som",
     signOut: "Log ud",
@@ -666,6 +667,7 @@ const da: typeof en = {
   /** Shared UI chrome (components/ui): the generic dialog/sheet close. */
   common: {
     close: "Luk",
+    loadFailed: "Det kunne ikke åbnes. Tjek forbindelsen, og prøv igen.",
   },
   toast: {
     undo: "Fortryd",

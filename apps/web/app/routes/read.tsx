@@ -25,13 +25,15 @@ import { ChapterSkeleton } from "../reader/chapter-skeleton";
 import { ReadingLimited, readingLimitRouteError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
 import { referenceLabel } from "../notes/note-list";
-import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
-import { ColorNamesDialog, OPEN_COLOR_NAMES } from "../reader/color-names-dialog";
+import { OPEN_COLOR_NAMES, OPEN_SHORTCUTS } from "../reader/dialog-events";
 import { SkipToText } from "../reader/skip-link";
-import { StyleChooser } from "../reader/style-chooser";
 import { LazyCommandPalette } from "../palette/lazy-palette";
 import { OPEN_PALETTE } from "../palette/open-palette";
 import { pushRecent } from "~/lib/recent-passages";
+import { lazyModule, useLazyModule, whenIdle } from "~/lib/lazy-module";
+
+/** Shortcuts, colour names, the first-run style choice: none is first paint. */
+const dialogs = lazyModule(() => import("../reader/reader-dialogs"));
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
 
@@ -290,6 +292,12 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
     };
   }, []);
 
+  // The dialogs' chunk: once idle, or as soon as one is wanted
+  const [dialogsIdle, setDialogsIdle] = useState(false);
+  useEffect(() => whenIdle(() => setDialogsIdle(true)), []);
+  const choosingStyle = needsStyleChoice && !styleChosen;
+  const { value: d } = useLazyModule(dialogs, dialogsIdle || shortcutsOpen || colorNamesOpen || choosingStyle);
+
   // The paged sheet heads its text with the chapter strip
   const chapterStrip = useChapterStrip();
 
@@ -321,8 +329,12 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           placeRef={placeRef}
         />
       </main>
-      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-      <ColorNamesDialog open={colorNamesOpen} onOpenChange={setColorNamesOpen} returnTo={colorNamesReturn} />
+      {d && (
+        <>
+          <d.ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <d.ColorNamesDialog open={colorNamesOpen} onOpenChange={setColorNamesOpen} returnTo={colorNamesReturn} />
+        </>
+      )}
       <LazyCommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -340,9 +352,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           nextHref: nextChapter ? chapterHref(nextChapter) : null,
         }}
       />
-      {needsStyleChoice && !styleChosen && (
-        <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
-      )}
+      {d && choosingStyle && <d.StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />}
     </div>
   );
 }

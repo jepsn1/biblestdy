@@ -16,13 +16,7 @@ import { cleanLabels, saveHighlightLabels, upFirst, useHighlightLabels } from "~
 import { notifyError } from "~/lib/notify";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
-/** Event name: the settings open the dialog (the only way on phones; on
- * desktop the colour key names them in place too); `detail`
- * = the element focus goes back to when it closes. */
-export const OPEN_COLOR_NAMES = "biblestdy:color-names";
-export function openColorNames(returnTo?: HTMLElement | null) {
-  window.dispatchEvent(new CustomEvent(OPEN_COLOR_NAMES, { detail: returnTo ?? null }));
-}
+export { OPEN_COLOR_NAMES, openColorNames } from "./dialog-events";
 
 /**
  * Name the highlight colours (a study's own colour code: blue = "God

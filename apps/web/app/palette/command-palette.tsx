@@ -35,7 +35,7 @@ import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { cn, focusTitle } from "~/lib/utils";
-import { OPEN_SHORTCUTS } from "../reader/shortcuts-dialog";
+import { OPEN_SHORTCUTS } from "../reader/dialog-events";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
 import { OPEN_PLACE } from "../reader/place-chooser";

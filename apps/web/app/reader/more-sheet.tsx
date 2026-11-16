@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Ellipsis, Layers, MonitorDown, NotebookText, Settings, Share, SquarePlus } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
 import type { PwaInstall } from "~/hooks/use-pwa-install";
 import { cn, focusRing } from "~/lib/utils";
 import { openSettings } from "./account-settings";
