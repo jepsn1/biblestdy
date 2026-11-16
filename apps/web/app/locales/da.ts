@@ -503,8 +503,9 @@ const da: typeof en = {
     loading: "Henter…",
     loadError: "Kunne ikke hente de fulde ophavsretsoplysninger. Prøv igen om lidt.",
     quotations: "Skriftsteder mærket {{abbr}} er fra {{name}}.",
+    reserved: "Bruges med tilladelse. Alle rettigheder forbeholdes.",
     restrictions:
-      "Bruges med tilladelse. Alle rettigheder forbeholdes. {{abbr}}-teksten må ikke citeres i udgivelser der gøres offentligt tilgængelige under en Creative Commons-licens. {{abbr}} må ikke oversættes til andre sprog.",
+      "{{abbr}}-teksten må ikke citeres i udgivelser der gøres offentligt tilgængelige under en Creative Commons-licens. {{abbr}} må ikke oversættes til andre sprog.",
     publicDomain: "Skriftsteder mærket {{abbr}} er fra {{name}}. Fri af ophavsret.",
     holder: "Rettighedshaver:",
     maintainer: "Udgivet af:",

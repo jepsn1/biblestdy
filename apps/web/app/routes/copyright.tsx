@@ -101,6 +101,9 @@ export default function Copyright() {
                       {tr.copyright && <span lang="en">{tr.copyright}</span>}
                     </p>
                     <p className="mt-2 text-control leading-relaxed text-muted-foreground">
+                      {/* The template's "Used by permission. All rights
+                          reserved." unless the holder's line says it already */}
+                      {!/all rights reserved/i.test(tr.copyright ?? "") && `${t("copyright.reserved")} `}
                       {t("copyright.restrictions", vars)}
                     </p>
                   </>

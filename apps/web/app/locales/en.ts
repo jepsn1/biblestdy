@@ -463,8 +463,9 @@ export default {
     loading: "Loading…",
     loadError: "Couldn’t load the full copyright notices. Try again in a moment.",
     quotations: "Scripture quotations marked {{abbr}} are taken from the {{name}}.",
+    reserved: "Used by permission. All rights reserved.",
     restrictions:
-      "Used by permission. All rights reserved. The {{abbr}} text may not be quoted in any publication made available to the public by a Creative Commons license. The {{abbr}} may not be translated into any other language.",
+      "The {{abbr}} text may not be quoted in any publication made available to the public by a Creative Commons license. The {{abbr}} may not be translated into any other language.",
     publicDomain: "Scripture quotations marked {{abbr}} are taken from the {{name}}. Public domain.",
     holder: "Rights holder:",
     maintainer: "Published by:",
