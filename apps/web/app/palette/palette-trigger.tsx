@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Hint, modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
-import { ignoreShortcut } from "~/lib/shortcuts";
+import { opensPalette, useLiveShortcut } from "~/lib/shortcuts";
 import { openPalette as open, palette, PALETTE_PROXY } from "./open-palette";
 
 /**
@@ -18,6 +18,7 @@ import { openPalette as open, palette, PALETTE_PROXY } from "./open-palette";
  */
 export function PaletteTrigger() {
   const { t } = useTranslation();
+  const live = useLiveShortcut();
   // Platform key resolved on the client (SSR markup never depends on it)
   const [mod, setMod] = useState("Ctrl+");
   // iOS opens the keyboard only for a focus inside the tap itself: focus this
@@ -27,24 +28,9 @@ export function PaletteTrigger() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.isComposing) return;
-      // Never stack on another modal (shortcuts list, chooser, onboarding)
-      if (document.querySelector("[aria-modal='true'], [role='dialog'][data-open], [role='alertdialog'][data-open]")) return;
-      // Alt+/ works from any field, the note editor too (code: Option+/ types ÷ on a Mac)
-      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === "Slash") {
-        e.preventDefault();
-        open();
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
-        e.preventDefault(); // beats the browser's own Ctrl+K (Firefox web search)
-        open();
-        return;
-      }
-      if (e.key === "/" && !ignoreShortcut(e)) {
-        e.preventDefault();
-        open();
-      }
+      if (!opensPalette(e)) return;
+      e.preventDefault(); // beats the browser's own Ctrl+K (Firefox web search)
+      open();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -59,7 +45,7 @@ export function PaletteTrigger() {
           className="ml-auto shrink-0 gap-1.5 px-2 @min-[48rem]/nav:hidden"
           aria-label={t("palette.open")}
           aria-haspopup="dialog"
-          aria-keyshortcuts="Meta+K Control+K /"
+          aria-keyshortcuts={live("Meta+K Control+K /")}
           // The palette is its own chunk (M8): start it on the way in
           onPointerEnter={palette.preload}
           onPointerDown={palette.preload}
@@ -83,7 +69,7 @@ export function PaletteTrigger() {
       <button
         type="button"
         aria-haspopup="dialog"
-        aria-keyshortcuts="Meta+K Control+K /"
+        aria-keyshortcuts={live("Meta+K Control+K /")}
         // The palette is its own chunk (M8): start it on the way in
         onPointerEnter={palette.preload}
         onFocus={palette.preload}
@@ -94,7 +80,7 @@ export function PaletteTrigger() {
         <span className="min-w-0 flex-1 truncate text-left">{t("palette.open")}</span>
         <span className="flex shrink-0 gap-1 pointer-coarse:hidden" aria-hidden>
           <kbd className="rounded border border-border bg-muted px-1 font-mono text-meta">{mod}K</kbd>
-          <kbd className="rounded border border-border bg-muted px-1 font-mono text-meta">/</kbd>
+          {live("/") && <kbd className="rounded border border-border bg-muted px-1 font-mono text-meta">/</kbd>}
         </span>
       </button>
     </>

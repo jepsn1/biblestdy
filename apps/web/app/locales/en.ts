@@ -23,7 +23,7 @@ export default {
     installIosStep1: "Tap the Share button in Safari\u2019s toolbar",
     installIosStep2: "Choose \u201cAdd to Home Screen\u201d",
     installIosWhy: "biblestdy opens full-screen like a native app \u2014 no browser chrome.",
-    settingsHint: "Theme, text size, language and your account",
+    settingsHint: "Theme, text size, language, shortcuts and your account",
     jumpOpen: "Go to reference",
     jumpClose: "Close",
     jumpInvalid: "Unknown reference — try “John 3:16” or “Rom 8”",
@@ -617,6 +617,12 @@ export default {
     highlightColor: "Highlight colour (while highlighting)",
     help: "This list",
     or: "or",
+    /** #145 (WCAG 2.1.4): the switch in Settings and in this list. */
+    singleKeys: "Single-key shortcuts",
+    singleKeysOn: "Keys like t, / and [ ] on their own. Turn off if voice control or an assistive tool presses them by accident.",
+    singleKeysOff: "Off: only shortcuts with Ctrl/⌘, the arrow keys and Esc work.",
+    offIntro: "Single-key shortcuts are off, so this list shows only the keys that still work.",
+    saveFailed: "Couldn’t save the shortcut setting",
   },
   /** Shared UI chrome (components/ui): the generic dialog/sheet close. */
   common: {

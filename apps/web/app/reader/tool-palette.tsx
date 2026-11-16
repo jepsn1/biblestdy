@@ -9,6 +9,7 @@ import { Hint } from "~/components/hint";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useColorName } from "~/lib/highlight-labels";
+import { useLiveShortcut } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { COLOUR_KEY_ATTR } from "./colour-key";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
@@ -97,6 +98,7 @@ export function ToolPalette({
   const { title } = useColorName();
   const highlighting = tool.kind === "highlight";
   const compact = useCompact();
+  const live = useLiveShortcut();
   return (
     <div ref={compact.ref} className="mt-reader-inset ml-reader-inset flex w-fit flex-col items-center gap-2 pointer-coarse:hidden">
       <div ref={compact.toolsRef} role="toolbar" aria-orientation="vertical" aria-label={t("tools.label")} className={groupClass}>
@@ -109,7 +111,7 @@ export function ToolPalette({
                   type="button"
                   aria-pressed={on}
                   aria-label={t(`tools.${kind}`)}
-                  aria-keyshortcuts={key}
+                  aria-keyshortcuts={live(key)}
                   onClick={() => onChange({ ...tool, kind })}
                   className={cn(buttonClass, on && onClass, focusRing)}
                 >
@@ -129,8 +131,8 @@ export function ToolPalette({
                       type="button"
                       role="radio"
                       aria-checked={tool.pen === m}
-                      aria-keyshortcuts={String(i + 1)}
-                      title={`${m === "text" ? t("marks.text") : t(`marks.${m}`)} (${i + 1})`}
+                      aria-keyshortcuts={live(String(i + 1))}
+                      title={live(String(i + 1)) ? `${m === "text" ? t("marks.text") : t(`marks.${m}`)} (${i + 1})` : undefined}
                       onClick={() => onChange({ ...tool, pen: m })}
                       className={cn(
                         "h-7 rounded-full px-2.5 text-meta whitespace-nowrap hover:bg-muted",
@@ -169,7 +171,7 @@ export function ToolPalette({
                   type="button"
                   aria-pressed={on}
                   aria-label={title(c)}
-                  aria-keyshortcuts={key}
+                  aria-keyshortcuts={live(key)}
                   onClick={() => onChange({ ...tool, kind: "highlight", color: c })}
                   // On: a ring, not the gold fill (gold on gold vanishes)
                   className={cn(buttonClass, on && "bg-muted hover:bg-muted", focusRing)}
@@ -210,6 +212,7 @@ function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: 
   const on = tool.kind === "highlight";
   const label = `${t("tools.highlight")} (${title(tool.color)})`;
   const pick = (color: HighlightColor) => onChange({ ...tool, kind: "highlight", color });
+  const live = useLiveShortcut();
   return (
     <div className={groupClass}>
       <Popover
@@ -228,7 +231,7 @@ function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: 
                 // On/off like the other tools; the popover is its colours
                 aria-pressed={on}
                 aria-label={label}
-                aria-keyshortcuts="Shift+H"
+                aria-keyshortcuts={live("Shift+H")}
                 className={cn(buttonClass, on && "bg-muted hover:bg-muted", focusRing)}
               />
             }
@@ -251,7 +254,7 @@ function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: 
                 <Radio.Root
                   key={c}
                   value={c}
-                  aria-keyshortcuts={on ? String(i + 1) : undefined}
+                  aria-keyshortcuts={on ? live(String(i + 1)) : undefined}
                   // Click / Enter / Space: pick (even the current one) and close
                   onClick={() => {
                     pick(c);
@@ -264,9 +267,11 @@ function CompactColors({ tool, onChange }: { tool: ReaderTool; onChange: (tool: 
                 >
                   <Swatch color={c} on={on && tool.color === c} />
                   <span className="flex-1">{title(c)}</span>
-                  <kbd aria-hidden className="font-mono text-meta text-muted-foreground">
-                    {i + 1}
-                  </kbd>
+                  {live(String(i + 1)) && (
+                    <kbd aria-hidden className="font-mono text-meta text-muted-foreground">
+                      {i + 1}
+                    </kbd>
+                  )}
                 </Radio.Root>
               ))}
             </RadioGroup>

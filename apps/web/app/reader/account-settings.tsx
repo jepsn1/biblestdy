@@ -26,6 +26,7 @@ import { API_BIBLE_URL, appChannel, appVersion } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import { clearAllDrafts } from "~/lib/note-drafts";
 import { setUiLanguage } from "~/lib/i18n";
+import { useLiveShortcut } from "~/lib/shortcuts";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
@@ -35,7 +36,7 @@ import { api } from "~/lib/query";
 import { openColorNames } from "./color-names-dialog";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { PanelHeader, panelTitleClass } from "./panel-header";
-import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
+import { OPEN_SHORTCUTS, SingleKeysSwitch } from "./shortcuts-dialog";
 import { SupportLinks } from "./support-links";
 
 /** Event name: phones open the settings from the More sheet (the chip
@@ -279,6 +280,7 @@ function SettingsContent({
   const style = useReaderStyle();
   const textSize = useTextSize();
   const lang = i18n.language.startsWith("da") ? "da" : "en";
+  const helpKey = useLiveShortcut()("?");
   const themeIcon = { light: <Sun />, dark: <Moon />, system: <Monitor /> };
 
   return (
@@ -377,11 +379,16 @@ function SettingsContent({
       {onShortcuts && (
         <Button variant="ghost" className="h-10 justify-between px-0 hover:bg-transparent hover:underline" onClick={onShortcuts}>
           {t("nav.shortcuts")}
-          <kbd data-slot="kbd" className="rounded border border-border bg-muted px-1.5 font-mono text-meta leading-5">
-            ?
-          </kbd>
+          {helpKey && (
+            <kbd data-slot="kbd" className="rounded border border-border bg-muted px-1.5 font-mono text-meta leading-5">
+              {helpKey}
+            </kbd>
+          )}
         </Button>
       )}
+
+      {/* WCAG 2.1.4 (#145): every device — an iPad with a keyboard fires them too */}
+      <SingleKeysSwitch />
 
       <Separator className="my-2" />
 

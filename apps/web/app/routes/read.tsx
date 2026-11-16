@@ -13,7 +13,7 @@ import { queryClient } from "~/lib/query";
 import { pathOf, requireAuth } from "~/lib/require-auth";
 import { loadMarkedTranslationId } from "~/lib/preferences";
 import { readingTranslation, rememberDefaultTranslation } from "~/lib/reading-translation";
-import { ignoreShortcut } from "~/lib/shortcuts";
+import { ignoreShortcut, loadSingleKeys } from "~/lib/shortcuts";
 import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
 import { zoomLockHandle } from "~/lib/viewport";
@@ -89,12 +89,13 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
   const session = await requireAuth({ cached: true, next });
   // Account reader style (#45) applies before render; null = never chosen
   // Text size (#61) too — same single preferences fetch
-  // …and the reader's own highlight colour names
+  // …and the reader's own highlight colour names, and the single-key switch (#145)
   const [translations, readerStyle] = await Promise.all([
     loadTranslations(next),
     loadReaderStyle(session.user.id),
     loadTextSize(session.user.id),
     loadHighlightLabels(session.user.id),
+    loadSingleKeys(session.user.id),
   ]);
   const translation = await readingTranslation(translations, i18n.language, loadMarkedTranslationId);
   // From memory when already read or prefetched (chapter-cache.ts). Turning

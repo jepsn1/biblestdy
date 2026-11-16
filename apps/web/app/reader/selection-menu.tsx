@@ -16,6 +16,7 @@ import {
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
 import { Popover, PopoverContent } from "~/components/ui/popover";
 import { useColorName } from "~/lib/highlight-labels";
+import { useLiveShortcut } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
@@ -156,6 +157,7 @@ export function ActionMenuItem({
   children: ReactNode;
 }) {
   const { mobile, close } = useContext(MenuCtx);
+  const key = useLiveShortcut()(shortcut);
   if (mobile) {
     return (
       <button
@@ -181,7 +183,7 @@ export function ActionMenuItem({
     >
       {icon}
       {children}
-      {shortcut && <DropdownMenuShortcut className="font-mono">{shortcut}</DropdownMenuShortcut>}
+      {key && <DropdownMenuShortcut className="font-mono">{key}</DropdownMenuShortcut>}
     </DropdownMenuItem>
   );
 }
