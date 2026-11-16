@@ -150,16 +150,14 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
     if (memory === "skip") skipAllTours();
     else if (memory === "typed") writeTour(id, afterTyping(readTour(id)));
     else if (memory === "seen") writeTour(id, "seen");
-    // Focus goes back: from the card to where Tab left; the page tour's
-    // target to what had it before
+    // Focus goes back: the note tour's from the card to where Tab left it
+    // (caret and all); the page tour's to what had it before it began
     const active = document.activeElement;
     const back = returnTo.current;
-    if (cardRef.current?.contains(active) || active === document.body) {
-      if (back?.el.isConnected) restoreReturn(back);
-      else if (!keepFocus && before.current?.isConnected) before.current.focus({ preventScroll: true });
-    } else if (!keepFocus && before.current?.isConnected && steps.some((s) => find(s)?.contains(active))) {
-      before.current.focus({ preventScroll: true });
-    }
+    const inCard = !!cardRef.current?.contains(active) || active === document.body;
+    const onTarget = steps.some((s) => find(s)?.contains(active));
+    if (!keepFocus && before.current?.isConnected && (inCard || onTarget)) before.current.focus({ preventScroll: true });
+    else if (inCard && back?.el.isConnected) restoreReturn(back);
     releaseTour(id);
     onEnd();
   }
@@ -216,9 +214,24 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
   // Keys: typing anywhere holds the start back; typing in the note closes
   // the note tour (Kasper); Esc closes; Tab from the target reaches the card
   useEffect(() => {
+    // Typed into the note: before it showed, not this time (still due);
+    // after, snoozed. Keys too, not just input events: the editor takes
+    // Enter and Tab itself
+    const typedInNote = (target: EventTarget | null) => {
+      if (id !== "note") return;
+      // The text itself — not the toolbar ("+ Verse" by Enter isn't typing)
+      const text = root()?.querySelector(NOTE_BODY);
+      if (!text?.contains(target as Node)) return;
+      live.current.end(live.current.place ? "typed" : undefined);
+    };
     const onKeyCapture = (e: KeyboardEvent) => {
-      if (isTypingKey(e)) lastKey.current = Date.now();
       const l = live.current;
+      if (e.key === "Tab") return onTab(e);
+      if (isTypingKey(e)) {
+        lastKey.current = Date.now();
+        if (!e.isComposing) typedInNote(e.target);
+        return;
+      }
       if (e.key !== "Escape" || e.isComposing || !l.place || l.hidden) return;
       // Someone else's popup (a chip's preview) has its own Esc
       const pop = (e.target as Element | null)?.closest?.(POPUPS);
@@ -228,31 +241,26 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
       e.stopPropagation();
       l.end("seen");
     };
+    // Tab from the target (the note's text too) reaches the card — ahead of
+    // the editor, which would indent
     const onTab = (e: KeyboardEvent) => {
       const l = live.current;
-      if (e.key !== "Tab" || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
-      if (!l.place || l.hidden) return;
+      if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+      if (!l.place || l.hidden || cardRef.current?.contains(document.activeElement)) return;
       const active = document.activeElement as HTMLElement | null;
       const target = l.find(l.step);
       const noteBody = keepFocus ? root()?.querySelector(NOTE_BODY) : null;
       if (!active || !(target?.contains(active) || noteBody?.contains(active))) return;
       e.preventDefault();
+      e.stopPropagation();
       returnTo.current = saveReturn(active);
       nextRef.current?.focus();
     };
-    const onInput = (e: Event) => {
-      if (id !== "note") return;
-      const editor = root()?.querySelector('[data-tour="note-editor"]');
-      if (!editor?.contains(e.target as Node)) return;
-      // Written before it showed: not this time (still due); after: snoozed
-      live.current.end(live.current.place ? "typed" : undefined);
-    };
+    const onInput = (e: Event) => typedInNote(e.target);
     window.addEventListener("keydown", onKeyCapture, true);
-    document.addEventListener("keydown", onTab);
     document.addEventListener("beforeinput", onInput, true);
     return () => {
       window.removeEventListener("keydown", onKeyCapture, true);
-      document.removeEventListener("keydown", onTab);
       document.removeEventListener("beforeinput", onInput, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once; reads live
@@ -292,7 +300,10 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
       focusedStep.current = place.index;
       // Touch: a text field would raise the keyboard over the tip
       const typing = described.matches("input, textarea, [contenteditable='true']");
-      if (!(coarse() && typing) && !cardRef.current?.contains(document.activeElement)) described.focus({ preventScroll: true });
+      if (!(coarse() && typing)) {
+        returnTo.current = null;
+        described.focus({ preventScroll: true });
+      }
     }
     return () => {
       el.removeAttribute("data-tour-active");
