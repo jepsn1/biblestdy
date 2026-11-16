@@ -117,6 +117,7 @@ export function AccountChip() {
       onDelete={askDelete}
       onColorNames={showColorNames}
       onShortcuts={isMobile ? undefined : showShortcuts}
+      onReplayTour={() => setOpen(false)}
     />
   ) : (
     // Not here yet (a cold open): a quiet line, or a way to try again

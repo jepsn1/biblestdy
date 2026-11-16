@@ -32,6 +32,7 @@ import { VERSE_FOCUS } from "./keyboard-selection";
 import { LoadError } from "./marks-load-error";
 import { useNoteTags } from "./use-tags";
 import { lazyModule, preloadWhenIdle, useLazyModule } from "~/lib/lazy-module";
+import { NoteTourHost, type TourKit } from "../notes/tour-host";
 
 /** "+ Verse"'s dialog/drawer: its own chunk, fetched when idle. */
 const versePicker = lazyModule(() => import("./verse-picker"));
@@ -50,6 +51,8 @@ function ReferencesOverview(props: ReferencesOverviewProps) {
 
 /** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
 const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker };
+/** What the notes tours' chunk borrows from here (tour-host.tsx). */
+export const TOUR_KIT: TourKit = { Popover, PopoverContent, Button };
 
 /** Marks a control that opens a note (margin chip, phone marker): the side
  * panel takes focus from it and hands it back on close (#63). */
@@ -137,6 +140,7 @@ function FallbackEditor({
         }}
         placeholder={t("note.bodyPlaceholder")}
         aria-label={t("note.bodyLabel")}
+        data-tour="note-body"
         className="min-h-0 flex-1 resize-none bg-transparent px-3 py-3 font-serif text-control leading-relaxed outline-none placeholder:text-muted-foreground"
       />
     </div>
@@ -418,6 +422,7 @@ export function NotePanel({
   // already used the Esc (an editor popup, the tag input); ⌘/Ctrl+Enter
   // closes from anywhere in it, the editor included. Drawers own their Esc.
   const asideRef = useRef<HTMLElement>(null);
+  const tourRoot = useCallback(() => asideRef.current, []);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -615,6 +620,7 @@ export function NotePanel({
             {/* Listens only: focus in/out, keys typed inside the editor */}
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
             <div
+              data-tour="note-editor"
               className="flex min-h-0 flex-1 flex-col"
               onFocus={() => setWriting(true)}
               onBlur={(e) => {
@@ -626,7 +632,7 @@ export function NotePanel({
             >
               {editor}
             </div>
-            <div className="flex max-h-[40%] shrink-0 flex-col border-t border-border">{references}</div>
+            <div data-tour="note-refs" className="flex max-h-[40%] shrink-0 flex-col border-t border-border">{references}</div>
           </div>
         ) : (
           <ResizablePanelGroup
@@ -639,6 +645,7 @@ export function NotePanel({
           >
             <ResizablePanel
               id="editor"
+              data-tour="note-editor"
               defaultSize="72%"
               minSize="30%"
               className="flex min-h-0 flex-col"
@@ -646,12 +653,15 @@ export function NotePanel({
               {editor}
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel id="references" panelRef={refsPanel} defaultSize="28%" minSize="44px" maxSize="60%">
+            <ResizablePanel id="references" data-tour="note-refs" panelRef={refsPanel} defaultSize="28%" minSize="44px" maxSize="60%">
               {references}
             </ResizablePanel>
           </ResizablePanelGroup>
         );
       })()}
+
+      {/* The note tour (#162): its code arrives only when it will show */}
+      <NoteTourHost root={tourRoot} body={liveBody} kit={TOUR_KIT} />
 
       {picking && (
         <VersePicker

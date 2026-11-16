@@ -306,10 +306,32 @@
     0 0 0 4px var(--ring);
 }
 
+/* The notes tours' target (#162, Mads): a ring, no scrim or spotlight. A
+   pane's ring sits inside its edge (its scroll box would clip one outside) */
+[data-tour-active] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+[data-tour-active="inset"] {
+  outline-offset: -2px;
+}
+
 /* MDXEditor (full-note panel): sit on our tokens instead of its defaults */
 .mdxeditor {
   --baseBg: transparent;
   font-family: inherit;
+}
+/* The writing area fills the editor box under the toolbar: the note tour
+   rings all of it, not just the lines so far (#162) */
+.mdxeditor {
+  display: flex;
+  flex-direction: column;
+}
+.mdxeditor > * {
+  flex-shrink: 0;
+}
+.mdxeditor > .mdxeditor-root-contenteditable {
+  flex-grow: 1;
 }
 /* Quieter toolbar (#66): no grey band, muted icons that come up on hover/on */
 .mdxeditor [role="toolbar"] {
