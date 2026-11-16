@@ -76,6 +76,36 @@ describe('ConnectionsService (panel assembly)', () => {
     expect(panel.notesHere.map((n) => n.id)).toEqual([earlier.id, later.id]);
   });
 
+  it('lists notes from other translations and inline-only notes, in text order (#158)', async () => {
+    const { notes, connections } = make();
+    const inBph = await notes.create('u1', {
+      ...jhn3,
+      translationId: 'BPH',
+      startVerse: 14,
+      endVerse: 14,
+      title: 'Written in BPH',
+    });
+    const inline = await notes.create('u1', {
+      body: 'See [Joh 3,2](bible:JHN.3.2)',
+    });
+    const fromEarlier = await notes.create('u1', {
+      body: '[Joh 2,23–3,3](bible:JHN.2.23-3.3)',
+    });
+    const web = await notes.create('u1', { ...jhn3, title: 'WEB' });
+    await notes.create('u1', { body: '[Joh 4,1](bible:JHN.4.1)' });
+
+    const panel = await connections.forChapter('u1', 'WEB', 'JHN', 3);
+    expect(panel.notesHere.map((n) => n.id)).toEqual([
+      fromEarlier.id,
+      inline.id,
+      inBph.id,
+      web.id,
+    ]);
+    expect(panel.notesHere[1].refs).toMatchObject([
+      { book: 'JHN', chapter: 3, verse: 2, origin: 'inline', position: 0 },
+    ]);
+  });
+
   it('topics union the chapter tags and the tags of notes anchored here', async () => {
     const { notes, tags, connections } = make();
     const note = await notes.create('u1', { ...jhn3, title: 'Grace' });

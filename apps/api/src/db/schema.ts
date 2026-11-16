@@ -72,7 +72,8 @@ export const annotation = pgTable('annotation', {
 
 /**
  * A note: standalone markdown document (issue #7). Anchored to passages via
- * noteAnchor (M:N, issue #8) — a note always has at least one anchor.
+ * noteAnchor (M:N, issue #8; zero or more since the notes plan) and cites
+ * passages inline (noteRef, #158).
  */
 export const note = pgTable('note', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -88,20 +89,54 @@ export const note = pgTable('note', {
 });
 
 /** One passage a note is anchored to (word-span, see Anchor in shared). */
-export const noteAnchor = pgTable('note_anchor', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  noteId: uuid('note_id')
-    .notNull()
-    .references(() => note.id, { onDelete: 'cascade' }),
-  translationId: text('translation_id').notNull(),
-  book: text('book').notNull(),
-  chapter: integer('chapter').notNull(),
-  startVerse: integer('start_verse').notNull(),
-  startWord: integer('start_word').notNull(),
-  endVerse: integer('end_verse').notNull(),
-  endWord: integer('end_word').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const noteAnchor = pgTable(
+  'note_anchor',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    noteId: uuid('note_id')
+      .notNull()
+      .references(() => note.id, { onDelete: 'cascade' }),
+    translationId: text('translation_id').notNull(),
+    book: text('book').notNull(),
+    chapter: integer('chapter').notNull(),
+    startVerse: integer('start_verse').notNull(),
+    startWord: integer('start_word').notNull(),
+    endVerse: integer('end_verse').notNull(),
+    endWord: integer('end_word').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // Chapter queries look anchors up by (book, chapter) in any translation
+  (t) => [index('note_anchor_book_chapter_idx').on(t.book, t.chapter)],
+);
+
+/**
+ * A translation-agnostic reference of a note (#158): canonical (English)
+ * versification, no translation id. `origin='inline'` rows are derived from
+ * the body's `[…](bible:…)` links and rebuilt on every body save.
+ * verse null = the whole chapter; end_* null = a single verse; end_chapter
+ * set only when a range leaves its first chapter.
+ */
+export const noteRef = pgTable(
+  'note_ref',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    noteId: uuid('note_id')
+      .notNull()
+      .references(() => note.id, { onDelete: 'cascade' }),
+    book: text('book').notNull(),
+    chapter: integer('chapter').notNull(),
+    verse: integer('verse'),
+    endChapter: integer('end_chapter'),
+    endVerse: integer('end_verse'),
+    origin: text('origin').notNull().default('inline'),
+    position: integer('position'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('note_ref_book_chapter_idx').on(t.book, t.chapter),
+    index('note_ref_note_id_idx').on(t.noteId),
+  ],
+);
 
 /** A user's tag/topic (issue #10) — name is normalized lowercase, unique per user. */
 export const tag = pgTable(

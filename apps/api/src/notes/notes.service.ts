@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import {
   payloadAnchor,
+  refsInMarkdown,
   sameAnchor,
   type Anchor,
   type NewNote,
   type Note,
+  type NoteRef,
+  type NoteRefOrigin,
+  type ScriptureRef,
   type Tag,
 } from '@biblestdy/shared';
 import type { TagStore } from '../tags/tags.store';
-import type { AnchorRow, NoteRow, NoteStore } from './notes.store';
+import type { AnchorRow, NoteRow, NoteStore, RefRow } from './notes.store';
 
 /**
  * The note↔anchor graph (issue #8): a note is a markdown document referencing
@@ -24,19 +28,16 @@ export class NotesService {
     private readonly tags?: TagStore,
   ) {}
 
-  /** Notes with at least one anchor in the chapter — each with ALL its anchors. */
+  /** Notes touching the chapter — an anchor here in ANY translation, or a
+   * ref (inline `bible:` link) covering it, cross-chapter ranges included
+   * (#158) — each with ALL its anchors and refs. The reading translation
+   * doesn't filter: clients tell home-translation anchors apart themselves. */
   async listForChapter(
     userId: string,
-    translationId: string,
     book: string,
     chapter: number,
   ): Promise<Note[]> {
-    const rows = await this.store.notesWithAnchorIn(
-      userId,
-      translationId,
-      book,
-      chapter,
-    );
+    const rows = await this.store.notesInChapter(userId, book, chapter);
     return this.withAnchors(rows);
   }
 
@@ -61,19 +62,28 @@ export class NotesService {
     const { title = '', body = '', ...rest } = data;
     const anchor = payloadAnchor(rest);
     if (anchor === 'partial') throw new Error('partial anchor'); // the controller refuses these
-    const row = await this.store.insertNote(userId, { title, body });
-    if (!anchor) return toNote(row, []);
+    const row = await this.store.insertNote(
+      userId,
+      { title, body },
+      refsInMarkdown(body),
+    );
+    const refs = await this.store.refsFor([row.id]);
+    if (!anchor) return toNote(row, [], refs);
     const a = await this.store.insertAnchor(row.id, anchor);
-    return toNote(row, [a]);
+    return toNote(row, [a], refs);
   }
 
-  /** Updates title/body of a note the user owns; null if not found. */
+  /** Updates title/body of a note the user owns; null if not found. A new
+   * body rebuilds the note's inline refs from its `bible:` links in the same
+   * write — the body is the one source of truth (#158). */
   async update(
     userId: string,
     id: string,
     patch: { title?: string; body?: string },
   ): Promise<Note | null> {
-    const row = await this.store.updateNote(userId, id, patch);
+    const inline =
+      patch.body === undefined ? undefined : refsInMarkdown(patch.body);
+    const row = await this.store.updateNote(userId, id, patch, inline);
     if (!row) return null;
     const [note] = await this.withAnchors([row]);
     return note;
@@ -102,12 +112,15 @@ export class NotesService {
     const row = await this.store.getNote(userId, id);
     if (!row) return null;
     const anchors = await this.store.anchorsFor([id]);
-    if (anchors.some((a) => sameAnchor(a, anchor))) return toNote(row, anchors);
+    const refs = await this.store.refsFor([id]);
+    if (anchors.some((a) => sameAnchor(a, anchor)))
+      return toNote(row, anchors, refs);
     anchors.push(await this.store.insertAnchor(id, anchor));
     // A new reference is an edit: the note rises in the Notes list
     return toNote(
       (await this.store.updateNote(userId, id, {})) ?? row,
       anchors,
+      refs,
     );
   }
 
@@ -126,6 +139,7 @@ export class NotesService {
     return toNote(
       (await this.store.updateNote(userId, id, {})) ?? row,
       anchors.filter((a) => a.id !== anchorId),
+      await this.store.refsFor([id]),
     );
   }
 
@@ -155,18 +169,44 @@ export class NotesService {
   }
 
   private async withAnchors(rows: NoteRow[]): Promise<Note[]> {
-    const anchors = await this.store.anchorsFor(rows.map((r) => r.id));
+    const ids = rows.map((r) => r.id);
+    const anchors = await this.store.anchorsFor(ids);
+    const refs = await this.store.refsFor(ids);
     return rows.map((row) =>
       toNote(
         row,
         anchors.filter((a) => a.noteId === row.id),
+        refs.filter((r) => r.noteId === row.id),
       ),
     );
   }
 }
 
+/** A stored ref as a ScriptureRef (null columns dropped). */
+export function refOf(r: RefRow): ScriptureRef {
+  const ref: ScriptureRef = { book: r.book, chapter: r.chapter };
+  if (r.verse !== null) ref.verse = r.verse;
+  if (r.endChapter !== null) ref.endChapter = r.endChapter;
+  if (r.endVerse !== null) ref.endVerse = r.endVerse;
+  return ref;
+}
+
+function toNoteRef(r: RefRow): NoteRef {
+  return {
+    id: r.id,
+    ...refOf(r),
+    // The column only ever holds a NoteRefOrigin (written by the stores)
+    origin: r.origin as NoteRefOrigin,
+    position: r.position,
+  };
+}
+
 /** Assembles the wire Note from its rows (also used by ConnectionsService). */
-export function toNote(row: NoteRow, anchors: AnchorRow[]): Note {
+export function toNote(
+  row: NoteRow,
+  anchors: AnchorRow[],
+  refs: RefRow[],
+): Note {
   return {
     id: row.id,
     title: row.title,
@@ -182,5 +222,6 @@ export function toNote(row: NoteRow, anchors: AnchorRow[]): Note {
       endVerse: a.endVerse,
       endWord: a.endWord,
     })),
+    refs: refs.map(toNoteRef),
   };
 }
