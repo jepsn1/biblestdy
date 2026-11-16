@@ -7,13 +7,25 @@ import "../locales/tour";
 import { afterTyping, claimTour, releaseTour, skipAllTours, writeTour } from "./tour-memory";
 import { readTour, tourDue, type TourId } from "./tour-state";
 import type { TourKit } from "./tour-host";
-import { insertedSince, isTypingKey, nextPlace, TOUR_STEPS, type TourPlace, type TourStep } from "./tour-steps";
+import {
+  holePad,
+  insertedSince,
+  isTypingKey,
+  nextPlace,
+  scrimPath,
+  textEndPoint,
+  TOUR_STEPS,
+  type TourPlace,
+  type TourStep,
+} from "./tour-steps";
 
 /**
  * The notes tours (#162) — a lazy chunk, fetched only when one will show
  * (tour-host.tsx). One short card at a time on the app's Popover, no tour
- * library. Mads: no scrim, no spotlight — the target gets a 2px ring; the
- * card fades in 120ms at most (none under reduced motion).
+ * library. The page dims behind it, with a hole round the target (#192 —
+ * the card was easy to miss); the target also gets a 2px ring. Scrim and
+ * card fade in 120ms at most (none under reduced motion). A click on the
+ * scrim means "not now": the tour goes and comes back once, like typing.
  *
  * The note tour never takes focus (Kasper): the editor keeps it, the step
  * describes its target and is said once in a polite live region; typing in
@@ -109,6 +121,16 @@ export function NotesPageTour(props: TourProps) {
   return <Tour id="notes" {...props} />;
 }
 
+/** Where the card points: the target's part on screen, or for a writing
+ * area the end of its text (tour-steps.ts: atTextEnd). */
+function anchorRect(step: TourStep | undefined, el: HTMLElement): DOMRect {
+  const pane = visibleRect(el) ?? el.getBoundingClientRect();
+  if (!step?.atTextEnd) return pane;
+  const line = el.querySelector('[contenteditable="true"]')?.lastElementChild?.getBoundingClientRect();
+  const p = textEndPoint(pane, line && line.height > 0 ? line : null);
+  return new DOMRect(p.left, p.top, p.width, p.height);
+}
+
 function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & { id: TourId; body?: string }) {
   const { t } = useTranslation();
   const { Popover, PopoverContent, Button } = kit;
@@ -123,6 +145,7 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
   const cardRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const arrowRef = useRef<HTMLSpanElement>(null);
+  const scrimRef = useRef<SVGPathElement>(null);
   const ended = useRef(false);
   const lastKey = useRef(0);
   /** Where Tab came to the card from (and its caret). */
@@ -147,11 +170,11 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
     return false;
   };
 
-  function end(memory?: "seen" | "skip" | "typed") {
+  function end(memory?: "seen" | "skip" | "later") {
     if (ended.current) return;
     ended.current = true;
     if (memory === "skip") skipAllTours();
-    else if (memory === "typed") writeTour(id, afterTyping(readTour(id)));
+    else if (memory === "later") writeTour(id, afterTyping(readTour(id)));
     else if (memory === "seen") writeTour(id, "seen");
     // Focus goes back: the note tour's from the card to where Tab left it
     // (caret and all); the page tour's to what had it before it began
@@ -226,7 +249,7 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
       // The text itself — not the toolbar ("+ Verse" by Enter isn't typing)
       const text = root()?.querySelector(NOTE_BODY);
       if (!text?.contains(target as Node)) return;
-      live.current.end(live.current.place ? "typed" : undefined);
+      live.current.end(live.current.place ? "later" : undefined);
     };
     const onKeyCapture = (e: KeyboardEvent) => {
       const l = live.current;
@@ -334,19 +357,21 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
   const anchor = useMemo(() => {
     const el = find(step);
     if (!el) return null;
-    return { getBoundingClientRect: () => visibleRect(el) ?? el.getBoundingClientRect(), contextElement: el };
+    return { getBoundingClientRect: () => anchorRect(step, el), contextElement: el };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place?.index]);
 
   // The arrow points at the middle of the target's visible part (kept
   // inside the card's corners); the clock below keeps it there
+  // (and the scrim's hole round the target)
   function placeArrow() {
+    const el = find(step);
+    if (step && el) scrimRef.current?.setAttribute("d", scrimPath(window.innerWidth, window.innerHeight, visibleRect(el), holePad(step)));
     const arrow = arrowRef.current;
     const card = cardRef.current;
-    const el = find(step);
     if (!arrow || !card || !el) return;
     const c = card.getBoundingClientRect();
-    const r = visibleRect(el) ?? el.getBoundingClientRect();
+    const r = anchorRect(step, el);
     const x = Math.min(Math.max(r.left + r.width / 2 - c.left, 16), c.width - 16);
     arrow.style.left = `${Math.round(x - 8)}px`;
   }
@@ -358,7 +383,22 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
       live.current.placeArrow();
       if (++frames < 20) raf = requestAnimationFrame(follow);
     });
-    return () => cancelAnimationFrame(raf);
+    // A scroll or resize moves the target (or resizes it): the hole goes
+    // with it now, not on the next tick
+    const moved = () => live.current.placeArrow();
+    window.addEventListener("scroll", moved, true);
+    window.addEventListener("resize", moved);
+    window.visualViewport?.addEventListener("resize", moved);
+    const el = live.current.find(live.current.step);
+    const resized = typeof ResizeObserver === "function" ? new ResizeObserver(moved) : null;
+    if (el) resized?.observe(el);
+    return () => {
+      resized?.disconnect();
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", moved, true);
+      window.removeEventListener("resize", moved);
+      window.visualViewport?.removeEventListener("resize", moved);
+    };
   }, [place, hidden]);
 
   /** The card is a little loop: Tab past its ends goes back to the page. */
@@ -382,12 +422,35 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
   const keep = keepFocus ? (e: React.MouseEvent) => e.preventDefault() : undefined;
 
   const last = place ? place.n === place.total : false;
+  const lit = !!place && !hidden;
   return (
     <>
       {createPortal(
         <div aria-live="polite" className="sr-only">
           {said}
         </div>,
+        document.body,
+      )}
+      {createPortal(
+        // The scrim (#192): under the card, over the page; the target shows
+        // through its hole (and takes clicks there). A click on the dim part
+        // is "not now"; it never takes focus (the note keeps its caret)
+        <svg
+          aria-hidden
+          data-tour-scrim=""
+          className={cn(
+            "pointer-events-none fixed inset-0 z-[49] size-full transition-[opacity,visibility] duration-[120ms] motion-reduce:transition-none",
+            lit ? "visible opacity-100" : "invisible opacity-0",
+          )}
+        >
+          <path
+            ref={scrimRef}
+            fillRule="evenodd"
+            className="pointer-events-auto fill-black/40 dark:fill-black/60"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => end("later")}
+          />
+        </svg>,
         document.body,
       )}
       <Popover open={!!place && !hidden} onOpenChange={() => {}}>
@@ -405,7 +468,7 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
             data-tour-card=""
             onKeyDown={onCardKey}
             className={cn(
-              "group/tour w-auto max-w-[18rem] gap-2.5 px-3.5 py-3",
+              "group/tour w-auto max-w-[18rem] gap-2.5 px-3.5 py-3 shadow-lg dark:ring-foreground/20",
               // At most a 120ms fade; still under reduced motion
               "animate-none! transition-opacity duration-[120ms] data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none",
             )}

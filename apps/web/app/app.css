@@ -306,7 +306,7 @@
     0 0 0 4px var(--ring);
 }
 
-/* The notes tours' target (#162, Mads): a ring, no scrim or spotlight. A
+/* The notes tours' target (#162): a ring, inside the scrim's hole (#192). A
    pane's ring sits inside its edge (its scroll box would clip one outside) */
 [data-tour-active] {
   outline: 2px solid var(--ring);
