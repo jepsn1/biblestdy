@@ -1,5 +1,6 @@
 import type { Anchor, BookLocale, Chapter } from "@biblestdy/shared";
 import { anchorReference, bookName, words, wordRangeInVerse } from "@biblestdy/shared";
+import { MAX_COPY_VERSES } from "~/lib/licence-limits";
 import { referenceLabel } from "../notes/note-list";
 
 function escapeHtml(s: string): string {
@@ -17,11 +18,7 @@ function selectedText(chapter: Chapter, anchor: Anchor): string {
   return parts.join(" ");
 }
 
-/**
- * Most verses one copy (or print) may carry: API.Bible ToS §12 — content
- * may not be freely copied, printing is restricted to 100 verses.
- */
-export const MAX_COPY_VERSES = 100;
+export { MAX_COPY_VERSES };
 
 /** How many verses an anchor covers in this chapter (a bridge "14–15"
  * counts as both). */

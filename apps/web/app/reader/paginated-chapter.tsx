@@ -1222,7 +1222,7 @@ export function PaginatedChapter({
    * (their foot has no credit line). The foot's Next goes on. */
   const chapterEnd = (
     <p className="mt-10 font-sans text-meta text-muted-foreground">
-      <CreditParts parts={source ? [...credit, source.label] : credit} link={creditLink} source={source} />
+      <CreditParts parts={credit} link={creditLink} source={source} />
     </p>
   );
 

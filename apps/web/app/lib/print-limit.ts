@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MAX_COPY_VERSES } from "~/reader/copy-attribution";
+import { MAX_COPY_VERSES } from "./licence-limits";
 
 /**
  * Printing is limited to 100 verses (API.Bible ToS §12). Just before the

@@ -68,8 +68,10 @@ export function PageFoot({
   phone: boolean;
   className?: string;
 }) {
-  const credits = source ? [...(credit ?? []), source.label] : (credit ?? []);
-  const fit = useFit(position, credits);
+  const credits = credit ?? [];
+  // The source rides on the last part (measured with it): never dropped
+  const measured = source && credits.length > 0 ? [...credits.slice(0, -1), `${credits.at(-1)}\u00a0·\u00a0${source.label}`] : credits;
+  const fit = useFit(position, measured);
   const creditLine = credits.length > 0 && (
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
@@ -103,7 +105,7 @@ export function PageFoot({
       {fit.creditWide && creditLine}
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
-        {[position, credits].map((parts, row) => (
+        {[position, measured].map((parts, row) => (
           <div key={row} className={row === 0 ? FOLIO : CREDIT}>
             <span>{SEP}</span>
             {parts.map((part, i) => (
@@ -179,7 +181,7 @@ function useFit(position: string[], credit: string[]) {
 }
 
 /** The credit line's parts: the translation's own (one link to its
- * copyright entry), then the source (its own outside link). */
+ * copyright entry), then the source, always (its own outside link). */
 export function CreditParts({
   parts,
   link,
@@ -189,22 +191,28 @@ export function CreditParts({
   link?: { href: string; more: string };
   source?: { label: string; href: string; more: string };
 }) {
-  const withSource = !!source && parts[parts.length - 1] === source.label;
-  const own = withSource ? parts.slice(0, -1) : parts;
+  // Parts kept whole, except the last (a long copyright wraps inside
+  // itself) — inline, so the source stays glued to its last word
+  const own = parts.map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && SEP}
+      <span className={i < parts.length - 1 ? "inline-block max-w-full" : undefined}>{part}</span>
+    </Fragment>
+  ));
   return (
     <>
-      {own.length > 0 &&
+      {parts.length > 0 &&
         (link ? (
           <Link to={link.href} className={CREDIT_LINK}>
-            <Parts parts={own} wrapLong />
+            {own}
             <span className="sr-only"> — {link.more}</span>
           </Link>
         ) : (
-          <Parts parts={own} wrapLong />
+          own
         ))}
-      {withSource && (
+      {source && (
         <>
-          {own.length > 0 && SEP}
+          {parts.length > 0 && "\u00a0·\u00a0"}
           <a href={source.href} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap")}>
             {source.label}
             <span className="sr-only"> {source.more}</span>
