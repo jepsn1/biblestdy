@@ -223,7 +223,7 @@ export function RefTypeahead() {
 
   // Placed under the `@`, inside the editor's scroll box
   const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ host: HTMLElement; top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ host: HTMLElement; top: number; left: number; maxH: number } | null>(null);
   const placed = pos !== null;
   useLayoutEffect(() => {
     if (!editor || !match) {
@@ -248,7 +248,10 @@ export function RefTypeahead() {
     // No room below inside the box: above the line instead
     if (at.bottom + h + 4 > box.bottom && at.top - h - 4 > box.top) top = at.top - box.top + host.scrollTop - h - 4;
     const left = Math.max(4, Math.min(at.left - box.left + host.scrollLeft, host.clientWidth - w - 4));
-    setPos((p) => (p && p.host === host && p.top === top && p.left === left ? p : { host, top, left }));
+    // A long list scrolls within the roomier side of the line (a short box:
+    // big text, a phone), never past the box (20: the menu's padding, gap and a margin)
+    const maxH = Math.max(88, Math.round(Math.max(box.bottom - at.bottom, at.top - box.top) - 20));
+    setPos((p) => (p && p.host === host && p.top === top && p.left === left && p.maxH === maxH ? p : { host, top, left, maxH }));
     // Again once the menu is drawn: its real size decides the side
   }, [editor, match, options, placed]);
 
@@ -329,10 +332,10 @@ export function RefTypeahead() {
             // Keep the caret in the note (the scrollbar too)
             onMouseDown={(e) => e.preventDefault()}
             className="absolute z-50 max-w-[min(24rem,calc(100%-0.5rem))] min-w-[min(18rem,calc(100%-0.5rem))] rounded-md bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
-            style={{ top: pos.top, left: pos.left }}
+            style={{ top: pos.top, left: pos.left, "--menu-max": `${pos.maxH}px` } as React.CSSProperties}
           >
             {shown ? (
-              <ScrollArea viewportRef={viewportRef} viewportClassName="max-h-[min(20rem,50dvh)]">
+              <ScrollArea viewportRef={viewportRef} viewportClassName="max-h-[min(20rem,50dvh,var(--menu-max))]">
                 <div role="listbox" id={listId} aria-label={t("note.typeaheadLabel")}>
                   {marked.length > 0 && (
                     <div role="group" aria-labelledby={`${listId}-page`}>
