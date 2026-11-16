@@ -37,13 +37,34 @@ export type Scheme = 'eng' | 'org'
 export interface Override {
   from: string
   to: string
+  /** Only scheme → translation: the verse is folded into a neighbour that
+   * keeps its own number (BPH prints Exod 21:37 inside its 22:1–3), so the
+   * translation's verse maps back by its own number. */
+  oneWay?: boolean
 }
 
 /** Per-translation quirks, keyed by abbreviation (verified against the
  * verse-number fixture, see versification.test.ts). */
 export const VERSIFICATION_OVERRIDES: Readonly<Record<string, readonly Override[]>> = {
-  // The doxology sits after Rom 14:23 in WEB (as in the Majority Text)
-  WEB: [{ from: 'ROM 16:25-27', to: 'ROM 14:24-26' }],
+  NIV: [
+    // "The dragon stood on the shore" opens 13:1 (no 12:18)
+    { from: 'REV 12:18', to: 'REV 13:1', oneWay: true },
+  ],
+  NKJV: [
+    { from: 'REV 12:18', to: 'REV 13:1', oneWay: true },
+    // 3 John 15 is the end of verse 14
+    { from: '3JN 1:15', to: '3JN 1:14', oneWay: true },
+  ],
+  WEB: [
+    // The doxology sits after Rom 14:23 in WEB (as in the Majority Text)
+    { from: 'ROM 16:25-27', to: 'ROM 14:24-26' },
+    { from: 'REV 12:18', to: 'REV 13:1', oneWay: true },
+    { from: '3JN 1:15', to: '3JN 1:14', oneWay: true },
+  ],
+  BPH: [
+    // Hebrew Exod 21:37 (eng 22:1) is printed inside the bridge 22:1–3
+    { from: 'EXO 21:37', to: 'EXO 22:1', oneWay: true },
+  ],
 }
 
 /** How one translation numbers its verses. */
@@ -110,7 +131,7 @@ interface RuleSet {
   byFrom: Map<string, Rule[]>
   /** Target chapters' verses claimed by a rule: identity can't land there. */
   claimed: Map<string, Seg[]>
-  /** Split verses (see SPLITS), tried only where identity is claimed. */
+  /** Split verses (see SPLITS), tried before the same number. */
   splits: Map<string, Rule[]>
 }
 
@@ -120,14 +141,24 @@ interface RuleSet {
  * verse here maps to the verse that contains it, instead of to nothing.
  * Verse-level only, so these don't round-trip (versification.test.ts).
  */
+/** English → original lines eng.vrs lacks, checked against BPH's numbers
+ * (2 Cor 13 has 13 verses in the Greek: the grace is 13:13, eng 13:14). */
+const EXTRA_RULES: readonly Override[] = [{ from: '2CO 13:14', to: '2CO 13:13' }]
+
 const SPLITS: { engToOrg: readonly Override[]; orgToEng: readonly Override[] } = {
   engToOrg: [
     // eng Ps 13:5–6 = Hebrew 13:6
     { from: 'PSA 13:6', to: 'PSA 13:6' },
     // eng Isa 64:1 = Hebrew 63:19b
     { from: 'ISA 64:1', to: 'ISA 63:19' },
+    // eng 2 Cor 13:12–13 = Greek 13:12
+    { from: '2CO 13:13', to: '2CO 13:12' },
+    // eng Acts 19:40–41 = Greek 19:40 (org.vrs: 40 verses)
+    { from: 'ACT 19:41', to: 'ACT 19:40' },
   ],
   orgToEng: [
+    // Hebrew Num 25:19 = eng 26:1a
+    { from: 'NUM 25:19', to: 'NUM 26:1' },
     // Hebrew 1 Sam 20:42 = eng 20:42a (20:42b = Hebrew 21:1)
     { from: '1SA 20:42', to: '1SA 20:42' },
     // Hebrew 1 Kgs 22:43 = eng 22:43a (22:43b = Hebrew 22:44)
@@ -171,7 +202,7 @@ const flip = (r: Rule): Rule => ({ from: r.to, to: r.from })
 let schemeRules: { engToOrg: RuleSet; orgToEng: RuleSet } | undefined
 function schemes() {
   if (!schemeRules) {
-    const rules = ENG_TO_ORG.map(parseRule)
+    const rules = [...ENG_TO_ORG, ...EXTRA_RULES].map(parseRule)
     schemeRules = {
       engToOrg: ruleSet(rules, SPLITS.engToOrg),
       orgToEng: ruleSet(rules.map(flip), SPLITS.orgToEng),
@@ -184,8 +215,13 @@ const overrideRules = new WeakMap<readonly Override[], { apply: RuleSet; undo: R
 function overridesOf(list: readonly Override[]) {
   let hit = overrideRules.get(list)
   if (!hit) {
-    const rules = list.map(parseRule)
-    hit = { apply: ruleSet(rules), undo: ruleSet(rules.map(flip)) }
+    // Overrides are spot fixes: a verse they don't name keeps its number
+    // (no claimed-number check), and oneWay ones never map back
+    const unclaimed = (rules: Rule[]): RuleSet => ({ ...ruleSet(rules), claimed: new Map() })
+    hit = {
+      apply: unclaimed(list.map(parseRule)),
+      undo: unclaimed(list.filter((o) => !o.oneWay).map((o) => flip(parseRule(o)))),
+    }
     overrideRules.set(list, hit)
   }
   return hit
@@ -257,15 +293,15 @@ function through(rules: Rule[] | undefined, verse: number): Point | null {
 
 /** One verse through one rule set: a rule wins; otherwise the same number,
  * unless a rule claims that number on the other side (two verses can't
- * share it: eng Neh 7:68 has no verse in org) and no split covers it. */
+ * share it: eng Neh 7:68 has no verse in org). Splits come first. */
 function step(rules: RuleSet, book: string, chapter: number, verse: number): Step {
   const k = key(book, chapter)
   const ruled = through(rules.byFrom.get(k), verse)
   if (ruled) return { point: ruled, hit: true }
-  const taken = (rules.claimed.get(k) ?? []).some((s) => verse >= s.start && verse <= s.end)
-  if (!taken) return { point: { chapter, start: verse, end: verse }, hit: false }
   const split = through(rules.splits.get(k), verse)
-  return split ? { point: split, hit: true } : 'unmapped'
+  if (split) return { point: split, hit: true }
+  const taken = (rules.claimed.get(k) ?? []).some((s) => verse >= s.start && verse <= s.end)
+  return taken ? 'unmapped' : { point: { chapter, start: verse, end: verse }, hit: false }
 }
 
 /** A point (possibly a range from an n:m title rule) through a rule set. */
@@ -343,13 +379,20 @@ export function mapRange(range: ScriptureRef, from: NumberingLike, to: Numbering
     for (let v = start; v <= end; v++) {
       const { point, kind } = mapVerse(range.book, c, v, src, dst)
       const prev = out[out.length - 1]
+      const sameChapter = prev && prev.chapter === point.chapter
       const joins =
-        prev &&
-        prev.kind === kind &&
-        prev.chapter === point.chapter &&
-        point.start >= prev.startVerse &&
-        point.start <= prev.endVerse + 1
-      if (joins) {
+        sameChapter && prev.kind === kind && point.start >= prev.startVerse && point.start <= prev.endVerse + 1
+      // Two source verses landing in one target verse (a folded verse):
+      // one slice, so the target unit isn't shown twice
+      const overlaps =
+        sameChapter &&
+        MERGEABLE.includes(prev.kind) &&
+        MERGEABLE.includes(kind) &&
+        point.start <= prev.endVerse &&
+        point.end >= prev.startVerse
+      if (joins || overlaps) {
+        if (MERGEABLE.indexOf(kind) > MERGEABLE.indexOf(prev.kind)) prev.kind = kind
+        prev.startVerse = Math.min(prev.startVerse, point.start)
         prev.endVerse = Math.max(prev.endVerse, point.end)
         prev.source.endChapter = c
         prev.source.endVerse = v
@@ -367,6 +410,9 @@ export function mapRange(range: ScriptureRef, from: NumberingLike, to: Numbering
   }
   return out
 }
+
+/** Kinds that can share a slice, weakest first. */
+const MERGEABLE: readonly SliceKind[] = ['same', 'renumbered', 'moved']
 
 /** A selection: stored verse numbers (+ word offsets when known). */
 export interface SourceAnchor {

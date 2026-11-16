@@ -167,6 +167,20 @@ describe('absent and moved verses', () => {
     expect(map(ref('ROM', 14, 23), 'NIV', 'WEB')).toEqual([[14, 23, 23, 'same']])
   })
 
+  it('folded verses: eng Exod 22:1 → BPH 22:1 (its bridge 22:1–3), Rev 12:18 → NIV 13:1', () => {
+    expect(map(ref('EXO', 22, 1, 2), 'NIV', 'BPH')).toEqual([[22, 1, 1, 'moved']])
+    expect(map(ref('EXO', 22, 2), 'BPH', 'NIV')).toEqual([[22, 3, 3, 'renumbered']])
+    expect(map(ref('REV', 12, 18), 'BPH', 'NIV')).toEqual([[13, 1, 1, 'moved']])
+    expect(map(ref('REV', 13, 1), 'NIV', 'BPH')).toEqual([[13, 1, 1, 'same']])
+    expect(map(ref('3JN', 1, 14, 15), 'NIV', 'WEB')).toEqual([[1, 14, 14, 'moved']])
+  })
+
+  it('2 Cor 13: eng 13:14 (the grace) = BPH 13:13; eng 13:12–13 = 13:12', () => {
+    // eng 13:12 and 13:13 share BPH 13:12: one slice
+    expect(map(ref('2CO', 13, 12, 14), 'NIV', 'BPH')).toEqual([[13, 12, 13, 'renumbered']])
+    expect(map(ref('2CO', 13, 13), 'BPH', 'NKJV')).toEqual([[13, 14, 14, 'renumbered']])
+  })
+
   it('WEB chapter counts follow the move', () => {
     expect(verseCount('ROM', 14, 'WEB')).toBe(26)
     expect(verseCount('ROM', 16, 'WEB')).toBe(24)
@@ -271,25 +285,28 @@ function* versesOf(book: string, scheme: 'eng' | 'org'): Generator<[number, numb
   }
 }
 
-describe('round trip eng → org → eng', () => {
+describe('round trip eng → org → eng (schemes, no per-translation overrides)', () => {
+  const ENG = { scheme: 'eng' as const, overrides: [] }
+  const ORG = { scheme: 'org' as const, overrides: [] }
+
   it('gives back every English verse that has an original counterpart', () => {
     const unmapped: string[] = []
     const broken: string[] = []
     for (const b of BOOKS) {
       for (const [c, v] of versesOf(b.id, 'eng')) {
-        const [there] = mapRange(ref(b.id, c, v), 'NIV', 'BPH')
+        const [there] = mapRange(ref(b.id, c, v), ENG, ORG)
         if (there.kind === 'unmapped') {
           unmapped.push(`${b.id} ${c}:${v}`)
           continue
         }
-        const back = mapRange(ref(b.id, there.chapter, there.startVerse, there.endVerse), 'BPH', 'NIV')
+        const back = mapRange(ref(b.id, there.chapter, there.startVerse, there.endVerse), ORG, ENG)
         const ok = back.length === 1 && back[0].chapter === c && back[0].startVerse <= v && back[0].endVerse >= v
         if (!ok) broken.push(`${b.id} ${c}:${v}`)
       }
     }
     // Split verses (SPLITS) land on the verse that holds them, which maps
     // back to its own first counterpart
-    expect(broken).toEqual(['PSA 13:6', 'ISA 64:1'])
+    expect(broken).toEqual(['PSA 13:6', 'ISA 64:1', 'ACT 19:41', '2CO 13:13'])
     // Neh 7:68 is absent from the Hebrew text: no counterpart
     expect(unmapped).toEqual(['NEH 7:68'])
   })
@@ -298,16 +315,16 @@ describe('round trip eng → org → eng', () => {
     const broken: string[] = []
     for (const b of BOOKS) {
       for (const [c, v] of versesOf(b.id, 'org')) {
-        const [there] = mapRange(ref(b.id, c, v), 'BPH', 'NIV')
+        const [there] = mapRange(ref(b.id, c, v), ORG, ENG)
         if (there.kind === 'unmapped') {
           broken.push(`${b.id} ${c}:${v} unmapped`)
           continue
         }
-        const back = mapRange(ref(b.id, there.chapter, there.startVerse, there.endVerse), 'NIV', 'BPH')
+        const back = mapRange(ref(b.id, there.chapter, there.startVerse, there.endVerse), ENG, ORG)
         const ok = back.length === 1 && back[0].chapter === c && back[0].startVerse <= v && back[0].endVerse >= v
         if (!ok) broken.push(`${b.id} ${c}:${v}`)
       }
     }
-    expect(broken).toEqual(['1SA 20:42', '1KI 22:43', '1CH 12:4'])
+    expect(broken).toEqual(['NUM 25:19', '1SA 20:42', '1KI 22:43', '1CH 12:4'])
   })
 })

@@ -36,6 +36,11 @@ Facts that matter:
 
 Open: highlight/annotation `quote` columns store marked words of licensed text in our DB (palette search) — not refreshed by the 30-day rule; ask API.Bible or recompute from the cache.
 
+## Third-party data (not Scripture)
+
+- **Versification map** (`packages/shared/src/versification-data.ts`, #166): verse counts + English↔original mapping lines derived from `eng.vrs` / `org.vrs` of SIL libpalaso (github.com/sillsdev/libpalaso), **MIT**, © 2007-2026 SIL Global. MIT requires the notice in copies: it sits in that file's `/*! … */` header (kept by minifiers) and in `tools/versification/LICENSE-libpalaso.txt`. Regenerate with `tools/versification/build-data.mjs`.
+- **Verse-number fixture** (`packages/shared/src/fixtures/verse-numbers.json`): verse numbers + bridge positions only, never text — read once from API.Bible by `tools/versification/verse-counts.mjs` (2026-11-16, ~1,100 calls on the shared key).
+
 ## Licensing todos
 
 - [ ] **ESV**: get key at api.esv.org → `ESV_API_KEY` in dev + prod `.env`; then build ESV provider (issue #39).
