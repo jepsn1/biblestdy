@@ -1,4 +1,7 @@
-import { BOOKS, bookIndex, type Reference } from "@biblestdy/shared";
+import { BOOKS, bookIndex, type Reference, type VerseRange } from "@biblestdy/shared";
+
+// Moved to @biblestdy/shared (#158) so the reader and notes share one resolver
+export { targetVerses, type VerseRange } from "@biblestdy/shared";
 
 /**
  * Reader navigation (#52): where prev/next go and how a place is kept.
@@ -89,8 +92,6 @@ export function lastReadValue(ref: ChapterRef, page: number): string {
  * end — a cross-chapter range opens on its first chapter). It wins over
  * `?p`; once the reader has landed on it, the URL is normalized to `?p`.
  */
-export type VerseRange = { start: number; end: number };
-
 export function parseVerseParam(value: string | null): VerseRange | null {
   const m = /^(\d+)(?:-(\d*))?$/.exec(value ?? "");
   if (!m) return null;
@@ -112,19 +113,4 @@ export function referenceHref(ref: Reference): string {
     v += crosses ? "-" : `-${ref.endVerse}`;
   }
   return `${chapterHref(chapter)}?v=${v}`;
-}
-
-/**
- * The stored verses a range lands on. A verse inside a bridge (BPH 3:15,
- * stored under 14 as "14–15") resolves to the bridge; past the last verse
- * clamps to it. `verses` = the chapter's verse numbers in order.
- */
-export function targetVerses(verses: number[], range: VerseRange): VerseRange | null {
-  if (verses.length === 0) return null;
-  const at = (n: number) => {
-    let hit = verses[0];
-    for (const v of verses) if (v <= n) hit = v;
-    return hit;
-  };
-  return { start: at(range.start), end: at(range.end) };
 }

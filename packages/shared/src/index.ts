@@ -33,6 +33,8 @@ export {
   type NewAnnotation,
   type Note,
   type NoteAnchor,
+  type NoteRef,
+  type NoteRefOrigin,
   type NewNote,
 } from './anchor.js'
 export type { ChapterConnections } from './connections.js'
@@ -52,3 +54,26 @@ export {
   parseHighlightLabels,
 } from './preferences.js'
 export { TRANSLATION_INFO, translationInfo, type TranslationInfo } from './translation-info.js'
+export {
+  SCRIPTURE_HREF_PREFIX,
+  parseScriptureHref,
+  formatScriptureHref,
+  toScriptureRef,
+  sameScriptureRef,
+  scriptureLinks,
+  refsInMarkdown,
+  scriptureLinkMarkdown,
+  refEndChapter,
+  refTouchesChapter,
+  type ScriptureRef,
+  type ScriptureLink,
+} from './scripture-href.js'
+export {
+  targetVerses,
+  resolveInChapter,
+  type VerseRange,
+  type VerseUnit,
+  type ChapterVerses,
+  type ResolvedRange,
+  type Resolution,
+} from './scripture-resolve.js'
