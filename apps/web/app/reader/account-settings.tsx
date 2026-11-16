@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { UserRound } from "lucide-react";
 import { Hint } from "~/components/hint";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
+import { Popover, PopoverClose, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { authClient } from "~/lib/auth-client";
@@ -50,6 +50,18 @@ export function AccountChip() {
   const { data: session } = authClient.useSession();
   const email = session?.user.email ?? "";
   const initial = email ? email[0].toUpperCase() : <UserRound className="size-4" />;
+
+  // One Esc closes the settings (popover or drawer), even on the ×: that
+  // button's focus tooltip would otherwise take (and stop) the first press.
+  // Window capture runs before any popup's own Esc handling
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open]);
 
   useEffect(() => {
     function show(e: Event) {
@@ -148,7 +160,10 @@ export function AccountChip() {
           </Drawer>
         </>
       ) : (
-        <Popover open={open} onOpenChange={openFromChip}>
+        // A settings surface, not a menu: Tab stays inside until it closes
+        // (Esc, the close button, or a press outside) — then focus is back
+        // on the chip
+        <Popover open={open} onOpenChange={openFromChip} modal="trap-focus">
           <Hint label={t("settings.open")}>
             <PopoverTrigger
               render={
@@ -174,8 +189,16 @@ export function AccountChip() {
               </span>
             </PopoverTrigger>
           </Hint>
-          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0">
-            <PanelHeader onClose={() => setOpen(false)} closeLabel={t("settings.close")}>
+          <PopoverContent
+            align="end"
+            className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0"
+          >
+            {/* The × is the popover's Close part: Base UI traps focus only with one */}
+            <PanelHeader
+              onClose={() => setOpen(false)}
+              closeLabel={t("settings.close")}
+              closeAs={(button) => <PopoverClose render={button} />}
+            >
               <PopoverTitle className={panelTitleClass}>{t("settings.title")}</PopoverTitle>
             </PanelHeader>
             <div className="px-4 pt-2 pb-3">{content}</div>

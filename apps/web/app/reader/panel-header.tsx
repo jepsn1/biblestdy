@@ -8,17 +8,20 @@ import { cn } from "~/lib/utils";
  * One header for every side panel and drawer (#62): note, connections,
  * settings — desktop and phone alike. Title area left (an h2, or the note's
  * title input), a visible 32px × right, hairline below. The × is always
- * there: a swipe handle alone is a hidden gesture.
+ * there: a swipe handle alone is a hidden gesture. `closeAs` renders it as
+ * the surface's own Close part (a focus-trapping popover needs one).
  */
 export function PanelHeader({
   children,
   onClose,
   closeLabel,
+  closeAs = (button) => button,
   className,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   closeLabel: string;
+  closeAs?: (button: React.ReactElement) => React.ReactElement;
   className?: string;
 }) {
   return (
@@ -30,15 +33,17 @@ export function PanelHeader({
     >
       <div className="flex min-w-0 flex-1 items-center">{children}</div>
       <Hint label={closeLabel} shortcut="Esc">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={closeLabel}
-          onClick={onClose}
-          className="text-muted-foreground"
-        >
-          <X />
-        </Button>
+        {closeAs(
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={closeLabel}
+            onClick={onClose}
+            className="text-muted-foreground"
+          >
+            <X />
+          </Button>,
+        )}
       </Hint>
     </header>
   );
