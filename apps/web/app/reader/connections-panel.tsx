@@ -78,6 +78,9 @@ export function ConnectionsPanel({
   const inChapter = (a: Note["anchors"][number]) =>
     a.translationId === translationId && a.book === book && a.chapter === chapter;
   const here = `${nameOf(book)} ${chapter}`;
+  // The API lists notes from every translation and inline refs (#158); until
+  // the reader can show those (#159), keep to notes anchored here in this one
+  const notesHere = connections?.notesHere.filter((n) => n.anchors.some(inChapter)) ?? [];
 
   /** A blank note beside the text — passages are added by typing them in
    * its references, or by selecting words. */
@@ -106,13 +109,13 @@ export function ConnectionsPanel({
               <h3 id={`${headingId}-here`} className="eyebrow px-2 pb-1">
                 {t("connections.inChapter", { ref: here })}
               </h3>
-              {connections.notesHere.length === 0 && (
+              {notesHere.length === 0 && (
                 <p className="px-2 font-serif text-control text-muted-foreground italic">
                   {t("connections.emptyHere")}
                 </p>
               )}
               <ul className="flex flex-col">
-                {connections.notesHere.map((n) => {
+                {notesHere.map((n) => {
                   const own = [...n.anchors].sort(compareAnchors);
                   const mine = own.filter(inChapter);
                   const elsewhere = own.filter((a) => !inChapter(a));

@@ -1,4 +1,5 @@
 import type { Reference } from './reference.js'
+import type { ScriptureRef } from './scripture-href.js'
 
 /**
  * How an annotation attaches to Scripture: a word-span within ONE translation.
@@ -127,6 +128,20 @@ export interface NoteAnchor extends Anchor {
   id: string
 }
 
+/** Where a note reference came from: `inline` = a `bible:` link in the
+ * body (the server rebuilds these on every body save). Word-precise reader
+ * selections stay NoteAnchors. */
+export type NoteRefOrigin = 'inline'
+
+/** A translation-agnostic reference of a note (`note_ref` row, #158):
+ * canonical versification, resolve per translation with resolveInChapter. */
+export interface NoteRef extends ScriptureRef {
+  id: string
+  origin: NoteRefOrigin
+  /** Order among the note's inline refs (first mention = 0); null = none. */
+  position: number | null
+}
+
 /** A note: standalone markdown document referencing zero or more spans —
  * a draft can exist before any passage is linked (notes plan, Phase 1). */
 export interface Note {
@@ -134,6 +149,9 @@ export interface Note {
   title: string
   body: string
   anchors: NoteAnchor[]
+  /** Translation-agnostic references (#158), derived by the server from the
+   * body's `[…](bible:…)` links on every save, in text order. */
+  refs: NoteRef[]
   /** Last edit (ISO time): the Notes page sorts by it. */
   updatedAt: string
   /** The note's topics — only on the all-notes list (GET /api/notes). */

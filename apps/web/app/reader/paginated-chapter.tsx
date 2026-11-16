@@ -45,6 +45,7 @@ import { notePage } from "~/lib/recent-passages";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
+import { markStartSelector } from "./spotlight";
 import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
 import { turnStill } from "./turn-still";
@@ -546,9 +547,7 @@ export function PaginatedChapter({
    * both rects, so the page math works from any current page); phones scroll
    * it to the upper third of the pane. */
   function jumpToMark(markId: string) {
-    const el = regionRef.current?.querySelector(
-      `[data-annotation-anchor="${CSS.escape(markId)}"]`,
-    );
+    const el = markEl(markId);
     const target = el ? pageOf(el, stride) : null;
     if (scrollMode && el) scrollToEl(el, "smooth");
     else if (target !== null) {
@@ -558,6 +557,13 @@ export function PaginatedChapter({
       setPage(Math.max(0, Math.min(target, pageCount - 1)));
     }
     setSelectedMarkId(markId);
+  }
+
+  /** A note reference's first word, in this chapter's own text (a page can
+   * carry the next chapter too — verse numbers repeat). */
+  function markEl(markId: string): Element | null {
+    const sel = markStartSelector(noteMarks, markId);
+    return sel ? ((mainRef.current ?? regionRef.current)?.querySelector(sel) ?? null) : null;
   }
 
   /** Desktop page holding an element (transform cancels out of both rects,
@@ -603,9 +609,7 @@ export function PaginatedChapter({
   const wantedMark = searchParams.get("mark");
   useEffect(() => {
     if (!wantedMark || (!scrollMode && stride === 0)) return;
-    const el = regionRef.current?.querySelector(
-      `[data-annotation-anchor="${CSS.escape(wantedMark)}"]`,
-    );
+    const el = markEl(wantedMark);
     if (!el) return; // notes still loading — retried when marks land
     jumpToMark(wantedMark);
     setSearchParams(

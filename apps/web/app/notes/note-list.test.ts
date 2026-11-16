@@ -13,7 +13,7 @@ const anchor = (book: string, chapter: number, startVerse: number, endVerse = st
   endVerse,
   endWord: 3,
 });
-const note = (id: string, over: Partial<Note>): Note => ({ id, title: "", body: "", anchors: [], updatedAt: T, ...over });
+const note = (id: string, over: Partial<Note>): Note => ({ id, title: "", body: "", anchors: [], refs: [], updatedAt: T, ...over });
 const da = (id: string) => bookName(id, "da");
 const en = (id: string) => bookName(id, "en");
 

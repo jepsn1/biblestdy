@@ -1,11 +1,17 @@
-import type { Anchor } from '@biblestdy/shared';
-import type { AnchorRow, NoteRow, NoteStore } from './notes.store';
+import {
+  refTouchesChapter,
+  type Anchor,
+  type ScriptureRef,
+} from '@biblestdy/shared';
+import type { AnchorRow, NoteRow, NoteStore, RefRow } from './notes.store';
+import { refOf } from './notes.service';
 
 /** In-memory NoteStore: graph rules and panel assembly (NotesService,
  * ConnectionsService) get behavior-tested without a DB. */
 export class InMemoryNoteStore implements NoteStore {
   private notes: (NoteRow & { deleted?: boolean })[] = [];
   private anchors: AnchorRow[] = [];
+  private refs: RefRow[] = [];
   private seq = 0;
   private tick = 0;
 
@@ -18,10 +24,34 @@ export class InMemoryNoteStore implements NoteStore {
     return `id-${++this.seq}`;
   }
 
-  insertNote(userId: string, data: { title: string; body: string }) {
+  insertNote(
+    userId: string,
+    data: { title: string; body: string },
+    inlineRefs?: ScriptureRef[],
+  ) {
     const row = { id: this.nextId(), userId, ...data, updatedAt: this.stamp() };
     this.notes.push(row);
+    if (inlineRefs) this.replaceInline(row.id, inlineRefs);
     return Promise.resolve(row);
+  }
+
+  private replaceInline(noteId: string, refs: ScriptureRef[]) {
+    this.refs = this.refs.filter(
+      (r) => !(r.noteId === noteId && r.origin === 'inline'),
+    );
+    refs.forEach((r, position) =>
+      this.refs.push({
+        id: this.nextId(),
+        noteId,
+        book: r.book,
+        chapter: r.chapter,
+        verse: r.verse ?? null,
+        endChapter: r.endChapter ?? null,
+        endVerse: r.endVerse ?? null,
+        origin: 'inline',
+        position,
+      }),
+    );
   }
 
   getNote(userId: string, id: string) {
@@ -41,10 +71,12 @@ export class InMemoryNoteStore implements NoteStore {
     userId: string,
     id: string,
     patch: { title?: string; body?: string },
+    inlineRefs?: ScriptureRef[],
   ) {
     const row = await this.getNote(userId, id);
     if (!row) return null;
     Object.assign(row, patch, { updatedAt: this.stamp() });
+    if (inlineRefs) this.replaceInline(id, inlineRefs);
     return row;
   }
 
@@ -74,6 +106,7 @@ export class InMemoryNoteStore implements NoteStore {
     if (!row) return Promise.resolve(false);
     this.notes = this.notes.filter((n) => n !== row);
     this.anchors = this.anchors.filter((a) => a.noteId !== id);
+    this.refs = this.refs.filter((r) => r.noteId !== id);
     return Promise.resolve(true);
   }
 
@@ -85,24 +118,28 @@ export class InMemoryNoteStore implements NoteStore {
     );
   }
 
-  notesWithAnchorIn(
-    userId: string,
-    translationId: string,
-    book: string,
-    chapter: number,
-  ) {
+  notesInChapter(userId: string, book: string, chapter: number) {
     return Promise.resolve(
       this.live().filter(
         (n) =>
           n.userId === userId &&
-          this.anchors.some(
+          (this.anchors.some(
             (a) =>
-              a.noteId === n.id &&
-              a.translationId === translationId &&
-              a.book === book &&
-              a.chapter === chapter,
-          ),
+              a.noteId === n.id && a.book === book && a.chapter === chapter,
+          ) ||
+            this.refs.some(
+              (r) =>
+                r.noteId === n.id && refTouchesChapter(refOf(r), book, chapter),
+            )),
       ),
+    );
+  }
+
+  refsFor(noteIds: string[]) {
+    return Promise.resolve(
+      this.refs
+        .filter((r) => noteIds.includes(r.noteId))
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
     );
   }
 
