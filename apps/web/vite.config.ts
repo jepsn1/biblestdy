@@ -11,7 +11,7 @@ export default defineConfig({
     // nothing and has no runtime caching — it exists only for installability.
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "apple-touch-icon.png"],
+      includeAssets: ["favicon.ico", "favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "biblestdy",
         short_name: "biblestdy",
