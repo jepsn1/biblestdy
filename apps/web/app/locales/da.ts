@@ -139,8 +139,6 @@ const da: typeof en = {
     nextInto: "Næste: {{ref}}",
     pageOf: "Side {{page}} af {{count}}",
     announce: "{{ref}}, side {{page}} af {{count}}",
-    otherVersions_one: "{{count}} note i andre oversættelser",
-    otherVersions_other: "{{count}} noter i andre oversættelser",
     publicDomain: "Fri af ophavsret",
   },
   tools: {
@@ -256,6 +254,7 @@ const da: typeof en = {
     topics: "Emner her",
     newNote: "Ny note",
     allNotes: "Alle noter",
+    writtenIn: "Skrevet i {{abbr}}",
   },
   tags: {
     add: "+ Tilføj emne",

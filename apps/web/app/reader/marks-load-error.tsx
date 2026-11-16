@@ -81,14 +81,12 @@ export function LoadError({
 }
 
 /** A chapter's marks query: ["highlights" | "annotations" | "notes",
- * translation, book, chapter] — not the palette's/picker's "all" lists, not
- * the other-version counts. */
+ * translation, book, chapter] — not the palette's/picker's "all" lists. */
 function isChapterMarks(q: Query): boolean {
   const [kind, second] = q.queryKey;
   return (
     (kind === "highlights" || kind === "annotations" || kind === "notes") &&
-    second !== "all" &&
-    second !== "other-versions"
+    second !== "all"
   );
 }
 

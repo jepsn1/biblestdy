@@ -8,7 +8,7 @@ import type { ChapterRef } from "./chapter-nav";
 import { parseLimit, readingLimitMessage, ReadingLimited } from "./reading-limit";
 import { annotationsQuery } from "./use-annotations";
 import { highlightsQuery } from "./use-highlights";
-import { notesQuery, otherVersionsQuery } from "./use-notes";
+import { notesQuery } from "./use-notes";
 
 /**
  * Chapter text lives in the query cache (scripture never changes under a
@@ -148,6 +148,5 @@ export function prefetchNeighbours(translationId: string, refs: (ChapterRef | nu
     void queryClient.prefetchQuery(highlightsQuery(translationId, book, chapter));
     void queryClient.prefetchQuery(annotationsQuery(translationId, book, chapter));
     void queryClient.prefetchQuery(notesQuery(translationId, book, chapter));
-    void queryClient.prefetchQuery(otherVersionsQuery(translationId, book, chapter));
   }
 }

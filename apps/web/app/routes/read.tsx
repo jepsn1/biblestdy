@@ -328,6 +328,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
         <PaginatedChapter
           chapter={chapter}
           translation={translation}
+          translations={translations}
           heading={heading}
           prevChapter={prevChapter}
           nextChapter={nextChapter}

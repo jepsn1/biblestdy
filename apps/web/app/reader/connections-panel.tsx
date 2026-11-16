@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Note } from "@biblestdy/shared";
+import { refTouchesChapter, type Note, type Translation } from "@biblestdy/shared";
 import { ArrowRight, Plus } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { Link } from "react-router";
@@ -8,7 +8,8 @@ import { Button, buttonVariants } from "~/components/ui/button";
 import { ListSkeleton } from "~/components/list-skeleton";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { cn, focusRing } from "~/lib/utils";
-import { anchorLabel, compareAnchors, noteTitle } from "../notes/note-list";
+import { anchorLabel, compareAnchors, noteTitle, referenceLabel } from "../notes/note-list";
+import { writtenElsewhere } from "./note-marks";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 import { useConnections } from "./use-connections";
 import { useNoteActions } from "./use-notes";
@@ -27,6 +28,7 @@ export const PANEL_TOGGLE = "data-panel-toggle";
 
 export function ConnectionsPanel({
   translationId,
+  translations,
   book,
   chapter,
   onOpenNote,
@@ -34,6 +36,8 @@ export function ConnectionsPanel({
   mobile = false,
 }: {
   translationId: string;
+  /** Names the translation a note was written in ("Written in WEB"). */
+  translations: Translation[];
   book: string;
   chapter: number;
   onOpenNote: (id: string) => void;
@@ -75,12 +79,14 @@ export function ConnectionsPanel({
     };
   }, [mobile]);
 
-  const inChapter = (a: Note["anchors"][number]) =>
-    a.translationId === translationId && a.book === book && a.chapter === chapter;
+  // Every note touching the chapter, whatever translation it was written in
+  // (an anchor here) or citing it inline (#158, #159)
+  const inChapter = (a: Note["anchors"][number]) => a.book === book && a.chapter === chapter;
   const here = `${nameOf(book)} ${chapter}`;
-  // The API lists notes from every translation and inline refs (#158); until
-  // the reader can show those (#159), keep to notes anchored here in this one
-  const notesHere = connections?.notesHere.filter((n) => n.anchors.some(inChapter)) ?? [];
+  const notesHere = connections?.notesHere ?? [];
+  const abbr = (id: string) => translations.find((x) => x.id === id)?.abbreviation ?? id;
+  /** Distinct labels, in order (an anchor and a ref on the same verses). */
+  const labels = (xs: string[]) => [...new Set(xs)].join(" · ");
 
   /** A blank note beside the text — passages are added by typing them in
    * its references, or by selecting words. */
@@ -117,8 +123,17 @@ export function ConnectionsPanel({
               <ul className="flex flex-col">
                 {notesHere.map((n) => {
                   const own = [...n.anchors].sort(compareAnchors);
-                  const mine = own.filter(inChapter);
-                  const elsewhere = own.filter((a) => !inChapter(a));
+                  const refs = n.refs ?? [];
+                  const refHere = (r: (typeof refs)[number]) => refTouchesChapter(r, book, chapter);
+                  const mine = labels([
+                    ...own.filter(inChapter).map((a) => anchorLabel(a, nameOf, locale)),
+                    ...refs.filter(refHere).map((r) => referenceLabel(r, nameOf, locale)),
+                  ]);
+                  const elsewhere = labels([
+                    ...own.filter((a) => !inChapter(a)).map((a) => anchorLabel(a, nameOf, locale)),
+                    ...refs.filter((r) => !refHere(r)).map((r) => referenceLabel(r, nameOf, locale)),
+                  ]);
+                  const writtenIn = writtenElsewhere(n, translationId, book, chapter).map(abbr);
                   return (
                     <li key={n.id}>
                       <button
@@ -127,13 +142,20 @@ export function ConnectionsPanel({
                         className={cn("w-full rounded px-2 text-left hover:bg-accent", mobile ? "py-2.5" : "py-1.5", focusRing)}
                       >
                         <span className="block truncate font-serif text-control">{noteTitle(n, t("note.untitled"))}</span>
-                        <span className="block truncate text-meta tabular-nums text-primary">
-                          {mine.map((a) => anchorLabel(a, nameOf, locale)).join(" · ")}
+                        <span className="block truncate text-meta tabular-nums">
+                          <span className="text-primary">{mine}</span>
+                          {/* Made in another translation: said in words,
+                              plain and muted — never a colour or a pill */}
+                          {writtenIn.length > 0 && (
+                            <span className="text-muted-foreground">
+                              {" · "}
+                              {t("connections.writtenIn", { abbr: writtenIn.join(", ") })}
+                            </span>
+                          )}
                         </span>
-                        {elsewhere.length > 0 && (
+                        {elsewhere && (
                           <span className="block truncate text-meta text-muted-foreground">
-                            {t("connections.alsoIn")}{" "}
-                            {elsewhere.map((a) => anchorLabel(a, nameOf, locale)).join(" · ")}
+                            {t("connections.alsoIn")} {elsewhere}
                           </span>
                         )}
                       </button>

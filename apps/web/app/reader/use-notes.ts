@@ -1,36 +1,17 @@
-import type { Anchor, NewNote, Note, NoteAnchor } from "@biblestdy/shared";
+import type { Anchor, NewNote, Note } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { pruneDrafts } from "~/lib/note-drafts";
 import i18n from "~/lib/i18n";
 import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api, updateList } from "~/lib/query";
-import { noteTitle } from "../notes/note-list";
+import { noteTouchesChapter } from "./note-marks";
 
 /** Mutations must not fail silently (#64) — toast, return null, let callers
  * no-op. */
 function toastFail(e: unknown): null {
   notifyError(e);
   return null;
-}
-
-/** One drawn mark: a single anchor of a note within the current chapter. */
-export type NoteMark = NoteAnchor & { noteId: string; title: string };
-
-/** Per-anchor marks of the chapter's notes — a note anchored twice in a
- * chapter draws two marks, each opening the same document. */
-export function noteMarksInChapter(
-  notes: Note[],
-  translationId: string,
-  book: string,
-  chapter: number,
-): NoteMark[] {
-  return notes.flatMap((n) =>
-    n.anchors
-      .filter((a) => a.translationId === translationId && a.book === book && a.chapter === chapter)
-      // Untitled notes go by their first line, as everywhere else
-      .map((a) => ({ ...a, noteId: n.id, title: noteTitle(n, "") })),
-  );
 }
 
 /** ALL the user's notes — the attach-an-existing-note picker. */
@@ -70,10 +51,8 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   const query = notesQuery(translationId, book, chapter);
   const key = query.queryKey;
 
-  const inChapter = (n: Note) =>
-    n.anchors.some(
-      (a) => a.translationId === translationId && a.book === book && a.chapter === chapter,
-    );
+  // Listed here in every translation: an anchor here or an inline ref (#159)
+  const inChapter = (n: Note) => noteTouchesChapter(n, book, chapter);
 
   const { data: notes = [], isError, refetch } = useQuery(query);
 
@@ -156,8 +135,9 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     return updated;
   }
 
-  /** Removes one anchor; the note leaves this chapter's list when it was its
-   * last anchor here. The API refuses to remove a note's last anchor. */
+  /** Removes one anchor; the note leaves this chapter's list when nothing
+   * else ties it here (an anchor in any translation, or an inline ref). The
+   * API refuses to remove a note's last anchor. */
   async function detach(noteId: string, anchorId: string) {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
@@ -173,28 +153,6 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   }
 
   return { notes, failed: isError, retry: refetch, add, edit, remove, restore, attach, detach };
-}
-
-/** One chapter's other-version counts — shared with the neighbour prefetch. */
-export function otherVersionsQuery(translationId: string, book: string, chapter: number) {
-  const params = new URLSearchParams({ translation: translationId, book, chapter: String(chapter) });
-  return {
-    queryKey: ["notes", "other-versions", translationId, book, chapter],
-    // A failed count shows no badges this time; the next visit asks again
-    queryFn: () => api<{ verse: number; count: number }[]>(`/api/notes/other-versions?${params}`),
-  };
-}
-
-/** Per-verse counts of notes anchored here in OTHER translations (#11) —
- * bridges versions until shadow notes. Key sits under ["notes"] so note
- * mutations invalidate it too. */
-export function useOtherVersionCounts(
-  translationId: string,
-  book: string,
-  chapter: number,
-): Map<number, number> {
-  const { data = [] } = useQuery(otherVersionsQuery(translationId, book, chapter));
-  return new Map(data.map((c) => [c.verse, c.count]));
 }
 
 /**

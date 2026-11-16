@@ -10,7 +10,8 @@ import { HighlightMarks } from "./highlight-marks";
 import type { ReaderTool } from "./tool-palette";
 import { useAnnotations } from "./use-annotations";
 import { useHighlights } from "./use-highlights";
-import { noteMarksInChapter, useNotes, useOtherVersionCounts } from "./use-notes";
+import { noteMarksInChapter } from "./note-marks";
+import { useNotes } from "./use-notes";
 
 /** Most verses ever tried on one page (the rest can't fit anyway). */
 const MAX_TRY = 60;
@@ -103,8 +104,7 @@ export function ChapterSpill({
   const highlightsApi = useHighlights(translationId, book, chapter.chapter, chapter);
   const annotationsApi = useAnnotations(translationId, book, chapter.chapter, chapter);
   const notesApi = useNotes(translationId, book, chapter.chapter);
-  const otherVersionCounts = useOtherVersionCounts(translationId, book, chapter.chapter);
-  const noteMarks = noteMarksInChapter(notesApi.notes, translationId, book, chapter.chapter);
+  const noteMarks = noteMarksInChapter(notesApi.notes, chapter);
   const [selection, setSelection] = useState<Anchor | null>(null);
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);
@@ -197,7 +197,6 @@ export function ChapterSpill({
         annotations={annotationsApi.annotations}
         noteMarks={noteMarks}
         allNotes={allNotes}
-        otherVersionCounts={otherVersionCounts}
         activeAnnotationId={activeAnnotationId}
         selectedMarkId={selectedMarkId}
         onAddHighlight={add}
