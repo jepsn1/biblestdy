@@ -21,7 +21,6 @@ import { referenceLabel } from "~/lib/reference-label";
 import { useTextSize } from "~/lib/text-size";
 import { cn, focusTitle } from "~/lib/utils";
 import { chapterQuery, retryWhenLimited } from "./chapter-cache";
-import { versesCopy } from "./chapter-layout";
 import {
   blockView,
   canCopyAll,
@@ -36,6 +35,7 @@ import {
   type BlockView,
   type ChapterRef,
   type Loaded,
+  versesCopy,
 } from "./compare-blocks";
 import { compareCap, initialPicks, readPicks, savePicks, togglePick } from "./compare-picks";
 import type { CompareAnchor, CompareRange } from "./dialog-events";

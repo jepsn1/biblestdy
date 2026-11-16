@@ -162,23 +162,3 @@ export function sliceBlocks(blocks: LaidBlock[], span: VerseSpan): LaidBlock[] {
 export function passageLines(chapter: Chapter, span: VerseSpan): LaidBlock[] {
   return sliceBlocks(layoutChapter(chapter), span).map((b) => (b.headings.length ? { ...b, headings: [] } : b));
 }
-
-/** Copy, per block (#167): the whole verses' words, then the reference line
- * and the chapter's copyright line — today's copy format (formatCopy). */
-export function versesCopy(
-  parts: readonly { chapter: Chapter; from: number; to: number }[],
-  reference: string,
-  abbreviation: string,
-): { text: string; html: string } {
-  const body = parts
-    .flatMap((p) => p.chapter.verses.filter((v) => v.verse >= p.from && v.verse <= p.to).map((v) => v.text.trim()))
-    .filter(Boolean)
-    .join(" ");
-  const lines = [body, `${reference} (${abbreviation})`];
-  for (const p of parts) {
-    const c = p.chapter.copyright?.trim();
-    if (c && !lines.includes(c)) lines.push(c);
-  }
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return { text: lines.join("\n"), html: lines.map(esc).join("<br>") };
-}

@@ -1,7 +1,8 @@
 import type { Chapter } from "@biblestdy/shared";
 import { words } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { layoutChapter, openingLabel, passageLines, sliceBlocks, versesCopy, type LaidBlock } from "./chapter-layout";
+import { layoutChapter, openingLabel, passageLines, sliceBlocks, type LaidBlock } from "./chapter-layout";
+import { versesCopy } from "./compare-blocks";
 
 const base = { translationId: "T", book: "PSA", chapter: 23 };
 
