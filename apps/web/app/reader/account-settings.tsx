@@ -53,11 +53,12 @@ export function AccountChip() {
 
   // One Esc closes the settings (popover or drawer), even on the ×: that
   // button's focus tooltip would otherwise take (and stop) the first press.
-  // Window capture runs before any popup's own Esc handling
+  // Window capture runs before any popup's own Esc handling. A popup open in
+  // the settings (Share with a friend) closes first, on its own
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape" && !(e.target instanceof Element && e.target.closest("[data-share-choices]"))) setOpen(false);
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
