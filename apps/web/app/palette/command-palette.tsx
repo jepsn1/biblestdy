@@ -36,7 +36,10 @@ import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { cn, focusTitle } from "~/lib/utils";
-import { INSERT_VERSE, OPEN_SHORTCUTS, useNoteEditorOpen } from "../reader/dialog-events";
+import { INSERT_VERSE, openCompare, OPEN_SHORTCUTS, useNoteEditorOpen, type CompareAnchor } from "../reader/dialog-events";
+import { referenceLabel } from "~/lib/reference-label";
+// Its Compare rows' words (shared with the Compare chunk, #167)
+import "../locales/compare";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
 import { openPlace } from "../reader/place-chooser";
@@ -60,6 +63,9 @@ export type ReaderActions = {
   marginNotesOpen: boolean;
   prevHref: string | null;
   nextHref: string | null;
+  /** Compare translations acts on this (selection → focused verse → first
+   * on the page, #167); null = not offered. */
+  compareAt: CompareAnchor | null;
 };
 
 /** Both UI languages' wording of a key: Danish words find English labels too. */
@@ -79,6 +85,8 @@ function useActions(r: ReaderActions) {
 
   const isMobile = useIsMobile();
   const noteOpen = useNoteEditorOpen();
+  const nameOf = useBookName();
+  const at = r.compareAt;
   const actions: (PaletteAction & { run: () => void; keepOpen?: boolean; opensDialog?: boolean })[] = [
     {
       id: "translations",
@@ -89,6 +97,23 @@ function useActions(r: ReaderActions) {
       opensDialog: true,
       run: () => window.dispatchEvent(new Event(OPEN_TRANSLATIONS)),
     },
+    ...(at
+      ? [
+          {
+            id: "compare",
+            label: t("palette.compareAction", {
+              ref: referenceLabel(
+                { book: at.book, chapter: at.chapter, verse: at.startVerse, ...(at.endVerse > at.startVerse ? { endVerse: at.endVerse } : {}) },
+                nameOf,
+                lang,
+              ),
+            }),
+            keywords: [...both("menu.compare"), ...both("menu.compareHint"), ...both("nav.translation")],
+            opensDialog: true,
+            run: () => openCompare({ anchor: at, returnTo: paletteOpener() }),
+          },
+        ]
+      : []),
     ...r.translations.map((tr) => ({
       id: `read-${tr.abbreviation}`,
       label: t("palette.readIn", { abbr: tr.abbreviation, name: translationTitle(tr) }),
@@ -347,6 +372,7 @@ export function CommandPalette({
         continueAt: (place, page) =>
           page ? t("place.continueAtPage", { place, page: page + 1 }) : t("place.continueAt", { place }),
         startLine: (line) => t(`place.lines.${line}`),
+        compareRef: (ref) => t("palette.compareRef", { ref }),
       },
     });
     // actions is rebuilt each render; its labels follow the state it reads
@@ -373,6 +399,14 @@ export function CommandPalette({
 
   function run(item: PaletteItem, newTab = false) {
     if (item.disabled) return;
+    if (item.compare) {
+      // The dialog over the reader, which stays where it is
+      const range = item.compare;
+      nextFocus.current = "none";
+      afterClose.current = () => openCompare({ range, returnTo: paletteOpener() });
+      onOpenChange(false);
+      return;
+    }
     if (item.filterColor) {
       // As the colour key: this colour in full, the others faded; undoable
       const prev = filter;

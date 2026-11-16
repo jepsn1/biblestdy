@@ -1,6 +1,6 @@
 import type { Translation } from "@biblestdy/shared";
 import { translationInfo } from "@biblestdy/shared";
-import { Check, ChevronDown } from "lucide-react";
+import { BookCopy, Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Hint } from "~/components/hint";
@@ -12,6 +12,8 @@ import { useIsMobile } from "~/hooks/use-mobile";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 import { PanelHeader } from "./panel-header";
+import { snapshotCompareTarget } from "./compare-target";
+import { openCompare } from "./dialog-events";
 
 /** A quick picker, not a page (Mads): smaller than the chapter heading. */
 const titleClass = "truncate text-phone font-semibold";
@@ -66,6 +68,7 @@ export function TranslationChooser({
     function onKey(e: KeyboardEvent) {
       if (e.key === "t" && !e.shiftKey && !ignoreShortcut(e)) {
         e.preventDefault();
+        snapshotCompareTarget(); // before focus leaves the text (#167)
         setOpen(true);
       }
     }
@@ -85,7 +88,28 @@ export function TranslationChooser({
   }
 
   const label = `${t("nav.translation")}: ${current.abbreviation}, ${translationTitle(current)}`;
-  const list = <TranslationList translations={translations} currentId={current.id} ui={ui} onPick={pick} />;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  /** Compare translations (#167): selection → focused verse → first on page. */
+  function compare() {
+    setOpen(false);
+    openCompare({ returnTo: triggerRef.current });
+  }
+  const list = (
+    <>
+      <TranslationList translations={translations} currentId={current.id} ui={ui} onPick={pick} />
+      {translations.length > 1 && (
+        <button
+          type="button"
+          data-translation-option
+          onClick={compare}
+          className="mt-2 flex min-h-12 w-full items-center gap-2 rounded-md border-t border-border px-3 py-2 text-left text-control outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring max-sm:min-h-14 max-sm:text-phone"
+        >
+          <BookCopy className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          {t("translations.compare")}
+        </button>
+      )}
+    </>
+  );
   // The edition, quieter than the address it follows (persona panel
   // 2026-11-15): the abbreviation, borderless and muted; the full name is
   // its accessible name, its tooltip and its menu. A clear gap before it.
@@ -101,7 +125,7 @@ export function TranslationChooser({
   if (isMobile) {
     return (
       <>
-        <Button variant="ghost" size="sm" className={triggerClass} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <Button ref={triggerRef} variant="ghost" size="sm" className={triggerClass} aria-label={label} aria-haspopup="dialog" onPointerDown={snapshotCompareTarget} onClick={() => setOpen(true)}>
           {trigger}
         </Button>
         <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
@@ -121,7 +145,7 @@ export function TranslationChooser({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Hint label={translationTitle(current)} shortcut="T">
-        <PopoverTrigger render={<Button variant="ghost" size="sm" className={triggerClass} aria-label={label} />}>{trigger}</PopoverTrigger>
+        <PopoverTrigger render={<Button ref={triggerRef} variant="ghost" size="sm" className={triggerClass} aria-label={label} onPointerDown={snapshotCompareTarget} />}>{trigger}</PopoverTrigger>
       </Hint>
       <PopoverContent align="start" className="w-90 max-w-[calc(100vw-2rem)] gap-0 p-0">
         <PanelHeader onClose={() => setOpen(false)} closeLabel={t("translations.close")}>

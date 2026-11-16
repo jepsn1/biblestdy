@@ -13,7 +13,7 @@ import {
 import { referenceLabel } from "~/lib/reference-label";
 import { placesToOffer, START_PLACES } from "~/lib/recent-passages";
 import { chapterHref, referenceHref } from "../reader/chapter-nav";
-import { bookQuery, findPassages, reversedBook, typoBooks, type PassageHit } from "./passage-query";
+import { bookQuery, compareQuery, findPassages, reversedBook, typoBooks, type PassageHit } from "./passage-query";
 
 /**
  * Command palette results (one pure function, so the ranking is testable):
@@ -68,6 +68,8 @@ export type PaletteItem = {
   match?: string;
   /** A colour row: brings this colour out in the reader (colour key filter). */
   filterColor?: HighlightColor;
+  /** Opens Compare translations for this passage, without moving the reader (#167). */
+  compare?: Reference & { chapter: number };
 };
 
 export type PaletteAction = {
@@ -123,6 +125,8 @@ export type PaletteContext = {
     continueAt: (place: string, page?: number) => string;
     /** A good place to start's plain line (START_PLACES `line`). */
     startLine: (line: string) => string;
+    /** "Compare John 3:16" under a typed passage (#167); absent = not offered. */
+    compareRef?: (ref: string) => string;
   };
 };
 
@@ -174,15 +178,8 @@ export function matchRanges(text: string, query: string): [number, number][] {
   return hits;
 }
 
-/** Markdown → plain text, enough for matching and snippets. */
-export function plainText(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[*_~`>#]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { plainText } from "~/lib/plain-text";
+import { plainText } from "~/lib/plain-text";
 
 /** A passage row's words to bold: letters and numbers apart ("j3" → "j 3":
  * the J of John, the 3). */
@@ -323,7 +320,9 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
 
   const prefix = raw[0];
   const only = prefix === ">" ? "actions" : prefix === "#" ? "topics" : prefix === "@" ? "notes" : null;
-  const q = only ? raw.slice(1).trim() : raw;
+  // "compare rom 8:28" (#167): the passage, with Compare on top
+  const compareText = only || !ctx.labels.compareRef ? null : compareQuery(raw);
+  const q = only ? raw.slice(1).trim() : (compareText ?? raw);
   const out: PaletteItem[] = [];
 
   // 1. The passages it could mean (only a sure one scopes your study to
@@ -343,7 +342,14 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
       match: passageMatch(q),
     };
   };
-  out.push(...hits.map(passageItem));
+  // Compare {ref}: under the go-to row (on top with the compare prefix)
+  const compareItem: PaletteItem | null =
+    ref && ref.chapter !== undefined && ctx.labels.compareRef
+      ? { id: "compare", group: "passage", label: ctx.labels.compareRef(refLabel(ctx, ref)), compare: { ...ref, chapter: ref.chapter } }
+      : null;
+  const passageRows = hits.map(passageItem);
+  if (compareItem) passageRows.splice(compareText !== null ? 0 : 1, 0, compareItem);
+  out.push(...passageRows);
 
   // 2. Books (word-start, both languages, "first john" too, a misspelt name
   // last); Enter = chapter 1, Tab completes. "3 john" also offers John 3.

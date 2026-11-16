@@ -281,3 +281,12 @@ export function typoBooks(input: string, locale: BookLocale, limit = 3): string[
     .slice(0, limit)
     .map((m) => m.book.id);
 }
+
+/**
+ * "compare rom 8:28" / "sammenlign joh 3,16" (#167): the passage part after
+ * the Compare prefix, else null (no prefix, or nothing after it yet).
+ */
+export function compareQuery(input: string): string | null {
+  const m = /^\s*(?:compare|sammenlign)\s+(\S.*)$/i.exec(input);
+  return m ? m[1].trim() : null;
+}

@@ -182,6 +182,8 @@ const da: typeof en = {
     noteLinkHint: "Knyt en eksisterende note til dette skriftsted",
     copy: "Kopiér",
     copyHint: "Kopierer teksten med henvisning (også ⌘C / Ctrl+C)",
+    compare: "Sammenlign oversættelser",
+    compareHint: "Se de samme vers i andre oversættelser",
     annotationPlaceholder: "Din annotering…",
     saveHint: "⌘↵ for at gemme",
     save: "Gem",
@@ -605,6 +607,11 @@ const da: typeof en = {
     psalmTitle: "Salmens overskrift har intet versnummer i {{abbr}}, så du er ved vers 1.",
     nearest: "{{abbr}} har ikke {{ref}}, så du er ved det nærmeste vers.",
     switchFailed: "Kunne ikke skifte til {{abbr}}. Tjek forbindelsen, og prøv igen.",
+    compare: "Sammenlign med andre oversættelser…",
+  },
+  /** Compare translations (#167): the rest of its words load with the dialog (locales/compare.ts). */
+  compare: {
+    loadFailed: "Sammenlign oversættelser kunne ikke åbnes. Tjek din forbindelse, og prøv igen.",
   },
   palette: {
     insertVerse: "Indsæt bibelvers",
@@ -721,6 +728,7 @@ const da: typeof en = {
     note: "Ny note",
     annotate: "Annotér",
     copy: "Kopiér med henvisning",
+    compare: "Sammenlign oversættelser",
     clear: "Fjern markeringen",
     connections: "Noter og emner",
     cycle: "Skift mellem tekst og panel",

@@ -29,7 +29,18 @@ import { ChapterSkeleton } from "../reader/chapter-skeleton";
 import { ReadingLimited, readingLimitRouteError } from "../reader/reading-limit";
 import { ReaderNav } from "../reader/reader-nav";
 import { referenceLabel } from "../notes/note-list";
-import { OPEN_COLOR_NAMES, OPEN_SHORTCUTS } from "../reader/dialog-events";
+import { OPEN_COLOR_NAMES, OPEN_COMPARE, OPEN_SHORTCUTS, type CompareAnchor, type CompareRequest } from "../reader/dialog-events";
+import { compareDialog, type CompareKit } from "../reader/compare-loader";
+import { passageLines } from "../reader/chapter-layout";
+import { groupTranslations } from "../reader/translation-chooser";
+import { formatWait } from "../reader/reading-limit";
+import { referenceLabel as uiReferenceLabel } from "~/lib/reference-label";
+import { useFumsView } from "~/lib/fums";
+import { useTextSize } from "~/lib/text-size";
+import { showVerses } from "~/lib/print-limit";
+import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
+import { notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
+import { compareTargetOr } from "../reader/compare-target";
 import { SkipToText } from "../reader/skip-link";
 import { LazyCommandPalette } from "../palette/lazy-palette";
 import { OPEN_PALETTE } from "../palette/open-palette";
@@ -49,9 +60,30 @@ interface PendingSwitch {
   landing: Landing;
   /** Checks the landing against the loaded chapter (a verse it leaves out). */
   check: ((landing: Landing, chapter: Chapter) => Landing) | null;
+  /** Compare's Continue in (#167): the toast stays ≥ 10 s. */
+  long?: boolean;
 }
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
+
+/** Handed to the Compare dialog (see CompareKit). */
+const compareKit: CompareKit = {
+  chapterQuery,
+  retryWhenLimited,
+  notifyCopyFailed,
+  notifyCopyLimit,
+  passageLines,
+  groupTranslations,
+  translationTitle,
+  formatWait,
+  referenceLabel: uiReferenceLabel,
+  useFumsView,
+  useTextSize,
+  showVerses,
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+};
 
 /** How long a chapter must stay open before its neighbours are fetched. */
 const PREFETCH_DELAY_MS = 300;
@@ -216,7 +248,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
    * mapped across verse numberings (#174: WEB Mal 4:1 → BPH Mal 3,19), never
    * kept by number. `back` = a place already in that translation's numbering
    * (the toast's way back restores where you were). */
-  async function switchTranslation(id: string, back?: Place) {
+  async function switchTranslation(id: string, back?: Place, { long = false }: { long?: boolean } = {}) {
     const to = translations.find((tr) => tr.id === id);
     if (!to || to.id === translation.id) return;
     const source = { book: chapter.book, chapter: chapter.chapter, verse: placeRef.current ?? 1 };
@@ -233,7 +265,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
       }
     }
     localStorage.setItem("translationId", id);
-    switching.current = { to: to.id, from: translation, source, landing, check };
+    switching.current = { to: to.id, from: translation, source, landing, check, long };
     if (landing.book === chapter.book && landing.chapter === chapter.chapter) void revalidator.revalidate();
     else void navigate(chapterHref(landing), { replace: true }); // the loader reads the new version
   }
@@ -270,7 +302,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
     // A sonner toast is a polite live region: the note is read out too
     toast(t("translations.switched", { name: translationTitle(translation), prev }), {
       description: note,
-      duration: note ? 10_000 : undefined,
+      duration: note || p.long ? 10_000 : undefined,
       action: { label: t("translations.back", { abbr: prev }), onClick: () => void switchRef.current(p.from.id, p.source) },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -323,6 +355,50 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
   const [colorNamesOpen, setColorNamesOpen] = useState(false);
   const colorNamesReturn = useRef<HTMLElement | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Compare translations (#167): its own chunk, asked open by OPEN_COMPARE
+  // (menus, `p`, the palette, the translation sheet)
+  const firstOnPage = (): CompareAnchor | null => {
+    const v = chapter.verses.find((x) => x.verse === placeRef.current) ?? chapter.verses[0];
+    if (!v) return null;
+    return { translationId: translation.id, book: chapter.book, chapter: chapter.chapter, startVerse: v.verse, endVerse: v.verse };
+  };
+  const firstOnPageRef = useRef(firstOnPage);
+  firstOnPageRef.current = firstOnPage;
+  const [compare, setCompare] = useState<CompareRequest | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  useEffect(() => {
+    const onCompare = (e: Event) => {
+      const req = (e as CustomEvent<CompareRequest>).detail ?? {};
+      const anchor = req.anchor ?? (req.range ? undefined : (compareTargetOr(firstOnPageRef.current()) ?? undefined));
+      if (!anchor && !req.range) return;
+      setCompare({ ...req, anchor });
+      setCompareOpen(true);
+    };
+    window.addEventListener(OPEN_COMPARE, onCompare);
+    return () => window.removeEventListener(OPEN_COMPARE, onCompare);
+  }, []);
+  const { value: cmp, error: compareError, retry: compareRetry } = useLazyModule(compareDialog, compareOpen);
+  // The chunk didn't come: say so, hand focus back
+  useEffect(() => {
+    if (!compareError || !compareOpen) return;
+    toast.error(i18n.t("compare.loadFailed"));
+    setCompareOpen(false);
+    const back = compare?.returnTo;
+    if (typeof back === "function") back();
+    else back?.focus();
+    compareRetry();
+  }, [compareError, compareOpen, compare, compareRetry]);
+  const compareFocus = () => {
+    const back = compare?.returnTo;
+    if (typeof back === "function") {
+      back();
+      return false as const;
+    }
+    if (back?.isConnected) return back;
+    return document.getElementById("chapter-text") ?? (false as const);
+  };
+
   useEffect(() => {
     const open = () => setPaletteOpen(true);
     window.addEventListener(OPEN_PALETTE, open);
@@ -423,8 +499,22 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           marginNotesOpen: annotationBoxesOpen,
           prevHref: prevChapter ? chapterHref(prevChapter) : null,
           nextHref: nextChapter ? chapterHref(nextChapter) : null,
+          compareAt: paletteOpen ? compareTargetOr(firstOnPage()) : null,
         }}
       />
+      {cmp && compare && (
+        <cmp.CompareDialog
+          open={compareOpen}
+          onOpenChange={setCompareOpen}
+          anchor={compare.anchor}
+          range={compare.range}
+          finalFocus={compareFocus}
+          translations={translations}
+          current={translation}
+          switchTranslation={switchTranslation}
+          kit={compareKit}
+        />
+      )}
       {d && choosingStyle && <d.StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />}
     </div>
   );

@@ -151,3 +151,14 @@ export function sliceBlocks(blocks: LaidBlock[], span: VerseSpan): LaidBlock[] {
   }
   return out;
 }
+
+/**
+ * Verses `span` of a chapter as the reader lays them out — paragraphs and
+ * poetry lines with their indents — for showing a passage outside the page
+ * (Compare translations, #167). Pure, no measuring. Section headings are
+ * left out (the passage is quoted, not read on); a block entered part-way
+ * opens without its first-line indent, like the reader's run-on pages.
+ */
+export function passageLines(chapter: Chapter, span: VerseSpan): LaidBlock[] {
+  return sliceBlocks(layoutChapter(chapter), span).map((b) => (b.headings.length ? { ...b, headings: [] } : b));
+}

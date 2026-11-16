@@ -46,3 +46,34 @@ export function useNoteEditorOpen(): boolean {
     () => false,
   );
 }
+
+/** A passage to compare (#167): a selection (stored verse + word numbers,
+ * in its own translation), or a typed reference in the reading translation's
+ * numbering (the palette's "Compare rom 8:28"). */
+export type CompareAnchor = {
+  translationId: string;
+  book: string;
+  chapter: number;
+  startVerse: number;
+  endVerse: number;
+  startWord?: number;
+  endWord?: number;
+};
+export type CompareRange = { book: string; chapter: number; verse?: number; endChapter?: number; endVerse?: number };
+
+/** `returnTo`: where focus goes when the dialog closes — an element, or a
+ * function that puts it back itself (the reader: the selected verse, its
+ * selection kept). Neither anchor nor range = the reader's own fallback
+ * (selection → focused verse → first verse on the page). */
+export type CompareRequest = {
+  anchor?: CompareAnchor;
+  range?: CompareRange;
+  returnTo?: HTMLElement | (() => void) | null;
+};
+
+/** Event name: the selection menus, `p`, the palette and the translation
+ * sheet open Compare translations (the dialog itself is its own chunk). */
+export const OPEN_COMPARE = "biblestdy:compare";
+export function openCompare(request: CompareRequest = {}) {
+  window.dispatchEvent(new CustomEvent<CompareRequest>(OPEN_COMPARE, { detail: request }));
+}

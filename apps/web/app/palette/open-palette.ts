@@ -1,4 +1,5 @@
 import { lazyModule } from "~/lib/lazy-module";
+import { snapshotCompareTarget } from "../reader/compare-target";
 
 /**
  * Opening the command palette, kept apart from the palette itself (M8): the
@@ -16,6 +17,8 @@ export function paletteOpener() {
 
 export function openPalette() {
   opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  // Before focus leaves the text: what Compare translations would act on
+  snapshotCompareTarget();
   window.dispatchEvent(new Event(OPEN_PALETTE));
 }
 

@@ -10,7 +10,7 @@ import {
   type Reference,
 } from "@biblestdy/shared";
 import { referenceLabel } from "~/lib/reference-label";
-import { plainText } from "../palette/palette-results";
+import { plainText } from "~/lib/plain-text";
 
 /**
  * The Notes page's pure parts (notes plan, Phase 1): how a note is named and

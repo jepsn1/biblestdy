@@ -491,3 +491,26 @@ describe("helpers", () => {
     expect(plainText("**bold** [link](http://x) `code`")).toBe("bold link code");
   });
 });
+
+describe("Compare {ref} (#167)", () => {
+  const c = () => {
+    const base = ctx();
+    return { ...base, labels: { ...base.labels, compareRef: (ref: string) => `Compare ${ref}` } };
+  };
+  it("a typed passage offers Compare under the go-to row", () => {
+    const [go, cmp] = buildResults("rom 8:28", c());
+    expect(go).toMatchObject({ group: "passage", href: "/read/ROM/8?v=28" });
+    expect(cmp).toMatchObject({ id: "compare", group: "passage", label: "Compare Romans 8:28", compare: { book: "ROM", chapter: 8, verse: 28 } });
+    expect(cmp.href).toBeUndefined();
+  });
+  it("the compare / sammenlign prefix puts it on top (Enter = compare), ranges too", () => {
+    const [first, second] = buildResults("compare john 3:14-16", c());
+    expect(first).toMatchObject({ id: "compare", compare: { book: "JHN", chapter: 3, verse: 14, endVerse: 16 } });
+    expect(second).toMatchObject({ group: "passage", href: expect.stringContaining("/read/JHN/3") });
+    expect(buildResults("sammenlign joh 3,16", c())[0]).toMatchObject({ id: "compare", compare: { book: "JHN", chapter: 3, verse: 16 } });
+  });
+  it("not for a guess, and not when the palette doesn't offer it", () => {
+    expect(ids("jonh 3:16", c())).not.toContain("compare");
+    expect(ids("rom 8:28")).not.toContain("compare");
+  });
+});

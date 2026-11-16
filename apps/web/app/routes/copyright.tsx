@@ -190,9 +190,39 @@ export default function Copyright() {
             <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("copyright.limits")}</p>
           </section>
 
+          {/* Third-party notices: the versification map (#166) ships in the
+              app, and its MIT notice must go with it (the minified chunk
+              drops comments) */}
+          <section className="mt-10 border-t border-border pt-8">
+            <h2 className="font-serif text-reading font-medium">{NOTICES[language.startsWith("da") ? "da" : "en"].title}</h2>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">{NOTICES[language.startsWith("da") ? "da" : "en"].versification}</p>
+            <pre lang="en" className="mt-3 font-mono text-meta leading-relaxed whitespace-pre-wrap text-muted-foreground">
+              {LIBPALASO_LICENSE}
+            </pre>
+          </section>
+
           <div className="mt-12">{back}</div>
         </div>
       </ScrollArea>
     </main>
   );
 }
+
+/** SIL libpalaso's licence (tools/versification/LICENSE-libpalaso.txt),
+ * verbatim: the verse-numbering data comes from its eng.vrs / org.vrs. */
+const LIBPALASO_LICENSE = `The MIT License (MIT)
+
+Copyright (c) 2007-2026 SIL Global
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`;
+
+/** The notices' own words, here rather than in locales/ (they'd ride in
+ * every page's first load otherwise). */
+const NOTICES = {
+  en: { title: "Third-party notices", versification: "How verses are numbered in each Bible (used to line up translations) comes from SIL libpalaso’s versification files, used under the MIT licence:" },
+  da: { title: "Tredjepartsmeddelelser", versification: "Hvordan versene er nummereret i hver bibel (bruges til at stille oversættelser over for hinanden), stammer fra SIL libpalasos versifikationsfiler og bruges under MIT-licensen:" },
+};

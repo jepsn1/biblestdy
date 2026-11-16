@@ -1,7 +1,8 @@
 import type { Chapter } from "@biblestdy/shared";
 import { words } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { layoutChapter, openingLabel, sliceBlocks, type LaidBlock } from "./chapter-layout";
+import { layoutChapter, openingLabel, passageLines, sliceBlocks, type LaidBlock } from "./chapter-layout";
+import { versesCopy } from "./compare-blocks";
 
 const base = { translationId: "T", book: "PSA", chapter: 23 };
 
@@ -177,5 +178,43 @@ describe("sliceBlocks", () => {
     const sliced = sliceBlocks(blocks, { from: 3, to: 4 });
     expect(sliced[0].headings).toEqual(["Head"]);
     expect(sliceBlocks(blocks, { from: 2, to: 2 })[0]).toMatchObject({ kind: "poetry", level: 2 });
+  });
+});
+
+describe("passageLines (#167)", () => {
+  const psalm: Chapter = {
+    ...base,
+    verses: [
+      { verse: 1, text: "a b c d" },
+      { verse: 2, text: "e f g h" },
+      { verse: 3, text: "i j" },
+    ],
+    sections: [{ beforeVerse: 1, title: "A Psalm" }, { beforeVerse: 3, title: "Later" }],
+    blocks: [
+      { verse: 1, word: 0, kind: "poetry", level: 1 },
+      { verse: 1, word: 2, kind: "poetry", level: 2 },
+      { verse: 2, word: 0, kind: "poetry", level: 1 },
+      { verse: 3, word: 0, kind: "paragraph" },
+    ],
+  };
+
+  it("keeps the reader's lines and indents, without headings", () => {
+    const out = passageLines(psalm, { from: 1, to: 3 });
+    expect(out.map((b) => [b.kind, b.level, lines([b])[0]])).toEqual([
+      ["poetry", 1, "a b"],
+      ["poetry", 2, "c d"],
+      ["poetry", 1, "e f g h"],
+      ["paragraph", 1, "i j"],
+    ]);
+    expect(out.every((b) => b.headings.length === 0)).toBe(true);
+  });
+
+  it("only the asked verses", () => {
+    expect(lines(passageLines(psalm, { from: 2, to: 2 }))).toEqual(["e f g h"]);
+  });
+
+  it("copies whole verses with reference and copyright", () => {
+    const c = { ...psalm, copyright: "© X" };
+    expect(versesCopy([{ chapter: c, from: 1, to: 2 }], "Psalm 23:1–2", "WEB").text).toBe("a b c d e f g h\nPsalm 23:1–2 (WEB)\n© X");
   });
 });

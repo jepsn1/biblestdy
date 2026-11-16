@@ -12,7 +12,7 @@ export interface ReadingLimit {
 const REASONS: readonly ReadingLimitReason[] = ["pace", "daily", "cooldown"];
 
 /** "7 seconds" / "2 minutes" / "1 hour" — always rounded up, never shorter. */
-function formatWait(t: TFunction, seconds: number): string {
+export function formatWait(t: TFunction, seconds: number): string {
   const s = Math.max(1, Math.ceil(seconds));
   if (s < 60) return t("readingLimit.seconds", { count: s });
   if (s < 3600) return t("readingLimit.minutes", { count: Math.ceil(s / 60) });

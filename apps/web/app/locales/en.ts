@@ -142,6 +142,8 @@ export default {
     noteLinkHint: "Link an existing note to this passage",
     copy: "Copy",
     copyHint: "Copies the text with its reference (also ⌘C / Ctrl+C)",
+    compare: "Compare translations",
+    compareHint: "See the same verses in other translations",
     annotationPlaceholder: "Your margin note…",
     saveHint: "⌘↵ to save",
     save: "Save",
@@ -566,6 +568,11 @@ export default {
     psalmTitle: "The psalm title has no verse number in {{abbr}}, so you\u2019re at verse 1.",
     nearest: "{{abbr}} has no {{ref}}, so you\u2019re at the nearest verse.",
     switchFailed: "Couldn\u2019t switch to {{abbr}}. Check your connection and try again.",
+    compare: "Compare with other translations…",
+  },
+  /** Compare translations (#167): the rest of its words load with the dialog (locales/compare.ts). */
+  compare: {
+    loadFailed: "Couldn’t open Compare translations. Check your connection and try again.",
   },
   palette: {
     insertVerse: "Insert verse",
@@ -682,6 +689,7 @@ export default {
     note: "New note",
     annotate: "Write in the margin",
     copy: "Copy with reference",
+    compare: "Compare translations",
     clear: "Clear the selection",
     connections: "Notes & topics",
     cycle: "Move between text and panel",

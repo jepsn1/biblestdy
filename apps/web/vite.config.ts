@@ -44,7 +44,7 @@ export default defineConfig({
     // Workspace package ships CJS; prebundle so named ESM imports work in dev.
     // The note editor + Prism are lazy imports (M8): list them so a cold dev
     // start doesn't find them late and reload the page on first note open
-    // (the versification map too: lazy, at the first translation switch, #174)
+    // (the versification map too: lazy, at the first translation switch, #174; Compare translations, #167)
     include: ["@biblestdy/shared", "@biblestdy/shared/versification", "prismjs", "@mdxeditor/editor", "lexical"],
   },
   server: {

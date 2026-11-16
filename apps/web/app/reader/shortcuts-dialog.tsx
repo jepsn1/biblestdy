@@ -109,6 +109,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         { keys: [["n"]], label: t("shortcuts.note") },
         { keys: [["m"]], label: t("shortcuts.annotate") },
         { keys: [["c"]], label: t("shortcuts.copy") },
+        { keys: [["p"]], label: t("shortcuts.compare") },
         { keys: [["Esc"]], label: t("shortcuts.clear") },
       ],
     },
