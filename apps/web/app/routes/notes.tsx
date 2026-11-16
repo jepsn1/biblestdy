@@ -322,7 +322,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:px-3">
+      <header className="@container flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:px-3">
         {params.id && mobile ? (
           <Link to={hrefOf()} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-10 text-muted-foreground")}>
             <ArrowLeft aria-hidden />
@@ -354,9 +354,16 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           {t("notes.title")}
         </h1>
         {params.id && mobile && <span className="flex-1" />}
-        <Button size="sm" className="max-md:h-10" data-tour="notes-new" onClick={() => void newNote()}>
+        {/* A note open on a narrow row (a phone at 200% text, #196): beside
+            the way back, just the +, its name kept for screen readers */}
+        <Button
+          size="sm"
+          className={cn("max-md:h-10", params.id && mobile && "@max-[12.5rem]:w-10 @max-[12.5rem]:px-0")}
+          data-tour="notes-new"
+          onClick={() => void newNote()}
+        >
           <Plus aria-hidden />
-          {t("notes.new")}
+          <span className={cn(params.id && mobile && "@max-[12.5rem]:sr-only")}>{t("notes.new")}</span>
         </Button>
       </header>
       <div className="flex min-h-0 flex-1">

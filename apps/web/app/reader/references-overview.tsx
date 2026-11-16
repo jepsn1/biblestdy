@@ -276,10 +276,12 @@ export function ReferencesOverview({
     let readName = t("note.readPassage");
     let action: ReactNode = null;
     let pressed: boolean | undefined;
-    // The pressed row's tint: gold and grey fall short of 4.5:1 on it (#196)
+    // The row's tint (pressed, hovered, tapped): gold and grey fall short
+    // of 4.5:1 on it (#196)
     const on = row.kind !== "text" && row.anchor.id === selectedAnchorId;
-    const muted = on ? "text-accent-foreground" : "text-muted-foreground";
-    const gold = on ? "text-accent-foreground" : "text-primary";
+    const tinted = mobile ? "group-active:text-accent-foreground" : "group-hover:text-accent-foreground";
+    const muted = on ? "text-accent-foreground" : cn("text-muted-foreground", tinted);
+    const gold = on ? "text-accent-foreground" : cn("text-primary", tinted);
 
     const actionClass = cn(
       "rounded-sm px-1 text-meta font-medium whitespace-nowrap hover:underline",
@@ -372,7 +374,7 @@ export function ReferencesOverview({
           onClick={() => void remove(row.anchor)}
           className={cn(
             "inline-flex items-center justify-center rounded hover:text-destructive",
-            muted,
+            on ? "text-accent-foreground" : "text-muted-foreground",
             mobile ? "size-11" : "size-6 pointer-coarse:size-11",
             !mobile && "invisible group-focus-within:visible group-hover:visible pointer-coarse:visible",
             focusRing,
