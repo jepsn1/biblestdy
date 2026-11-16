@@ -10,7 +10,7 @@ import { noteView } from "~/lib/fums";
 import { ApiError, api } from "~/lib/query";
 import { chipLabel, referenceLabel } from "~/lib/reference-label";
 import { cn, focusRing } from "~/lib/utils";
-import { readingTranslationId } from "../notes/add-reference";
+import { useReadingTranslationId } from "../notes/add-reference";
 import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext } from "./ref-context";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
@@ -145,13 +145,6 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
       )}
     </>
   );
-}
-
-/** The reading translation's id: this device's choice, else resolved. */
-function useReadingTranslationId(): string | undefined {
-  const stored = typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
-  const { data } = useQuery({ queryKey: ["reading-translation-id"], queryFn: readingTranslationId, enabled: !stored, staleTime: Infinity });
-  return stored ?? data;
 }
 
 /** Verses at most shown (~10 lines, then a fade). */

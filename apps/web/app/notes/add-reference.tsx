@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, ScriptureRef, Translation } from "@biblestdy/shared";
-import { useQueryClient } from "@tanstack/react-query";
+import type { ScriptureRef, Translation } from "@biblestdy/shared";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useId, useState, type Ref } from "react";
 import { Button } from "~/components/ui/button";
@@ -10,7 +10,7 @@ import i18n from "~/lib/i18n";
 import { loadMarkedTranslationId } from "~/lib/preferences";
 import { api } from "~/lib/query";
 import { readingTranslation } from "~/lib/reading-translation";
-import { anchorForReference, referenceLabel } from "./note-list";
+import { referenceLabel } from "./note-list";
 import { verseOptions } from "./verse-resolver";
 
 /** The translation new references are made (and previews shown) in: the
@@ -20,6 +20,13 @@ export async function readingTranslationId(): Promise<string> {
   if (stored) return stored;
   const translations = await api<Translation[]>("/api/translations");
   return (await readingTranslation(translations, i18n.language, loadMarkedTranslationId)).id;
+}
+
+/** The reading translation's id: this device's choice, else resolved. */
+export function useReadingTranslationId(): string | undefined {
+  const stored = typeof localStorage !== "undefined" ? localStorage.getItem("translationId") : null;
+  const { data } = useQuery({ queryKey: ["reading-translation-id"], queryFn: readingTranslationId, enabled: !stored, staleTime: Infinity });
+  return stored ?? data;
 }
 
 /**
@@ -127,47 +134,5 @@ export function VerseField({
         {problem ?? (preview ? t(previewKey, { ref: preview }) : "")}
       </p>
     </form>
-  );
-}
-
-/**
- * "Add passage" (notes plan, Phase 1): the note cites the typed reference's
- * whole verses in the reading translation, as an anchor. Selecting words in
- * the reader stays the precise way.
- */
-export function AddReference({
-  onAdd,
-  mobile = false,
-}: {
-  onAdd: (anchor: Anchor) => Promise<unknown>;
-  mobile?: boolean;
-}) {
-  const { t } = useTranslation();
-  const qc = useQueryClient();
-
-  async function pick(ref: ScriptureRef, label: string): Promise<string | null> {
-    const translationId = await readingTranslationId();
-    const chapter = await qc.fetchQuery({
-      queryKey: ["chapter", translationId, ref.book, ref.chapter],
-      queryFn: () => api<Chapter>(`/api/passages/${translationId}/${ref.book}/${ref.chapter}`),
-      staleTime: 60 * 60 * 1000, // scripture text is immutable
-    });
-    const anchor = anchorForReference(ref, chapter);
-    if (anchor === "noChapter") return t("note.refNeedsChapter");
-    if (anchor === "crossChapter") return t("note.refOneChapter");
-    if (anchor === "noVerse") return t("note.refNoVerse", { ref: label });
-    await onAdd(anchor);
-    return null;
-  }
-
-  return (
-    <VerseField
-      onPick={pick}
-      label={t("note.addReference")}
-      placeholder={t("note.addReferencePlaceholder")}
-      previewKey="note.refPreview"
-      submitLabel={t("note.add")}
-      mobile={mobile}
-    />
   );
 }

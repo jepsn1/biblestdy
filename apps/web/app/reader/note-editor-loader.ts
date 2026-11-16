@@ -7,6 +7,12 @@ import { lazyModule } from "~/lib/lazy-module";
  * chunk ("Prism is not defined" — see lib/prism-global.ts). Awaiting the
  * global before the editor chunk evaluates rules that out.
  */
-export const noteEditor = lazyModule(() =>
-  import("~/lib/prism-global").then(() => import("./note-editor")),
-);
+export const noteEditor = lazyModule(() => {
+  // Wherever the editor is fetched ahead, the references overview comes too
+  referencesOverview.preload();
+  return import("~/lib/prism-global").then(() => import("./note-editor"));
+});
+
+/** The note's references overview (#161): its own small chunk, out of the
+ * reader's first paint (budget), fetched with the editor. */
+export const referencesOverview = lazyModule(() => import("./references-overview"));

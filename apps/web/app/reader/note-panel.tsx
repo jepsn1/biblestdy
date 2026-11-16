@@ -1,36 +1,33 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, NoteAnchor, ScriptureRef } from "@biblestdy/shared";
-import { refsInMarkdown, words, wordRangeInVerse } from "@biblestdy/shared";
-import { useQueries } from "@tanstack/react-query";
-import { noteView } from "~/lib/fums";
-import { api } from "~/lib/query";
-import { cn, focusRing, focusTitle } from "~/lib/utils";
-import { ScrollArea } from "~/components/ui/scroll-area";
+import type { Anchor, Note, NoteAnchor, ScriptureRef } from "@biblestdy/shared";
+import { formatScriptureHref, scriptureLinkMarkdown, scriptureLinks } from "@biblestdy/shared";
+import { usePanelRef } from "react-resizable-panels";
+import { cn, focusTitle } from "~/lib/utils";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "~/components/ui/resizable";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
-import { Check, Maximize2, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Maximize2, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
 import { Popover, PopoverContent } from "~/components/ui/popover";
 import type { EditorKit } from "./ref-context";
 import type { VersePickerProps } from "./verse-picker";
-import { bookLocale, useBookName } from "~/lib/book-name";
-import { AddReference } from "../notes/add-reference";
-import { anchorLabel, referenceLabel } from "../notes/note-list";
+import { bookLocale } from "~/lib/book-name";
+import { chipLabel } from "~/lib/reference-label";
 import { notifyError } from "~/lib/notify";
 import { setOpenNote } from "~/lib/next-path";
 import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
-import { ScriptureCredit } from "./scripture-credit";
+import { INSERT_REF, INSERT_VERSE, SHOW_REF, type RefEventDetail } from "./dialog-events";
+import type { ReferencesOverviewProps } from "./references-overview";
 import { TagChips } from "./tag-chips";
-import { noteEditor } from "./note-editor-loader";
+import { noteEditor, referencesOverview } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { LoadError } from "./marks-load-error";
 import { useNoteTags } from "./use-tags";
@@ -42,6 +39,13 @@ function VersePicker(props: VersePickerProps) {
   useEffect(() => preloadWhenIdle(versePicker), []);
   const { value } = useLazyModule(versePicker, props.open);
   return value ? <value.VersePicker {...props} /> : null;
+}
+
+/** The references overview (#161), a chunk of its own; until it arrives a
+ * blank heading-high strip holds its place. */
+function ReferencesOverview(props: ReferencesOverviewProps) {
+  const { value } = useLazyModule(referencesOverview);
+  return value ? <value.ReferencesOverview {...props} /> : <div aria-hidden className="h-9" />;
 }
 
 /** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
@@ -65,158 +69,6 @@ function NoteTagsRow({ noteId }: { noteId: string }) {
       {/* A failed load isn't "no topics" */}
       <LoadError failed={failed} message={t("note.topicsLoadFailed")} onRetry={retry} className="mt-1" />
     </>
-  );
-}
-
-/** The words an anchor covers, shortened for the references table. */
-function snippetOf(chapter: Chapter | undefined, a: NoteAnchor): string {
-  if (!chapter) return "";
-  const covered: string[] = [];
-  for (const v of chapter.verses) {
-    const tokens = words(v.text);
-    const r = wordRangeInVerse(a, v.verse, tokens.length);
-    if (r) covered.push(...tokens.slice(r.start, r.end + 1));
-  }
-  const s = covered.join(" ");
-  return s.length > 64 ? `${s.slice(0, 64).trimEnd()}…` : s;
-}
-
-/** Bottom section of the note view (issue on 2026-07-09: more blocks to come,
- * references first): every passage the note anchors to — reference, the
- * anchored words, unlink. Click a row to read there with the span flashed. */
-function ReferencesTable({
-  note,
-  inline,
-  selectedAnchorId,
-  onShowAnchor,
-  onReadRef,
-  onDetach,
-  onAttach,
-  mobile = false,
-}: {
-  note: Note;
-  /** The references in the text (#160), read from the live body. */
-  inline: ScriptureRef[];
-  onReadRef?: (ref: ScriptureRef) => void;
-  selectedAnchorId: string | null;
-  onShowAnchor: (anchor: NoteAnchor) => void;
-  onDetach: (id: string, anchorId: string) => void;
-  onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
-  mobile?: boolean;
-}) {
-  const { t, i18n } = useTranslation();
-  const nameOf = useBookName();
-  const locale = bookLocale(i18n.language);
-  const chapterKeys = [
-    ...new Map(
-      note.anchors.map((a) => [`${a.translationId}/${a.book}/${a.chapter}`, a]),
-    ).entries(),
-  ];
-  const results = useQueries({
-    queries: chapterKeys.map(([, a]) => ({
-      queryKey: ["chapter", a.translationId, a.book, a.chapter],
-      queryFn: () =>
-        api<Chapter>(`/api/passages/${a.translationId}/${a.book}/${a.chapter}`),
-      staleTime: 60 * 60 * 1000, // scripture text is immutable, cache hard
-    })),
-  });
-  const chapterOf = new Map(chapterKeys.map(([key], i) => [key, results[i].data]));
-  // The snippets show their words: each chapter shown counts as a view (FUMS)
-  const tokens = results.map((r) => r.data?.fumsToken ?? "").join(" ");
-  useEffect(() => {
-    for (const token of tokens.split(" ")) if (token) noteView(token);
-  }, [tokens]);
-
-  return (
-    <section className="flex h-full min-h-0 flex-col px-3 py-2">
-      <h3 className="eyebrow mb-1 shrink-0">
-        {t("note.references")}
-      </h3>
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col">
-        {note.anchors.length === 0 && inline.length === 0 && (
-          <p className="px-1.5 py-1 font-serif text-meta text-muted-foreground italic">
-            {t("note.noReferences")}
-          </p>
-        )}
-        {/* In the text (#160): the list follows the body; the overview's own
-            layout comes with #161 */}
-        {inline.map((r) => {
-          const name = referenceLabel(r, nameOf, locale);
-          return (
-            <button
-              key={`${r.book}.${r.chapter}.${r.verse}-${r.endChapter}.${r.endVerse}`}
-              type="button"
-              title={t("note.readPassage")}
-              aria-label={`${name}: ${t("note.readPassage")}`}
-              onClick={() => onReadRef?.(r)}
-              className={cn(
-                "rounded px-1.5 text-left text-meta tabular-nums whitespace-nowrap text-primary hover:bg-accent/50",
-                mobile ? "py-2.5" : "py-1",
-                focusRing,
-              )}
-            >
-              {name}
-            </button>
-          );
-        })}
-        {note.anchors.map((a) => {
-          const isSelected = a.id === selectedAnchorId;
-          return (
-          // Row = a real button (select / read there) + a sibling × — never
-          // a button nested in a button
-          <div
-            key={a.id}
-            className={`group grid grid-cols-[1fr_auto] items-center gap-x-1 rounded ${
-              isSelected ? "bg-accent" : "hover:bg-accent/50"
-            }`}
-          >
-            <button
-              type="button"
-              title={isSelected ? t("note.deselect") : t("note.readPassage")}
-              aria-label={`${anchorLabel(a, nameOf, locale)}: ${isSelected ? t("note.deselect") : t("note.readPassage")}`}
-              aria-pressed={isSelected}
-              onClick={() => onShowAnchor(a)}
-              className={cn(
-                "grid min-w-0 grid-cols-[auto_1fr] items-baseline gap-x-3 rounded px-1.5 text-left",
-                mobile ? "py-2.5" : "py-1",
-                focusRing,
-              )}
-            >
-              <span className="text-meta tabular-nums whitespace-nowrap text-primary">
-                {anchorLabel(a, nameOf, locale)}
-              </span>
-              <span className="truncate font-serif text-meta text-muted-foreground italic">
-                {snippetOf(chapterOf.get(`${a.translationId}/${a.book}/${a.chapter}`), a)}
-              </span>
-            </button>
-            {/* The last reference may go too: the note stays on the Notes page */}
-            <button
-                type="button"
-                aria-label={t("note.removeReferenceNamed", { ref: anchorLabel(a, nameOf, locale) })}
-                title={t("note.removeReference")}
-                onClick={() => onDetach(note.id, a.id)}
-                className={cn(
-                  "inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-destructive",
-                  !mobile && "invisible group-focus-within:visible group-hover:visible",
-                  focusRing,
-                )}
-              >
-                <X className="size-3" />
-              </button>
-          </div>
-          );
-        })}
-        </div>
-        {/* The snippets quote Bible text: its copyright link (ToS §7.2) */}
-        {note.anchors.length > 0 && <ScriptureCredit className="px-1.5 pt-1" />}
-      </ScrollArea>
-      {onAttach && (
-        <div className="shrink-0 pt-1.5">
-          <AddReference onAdd={(anchor) => onAttach(note.id, anchor)} mobile={mobile} />
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -299,10 +151,9 @@ function FallbackEditor({
  * work. The footer's save state comes from the server (#64): "Saving…" until
  * the PATCH answers, "Saved ✓" after, "Not saved · Retry" (+ toast) on failure.
  *
- * The references table at the bottom lists every passage the note anchors to
- * (issue #8): click reads there with the span flashed, × unlinks. The last
- * anchor is not removable — a note stays reachable from Scripture; deleting
- * the note is the way out.
+ * The references overview at the bottom (#161, references-overview.tsx)
+ * lists the references in the text, then the reader's selections; its pane
+ * hugs its content (at most ~40%) until the reader drags the handle.
  */
 export function NotePanel({
   note,
@@ -322,8 +173,9 @@ export function NotePanel({
   /** Resolves when the server saved; rejects on failure (save state). */
   onEdit: (id: string, patch: { title?: string; body?: string }) => Promise<unknown>;
   onRemove: (id: string) => void;
-  onDetach: (id: string, anchorId: string) => void;
-  /** Adds a typed passage as a reference ("Add passage"). */
+  /** Resolves to the updated note, or null when it failed. */
+  onDetach: (id: string, anchorId: string) => Promise<unknown> | void;
+  /** Puts a removed reader selection back (the overview's Undo). */
   onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
   onShowAnchor: (anchor: NoteAnchor) => void;
   /** Reads an inline reference (a chip's "Read here", its list row) — in
@@ -340,7 +192,8 @@ export function NotePanel({
    * feature parity with the desktop split, not a squeezed clone of it. */
   mobile?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = bookLocale(i18n.language);
   // Unsaved text kept on this device (a failed save, an expired session's
   // trip to sign-in): reopening the note puts it back and autosave sends it
   const opened = useMemo(() => {
@@ -586,8 +439,83 @@ export function NotePanel({
   }, [mobile, page]);
 
   const status = failed ? "failed" : dirty || inFlight > 0 ? "saving" : "saved";
-  // The text's references, ahead of the save that stores them (#158)
-  const inlineRefs = useMemo(() => refsInMarkdown(liveBody), [liveBody]);
+
+  // The overview's hands in the text (#161): the rich editor answers on this
+  // panel's <aside> (ref-bridge.tsx); its plain-text stand-in is served here
+  const editorLive = !!Editor && handedOver;
+  const sendRef = (type: string, ref: ScriptureRef): boolean => {
+    const href = formatScriptureHref(ref);
+    if (!href) return false;
+    const detail: RefEventDetail = { href, text: chipLabel(ref, locale).replace(/\u00a0/g, " "), done: false };
+    asideRef.current?.dispatchEvent(new CustomEvent(type, { detail }));
+    return detail.done;
+  };
+  /** Plain-text stand-in: the markdown goes in at its caret. */
+  const insertPlain = (ref: ScriptureRef) => {
+    const md = scriptureLinkMarkdown(ref, chipLabel(ref, locale).replace(/\u00a0/g, " "));
+    const el = fallbackRef.current;
+    if (!md) return;
+    const at = el ? el.selectionEnd : liveBody.length;
+    setBody(liveBody.slice(0, at) + md + liveBody.slice(at));
+    requestAnimationFrame(() => {
+      el?.focus({ preventScroll: true });
+      el?.setSelectionRange(at + md.length, at + md.length);
+    });
+  };
+  function showInText(ref: ScriptureRef): boolean {
+    if (sendRef(SHOW_REF, ref)) return true;
+    const href = formatScriptureHref(ref);
+    const link = scriptureLinks(liveBody).find((l) => l.href === href);
+    const el = fallbackRef.current;
+    if (!link || !el) return false;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(link.start, link.end);
+    return true;
+  }
+  function insertInText(a: NoteAnchor) {
+    const ref: ScriptureRef = { book: a.book, chapter: a.chapter, verse: a.startVerse, ...(a.endVerse !== a.startVerse && { endVerse: a.endVerse }) };
+    if (!sendRef(INSERT_REF, ref)) insertPlain(ref);
+  }
+  // "+ Verse" in the overview: the toolbar button's dialog (verse-button),
+  // or — editor not here yet — the same picker, into the stand-in
+  const [picking, setPicking] = useState(false);
+  function addVerse() {
+    if (editorLive) window.dispatchEvent(new Event(INSERT_VERSE));
+    else setPicking(true);
+  }
+
+  // Phone: while writing, the overview is one line; a tap opens it, typing
+  // folds it again (Freja, Kasper)
+  const [writing, setWriting] = useState(false);
+  const [peek, setPeek] = useState(false);
+
+  // Desktop: the overview's pane hugs its content, capped at 40% of the
+  // split, until the reader drags the handle
+  const refsPanel = usePanelRef();
+  const groupEl = useRef<HTMLDivElement | null>(null);
+  const userSized = useRef(false);
+  const natural = useRef(0);
+  const hug = useCallback(() => {
+    const panel = refsPanel.current;
+    const group = groupEl.current;
+    if (!panel || !group || userSized.current || !natural.current) return;
+    const px = Math.min(natural.current, group.clientHeight * 0.4);
+    if (Math.abs(panel.getSize().inPixels - px) > 0.5) panel.resize(`${px}px`);
+  }, [refsPanel]);
+  const onNaturalHeight = useCallback(
+    (px: number) => {
+      natural.current = px;
+      hug();
+    },
+    [hug],
+  );
+  useEffect(() => {
+    const group = groupEl.current;
+    if (mobile || !group) return;
+    const ro = new ResizeObserver(hug);
+    ro.observe(group);
+    return () => ro.disconnect();
+  }, [mobile, hug]);
 
   return (
     <aside ref={asideRef} className="flex h-full w-full flex-col bg-background">
@@ -664,25 +592,51 @@ export function NotePanel({
           />
         );
         const references = (
-          <ReferencesTable
+          <ReferencesOverview
             note={note}
-            inline={inlineRefs}
+            body={liveBody}
             onReadRef={onReadRef}
             selectedAnchorId={selectedAnchorId}
             onShowAnchor={onShowAnchor}
             onDetach={onDetach}
             onAttach={onAttach}
+            onAddVerse={addVerse}
+            onShowInText={showInText}
+            onInsertInText={insertInText}
+            collapsed={mobile && writing && !peek}
+            onExpand={() => setPeek(true)}
+            onNaturalHeight={mobile ? undefined : onNaturalHeight}
             mobile={mobile}
           />
         );
         return mobile ? (
           // Stacked: editor breathes, references capped below it
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1 flex-col">{editor}</div>
-            <div className="max-h-[40%] shrink-0 border-t border-border">{references}</div>
+            {/* Listens only: focus in/out, keys typed inside the editor */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+            <div
+              className="flex min-h-0 flex-1 flex-col"
+              onFocus={() => setWriting(true)}
+              onBlur={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                setWriting(false);
+                setPeek(false);
+              }}
+              onKeyDown={() => setPeek(false)}
+            >
+              {editor}
+            </div>
+            <div className="flex max-h-[40%] shrink-0 flex-col border-t border-border">{references}</div>
           </div>
         ) : (
-          <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+          <ResizablePanelGroup
+            orientation="vertical"
+            className="min-h-0 flex-1"
+            elementRef={groupEl}
+            onLayoutChanged={(_, meta) => {
+              if (meta.isUserInteraction) userSized.current = true;
+            }}
+          >
             <ResizablePanel
               id="editor"
               defaultSize="72%"
@@ -692,12 +646,23 @@ export function NotePanel({
               {editor}
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel id="references" defaultSize="32%" minSize="18%" maxSize="60%">
+            <ResizablePanel id="references" panelRef={refsPanel} defaultSize="28%" minSize="44px" maxSize="60%">
               {references}
             </ResizablePanel>
           </ResizablePanelGroup>
         );
       })()}
+
+      {picking && (
+        <VersePicker
+          open
+          mobile={mobile}
+          onClose={(ref) => {
+            setPicking(false);
+            if (ref) insertPlain(ref);
+          }}
+        />
+      )}
 
       <footer className="flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-meta text-muted-foreground">
         {/* No confirm: the delete toast offers Undo (#64) */}

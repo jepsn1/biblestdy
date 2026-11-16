@@ -393,6 +393,18 @@
   }
 }
 
+/* A note's references overview, "Show in text" (#161): the chip glows
+   briefly. Reduced motion: none — the chip's selection ring marks it. */
+.chip-flash {
+  border-radius: var(--radius-sm);
+  animation: verse-flash 2.6s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip-flash {
+    animation: none;
+  }
+}
+
 /*
  * Chapter turn: crossing into the next/previous chapter slides the sheet
  * exactly like an in-chapter page turn (300ms, Tailwind's transition easing)
