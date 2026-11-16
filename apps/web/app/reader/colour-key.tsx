@@ -5,6 +5,7 @@ import { Hint } from "~/components/hint";
 import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { isShown, setHighlightFilter, toggleColor, useHighlightFilter, type HighlightFilter } from "~/lib/highlight-filter";
 import { cleanLabels, saveHighlightLabels, upFirst, useColorName, useHighlightLabels } from "~/lib/highlight-labels";
 import { notifyError } from "~/lib/notify";
@@ -15,6 +16,8 @@ const OPEN_KEY = "colourKeyOpen";
 
 /** Marks the key, so the tool palette keeps its colours clear of it. */
 export const COLOUR_KEY_ATTR = "data-colour-key";
+/** Marks the tool palette, so the key never grows over its tools. */
+export const TOOL_PALETTE_ATTR = "data-tool-palette";
 
 /**
  * The colour key (bottom-left of the sheet, on the palette's left line): the
@@ -31,6 +34,9 @@ export const COLOUR_KEY_ATTR = "data-colour-key";
  * Never over the text or the running foot: where the key doesn't fit in the
  * margin left of the text (`room`), it shrinks to a swatch button in the
  * palette's gutter that opens the key on demand, over the page until put away.
+ * Never over the palette's tools or the foot's Previous either (large text on
+ * a short screen): in the margin it grows up only to the palette, opened from
+ * the gutter it sits above the foot — and past that its rows scroll.
  */
 export function ColourKey({ room }: { room?: number }) {
   const { t } = useTranslation();
@@ -71,6 +77,33 @@ export function ColourKey({ room }: { room?: number }) {
   useEffect(() => {
     if (!tight) setPopped(false);
   }, [tight]);
+  // Where the open key may reach (px): its top stays under the palette; from
+  // the gutter it lifts clear of the running foot. Measured, as both move
+  // with text size and the pane
+  const [reach, setReach] = useState<{ maxHeight?: number; lift: number }>({ lift: 0 });
+  const shownOpen = editing || (tight ? popped : open);
+  useLayoutEffect(() => {
+    const base = tight ? wrapRef.current : keyRef.current;
+    const pane = base?.offsetParent as HTMLElement | null | undefined;
+    if (!base || !pane || !shownOpen) return setReach((r) => (r.maxHeight === undefined && r.lift === 0 ? r : { lift: 0 }));
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const bottom = base.getBoundingClientRect().bottom;
+      const palette = pane.querySelector<HTMLElement>(`[${TOOL_PALETTE_ATTR}]`);
+      const foot = pane.querySelector<HTMLElement>('[data-turn-still="foot"]');
+      const paneTop = pane.getBoundingClientRect().top;
+      // From the gutter (beside the palette, not under it): above the foot
+      const lift = tight && foot ? Math.max(0, bottom - foot.getBoundingClientRect().top + 0.5 * rem) : 0;
+      const ceiling = tight ? paneTop + 0.75 * rem : (palette?.getBoundingClientRect().bottom ?? paneTop) + 0.75 * rem;
+      const maxHeight = Math.max(4 * rem, Math.floor(bottom - lift - ceiling));
+      setReach((r) => (r.maxHeight === maxHeight && r.lift === lift ? r : { maxHeight, lift }));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(pane);
+    for (const el of pane.querySelectorAll<HTMLElement>(`[${TOOL_PALETTE_ATTR}], [data-turn-still="foot"]`)) observer.observe(el);
+    return () => observer.disconnect();
+  }, [tight, shownOpen]);
   useEffect(() => {
     if (!popped) return;
     const onDown = (e: PointerEvent) => {
@@ -137,10 +170,13 @@ export function ColourKey({ room }: { room?: number }) {
         // Naming: room for the fields, over the page while it lasts
         editing && "w-72 max-w-[calc(100vw-2rem)]",
       )}
+      style={{ maxHeight: reach.maxHeight, ...(tight && reach.lift > 0 && { bottom: reach.lift }) }}
     >
       {!tight && live}
       {editing ? (
-        <NamesForm titleId={`${ids}-title`} onDone={stopEditing} />
+        <ScrollArea className={ROWS_SCROLL}>
+          <NamesForm titleId={`${ids}-title`} onDone={stopEditing} />
+        </ScrollArea>
       ) : (
         <>
           <div className="flex items-center gap-1">
@@ -182,7 +218,8 @@ export function ColourKey({ room }: { room?: number }) {
             )}
           </div>
           {listed && (
-            <ul id={`${ids}-list`} className="flex flex-col">
+            <ScrollArea className={ROWS_SCROLL}>
+            <ul id={`${ids}-list`} className="flex flex-col p-0.5">
               {HIGHLIGHT_COLORS.map((c) => {
                 const on = isShown(filter, c);
                 return (
@@ -225,6 +262,7 @@ export function ColourKey({ room }: { room?: number }) {
                 </button>
               </li>
             </ul>
+            </ScrollArea>
           )}
         </>
       )}
@@ -276,6 +314,10 @@ export function ColourKey({ room }: { room?: number }) {
     </div>
   );
 }
+
+/** The key's rows (or name fields) under a capped key: they take what's
+ * left under the title and scroll past it. */
+const ROWS_SCROLL = "flex min-h-0 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0";
 
 /** What a click on a key row does — in words, for the mouse reader. */
 function filterHint(t: (key: string) => string, filter: HighlightFilter, on: boolean): string {

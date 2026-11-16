@@ -1546,8 +1546,16 @@ export function PaginatedChapter({
             </div>
             <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
             {/* Room left of the text (px) for the key: never over the
-                words or the foot's Previous (it spills 0.5rem left) */}
-            <ColourKey room={pane.width ? (pane.width - layout.contentWidth * pane.rem) / 2 + PAD * pane.rem - 0.5 * pane.rem - 20 : undefined} />
+                words or the foot's Previous (it spills 0.5rem left), nor
+                the margin lane — the note chips and annotation boxes live
+                there; without room it waits in the gutter */}
+            <ColourKey
+              room={
+                pane.width
+                  ? (pane.width - layout.contentWidth * pane.rem) / 2 - layout.lane * pane.rem + PAD * pane.rem - 0.5 * pane.rem - 20
+                  : undefined
+              }
+            />
           </>
         )}
       </div>
