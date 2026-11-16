@@ -10,9 +10,12 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/compone
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import { placesToOffer, readRecent, START_PLACES } from "~/lib/recent-passages";
+import { referenceLabel } from "~/lib/reference-label";
 import { opensPlaceChooser } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { PanelHeader, panelTitleClass } from "./panel-header";
+import { chapterHref } from "./chapter-nav";
 import { canonGroups, filterPlaces, placeLabel } from "./place-filter";
 
 type Step = "books" | "chapters";
@@ -125,6 +128,7 @@ export function PlaceChooser({
     <PlacePanel
       book={known ? book : ""}
       chapter={chapter}
+      offerOnChapters={isMobile}
       startStep={start.step}
       focusFilter={start.typing || (!isMobile && !returnTo.current)}
       onDone={() => setOpen(false)}
@@ -186,12 +190,15 @@ export function PlaceChooser({
 function PlacePanel({
   book,
   chapter,
+  offerOnChapters,
   startStep,
   focusFilter,
   onDone,
 }: {
   book: string;
   chapter: number;
+  /** Phones open on the chapters: Recent sits above them too (#142). */
+  offerOnChapters: boolean;
   startStep: Step;
   focusFilter: boolean;
   onDone: () => void;
@@ -372,6 +379,8 @@ function PlacePanel({
       <div ref={viewport} className="flex min-h-0 flex-1 flex-col">
         <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-[min(80dvh,46rem)] max-sm:max-h-[60dvh]">
           {step === "books" ? (
+            <>
+            {!query && <PlacesOffer book={book} chapter={chapter} onDone={onDone} />}
             <div id={`${ids}-books`} role="listbox" tabIndex={-1} aria-label={t("place.books")} className="@container px-2 pt-1 pb-3 outline-none">
               {filter.books.length === 0 && (
                 <p role="presentation" className="px-2 py-3 text-control text-muted-foreground">
@@ -409,7 +418,10 @@ function PlacePanel({
                 );
               })}
             </div>
+            </>
           ) : (
+            <>
+            {offerOnChapters && <PlacesOffer book={book} chapter={chapter} onDone={onDone} />}
             <nav aria-label={t("reader.stripLabel", { book: nameOf(stepBook) })} className="px-3 pt-2 pb-4">
               {/* The grid's arrow keys (the links stay plain links in a list) */}
               <div role="presentation" onKeyDown={onGridKey}>
@@ -450,9 +462,73 @@ function PlacePanel({
               </ul>
               </div>
             </nav>
+            </>
           )}
         </ScrollArea>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Where you were and where to start (#142), on top of the chooser while the
+ * filter is empty: "Continue: John 3, page 2" (the newest place that isn't
+ * this one) and up to four more read lately, as one line of worded links;
+ * for a newcomer (under 3 chapters read), four good places to start, each
+ * with a plain line that quotes the text or names the kind of book. This
+ * device only (its label says so). Links, in Tab order after the filter.
+ */
+function PlacesOffer({ book, chapter, onDone }: { book: string; chapter: number; onDone: () => void }) {
+  const { t, i18n } = useTranslation();
+  const locale = bookLocale(i18n.language);
+  const nameOf = useBookName();
+  const id = useId();
+  // Read once when the chooser opens (client only: it opens on a click)
+  const [offer] = useState(() => placesToOffer(readRecent(), book ? { book, chapter } : null));
+  const label = (r: { book: string; chapter: number }) => referenceLabel(r, nameOf, locale);
+  const recent = offer.continueAt ? [offer.continueAt, ...offer.recent] : [];
+  const starts = offer.start ? START_PLACES.filter((s) => s.book !== book || s.chapter !== chapter) : [];
+  if (recent.length === 0 && starts.length === 0) return null;
+  const link = cn("rounded-sm font-serif text-control hover:underline underline-offset-4", focusRing);
+  return (
+    <div className="flex flex-col gap-3 border-b border-border px-4 pt-3 pb-3">
+      {recent.length > 0 && (
+        <section aria-labelledby={`${id}-recent`}>
+          <h2 id={`${id}-recent`} className="eyebrow pb-1">
+            {t("place.recent")}
+          </h2>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            {recent.map((r, i) => (
+              <li key={`${r.book}/${r.chapter}`}>
+                <Link to={chapterHref(r, r.page ?? 0)} onClick={onDone} className={cn(link, "inline-flex min-h-8 items-center max-sm:min-h-11", i === 0 && "font-medium")}>
+                  {i === 0
+                    ? r.page
+                      ? t("place.continueAtPage", { place: label(r), page: r.page + 1 })
+                      : t("place.continueAt", { place: label(r) })
+                    : label(r)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {starts.length > 0 && (
+        <section aria-labelledby={`${id}-start`} className="@container">
+          <h2 id={`${id}-start`} className="eyebrow pb-1">
+            {t("place.start")}
+          </h2>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-1 @min-[30rem]:grid-cols-4">
+            {starts.map((s) => (
+              <li key={`${s.book}/${s.chapter}`}>
+                <Link to={chapterHref(s)} onClick={onDone} className={cn(link, "flex min-h-11 flex-col justify-center py-1")}>
+                  {label(s)}
+                  <span className="font-sans text-meta text-muted-foreground">{t(`place.lines.${s.line}`)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

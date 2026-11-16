@@ -41,6 +41,7 @@ import { MarksLoadError, useMarksLoad } from "./marks-load-error";
 import { CreditParts, PageFoot, type FootButton } from "./page-foot";
 import { API_BIBLE_URL } from "~/lib/app-info";
 import { ChapterStrip } from "./chapter-strip";
+import { notePage } from "~/lib/recent-passages";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
@@ -773,6 +774,7 @@ export function PaginatedChapter({
     }
     try {
       localStorage.setItem("lastRead", lastReadValue(chapter, page));
+      notePage(chapter, page); // Recent's "Continue" lands on it too (#142)
     } catch {
       // storage blocked: only the launch page is lost
     }

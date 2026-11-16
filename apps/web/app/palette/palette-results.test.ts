@@ -85,6 +85,8 @@ function ctx(over: Partial<PaletteContext> = {}): PaletteContext {
       colorDetail: (n) => `${n} highlights`,
       untitled: "Untitled",
       mark: "Mark",
+      continueAt: (place, page) => `Continue: ${place}${page ? `, page ${page + 1}` : ""}`,
+      startLine: (line) => `(${line})`,
     },
     ...over,
   };
@@ -116,7 +118,7 @@ describe("palette results", () => {
     const marks = buildResults("Shepherd", da).find((r) => r.id === "annotation:x2");
     expect(marks?.detail).toBe("Salme 23,1 · KJV");
     const recent = buildResults("", ctx({ locale: "da", recent: [{ book: "PSA", chapter: 23 }] })).find((r) => r.group === "recent");
-    expect(recent?.label).toBe("Salme 23");
+    expect(recent?.label).toBe("Continue: Salme 23");
   });
 
   it("a reference also lists your notes on that passage", () => {
@@ -169,11 +171,40 @@ describe("palette results", () => {
   });
 
   it("empty: common commands first, then recent (deduped, not the current chapter)", () => {
-    expect(ids("")).toEqual(["action:dark", "action:shortcuts", "recent:PSA/23"]);
+    const recent = [
+      { book: "JHN", chapter: 3 },
+      { book: "PSA", chapter: 23, page: 1 },
+      { book: "PSA", chapter: 23 },
+      { book: "ROM", chapter: 8 },
+    ];
+    const rows = buildResults("", ctx({ recent }));
+    expect(rows.map((r) => r.id)).toEqual(["action:dark", "action:shortcuts", "recent:PSA/23", "recent:ROM/8"]);
+    // "Continue" first, on the page last open (#142)
+    expect(rows[2]).toMatchObject({ label: "Continue: Psalm 23, page 2", href: "/read/PSA/23?p=2" });
+    expect(rows[3]).toMatchObject({ label: "Romans 8", href: "/read/ROM/8" });
   });
 
-  it("empty with no history: just the commands", () => {
-    expect(ids("", ctx({ recent: [] }))).toEqual(["action:dark", "action:shortcuts"]);
+  it("a newcomer (under 3 chapters read) is offered good places to start", () => {
+    const rows = buildResults("", ctx({ recent: [{ book: "JHN", chapter: 3 }] }));
+    expect(rows.filter((r) => r.group === "start").map((r) => [r.label, r.detail, r.href])).toEqual([
+      ["Genesis 1", "(beginning)", "/read/GEN/1"],
+      ["Psalm 23", "(shepherd)", "/read/PSA/23"],
+      ["Mark 1", "(jesus)", "/read/MRK/1"],
+      ["John 1", "(word)", "/read/JHN/1"],
+    ]);
+    // …but not where they already are
+    expect(ids("", ctx({ recent: [], here: { book: "MRK", chapter: 1 } }))).not.toContain("start:MRK/1");
+  });
+
+  it("empty with no history: the commands, then where to start", () => {
+    expect(ids("", ctx({ recent: [] }))).toEqual([
+      "action:dark",
+      "action:shortcuts",
+      "start:GEN/1",
+      "start:PSA/23",
+      "start:MRK/1",
+      "start:JHN/1",
+    ]);
   });
 
   it("searching: commands come after your study", () => {

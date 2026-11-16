@@ -11,7 +11,8 @@ import {
   type Tag,
 } from "@biblestdy/shared";
 import { referenceLabel } from "~/lib/reference-label";
-import { referenceHref } from "../reader/chapter-nav";
+import { placesToOffer, START_PLACES } from "~/lib/recent-passages";
+import { chapterHref, referenceHref } from "../reader/chapter-nav";
 import { bookQuery, findPassages, reversedBook, typoBooks, type PassageHit } from "./passage-query";
 
 /**
@@ -31,6 +32,7 @@ import { bookQuery, findPassages, reversedBook, typoBooks, type PassageHit } fro
 
 export type GroupId =
   | "recent"
+  | "start"
   | "passage"
   | "books"
   | "actions"
@@ -79,7 +81,8 @@ export type PaletteAction = {
   common?: boolean;
 };
 
-export type RecentPassage = { book: string; chapter: number };
+/** `page`: 0-based, the one last open (absent = the first). */
+export type RecentPassage = { book: string; chapter: number; page?: number };
 
 export type PaletteContext = {
   locale: BookLocale;
@@ -116,6 +119,10 @@ export type PaletteContext = {
     untitled: string;
     /** Kind hint of a margin note that's only a pen mark (no words). */
     mark: string;
+    /** "Continue: John 3, page 2" (page 0-based; none on the first). */
+    continueAt: (place: string, page?: number) => string;
+    /** A good place to start's plain line (START_PLACES `line`). */
+    startLine: (line: string) => string;
   };
 };
 
@@ -292,15 +299,24 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
   const raw = input.trim();
 
   if (!raw) {
-    // A launcher: a few commands first, then recently read (where you were)
+    // A launcher: a few commands first, then where you were — "Continue"
+    // first, each on the page last open (#142) — and, for a newcomer, good
+    // places to start
     const out: PaletteItem[] = ctx.actions.filter((a) => a.common).slice(0, LIMITS.common).map((a) => actionItem(a));
-    const seen = new Set([`${ctx.here.book}/${ctx.here.chapter}`]);
-    for (const r of ctx.recent) {
-      const key = `${r.book}/${r.chapter}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ id: `recent:${key}`, group: "recent", label: refLabel(ctx, r), href: `/read/${key}` });
-      if (out.filter((i) => i.group === "recent").length >= LIMITS.recent) break;
+    const offer = placesToOffer(ctx.recent, ctx.here, LIMITS.recent);
+    const recentItem = (r: RecentPassage, label: string): PaletteItem => ({
+      id: `recent:${r.book}/${r.chapter}`,
+      group: "recent",
+      label,
+      href: chapterHref(r, r.page ?? 0),
+    });
+    if (offer.continueAt) out.push(recentItem(offer.continueAt, ctx.labels.continueAt(refLabel(ctx, offer.continueAt), offer.continueAt.page)));
+    for (const r of offer.recent) out.push(recentItem(r, refLabel(ctx, r)));
+    if (offer.start) {
+      for (const s of START_PLACES) {
+        if (s.book === ctx.here.book && s.chapter === ctx.here.chapter) continue;
+        out.push({ id: `start:${s.book}/${s.chapter}`, group: "start", label: refLabel(ctx, s), detail: ctx.labels.startLine(s.line), href: chapterHref(s) });
+      }
     }
     return out;
   }
