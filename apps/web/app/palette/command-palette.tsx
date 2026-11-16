@@ -38,7 +38,7 @@ import { cn, focusTitle } from "~/lib/utils";
 import { OPEN_SHORTCUTS } from "../reader/dialog-events";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
-import { OPEN_PLACE } from "../reader/place-chooser";
+import { openPlace } from "../reader/place-chooser";
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllHighlightsQuery } from "../reader/use-highlights";
 import { ScriptureCredit } from "../reader/scripture-credit";
@@ -116,7 +116,7 @@ function useActions(r: ReaderActions) {
       keywords: [...both("place.choose"), ...both("place.books")],
       shortcut: `${modKey()}B`,
       opensDialog: true,
-      run: () => window.dispatchEvent(new Event(OPEN_PLACE)),
+      run: () => openPlace(),
     },
     {
       id: "margin",

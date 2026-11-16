@@ -20,6 +20,15 @@ type Step = "books" | "chapters";
 /** Event name: anything (the command palette) can open the address chooser. */
 export const OPEN_PLACE = "biblestdy:place";
 
+/** OPEN_PLACE's detail: open on this book's chapters (the strip's "All
+ * chapters", #147), focus back on `from` when it closes. */
+export type OpenPlace = { step?: "chapters"; from?: HTMLElement | null };
+
+/** Open the address chooser from anywhere. */
+export function openPlace(detail: OpenPlace = {}) {
+  window.dispatchEvent(new CustomEvent<OpenPlace>(OPEN_PLACE, { detail }));
+}
+
 /** The current place, one mark everywhere (the strip's): ink, weight, a 2px
  * rule under it in --primary (gold in Paper, ink in Clean). Never a fill. */
 const CURRENT = "font-semibold text-foreground underline decoration-primary decoration-2 underline-offset-4";
@@ -59,9 +68,12 @@ export function PlaceChooser({
   const open = isOpen;
   // How it was opened decides the first step and where focus starts
   const [start, setStart] = useState<{ step: Step; typing: boolean }>({ step: "books", typing: false });
+  // Opened from elsewhere (the strip): focus goes back there on close
+  const returnTo = useRef<HTMLElement | null>(null);
 
-  function show(typing: boolean) {
-    setStart({ step: typing || stripShown || !known ? "books" : "chapters", typing });
+  function show(typing: boolean, step?: Step) {
+    if (!step) returnTo.current = null;
+    setStart({ step: step ?? (typing || stripShown || !known ? "books" : "chapters"), typing });
     setOpen(true);
   }
 
@@ -72,7 +84,13 @@ export function PlaceChooser({
       if (isOpen) setOpen(false);
       else show(true);
     }
-    const open = () => show(true);
+    const open = (e: Event) => {
+      const detail = (e as CustomEvent<OpenPlace | null>).detail;
+      if (detail?.step === "chapters" && known) {
+        returnTo.current = detail.from ?? null;
+        show(false, "chapters");
+      } else show(true);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener(OPEN_PLACE, open);
     return () => {
@@ -102,7 +120,7 @@ export function PlaceChooser({
       book={known ? book : ""}
       chapter={chapter}
       startStep={start.step}
-      focusFilter={!isMobile || start.typing}
+      focusFilter={start.typing || (!isMobile && !returnTo.current)}
       onDone={() => setOpen(false)}
     />
   );
@@ -135,7 +153,11 @@ export function PlaceChooser({
         </PopoverTrigger>
       </Hint>
       {!isMobile && (
-        <PopoverContent align="start" className="w-[44rem] max-w-[calc(100vw-2rem)] gap-0 p-0">
+        <PopoverContent
+          align="start"
+          finalFocus={() => (returnTo.current?.isConnected ? returnTo.current : true)}
+          className="w-[44rem] max-w-[calc(100vw-2rem)] gap-0 p-0"
+        >
           <PopoverTitle className="sr-only">{t("place.choose")}</PopoverTitle>
           {panel}
         </PopoverContent>

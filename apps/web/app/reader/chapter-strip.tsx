@@ -1,18 +1,18 @@
 import { getBook } from "@biblestdy/shared";
-import { Select as SelectPrimitive } from "@base-ui/react/select";
-import { LayoutGrid } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { Hint } from "~/components/hint";
 import { useBookName } from "~/lib/book-name";
 import { cn, focusRing } from "~/lib/utils";
-import { ChapterSelect } from "./chapter-select";
+import { openPlace } from "./place-chooser";
 import { stripWindow } from "./strip-window";
 import { turnStill } from "./turn-still";
 
-/** One place in the row (rem): a 1.75rem target + the 0.25rem gap. */
+/** One place in the row (rem): a 1.75rem target + the 0.25rem gap; on
+ * touch (iPad) a 2.5rem one (#147, Birthe: 28 px is hard for fingers). */
 const SLOT_REM = 2;
+const SLOT_REM_TOUCH = 2.75;
+const TOUCH = "(pointer: coarse)";
 const ITEM = "[data-strip-item]";
 
 /**
@@ -23,7 +23,9 @@ const ITEM = "[data-strip-item]";
  * colour alone). Always ONE row of fixed height, so changing chapter never
  * re-lays out the columns; a book longer than the row shows its first and
  * last chapter, a run around this one (sticky: it stays put while you click
- * inside it, strip-window.ts) and "All chapters" — the full grid.
+ * inside it, strip-window.ts). "All chapters", in words at the row's end
+ * for every book (#147), opens the address chooser on this book's chapters
+ * — one chapter grid in the whole app. Touch screens get 40 px targets.
  * Keyboard: one tab stop (the current chapter), ←/→/Home/End move along the
  * row, Enter opens; Tab moves on. No prefetch on hover: shopping through a
  * book must not spend the reading quota (#29).
@@ -34,16 +36,20 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
   const nameOf = useBookName();
   const count = getBook(book)?.chapters ?? 1;
   const navRef = useRef<HTMLElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState(0);
 
-  // How many slots the row holds: its own width only, once per frame
+  // How many slots the numbers' part holds (the row less "All chapters"):
+  // its own width and the pointer only, once per frame
   useLayoutEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
+    const row = rowRef.current;
+    if (!row) return;
+    const touch = window.matchMedia(TOUCH);
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const slot = touch.matches ? SLOT_REM_TOUCH : SLOT_REM;
       // +1 gap: the row's last slot has none after it
-      setSlots(Math.floor((nav.clientWidth + 0.25 * rem) / (SLOT_REM * rem)));
+      setSlots(Math.floor((row.clientWidth + 0.25 * rem) / (slot * rem)));
     };
     measure();
     let frame = 0;
@@ -51,9 +57,11 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(measure);
     });
-    observer.observe(nav);
+    observer.observe(row);
+    touch.addEventListener("change", measure);
     return () => {
       observer.disconnect();
+      touch.removeEventListener("change", measure);
       cancelAnimationFrame(frame);
     };
   }, []);
@@ -79,32 +87,17 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
   }
 
   return (
-    <nav ref={navRef} {...turnStill("strip")} aria-label={t("reader.stripLabel", { book: nameOf(book) })} className={cn("h-7 font-sans", className)}>
+    <nav ref={navRef} {...turnStill("strip")} aria-label={t("reader.stripLabel", { book: nameOf(book) })} className={cn("h-7 font-sans pointer-coarse:h-10", className)}>
       {/* The row's keys (the links stay plain links in a nav) */}
-      <div role="presentation" onKeyDown={onKeyDown} className="flex h-full items-center gap-1">
+      <div role="presentation" onKeyDown={onKeyDown} className="flex h-full items-center">
+      <div ref={rowRef} className="flex h-full min-w-0 flex-1 items-center gap-1">
       {slots > 0 &&
         view.items.map((item) => {
           if (item.kind === "gap") {
             return (
-              <span key={`gap-${item.side}`} aria-hidden className="w-7 shrink-0 text-center text-list text-muted-foreground">
+              <span key={`gap-${item.side}`} aria-hidden className="w-7 shrink-0 text-center pointer-coarse:w-10 text-list text-muted-foreground">
                 …
               </span>
-            );
-          }
-          if (item.kind === "all") {
-            return (
-              <ChapterSelect key="all" book={book} chapter={chapter}>
-                <Hint label={t("reader.allChapters")}>
-                  <SelectPrimitive.Trigger
-                    data-strip-item
-                    tabIndex={-1}
-                    aria-label={t("reader.allChapters")}
-                    className={cn(STRIP_ITEM, "text-muted-foreground hover:bg-muted hover:text-foreground")}
-                  >
-                    <LayoutGrid aria-hidden className="size-3.5" />
-                  </SelectPrimitive.Trigger>
-                </Hint>
-              </ChapterSelect>
             );
           }
           const current = item.n === chapter;
@@ -130,11 +123,25 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
           );
         })}
       </div>
+      {/* Words, never the grid icon (Birthe, Sofie): the address chooser's
+          chapter step, focus back here when it closes */}
+      <button
+        type="button"
+        data-strip-item
+        data-strip-all
+        tabIndex={-1}
+        aria-haspopup="dialog"
+        onClick={(e) => openPlace({ step: "chapters", from: e.currentTarget })}
+        className={cn(STRIP_ITEM, "ml-6 px-1.5 whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground")}
+      >
+        {t("reader.allChapters")}
+      </button>
+      </div>
     </nav>
   );
 }
 
 const STRIP_ITEM = cn(
-  "relative inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md px-0.5 text-list transition-colors",
+  "relative inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md px-0.5 text-list transition-colors pointer-coarse:h-10 pointer-coarse:min-w-10",
   focusRing,
 );

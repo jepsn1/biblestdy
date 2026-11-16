@@ -946,13 +946,16 @@ export function PaginatedChapter({
       : `${chapter.chapter}${verseSpan}`;
   const rangeLabel = `${nameOf(chapter.book)} ${shortRange}`;
 
-  // Running foot ends: always just "‹ Previous" / "Next ›" — crossing into the
-  // next chapter is one more page turn. The accessible name says where a
-  // crossing lands. Phones: always chapters, named ("‹ John 2" · "John 4 ›").
+  // Running foot ends: just "‹ Previous" / "Next ›" — crossing into the
+  // next chapter is one more page turn (the accessible name says where it
+  // lands). Leaving the BOOK is news (#147): "Next: John 1" in words, its
+  // name the same. Phones: always chapters, named ("‹ John 2" · "John 4 ›").
   const crossName = (dir: "prev" | "next", target: ChapterRef) =>
     t(scrollMode ? `reader.${dir}ChapterTo` : `reader.${dir}Into`, { ref: refLabel(target) });
+  const pagedLabel = (dir: "prev" | "next", target: ChapterRef | null) =>
+    target && target.book !== chapter.book ? crossName(dir, target) : t(`reader.${dir}`);
   const prevButton: FootButton = {
-    label: scrollMode && prevChapter ? refLabel(prevChapter) : t("reader.prev"),
+    label: scrollMode && prevChapter ? refLabel(prevChapter) : pagedLabel("prev", prevTarget),
     name: prevTarget
       ? crossName("prev", prevTarget)
       : t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
@@ -962,7 +965,7 @@ export function PaginatedChapter({
     onClick: goPrev,
   };
   const nextButton: FootButton = {
-    label: scrollMode && nextChapter ? refLabel(nextChapter) : t("reader.next"),
+    label: scrollMode && nextChapter ? refLabel(nextChapter) : pagedLabel("next", nextTarget),
     name: nextTarget
       ? crossName("next", nextTarget)
       : t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
