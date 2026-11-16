@@ -1196,9 +1196,13 @@ export function PaginatedChapter({
           ? pv
           : { first, last },
     );
-    // A page the reader chose (not our own reflow correction) sets the place
-    if (first !== null && (readingVerse.current === null || (!reflow && !restoring.current && page !== placePage.current)))
-      readingVerse.current = first;
+    // A page the reader chose (not our own reflow correction) sets the place:
+    // its first verse, or the verse jumped to (?v=) while it is on this page,
+    // so switching translation again goes from there (#174: Mal 3,19 → 4:1)
+    if (first !== null && (readingVerse.current === null || (!reflow && !restoring.current && page !== placePage.current))) {
+      const jumped = wantedVerse.current;
+      readingVerse.current = jumped !== null && last !== null && jumped >= first && jumped <= last ? jumped : first;
+    }
     placePage.current = page;
     restoring.current = false;
     if (placeRef) placeRef.current = readingVerse.current;
