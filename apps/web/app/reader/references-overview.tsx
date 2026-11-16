@@ -41,6 +41,8 @@ const SNIPPET_MAX = 90;
  * there; "Show in text" selects the chip, "Insert in text" puts a
  * selection into the text; × (selections only) removes with Undo.
  */
+export type ReferencesOverviewProps = Parameters<typeof ReferencesOverview>[0];
+
 export function ReferencesOverview({
   note,
   body,

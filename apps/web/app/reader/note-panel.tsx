@@ -25,9 +25,9 @@ import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } fro
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
 import { INSERT_REF, INSERT_VERSE, SHOW_REF, type RefEventDetail } from "./dialog-events";
-import { ReferencesOverview } from "./references-overview";
+import type { ReferencesOverviewProps } from "./references-overview";
 import { TagChips } from "./tag-chips";
-import { noteEditor } from "./note-editor-loader";
+import { noteEditor, referencesOverview } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
 import { LoadError } from "./marks-load-error";
 import { useNoteTags } from "./use-tags";
@@ -39,6 +39,13 @@ function VersePicker(props: VersePickerProps) {
   useEffect(() => preloadWhenIdle(versePicker), []);
   const { value } = useLazyModule(versePicker, props.open);
   return value ? <value.VersePicker {...props} /> : null;
+}
+
+/** The references overview (#161), a chunk of its own; until it arrives a
+ * blank heading-high strip holds its place. */
+function ReferencesOverview(props: ReferencesOverviewProps) {
+  const { value } = useLazyModule(referencesOverview);
+  return value ? <value.ReferencesOverview {...props} /> : <div aria-hidden className="h-9" />;
 }
 
 /** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
