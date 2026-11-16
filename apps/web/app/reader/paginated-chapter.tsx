@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
+import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, translationInfo, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
@@ -8,6 +8,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import { useFumsView } from "~/lib/fums";
 import { useTextSize, useViewportFits } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
@@ -37,7 +38,8 @@ import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, stripFits, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { MarksLoadError, useMarksLoad } from "./marks-load-error";
-import { PageFoot, type FootButton } from "./page-foot";
+import { CreditParts, PageFoot, type FootButton } from "./page-foot";
+import { API_BIBLE_URL } from "~/lib/app-info";
 import { ChapterStrip } from "./chapter-strip";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
@@ -163,6 +165,7 @@ export function PaginatedChapter({
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const nameOf = useBookName();
+  useFumsView(chapter);
   /** Chapter–verse separator in the UI language: "3:16" / "3,16". */
   const sep = bookLocale(i18n.language) === "da" ? "," : ":";
   const contentRef = useRef<HTMLDivElement>(null);
@@ -910,8 +913,23 @@ export function PaginatedChapter({
   const copyright = chapter.copyright && /^public domain$/i.test(chapter.copyright.trim())
     ? t("reader.publicDomain")
     : chapter.copyright;
-  const credit = [translation.name, copyright].filter((part): part is string => !!part);
-  const attribution = credit.join(" · ");
+  // The name only where the notice doesn't already say it (NIV's and NKJV's
+  // do; BPH's "© 2015 by Biblica" and "Public domain" don't): one wording
+  // at every width
+  const named = (n: string) => !!chapter.copyright && chapter.copyright.toLowerCase().includes(n.toLowerCase());
+  const nameInNotice = named(translationInfo(translation.abbreviation)?.name ?? translation.name) || named(translation.name);
+  const credit = [nameInNotice ? null : translation.name, copyright].filter((part): part is string => !!part);
+  // The credit leads to the translation's full copyright entry (ToS §7.2);
+  // the text's source is cited after it (API.Bible Starter plan)
+  const creditLink = {
+    href: `/copyright#${encodeURIComponent(translation.abbreviation)}`,
+    more: t("copyright.linkFor", { abbr: translation.abbreviation }),
+    // The copyright page's Back names it: "Back to John 3"
+    from: `${nameOf(chapter.book)} ${chapter.chapter}`,
+  };
+  const source = chapter.source === "api.bible"
+    ? { label: t("copyright.via"), href: API_BIBLE_URL, more: t("copyright.newTab") }
+    : undefined;
   /** ":1–11" — the verses on this page (one verse: ":16"); "," in Danish. */
   const verseSpan = pageVerses
     ? `${sep}${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
@@ -1208,7 +1226,11 @@ export function PaginatedChapter({
 
   /** End of chapter, phones: the attribution right after the last verse
    * (their foot has no credit line). The foot's Next goes on. */
-  const chapterEnd = <p className="mt-10 font-sans text-meta text-muted-foreground">{attribution}</p>;
+  const chapterEnd = (
+    <p className="mt-10 font-sans text-meta text-muted-foreground">
+      <CreditParts parts={credit} link={creditLink} source={source} ownLine />
+    </p>
+  );
 
   const chapterText = (
     <ChapterText
@@ -1480,6 +1502,8 @@ export function PaginatedChapter({
                     label={t("reader.pagesNav")}
                     position={[shortRange, t("reader.pageOf", { page: page + 1, count: pageCount })]}
                     credit={credit}
+                    creditLink={creditLink}
+                    source={source}
                     prev={prevButton}
                     next={nextButton}
                     phone={false}

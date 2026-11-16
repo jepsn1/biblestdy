@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { parseChapterContent } from './apibible.provider';
-import { CachingScriptureProvider } from './caching.provider';
+import { CachingScriptureProvider, MAX_AGE_MS } from './caching.provider';
 import { FakeScriptureProvider } from './fake.provider';
 import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/session.guard';
@@ -198,5 +198,50 @@ describe('CachingScriptureProvider', () => {
     await cached.getChapter('WEB', 'JHN', 3);
     await cached.getChapter('WEB', 'JHN', 3);
     expect(calls()).toBe(2);
+  });
+
+  it('never serves text older than the 25-day ceiling (ToS §11: 30 days)', async () => {
+    const { provider, calls } = countingProvider();
+    let now = 0;
+    const year = 365 * 24 * 60 * 60 * 1000;
+    const cached = new CachingScriptureProvider(provider, year, () => now);
+    await cached.getChapter('WEB', 'JHN', 3);
+    now = MAX_AGE_MS - 1;
+    await cached.getChapter('WEB', 'JHN', 3);
+    expect(calls()).toBe(1);
+    now = MAX_AGE_MS;
+    await cached.getChapter('WEB', 'JHN', 3);
+    expect(calls()).toBe(2);
+  });
+
+  it('keeps the FUMS token with the cached chapter', async () => {
+    const provider: ScriptureProvider = {
+      listTranslations: () => Promise.resolve([]),
+      getChapter: (translationId, book, chapter) =>
+        Promise.resolve({
+          translationId,
+          book,
+          chapter,
+          verses: [],
+          fumsToken: 'tok-1',
+        }),
+    };
+    const cached = new CachingScriptureProvider(provider);
+    await cached.getChapter('NIV', 'JHN', 3);
+    expect((await cached.getChapter('NIV', 'JHN', 3)).fumsToken).toBe('tok-1');
+  });
+
+  it('purges one translation, leaving the others cached', async () => {
+    const { provider, calls } = countingProvider();
+    const cached = new CachingScriptureProvider(provider);
+    await cached.getChapter('NIV', 'JHN', 3);
+    await cached.getChapter('NIV', 'JHN', 4);
+    await cached.getChapter('WEB', 'JHN', 3);
+    expect(cached.purge('NIV')).toBe(2);
+    await cached.getChapter('WEB', 'JHN', 3);
+    expect(calls()).toBe(3);
+    await cached.getChapter('NIV', 'JHN', 3);
+    expect(calls()).toBe(4);
+    expect(cached.purge()).toBe(2);
   });
 });

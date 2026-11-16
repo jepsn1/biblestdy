@@ -6,6 +6,9 @@ export interface Translation {
   abbreviation: string
   /** BCP 47, e.g. 'en', 'da' */
   language: string
+  /** The rights holder's copyright line, verbatim from the provider's
+   * metadata (API.Bible ToS §4.6/§7: shown on the copyright page). */
+  copyright?: string
 }
 
 export interface Verse {
@@ -57,4 +60,11 @@ export interface Chapter {
   blocks?: TextBlock[]
   /** Attribution/copyright line required by some translation licenses */
   copyright?: string
+  /** API.Bible's Fair Use (FUMS) token for this text: reported once each
+   * time the chapter is actually shown (ToS §3.3). Absent = nothing to report
+   * (fixtures, other providers). */
+  fumsToken?: string
+  /** Where the text came from: 'api.bible' = cite and link API.Bible
+   * wherever it's shown (Starter plan). Absent = fixtures. */
+  source?: 'api.bible'
 }

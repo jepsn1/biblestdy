@@ -26,6 +26,8 @@ interface ApiBibleSummary {
   name: string;
   abbreviationLocal: string;
   language: { id: string };
+  /** Present with include-full-details=true (ToS §4.6 metadata review). */
+  copyright?: string;
 }
 
 /** One node of API.Bible's content-type=json chapter content. */
@@ -37,6 +39,11 @@ interface ContentNode {
   items?: ContentNode[];
 }
 
+/** Response meta: Scripture content carries its Fair Use (FUMS) token. */
+interface ApiBibleMeta {
+  fumsToken?: string;
+}
+
 interface ApiBibleChapter {
   content: ContentNode[];
   copyright?: string;
@@ -46,7 +53,10 @@ export class ApiBibleProvider implements ScriptureProvider {
   constructor(private readonly apiKey: string) {}
 
   async listTranslations(): Promise<Translation[]> {
-    const data = await this.get<ApiBibleSummary[]>('/bibles');
+    // Full details carry each Bible's copyright line for the copyright page
+    const { data } = await this.get<ApiBibleSummary[]>(
+      '/bibles?include-full-details=true',
+    );
     const eligible = data.filter((b) => LANGUAGES.has(b.language.id));
     const curated = CURATED.map((id) =>
       eligible.find((b) => b.id === id),
@@ -60,6 +70,7 @@ export class ApiBibleProvider implements ScriptureProvider {
       name: b.name,
       abbreviation: b.abbreviationLocal,
       language: b.language.id === 'dan' ? 'da' : 'en',
+      copyright: b.copyright?.trim() || undefined,
     }));
   }
 
@@ -69,10 +80,11 @@ export class ApiBibleProvider implements ScriptureProvider {
     chapter: number,
   ): Promise<Chapter> {
     let data: ApiBibleChapter;
+    let meta: ApiBibleMeta | undefined;
     try {
-      data = await this.get<ApiBibleChapter>(
+      ({ data, meta } = await this.get<ApiBibleChapter>(
         `/bibles/${translationId}/chapters/${book}.${chapter}?content-type=json&include-notes=false&include-titles=true`,
-      );
+      ));
     } catch (err) {
       if (err instanceof HttpStatusError && err.status === 404) {
         throw new ChapterNotFoundError(translationId, book, chapter);
@@ -88,16 +100,20 @@ export class ApiBibleProvider implements ScriptureProvider {
       sections: sections.length > 0 ? sections : undefined,
       blocks: blocks.length > 0 ? blocks : undefined,
       copyright: data.copyright?.trim() || undefined,
+      // Kept with the cached chapter: every later view of it reports this
+      fumsToken: meta?.fumsToken || undefined,
+      source: 'api.bible',
     };
   }
 
-  private async get<T>(path: string): Promise<T> {
+  private async get<T>(
+    path: string,
+  ): Promise<{ data: T; meta?: ApiBibleMeta }> {
     const res = await fetch(`${BASE_URL}${path}`, {
       headers: { 'api-key': this.apiKey },
     });
     if (!res.ok) throw new HttpStatusError(res.status, path);
-    const body = (await res.json()) as { data: T };
-    return body.data;
+    return (await res.json()) as { data: T; meta?: ApiBibleMeta };
   }
 }
 

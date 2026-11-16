@@ -15,6 +15,9 @@ export interface TranslationInfo {
   gloss?: string
   description: { en: string; da: string }
   rights: { en: string; da: string }
+  /** Who holds the rights (public domain: who maintains the text) and their
+   * site — the copyright page links there (API.Bible ToS §7.1). */
+  holder: { name: string; url: string }
 }
 
 export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
@@ -24,7 +27,8 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     rank: 1,
     gloss: 'The Bible in Everyday Danish',
     description: { en: 'Modern, easy Danish', da: 'Moderne, letlæst dansk' },
-    rights: { en: '© Bibelselskabet 2015', da: '© Bibelselskabet 2015' },
+    rights: { en: '© Biblica 2015', da: '© Biblica 2015' },
+    holder: { name: 'Biblica, Inc.', url: 'https://www.biblica.com' },
   },
   NIV: {
     name: 'New International Version',
@@ -32,6 +36,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     rank: 1,
     description: { en: 'Modern, readable English', da: 'Moderne, letlæst engelsk' },
     rights: { en: '© Biblica 2011', da: '© Biblica 2011' },
+    holder: { name: 'Biblica, Inc.', url: 'https://www.biblica.com' },
   },
   NKJV: {
     name: 'New King James Version',
@@ -39,6 +44,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     rank: 2,
     description: { en: 'Classic English, literal', da: 'Klassisk engelsk, ordret' },
     rights: { en: '© Thomas Nelson 1982', da: '© Thomas Nelson 1982' },
+    holder: { name: 'Thomas Nelson', url: 'https://www.thomasnelsonbibles.com' },
   },
   WEB: {
     name: 'World English Bible',
@@ -46,6 +52,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     rank: 3,
     description: { en: 'Modern English', da: 'Moderne engelsk' },
     rights: { en: 'Public domain', da: 'Fri af ophavsret' },
+    holder: { name: 'eBible.org', url: 'https://worldenglish.bible' },
   },
 }
 

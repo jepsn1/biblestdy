@@ -1,5 +1,6 @@
 import type { Anchor, BookLocale, Chapter } from "@biblestdy/shared";
 import { anchorReference, bookName, words, wordRangeInVerse } from "@biblestdy/shared";
+import { MAX_COPY_VERSES } from "~/lib/licence-limits";
 import { referenceLabel } from "../notes/note-list";
 
 function escapeHtml(s: string): string {
@@ -15,6 +16,25 @@ function selectedText(chapter: Chapter, anchor: Anchor): string {
     if (range) parts.push(tokens.slice(range.start, range.end + 1).join(" "));
   }
   return parts.join(" ");
+}
+
+export { MAX_COPY_VERSES };
+
+/** How many verses an anchor covers in this chapter (a bridge "14–15"
+ * counts as both). */
+export function anchorVerseCount(chapter: Chapter, anchor: Anchor): number {
+  let count = 0;
+  for (const v of chapter.verses) {
+    if (v.verse < anchor.startVerse || v.verse > anchor.endVerse) continue;
+    const bridge = v.label ? /[-–](\d+)$/.exec(v.label) : null;
+    count += bridge ? Math.max(1, Number(bridge[1]) - v.verse + 1) : 1;
+  }
+  return count;
+}
+
+/** Within the copy limit? */
+export function canCopy(chapter: Chapter, anchor: Anchor): boolean {
+  return anchorVerseCount(chapter, anchor) <= MAX_COPY_VERSES;
 }
 
 /** Longest quote the API stores (MAX_QUOTE there). */

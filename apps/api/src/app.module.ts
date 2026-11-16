@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AccountModule } from './account/account.module';
 import { AnnotationsModule } from './annotations/annotations.module';
 import { ConnectionsModule } from './connections/connections.module';
+import { FumsModule } from './fums/fums.module';
 import { HighlightsModule } from './highlights/highlights.module';
 import { NotesModule } from './notes/notes.module';
 import { PreferencesModule } from './preferences/preferences.module';
@@ -14,6 +15,7 @@ import { TrashModule } from './trash/trash.module';
   imports: [
     AccountModule,
     ScriptureModule,
+    FumsModule,
     HighlightsModule,
     AnnotationsModule,
     NotesModule,

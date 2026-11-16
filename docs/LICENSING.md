@@ -22,6 +22,20 @@ Facts that matter:
 - API.Bible: cached text must be refreshed every 30 days; max 500 consecutive verses displayed (our 24h cache + chapter pages fit).
 - Any Danish bible that ever lands on our API.Bible key auto-surfaces in the picker (`apibible.provider.ts` language filter).
 
+## API.Bible compliance (Starter plan) — how biblestdy meets it (2026-11-16)
+
+| Rule | Where |
+|---|---|
+| FUMS on every chapter shown (ToS §3.3) | web `lib/fums.ts` reports shown chapters' `fumsToken` → `POST /api/fums/views` → `apps/api/src/fums` relays to `https://fums.api.bible/f3` (server-side: no device storage, no reader IP to a third party; dId/sId = HMAC of the sign-in session, no uId). Token cached with the chapter. |
+| Citation + link to api.bible (Starter) | reader running foot ("… · API.Bible"), Settings footer, landing footer, copyright page |
+| Copyright page linked from every page with Bible text (§7) | `/copyright` (public; lines verbatim from `GET /api/copyright` = API.Bible metadata, holders in `TRANSLATION_INFO.holder`); credit line, palette + note references, landing quote link there |
+| Cache ≤ 30 days, changes within 24 h (§11) | `CachingScriptureProvider`: 24 h TTL, hard ceiling 25 days. Purge one translation: `tools/purge-scripture-cache.sh <bibleId>` (prod container; `API_PORT=3001` for dev). Restart purges all. |
+| Copy/print ≤ 100 verses (§12) | `reader/copy-attribution.ts` `canCopy` + toast; `lib/print-limit.ts` blanks the text in print over 100 |
+| Donations only as minor, non-intrusive links | support pop-up removed; quiet "Support biblestdy" links in Settings |
+| No AI/LLM/TTS on licensed text (§9) | none in the codebase (checked 2026-11-16). VISION's AI credits would break NIV/BPH/NKJV terms. |
+
+Open: highlight/annotation `quote` columns store marked words of licensed text in our DB (palette search) — not refreshed by the 30-day rule; ask API.Bible or recompute from the cache.
+
 ## Licensing todos
 
 - [ ] **ESV**: get key at api.esv.org → `ESV_API_KEY` in dev + prod `.env`; then build ESV provider (issue #39).

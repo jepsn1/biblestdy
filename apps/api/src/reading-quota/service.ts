@@ -12,7 +12,7 @@ import type { ChapterRef, QuotaStore } from './store';
 export type { ChapterRef };
 
 /** `::ffff:1.2.3.4` (IPv4 on a dual-stack socket) → `1.2.3.4`: one subject. */
-const ipKey = (ip: string) =>
+export const ipKey = (ip: string) =>
   ip.replace(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i, '$1');
 
 /** Day reads are kept this many days back from today, then pruned. */

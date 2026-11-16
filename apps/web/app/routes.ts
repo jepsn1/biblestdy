@@ -11,6 +11,8 @@ export default [
   route("signin", "routes/signin.tsx"),
   // Public — no auth (App Store listing links here)
   route("privacy", "routes/privacy.tsx"),
+  // Public — every page showing Bible text links here (API.Bible ToS §7)
+  route("copyright", "routes/copyright.tsx"),
   // Anything else: a real "page not found" (not the router's raw error)
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;

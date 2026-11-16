@@ -8,3 +8,7 @@ export const appChannel: string = "web";
 
 /** Who runs biblestdy: licensee for scripture texts + data controller. */
 export const operator = { name: "MJK Holding ApS", cvr: "44124025", country: "Denmark" } as const;
+
+/** Where the licensed Bible text comes from: cited + linked in the app
+ * (API.Bible Starter plan) and on the copyright page. */
+export const API_BIBLE_URL = "https://api.bible";

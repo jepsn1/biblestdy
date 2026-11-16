@@ -34,7 +34,7 @@ Product vision: `VISION.md` (manifesto — stick to it). Stack + rationale: `STA
 ## Scripture
 
 - Provider seam: `apps/api/src/scripture/provider.ts`. No `API_BIBLE_KEY` env → FakeScriptureProvider (real WEB fixtures: JHN.3, GEN.1, PSA.23 + sample sections). With key → ApiBibleProvider + 24h cache.
-- API.Bible: Starter tier non-commercial, 5k calls/mo. Modern Danish (Bibelen 2020/1992) is NOT publicly on API.Bible — path is Det Danske Bibelselskab license → DBL access linked to API.Bible account (email drafted to rettigheder@bibelselskabet.dk). Bibelen på hverdagsdansk also absent from public picks.
+- API.Bible: Starter tier non-commercial, 5k calls/mo. Compliance (FUMS relay, /copyright page, api.bible citation, 25-day cache ceiling + `tools/purge-scripture-cache.sh`, 100-verse copy/print cap, no pop-ups for support): `docs/LICENSING.md`. Any new surface showing Bible text must report FUMS (`useFumsView`) and link `/copyright`. Modern Danish (Bibelen 2020/1992) is NOT publicly on API.Bible — path is Det Danske Bibelselskab license → DBL access linked to API.Bible account (email drafted to rettigheder@bibelselskabet.dk). Bibelen på hverdagsdansk also absent from public picks.
 
 ## No body scroll — EVER, app-wide (Marcus, 2026-08-11)
 

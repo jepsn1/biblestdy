@@ -24,6 +24,7 @@ import { cn } from "~/lib/utils";
 import { ErrorScreen } from "~/components/error-page";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { useViewportZoom, VIEWPORT_OPEN, VIEWPORT_PREPAINT } from "~/lib/viewport";
+import { usePrintLimit } from "~/lib/print-limit";
 import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
@@ -78,8 +79,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   useEffect(() => watchSystemTheme(), []);
   useViewportZoom();
+  usePrintLimit();
+  const { t } = useTranslation();
   return (
     <QueryClientProvider client={queryClient}>
+      {/* Printed only, in place of more than 100 verses (lib/print-limit) */}
+      <p className="print-limit-note">{t("print.limited")}</p>
       {/* Tooltips (#62): ~300ms, then instant while moving between buttons */}
       <TooltipProvider delay={300}>
         <Outlet />

@@ -28,7 +28,7 @@ export default function Privacy() {
 
           <h1 className="font-serif text-title font-medium">{t("privacy.title")}</h1>
           <p className="mt-1 font-mono text-meta text-muted-foreground">
-            {t("privacy.updated")} 2026-11-13
+            {t("privacy.updated")} 2026-11-16
           </p>
 
           <section className="mt-8">
@@ -43,6 +43,16 @@ export default function Privacy() {
             <p className="mt-2 text-control leading-relaxed text-muted-foreground">
               {t("privacy.trackBody")}
             </p>
+          </section>
+
+          <section className="mt-8">
+            <h2 className="font-serif text-reading font-medium">{t("privacy.fumsTitle")}</h2>
+            <p className="mt-2 text-control leading-relaxed text-foreground">{t("privacy.fumsLead")}</p>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("privacy.fumsWhy")}</p>
+            <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t("privacy.fumsBody")}</p>
+            <Link to="/copyright" className="mt-2 inline-block text-control text-primary hover:underline">
+              {t("copyright.title")} →
+            </Link>
           </section>
 
           <section className="mt-8">
