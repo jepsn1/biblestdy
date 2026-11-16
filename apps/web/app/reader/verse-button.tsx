@@ -103,8 +103,12 @@ export function VerseButton() {
             if (keep) saved.current = keep;
           }}
           className={cn(
-            "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border bg-transparent px-2 text-list font-medium whitespace-nowrap text-foreground hover:bg-accent pointer-coarse:h-11",
-            mobile && "h-11",
+            "relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border bg-transparent px-2 text-list font-medium whitespace-nowrap text-foreground hover:bg-accent pointer-coarse:h-11",
+            // Phones: unboxed and toolbar-high like the icons beside it; the
+            // touch target stays 44px tall (an invisible hit area above and
+            // below)
+            mobile &&
+              "border-transparent px-1.5 hover:bg-transparent active:bg-accent pointer-coarse:h-7 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2",
             focusRing,
           )}
         >
