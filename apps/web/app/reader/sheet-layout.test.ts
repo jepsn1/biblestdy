@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   boxesFitLane,
-  coffeeFits,
   crossingSlide,
   GUTTER,
   LANE,
@@ -124,25 +123,6 @@ describe("running foot fit", () => {
   it("empty line: nothing to keep", () => {
     expect(partsThatFit([12], 100)).toBe(0);
     expect(lineWidth([12])).toBe(0);
-  });
-});
-
-describe("coffee link fit", () => {
-  // credit line [separator, translation name, copyright · source] in px
-  const credit = [12, 80, 300]; // 392 wide
-  const coffee = 110;
-
-  it("spare room on the credit line: it closes the line", () => {
-    expect(coffeeFits(credit, coffee, 514)).toBe(true); // 392 + 12 + 110
-  });
-
-  it("short of room: not on the credit line (its own line instead), every credit part stays", () => {
-    expect(coffeeFits(credit, coffee, 500)).toBe(false);
-    expect(partsThatFit(credit, 500)).toBe(2);
-  });
-
-  it("no credit line: not on it (its own line instead)", () => {
-    expect(coffeeFits([12], coffee, 1000)).toBe(false);
   });
 });
 

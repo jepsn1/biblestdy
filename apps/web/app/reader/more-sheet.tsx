@@ -12,6 +12,7 @@ import type { PwaInstall } from "~/hooks/use-pwa-install";
 import { cn, focusRing } from "~/lib/utils";
 import { openSettings } from "./account-settings";
 import { PanelHeader, panelTitleClass } from "./panel-header";
+import { ShareRows } from "./share-menu";
 
 /** The nav row's width (rem, so text size counts) below which Notes and
  * Settings move into More on wider screens too (#144). Keep in step with
@@ -25,8 +26,9 @@ export const MORE_BELOW_REM = 36;
  * always (a sheet); wider screens once the nav row is under 36rem (large
  * text, a narrow window: a small panel under the button), as the last step
  * of the row's shed order (reader-nav). It holds Notes on this chapter,
- * margin notes (scroll mode), All notes, install, and Settings, under who is
- * signed in (the account circle leaves the row with Settings).
+ * margin notes (scroll mode), All notes, install, Share with a friend (#182)
+ * and Settings, under who is signed in (the account circle leaves the row
+ * with Settings).
  */
 export function MoreSheet({
   connectionsOpen,
@@ -119,6 +121,8 @@ export function MoreSheet({
           </ol>
         </div>
       )}
+      {/* A row the reader chooses: the share sheet, or the choices under it */}
+      <ShareRows rowClassName={ROW} onShared={() => setOpen(false)} />
       {/* The settings take over; closing them lands on More */}
       <SheetRow
         icon={<Settings />}
@@ -180,6 +184,11 @@ export function MoreSheet({
   );
 }
 
+const ROW = cn(
+  "flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-muted [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+  focusRing,
+);
+
 function SheetRow({
   icon,
   label,
@@ -205,11 +214,7 @@ function SheetRow({
   to?: string;
   onClick: () => void;
 }) {
-  const className = cn(
-    "flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-muted [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
-    pressed && "bg-muted",
-    focusRing,
-  );
+  const className = cn(ROW, pressed && "bg-muted");
   const body = (
     <>
       {icon}

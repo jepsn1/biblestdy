@@ -141,16 +141,3 @@ export function lineWidth(widths: number[]): number {
   const [sep = 0, ...parts] = widths;
   return parts.reduce((sum, w) => sum + w, 0) + sep * Math.max(0, parts.length - 1);
 }
-
-/**
- * The coffee link (`coffee` px) closes the credit line (`[separator,
- * ...parts]`) only where the whole line, with it, fits `room` on one line:
- * it never drops, wraps or pushes out a credit part — else it takes a line
- * of its own under the credit (page-foot.tsx). (A
- * credit on its own, wrapped line is measured as set instead: page-foot.tsx.)
- */
-export function coffeeFits(credit: number[], coffee: number, room: number): boolean {
-  const [sep = 0, ...parts] = credit;
-  if (parts.length === 0) return false;
-  return lineWidth(credit) + sep + coffee <= room + 0.5;
-}
