@@ -78,12 +78,14 @@ export interface NoteStore {
   purgeNote(userId: string, id: string): Promise<boolean>;
   /** All notes of the user, most recently updated first. */
   listNotes(userId: string): Promise<NoteRow[]>;
-  /** Notes of the user with an anchor in the chapter in ANY translation, or
-   * a ref touching it (cross-chapter ranges included) — #158. */
-  notesInChapter(
+  /** Candidates for a chapter (#158, #163): notes of the user with an
+   * anchor in any of these chapter numbers (ANY translation), or a ref
+   * touching their span (cross-chapter ranges included). The caller decides
+   * by the versification map (chapter-scope.ts). */
+  notesInChapters(
     userId: string,
     book: string,
-    chapter: number,
+    chapters: readonly number[],
   ): Promise<NoteRow[]>;
   /** The notes' refs, each note's in position order. */
   refsFor(noteIds: string[]): Promise<RefRow[]>;
@@ -191,26 +193,31 @@ export class DrizzleNoteStore implements NoteStore {
       .orderBy(desc(note.updatedAt));
   }
 
-  async notesInChapter(
+  async notesInChapters(
     userId: string,
     book: string,
-    chapter: number,
+    chapters: readonly number[],
   ): Promise<NoteRow[]> {
+    if (chapters.length === 0) return [];
+    const lo = Math.min(...chapters);
+    const hi = Math.max(...chapters);
     const anchoredHere = db
       .select({ id: noteAnchor.noteId })
       .from(noteAnchor)
-      .where(and(eq(noteAnchor.book, book), eq(noteAnchor.chapter, chapter)));
+      .where(
+        and(
+          eq(noteAnchor.book, book),
+          inArray(noteAnchor.chapter, [...chapters]),
+        ),
+      );
     const citedHere = db
       .select({ id: noteRef.noteId })
       .from(noteRef)
       .where(
         and(
           eq(noteRef.book, book),
-          lte(noteRef.chapter, chapter),
-          gte(
-            sql`coalesce(${noteRef.endChapter}, ${noteRef.chapter})`,
-            chapter,
-          ),
+          lte(noteRef.chapter, hi),
+          gte(sql`coalesce(${noteRef.endChapter}, ${noteRef.chapter})`, lo),
         ),
       );
     return db

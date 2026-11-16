@@ -154,3 +154,16 @@ describe('ConnectionsService (panel assembly)', () => {
     expect(panel.notesHere.map((n) => n.title)).toEqual(['mine']);
   });
 });
+
+describe('ConnectionsService maps versification (#163)', () => {
+  it('BPH Mal 3 lists a ref to Mal 4:5, ordered at its BPH verse (3,23)', async () => {
+    const { notes, connections } = make();
+    const late = await notes.create('u1', { body: '[x](bible:MAL.4.5)' });
+    const early = await notes.create('u1', { body: '[y](bible:MAL.3.1)' });
+    const panel = await connections.forChapter('u1', 'BPH', 'MAL', 3);
+    expect(panel.notesHere.map((n) => n.id)).toEqual([early.id, late.id]);
+    expect(
+      (await connections.forChapter('u1', 'BPH', 'MAL', 4)).notesHere,
+    ).toEqual([]);
+  });
+});

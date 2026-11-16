@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { refTouchesChapter, type ChapterConnections } from '@biblestdy/shared';
-import { refOf, toNote } from '../notes/notes.service';
+import type { ChapterConnections } from '@biblestdy/shared';
+import {
+  anchorHere,
+  idIsAbbr,
+  notesTouchingChapter,
+  refHere,
+  type AbbrOf,
+} from '../notes/chapter-scope';
+import { toNote } from '../notes/notes.service';
 import type { NoteStore } from '../notes/notes.store';
 import type { TagStore } from '../tags/tags.store';
 
@@ -17,6 +24,8 @@ export class ConnectionsService {
   constructor(
     private readonly store: NoteStore,
     private readonly tags: TagStore,
+    /** Translation id → abbreviation, for the versification map (#163). */
+    private readonly abbrOf: AbbrOf = idIsAbbr,
   ) {}
 
   async forChapter(
@@ -25,30 +34,37 @@ export class ConnectionsService {
     book: string,
     chapter: number,
   ): Promise<ChapterConnections> {
-    const hereRows = await this.store.notesInChapter(userId, book, chapter);
-    const ids = hereRows.map((r) => r.id);
-    const anchors = await this.store.anchorsFor(ids);
-    const refs = await this.store.refsFor(ids);
+    const {
+      rows: hereRows,
+      anchors,
+      refs,
+      scope,
+    } = await notesTouchingChapter(
+      this.store,
+      this.abbrOf,
+      userId,
+      translationId,
+      book,
+      chapter,
+    );
 
     // Where a note first touches this chapter, as (verse, word): anchors in
     // any translation (words count only in the reading one — offsets differ
     // across translations), refs by verse; a ref from an earlier chapter or a
-    // whole chapter sits at the top (#158)
+    // whole chapter sits at the top (#158). Verses in the reading
+    // translation's numbering (#163)
     const firstHere = (noteId: string): [number, number] => {
       const keys: [number, number][] = [];
       for (const a of anchors) {
-        if (a.noteId !== noteId || a.book !== book || a.chapter !== chapter)
-          continue;
-        keys.push([
-          a.startVerse,
-          a.translationId === translationId ? a.startWord : 0,
-        ]);
+        if (a.noteId !== noteId) continue;
+        const verse = anchorHere(a, scope);
+        if (verse === null) continue;
+        keys.push([verse, a.translationId === translationId ? a.startWord : 0]);
       }
       for (const r of refs) {
         if (r.noteId !== noteId) continue;
-        const ref = refOf(r);
-        if (!refTouchesChapter(ref, book, chapter)) continue;
-        keys.push([ref.chapter === chapter ? (ref.verse ?? 0) : 0, 0]);
+        const verse = refHere(r, scope);
+        if (verse !== null) keys.push([verse, 0]);
       }
       keys.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
       return keys[0] ?? [Infinity, 0];

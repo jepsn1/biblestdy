@@ -13,6 +13,7 @@ import {
 } from '@biblestdy/shared';
 import type { TagStore } from '../tags/tags.store';
 import type { AnchorRow, NoteRow, NoteStore, RefRow } from './notes.store';
+import { idIsAbbr, notesTouchingChapter, type AbbrOf } from './chapter-scope';
 
 /**
  * The note↔anchor graph (issue #8): a note is a markdown document referencing
@@ -26,19 +27,36 @@ export class NotesService {
     private readonly store: NoteStore,
     /** Topics for the all-notes list; absent in tests that don't need them. */
     private readonly tags?: TagStore,
+    /** Translation id → abbreviation, for the versification map (#163). */
+    private readonly abbrOf: AbbrOf = idIsAbbr,
   ) {}
 
-  /** Notes touching the chapter — an anchor here in ANY translation, or a
-   * ref (inline `bible:` link) covering it, cross-chapter ranges included
-   * (#158) — each with ALL its anchors and refs. The reading translation
-   * doesn't filter: clients tell home-translation anchors apart themselves. */
+  /** Notes touching a chapter of the reading translation — an anchor there
+   * in ANY translation, or a ref (inline `bible:` link) covering it,
+   * cross-chapter ranges included (#158) — each with ALL its anchors and
+   * refs. Numbering is mapped (#163): BPH Mal 3 lists a ref to Mal 4:5.
+   * Clients tell home-translation anchors apart themselves. */
   async listForChapter(
     userId: string,
+    translationId: string,
     book: string,
     chapter: number,
   ): Promise<Note[]> {
-    const rows = await this.store.notesInChapter(userId, book, chapter);
-    return this.withAnchors(rows);
+    const { rows, anchors, refs } = await notesTouchingChapter(
+      this.store,
+      this.abbrOf,
+      userId,
+      translationId,
+      book,
+      chapter,
+    );
+    return rows.map((row) =>
+      toNote(
+        row,
+        anchors.filter((a) => a.noteId === row.id),
+        refs.filter((r) => r.noteId === row.id),
+      ),
+    );
   }
 
   /** All the user's notes (Notes page, attach-picker), most recently updated
