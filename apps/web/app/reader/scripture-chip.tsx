@@ -1,4 +1,5 @@
-import { parseScriptureHref, resolveInChapter, type Chapter, type ScriptureRef, type Translation } from "@biblestdy/shared";
+import { parseScriptureHref, resolveInChapter, toScriptureRef, type Chapter, type ScriptureRef, type Translation } from "@biblestdy/shared";
+import { CANONICAL, mapRange } from "@biblestdy/shared/versification";
 import { useQuery } from "@tanstack/react-query";
 import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
 import { ArrowRight } from "lucide-react";
@@ -203,9 +204,19 @@ function RefPreview({
   const at = chapter.data ? resolveInChapter(scripture, chapter.data) : missing ? "notInTranslation" : null;
   const resolved = at && at !== "notInTranslation" ? at : null;
   const notHere = at === "notInTranslation";
-  // The canonical (English-numbered) translation, offered where this one
-  // lacks the place
-  const elsewhere = notHere ? translations.data?.find((tr) => tr.abbreviation === "WEB" && tr.id !== translationId) : undefined;
+  // Numbered differently here (#166's map: English Mal 4 is BPH Mal
+  // 3,19–24): say where, and read it there
+  const renumbered = useMemo(() => {
+    if (!notHere || !abbr) return null;
+    const slices = mapRange(scripture, CANONICAL, abbr);
+    const first = slices[0];
+    const last = slices[slices.length - 1];
+    if (!first || slices.some((sl) => sl.kind !== "renumbered" && sl.kind !== "moved")) return null;
+    return toScriptureRef({ book: first.book, chapter: first.chapter, verse: first.startVerse, endChapter: last.chapter, endVerse: last.endVerse });
+  }, [notHere, abbr, scripture]);
+  // Else the canonical (English-numbered) translation, offered where this
+  // one lacks the place — never a guess at a neighbour
+  const elsewhere = notHere && !renumbered ? translations.data?.find((tr) => tr.abbreviation === "WEB" && tr.id !== translationId) : undefined;
   const sep = locale === "da" ? "," : ":";
   const verses = resolved && chapter.data ? chapter.data.verses.filter((v) => v.verse >= resolved.startVerse && v.verse <= resolved.endVerse) : [];
 
@@ -233,7 +244,10 @@ function RefPreview({
           )}
         </p>
         {notHere ? (
-          <p className="text-list text-muted-foreground">{t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}</p>
+          <p className="text-list text-muted-foreground">
+            {t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}
+            {renumbered && ` ${t("note.refNumberedAs", { abbr, ref: chipLabel(renumbered, locale).replace(/–/g, "\u2060–\u2060") })}`}
+          </p>
         ) : chapter.isError ? (
           <p className="text-list text-muted-foreground">{t("note.refPreviewFailed")}</p>
         ) : !resolved ? (
@@ -256,7 +270,20 @@ function RefPreview({
         )}
         <div className="-mx-1.5 flex items-center justify-between gap-3">
           {notHere ? (
-            elsewhere ? (
+            renumbered ? (
+              <button
+                ref={readRef}
+                type="button"
+                className={cn(actionClass, "text-primary")}
+                onClick={() => {
+                  onClose(false);
+                  onRead?.(renumbered);
+                }}
+              >
+                {t("note.readRef", { ref: chipLabel(renumbered, locale) })}
+                <ArrowRight className="size-3.5" aria-hidden />
+              </button>
+            ) : elsewhere ? (
               <button
                 ref={readRef}
                 type="button"
