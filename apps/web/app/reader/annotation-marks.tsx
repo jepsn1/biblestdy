@@ -141,6 +141,9 @@ type Seg = {
   edgeL: number;
   edgeR: number;
   side: "left" | "right";
+  /** The column's own side of the page: a spread's left column "left", its
+   * right one (or a single column) "right" — where a verse-level chip goes. */
+  colSide: "left" | "right";
   firstLineY: number;
 };
 
@@ -446,6 +449,7 @@ export function AnnotationMarks({
             edgeL: ox + n * colStride,
             edgeR: ox + n * colStride + colWidth,
             side: compact || (left + right) / 2 < midOf(page) ? "left" : "right",
+            colSide: compact || ox + n * colStride + colWidth / 2 < midOf(page) - colWidth / 4 ? "left" : "right",
             firstLineY: (runs[0].top + runs[0].bottom) / 2,
           };
         });
@@ -491,6 +495,7 @@ export function AnnotationMarks({
           edge: edgeOf(seg) + toRegionX,
           lines: seg.lines,
           side: seg.side,
+          colSide: seg.colSide,
           firstLineY: seg.firstLineY + boxTop,
         }));
 
@@ -537,7 +542,9 @@ export function AnnotationMarks({
         for (const g of segs)
           penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: edgeOf(g), colSide: g.side, shape: shapeOf(null, g.lines) });
       const m = onPage(segs)[0];
-      if (m) tabs.push({ mark, box: m.box, lines: m.lines, colSide: m.side, firstLineY: m.firstLineY });
+      // A whole verse has no side of its own: its chip takes its column's
+      if (m)
+        tabs.push({ mark, box: m.box, lines: m.lines, colSide: mark.verseLevel ? m.colSide : m.side, firstLineY: m.firstLineY });
     }
     return { placements: items, noteTabs: tabs, pens: penList };
   }, [geo, annotations, noteMarks, page]);
@@ -649,7 +656,8 @@ export function AnnotationMarks({
               title={title}
               onClick={() => onOpenNote(m.mark.noteId)}
               className={cn(
-                "pointer-events-auto absolute flex h-6 items-center",
+                // 44px to touch on coarse pointers (an invisible ring round it)
+                "pointer-events-auto absolute flex h-6 items-center pointer-coarse:before:absolute pointer-coarse:before:-inset-x-1 pointer-coarse:before:-inset-y-2.5 pointer-coarse:before:content-['']",
                 chip.side === "left" ? "justify-end" : "justify-start",
                 focusRing,
                 "rounded-full",

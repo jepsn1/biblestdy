@@ -1008,7 +1008,8 @@ export function ChapterText({
                           onOpenNote(m.noteId);
                         }}
                         className={cn(
-                          "relative -my-1 mr-1 inline-flex size-6 items-center justify-center rounded-full align-middle hover:bg-accent",
+                          // 24px to see, 44px to touch (an invisible ring round it)
+                          "relative -my-1 mr-1 inline-flex size-6 items-center justify-center rounded-full align-middle before:absolute before:-inset-2.5 before:content-[''] hover:bg-accent",
                           focusRing,
                         )}
                         style={{ color: NOTE_INK_TEXT }}
