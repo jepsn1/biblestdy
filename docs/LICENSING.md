@@ -26,11 +26,11 @@ Facts that matter:
 
 | Rule | Where |
 |---|---|
-| FUMS on every chapter shown (ToS §3.3) | web `lib/fums.ts` reports shown chapters' `fumsToken` → `POST /api/fums/views` → `apps/api/src/fums` relays to `https://fums.api.bible/f3` (server-side: no device storage, no reader IP to a third party; dId/sId = HMAC of the sign-in session, no uId). Token cached with the chapter. |
+| FUMS on every chapter shown (ToS §3.3) | web `lib/fums.ts` reports shown chapters' `fumsToken` → `POST /api/fums/views` → `apps/api/src/fums` relays to `https://fums.api.bible/f3` (server-side: no device storage, no reader IP to a third party; dId/sId = HMAC of the sign-in session, no uId). Token cached with the chapter. Compare translations (#167) reports each (translation, chapter) it shows, once its text is on screen, and fetches only through the reader's chapter cache + reading quota; each block carries its chapter's copyright line, the dialog foot the API.Bible credit. |
 | Citation + link to api.bible (Starter) | reader running foot ("… · API.Bible"), Settings footer, landing footer, copyright page |
 | Copyright page linked from every page with Bible text (§7) | `/copyright` (public; lines verbatim from `GET /api/copyright` = API.Bible metadata, holders in `TRANSLATION_INFO.holder`); credit line, palette + note references, landing quote link there |
 | Cache ≤ 30 days, changes within 24 h (§11) | `CachingScriptureProvider`: 24 h TTL, hard ceiling 25 days. Purge one translation: `tools/purge-scripture-cache.sh <bibleId>` (prod container; `API_PORT=3001` for dev). Restart purges all. |
-| Copy/print ≤ 100 verses (§12) | `reader/copy-attribution.ts` `canCopy` + toast; `lib/print-limit.ts` blanks the text in print over 100 |
+| Copy/print ≤ 100 verses (§12) | `reader/copy-attribution.ts` `canCopy` + toast; `lib/print-limit.ts` blanks the text in print over 100; Compare translations (#167): Copy all counts every translation's verses (`reader/compare-blocks.ts` `canCopyAll`), its text is not natively selectable |
 | Donations only as minor, non-intrusive links | support pop-up removed; quiet "Support biblestdy" links in Settings; "☕ Buy me a coffee" as plain muted text in the landing footer and the reader's running foot (end of the credit line where it fits, else its own third line under it — always shown, never displaces the credit or source; phones: own line under the chapter's foot) |
 | No AI/LLM/TTS on licensed text (§9) | none in the codebase (checked 2026-11-16). VISION's AI credits would break NIV/BPH/NKJV terms. |
 
