@@ -103,6 +103,22 @@ describe("palette results", () => {
     expect(first.label).toBe("Johannes 3,16");
   });
 
+  it("writes passages as the reader's language does (one formatter, #130)", () => {
+    const da = ctx({ locale: "da" });
+    // One psalm is "Salme 23", whatever was typed — never "Psalm 23"
+    for (const q of ["sl 23", "salme 23", "psalm 23"]) {
+      expect(buildResults(q, da)[0]).toMatchObject({ label: "Salme 23", complete: "Salme 23" });
+    }
+    expect(buildResults("joh 3 16-18", da)[0].label).toBe("Johannes 3,16–18");
+    expect(buildResults("1 kor 13", da)[0].label).toBe("1 Korintherbrev 13");
+    expect(buildResults("ps 23", ctx())[0].label).toBe("Psalm 23");
+    // A mark's place too, and recently read
+    const marks = buildResults("Shepherd", da).find((r) => r.id === "annotation:x2");
+    expect(marks?.detail).toBe("Salme 23,1 · KJV");
+    const recent = buildResults("", ctx({ locale: "da", recent: [{ book: "PSA", chapter: 23 }] })).find((r) => r.group === "recent");
+    expect(recent?.label).toBe("Salme 23");
+  });
+
   it("a reference also lists your notes on that passage", () => {
     expect(ids("rom 8:28")).toEqual(["passage", "note:n3"]);
     expect(ids("rom 8")).toEqual(["passage", "note:n1", "note:n3"]);
@@ -214,7 +230,7 @@ describe("palette results: passages", () => {
 
   it("Danish UI: Danish names and separators", () => {
     const da = ctx({ locale: "da" });
-    expect(passages("sl 23", da)).toEqual(["Salmerne 23"]);
+    expect(passages("sl 23", da)).toEqual(["Salme 23"]);
     expect(passages("Åb 21,4", da)).toEqual(["Åbenbaringen 21,4"]);
     expect(passages("1 mos 1", da)).toEqual(["1 Mosebog 1"]);
   });
@@ -261,7 +277,7 @@ describe("palette results: margin notes", () => {
 
   it("in another version: names it and opens in it", () => {
     const row = buildResults("shepherd", ctx()).find((r) => r.id === "annotation:x2");
-    expect(row).toMatchObject({ detail: "Psalms 23:1 · KJV", href: "/read/PSA/23?v=1", translationId: "kjv" });
+    expect(row).toMatchObject({ detail: "Psalm 23:1 · KJV", href: "/read/PSA/23?v=1", translationId: "kjv" });
   });
 
   it("a typed passage lists the margin notes on it, after notes", () => {
@@ -315,7 +331,7 @@ describe("palette results: marked words", () => {
 
   it("a highlight in another version: names it and opens in it", () => {
     const row = buildResults("lord shep", ctx({ highlights })).find((r) => r.id === "highlight:h2");
-    expect(row).toMatchObject({ detail: "Psalms 23:1 · KJV", translationId: "kjv" });
+    expect(row).toMatchObject({ detail: "Psalm 23:1 · KJV", translationId: "kjv" });
   });
 
   it("highlights come after margin notes; a typed passage lists the ones on it", () => {

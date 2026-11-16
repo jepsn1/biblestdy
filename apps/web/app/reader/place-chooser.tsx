@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
-import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";

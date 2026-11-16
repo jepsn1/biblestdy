@@ -14,8 +14,7 @@ import { notifyError } from "~/lib/notify";
 import { isCharacterShortcut, saveSingleKeys, useSingleKeys } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 
-/** Event name: anything (the settings menu) can open the list. */
-export const OPEN_SHORTCUTS = "biblestdy:shortcuts";
+export { OPEN_SHORTCUTS } from "./dialog-events";
 
 /** One row: alternatives are separated by "or", combos by "+". "mod" = ⌘/Ctrl. */
 type Row = { keys: string[][]; label: string };

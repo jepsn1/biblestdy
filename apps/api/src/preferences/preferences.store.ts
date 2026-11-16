@@ -26,7 +26,6 @@ export class DrizzlePreferencesStore implements PreferencesStore {
       .select({
         readerStyle: userPreference.readerStyle,
         textSize: userPreference.textSize,
-        supportNoticeDismissedAt: userPreference.supportNoticeDismissedAt,
         highlightLabels: userPreference.highlightLabels,
         singleKeyShortcuts: userPreference.singleKeyShortcuts,
       })
@@ -36,7 +35,6 @@ export class DrizzlePreferencesStore implements PreferencesStore {
     return {
       readerStyle: isReaderStyle(row?.readerStyle) ? row.readerStyle : null,
       textSize: isTextSize(row?.textSize) ? row.textSize : null,
-      supportNoticeDismissed: !!row?.supportNoticeDismissedAt,
       // A stored map that no longer parses (a colour retired) reads as defaults
       highlightLabels: parseHighlightLabels(row?.highlightLabels ?? {}) ?? {},
       singleKeyShortcuts: row?.singleKeyShortcuts ?? true,
@@ -44,11 +42,7 @@ export class DrizzlePreferencesStore implements PreferencesStore {
   }
 
   async update(userId: string, patch: PreferencesPatch): Promise<void> {
-    const { supportNoticeDismissed, ...rest } = patch;
-    const cols = {
-      ...rest,
-      ...(supportNoticeDismissed && { supportNoticeDismissedAt: new Date() }),
-    };
+    const cols = { ...patch };
     await db
       .insert(userPreference)
       .values({ userId, ...cols })

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 const NO_CHARACTER_KEYS: Record<string, string> = {
   "palette/lazy-palette.tsx": "Esc only, while the palette chunk loads",
   "palette/open-palette.ts": "typeahead into the palette that's opening — typing, not a shortcut",
+  "reader/account-settings.tsx": "Esc only, while the settings are open",
 };
 
 const root = fileURLToPath(new URL("..", import.meta.url));

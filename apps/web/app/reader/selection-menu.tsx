@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
 } from "~/components/ui/dropdown-menu";
-import { Drawer, DrawerContent, DrawerTitle } from "~/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
 import { Popover, PopoverContent } from "~/components/ui/popover";
 import { useColorName } from "~/lib/highlight-labels";
 import { useLiveShortcut } from "~/lib/shortcuts";

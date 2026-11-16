@@ -406,16 +406,37 @@
 :root[data-chapter-turn] [data-chapter-sheet] {
   view-transition-name: chapter-sheet;
 }
-/* The running foot stays put (as on a page turn): its own layer, updated
-   in place rather than sliding with the sheet */
-:root[data-chapter-turn] .chapter-foot {
-  view-transition-name: chapter-foot;
+/* Only the page slides. The sheet's chrome (strip, foot, marks-load line)
+   stays put, as on a page turn: each [data-turn-still] element is its own
+   layer, updated in place rather than sliding with the sheet. One name per
+   still layer (turn-still.ts TURN_STILL; turn-still.test.ts checks this
+   list against it) */
+:root[data-chapter-turn] [data-turn-still="strip"] {
+  view-transition-name: turn-still-strip;
 }
-:root[data-chapter-turn]::view-transition-group(chapter-foot),
-:root[data-chapter-turn]::view-transition-new(chapter-foot) {
+:root[data-chapter-turn] [data-turn-still="foot"] {
+  view-transition-name: turn-still-foot;
+}
+:root[data-chapter-turn] [data-turn-still="error-flow"] {
+  view-transition-name: turn-still-error-flow;
+}
+:root[data-chapter-turn] [data-turn-still="error-foot"] {
+  view-transition-name: turn-still-error-foot;
+}
+:root[data-chapter-turn]::view-transition-group(turn-still-strip),
+:root[data-chapter-turn]::view-transition-new(turn-still-strip),
+:root[data-chapter-turn]::view-transition-group(turn-still-foot),
+:root[data-chapter-turn]::view-transition-new(turn-still-foot),
+:root[data-chapter-turn]::view-transition-group(turn-still-error-flow),
+:root[data-chapter-turn]::view-transition-new(turn-still-error-flow),
+:root[data-chapter-turn]::view-transition-group(turn-still-error-foot),
+:root[data-chapter-turn]::view-transition-new(turn-still-error-foot) {
   animation: none;
 }
-:root[data-chapter-turn]::view-transition-old(chapter-foot) {
+:root[data-chapter-turn]::view-transition-old(turn-still-strip),
+:root[data-chapter-turn]::view-transition-old(turn-still-foot),
+:root[data-chapter-turn]::view-transition-old(turn-still-error-flow),
+:root[data-chapter-turn]::view-transition-old(turn-still-error-foot) {
   display: none;
 }
 :root[data-chapter-turn]::view-transition {

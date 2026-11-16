@@ -59,12 +59,6 @@ export class PreferencesController {
       }
       patch.textSize = dto.textSize;
     }
-    if (dto.supportNoticeDismissed !== undefined) {
-      if (dto.supportNoticeDismissed !== true) {
-        throw new BadRequestException('supportNoticeDismissed must be true');
-      }
-      patch.supportNoticeDismissed = true;
-    }
     if (dto.highlightLabels !== undefined) {
       const labels = parseHighlightLabels(dto.highlightLabels);
       if (!labels) {

@@ -22,7 +22,6 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: null,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -34,7 +33,6 @@ describe('Preferences API (#45 reader style)', () => {
       {
         readerStyle: 'clean',
         textSize: null,
-        supportNoticeDismissed: false,
         highlightLabels: {},
         singleKeyShortcuts: true,
       },
@@ -42,7 +40,6 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'clean',
       textSize: null,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -55,7 +52,6 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'paper',
       textSize: null,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -67,7 +63,6 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u2'))).toEqual({
       readerStyle: null,
       textSize: null,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -83,7 +78,6 @@ describe('Preferences API (#45 reader style)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: null,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -104,14 +98,12 @@ describe('Preferences API (#61 text size)', () => {
     expect(await controller.update(as('u1'), { textSize: 150 })).toEqual({
       readerStyle: null,
       textSize: 150,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: 150,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -125,7 +117,6 @@ describe('Preferences API (#61 text size)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: 'paper',
       textSize: 200,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -144,7 +135,6 @@ describe('Preferences API (#61 text size)', () => {
     expect(await controller.get(as('u1'))).toEqual({
       readerStyle: null,
       textSize: null,
-      supportNoticeDismissed: false,
       highlightLabels: {},
       singleKeyShortcuts: true,
     });
@@ -161,33 +151,18 @@ describe('Preferences API (#61 text size)', () => {
     expect(await errs({ readerStyle: 'clean', textSize: 125 })).toBe(0);
   });
 
-  it('support notice: dismissal is saved once and kept (one-way)', async () => {
+  it('the retired support-notice field is no longer part of the API', async () => {
     const { controller } = make();
-    await controller.update(as('u1'), { textSize: 125 });
-    expect(
-      await controller.update(as('u1'), { supportNoticeDismissed: true }),
-    ).toEqual({
-      readerStyle: null,
-      textSize: 125,
+    expect(await controller.get(as('u1'))).not.toHaveProperty(
+      'supportNoticeDismissed',
+    );
+    // An old client's field is ignored, never stored
+    const saved = await controller.update(as('u1'), {
       supportNoticeDismissed: true,
-      highlightLabels: {},
-      singleKeyShortcuts: true,
-    });
-    expect((await controller.get(as('u2'))).supportNoticeDismissed).toBe(false);
-  });
-
-  it('support notice: only `true` validates', async () => {
-    const errs = async (body: object) =>
-      (await validate(plainToInstance(UpdatePreferencesDto, body))).length;
-    expect(await errs({ supportNoticeDismissed: true })).toBe(0);
-    expect(await errs({ supportNoticeDismissed: false })).toBeGreaterThan(0);
-    await expect(
-      make().controller.update(as('u1'), {
-        supportNoticeDismissed: false,
-        highlightLabels: {},
-        singleKeyShortcuts: true,
-      } as unknown as UpdatePreferencesDto),
-    ).rejects.toThrow(BadRequestException);
+      textSize: 125,
+    } as unknown as UpdatePreferencesDto);
+    expect(saved).not.toHaveProperty('supportNoticeDismissed');
+    expect(saved.textSize).toBe(125);
   });
 });
 

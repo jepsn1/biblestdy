@@ -11,7 +11,6 @@ export class InMemoryPreferencesStore implements PreferencesStore {
       this.rows.get(userId) ?? {
         readerStyle: null,
         textSize: null,
-        supportNoticeDismissed: false,
         highlightLabels: {},
         singleKeyShortcuts: true,
       },

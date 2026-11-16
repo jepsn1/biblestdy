@@ -9,6 +9,7 @@ import { useBookName } from "~/lib/book-name";
 import { cn, focusRing } from "~/lib/utils";
 import { ChapterSelect } from "./chapter-select";
 import { stripWindow } from "./strip-window";
+import { turnStill } from "./turn-still";
 
 /** One place in the row (rem): a 1.75rem target + the 0.25rem gap. */
 const SLOT_REM = 2;
@@ -26,6 +27,7 @@ const ITEM = "[data-strip-item]";
  * Keyboard: one tab stop (the current chapter), ←/→/Home/End move along the
  * row, Enter opens; Tab moves on. No prefetch on hover: shopping through a
  * book must not spend the reading quota (#29).
+ * Chrome, not page: it stays put while the page turns (turn-still.ts).
  */
 export function ChapterStrip({ book, chapter, className }: { book: string; chapter: number; className?: string }) {
   const { t } = useTranslation();
@@ -77,7 +79,7 @@ export function ChapterStrip({ book, chapter, className }: { book: string; chapt
   }
 
   return (
-    <nav ref={navRef} aria-label={t("reader.stripLabel", { book: nameOf(book) })} className={cn("h-7 font-sans", className)}>
+    <nav ref={navRef} {...turnStill("strip")} aria-label={t("reader.stripLabel", { book: nameOf(book) })} className={cn("h-7 font-sans", className)}>
       {/* The row's keys (the links stay plain links in a nav) */}
       <div role="presentation" onKeyDown={onKeyDown} className="flex h-full items-center gap-1">
       {slots > 0 &&

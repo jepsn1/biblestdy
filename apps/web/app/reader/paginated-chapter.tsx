@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Drawer, DrawerContent } from "~/components/ui/drawer";
+import { Drawer, DrawerContent } from "~/components/lazy-drawer";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { useFumsView } from "~/lib/fums";
@@ -46,6 +46,7 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { noteMarksInChapter, useAllNotesQuery, useNotes, useOtherVersionCounts } from "./use-notes";
 import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
+import { turnStill } from "./turn-still";
 import { revealColor, setHighlightFilter, useHighlightFilter } from "~/lib/highlight-filter";
 import { useAnnotations } from "./use-annotations";
 
@@ -1408,7 +1409,13 @@ export function PaginatedChapter({
                 flank the content box only when the chapter has annotations;
                 see sheet-layout.ts. Overflow is clipped, never scrolled.
                 isolate: local stacking context so the -z-10 ink paints behind
-                the text but still above the page background */}
+                the text but still above the page background.
+                ONLY THE PAGE MOVES on a turn: in a chapter the text column
+                (+ its word ink) slides; crossing chapters this whole sheet is
+                the sliding layer, so every piece of chrome in it (strip,
+                foot, error line) must be a turnStill layer — turn-still.ts.
+                Chrome that needs no text-box geometry (tool palette, status
+                pill, colour key) lives outside the sheet, below. */}
             <div data-chapter-sheet className="h-full overflow-hidden">
               <div ref={regionRef} className="relative isolate h-full w-full">
                 {/* Content box: capped height (34em at body size) centered in
@@ -1490,7 +1497,7 @@ export function PaginatedChapter({
                     )}
                   </div>
                   {/* No room under the foot: the error line joins the flow */}
-                  <div className="shrink-0">
+                  <div {...turnStill("error-flow")} className="shrink-0">
                     <MarksLoadError
                       failed={marksFailed && errorPlace?.inFlow === true}
                       onRetry={retryMarks}
@@ -1516,7 +1523,7 @@ export function PaginatedChapter({
                     over the page: it never takes room from the columns (the
                     page count and first verse stay put), and spans the pane
                     between the gutters so it stays one line where it can */}
-                <div className="absolute inset-x-reader-gutter z-10" style={{ top: errorPlace?.top ?? 0 }}>
+                <div {...turnStill("error-foot")} className="absolute inset-x-reader-gutter z-10" style={{ top: errorPlace?.top ?? 0 }}>
                   {/* Its size, unseen: does it fit under the foot? */}
                   <p ref={errorGhostRef} aria-hidden className="invisible absolute inset-x-0 top-0 min-h-6 text-center text-control text-balance">
                     {t("reader.marksLoadFailed")}
@@ -1539,8 +1546,16 @@ export function PaginatedChapter({
             </div>
             <ToolStatus tool={tool} onDone={() => setToolPick((p) => ({ ...p, kind: "select" }))} />
             {/* Room left of the text (px) for the key: never over the
-                words or the foot's Previous (it spills 0.5rem left) */}
-            <ColourKey room={pane.width ? (pane.width - layout.contentWidth * pane.rem) / 2 + PAD * pane.rem - 0.5 * pane.rem - 20 : undefined} />
+                words or the foot's Previous (it spills 0.5rem left), nor
+                the margin lane — the note chips and annotation boxes live
+                there; without room it waits in the gutter */}
+            <ColourKey
+              room={
+                pane.width
+                  ? (pane.width - layout.contentWidth * pane.rem) / 2 - layout.lane * pane.rem + PAD * pane.rem - 0.5 * pane.rem - 20
+                  : undefined
+              }
+            />
           </>
         )}
       </div>

@@ -11,7 +11,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useColorName } from "~/lib/highlight-labels";
 import { useLiveShortcut } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
-import { COLOUR_KEY_ATTR } from "./colour-key";
+import { COLOUR_KEY_ATTR, TOOL_PALETTE_ATTR } from "./colour-key";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 
 /**
@@ -76,7 +76,11 @@ function useCompact() {
       // The key below (in the margin or the gutter), and the gap to it
       const key = host.querySelector<HTMLElement>(`[${COLOUR_KEY_ATTR}]`);
       if (key) observer.observe(key); // it grows when opened or named
-      const below = key ? key.offsetHeight + 0.75 * rem : 0;
+      // Its whole height: a key capped under the palette scrolls its list
+      // (colour-key.tsx), and the colours should fold before it has to
+      const list = key?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+      const hidden = list ? list.scrollHeight - list.clientHeight : 0;
+      const below = key ? key.offsetHeight + hidden + 0.75 * rem : 0;
       setOn(0.75 * rem + tools.offsetHeight + 0.5 * rem + colors + 0.75 * rem + below > host.clientHeight);
     };
     measure();
@@ -100,7 +104,7 @@ export function ToolPalette({
   const compact = useCompact();
   const live = useLiveShortcut();
   return (
-    <div ref={compact.ref} className="mt-reader-inset ml-reader-inset flex w-fit flex-col items-center gap-2 pointer-coarse:hidden">
+    <div ref={compact.ref} {...{ [TOOL_PALETTE_ATTR]: "" }} className="mt-reader-inset ml-reader-inset flex w-fit flex-col items-center gap-2 pointer-coarse:hidden">
       <div ref={compact.toolsRef} role="toolbar" aria-orientation="vertical" aria-label={t("tools.label")} className={groupClass}>
         {TOOLS.map(({ kind, icon: Icon, key }) => {
           const on = tool.kind === kind;

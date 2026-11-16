@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { useLiveShortcut } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
 import { lineWidth, partsThatFit } from "./sheet-layout";
+import { turnStill } from "./turn-still";
 
 /** One end of the foot. `label` is what it says; `name` its full accessible
  * name (starts with/contains the visible words). */
@@ -32,7 +33,8 @@ export type FootButton = {
  * shape. They stay mounted (disabled, still focusable) so nothing shifts
  * and focus stays put while turning pages with Enter.
  * Phones (scroll mode) end the chapter with the same foot, stepping
- * chapters with larger targets.
+ * chapters with larger targets. Paged, it is chrome: it stays put while the
+ * page turns (turn-still.ts); a phone's foot ends the text and scrolls with it.
  * Narrow (large text, a narrow window): the buttons keep their words and
  * the centre gives way, never over them — each line keeps its last part
  * (the page count, the copyright) and drops the parts before it that no
@@ -82,6 +84,7 @@ export function PageFoot({
   return (
     <nav
       ref={fit.navRef}
+      {...(phone ? {} : turnStill("foot"))}
       aria-label={label}
       // Equal side tracks keep the folio centred under the text
       className={cn(
