@@ -72,8 +72,8 @@ export function SingleKeysSwitch({ className }: { className?: string }) {
         onCheckedChange={save}
         aria-labelledby={`${ids}-label`}
         aria-describedby={`${ids}-desc`}
-        // A real target on a phone; the visual track stays the shadcn size
-        className="mt-0.5 max-sm:mt-1.5"
+        // Off reads by its grey track (WCAG 1.4.11); bigger on a phone
+        className="mt-0.5 origin-right max-sm:mt-1.5 max-sm:scale-125"
       />
     </div>
   );
