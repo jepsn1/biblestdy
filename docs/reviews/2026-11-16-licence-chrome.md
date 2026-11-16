@@ -21,6 +21,7 @@
 | 12 | FUMS counted background tabs; dedup map unbounded | Jonas | **Fixed** |
 | 13 | Support link labels don't say Instagram | Sofie | **Fixed** |
 | 14 | Privacy section dense; good news buried | Birthe, Mads | **Fixed:** plain lead sentence, split paragraphs, link on its own line |
+| 16 | Relay could be used to inflate counts | coordinator review | **Fixed:** issued-token check per session + session/IP pacing |
 | 15 | Notice vanished with Settings open | Mads, Sofie, Birthe, Jonas | Stale v1 capture (before the "source rides on the last part" fix); v5 shows it intact |
 
 ## Conflicts
@@ -33,4 +34,3 @@
 - Danish landing quote is English WEB (Birthe) — a BPH quote needs Biblica's OK for marketing use.
 - "Bibelen på hverdagsdansk" vs metadata "Hverdagsdansk" capitalisation (Mads) — owner/Biblica.
 - Folio–credit gap consistency in Clean (Mads).
-- Server-side rate limit for `/api/fums/views` beyond session + 20 tokens/request (Jonas).
