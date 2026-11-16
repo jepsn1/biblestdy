@@ -1,5 +1,7 @@
 import {
   bookIndex,
+  resolveInChapter,
+  toScriptureRef,
   words,
   type Anchor,
   type BookLocale,
@@ -97,25 +99,26 @@ export type ReferenceProblem = "noChapter" | "crossChapter" | "noVerse";
 /**
  * A typed passage → a note anchor over whole verses in the chapter's
  * translation: a chapter alone covers all of it, a verse its every word.
- * An anchor sits in one chapter, so a range into the next is refused.
+ * A verse inside a bridge takes the whole bridge (BPH John 3:15 is stored
+ * under 14 as "14–15"), a range past the chapter's end stops at its last
+ * verse (the shared resolver, #158). An anchor sits in one chapter, so a
+ * range into the next is refused.
  */
 export function anchorForReference(ref: Reference, chapter: Chapter): Anchor | ReferenceProblem {
   if (ref.chapter === undefined) return "noChapter";
   if (ref.endChapter !== undefined && ref.endChapter !== ref.chapter) return "crossChapter";
-  const verses = chapter.verses;
-  if (verses.length === 0) return "noVerse";
-  const start = ref.verse === undefined ? verses[0] : verses.find((v) => v.verse === ref.verse);
-  const endNum = ref.verse === undefined ? verses[verses.length - 1].verse : (ref.endVerse ?? ref.verse);
-  // A range running past the chapter's end stops at its last verse
-  const end = verses.find((v) => v.verse === endNum) ?? (endNum > verses[verses.length - 1].verse ? verses[verses.length - 1] : undefined);
-  if (!start || !end || end.verse < start.verse) return "noVerse";
+  const asked = toScriptureRef(ref);
+  const at = asked && resolveInChapter(asked, chapter);
+  if (!at || at === "notInTranslation") return "noVerse";
+  const end = chapter.verses.find((v) => v.verse === at.endVerse);
+  if (!end) return "noVerse";
   return {
     translationId: chapter.translationId,
     book: chapter.book,
     chapter: chapter.chapter,
-    startVerse: start.verse,
+    startVerse: at.startVerse,
     startWord: 0,
-    endVerse: end.verse,
+    endVerse: at.endVerse,
     endWord: Math.max(0, words(end.text).length - 1),
   };
 }

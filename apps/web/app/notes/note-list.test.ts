@@ -135,6 +135,20 @@ describe("anchorForReference", () => {
     expect(anchorForReference({ book: "JHN", chapter: 3, verse: 2, endChapter: 4, endVerse: 1 }, chapter)).toBe("crossChapter");
     expect(anchorForReference({ book: "JHN", chapter: 3, verse: 9 }, chapter)).toBe("noVerse");
   });
+  it("a verse inside a bridge takes the whole bridge (BPH John 3:15 under 14)", () => {
+    const bph: Chapter = {
+      translationId: "BPH",
+      book: "JHN",
+      chapter: 3,
+      verses: [
+        { verse: 13, text: "Ingen er steget op" },
+        { verse: 14, label: "14–15", text: "Ligesom Moses løftede slangen op" },
+        { verse: 16, text: "For så højt har Gud elsket verden" },
+      ],
+    };
+    expect(anchorForReference({ book: "JHN", chapter: 3, verse: 15 }, bph)).toMatchObject({ startVerse: 14, endVerse: 14, endWord: 4 });
+    expect(anchorForReference({ book: "JHN", chapter: 3, verse: 15, endVerse: 16 }, bph)).toMatchObject({ startVerse: 14, endVerse: 16 });
+  });
 });
 
 describe("keepOrder", () => {
