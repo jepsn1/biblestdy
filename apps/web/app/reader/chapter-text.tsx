@@ -112,6 +112,7 @@ export function ChapterText({
   allNotes,
   activeAnnotationId,
   selectedMarkId,
+  flash = null,
   onAddHighlight,
   onRecolorHighlight,
   onRemoveHighlight,
@@ -155,6 +156,9 @@ export function ChapterText({
   /** Mark of the reference selected in the note panel — the rest of the page
    * dims slightly so the spotlight state is legible. */
   selectedMarkId: string | null;
+  /** Verses a jump or "Read here" landed on: tinted until the spotlight
+   * ends (#190). Rendered, not a DOM class: re-renders would drop it. */
+  flash?: { start: number; end: number } | null;
   onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
   onRecolorHighlight: (id: string, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
@@ -1088,6 +1092,7 @@ export function ChapterText({
                           data-verse={v.verse}
                           data-word={i}
                           data-spotlit={spotlit.has(`${v.verse}:${i}`) || undefined}
+                          data-flash={(flash && v.verse >= flash.start && v.verse <= flash.end) || undefined}
                           className={cn(
                             (marked || mobile) && "cursor-pointer",
                             // The keyboard cursor's verse (#65)
