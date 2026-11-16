@@ -32,6 +32,7 @@ import {
   type VirtualAnchor,
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
+import { noteMarkId, spotlitWords } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
 import { layoutChapter, openingLabel, sliceBlocks, type VerseSpan, type WordPiece } from "./chapter-layout";
@@ -295,9 +296,11 @@ export function ChapterText({
       });
   }, [selAnchor, mobile]);
 
+  // Per word, from the reference's own range: other marks over some of its
+  // words (smaller ones win annotationCoverage) must not punch muted holes
+  const spotlit = spotlitWords(chapter.verses, noteMarks, selectedMarkId);
   const spotlight =
-    selectedMarkId != null &&
-    noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
+    selectedMarkId != null && noteMarks.some((m) => noteMarkId(m) === selectedMarkId);
 
   /** Desktop drag: start word, last word reached (pointer events can outrun renders), touch origin. */
   const dragSel = useRef<{ start: WordPos; last: WordPos; moved: boolean; x: number; y: number } | null>(null);
@@ -1054,6 +1057,7 @@ export function ChapterText({
                           key={`${i}${cut ? "a" : ""}`}
                           data-verse={v.verse}
                           data-word={i}
+                          data-spotlit={spotlit.has(`${v.verse}:${i}`) || undefined}
                           className={cn(
                             (marked || mobile) && "cursor-pointer",
                             // The keyboard cursor's verse (#65)
@@ -1070,7 +1074,6 @@ export function ChapterText({
                       <span
                         key={si}
                         data-annotation-anchor={seg.annotation.id}
-                        data-spotlit={seg.annotation.id === selectedMarkId || undefined}
                         className={active ? "rounded-[3px] [box-decoration-break:clone]" : undefined}
                         style={active ? { backgroundColor: NOTE_INK_WASH } : undefined}
                       >
