@@ -306,6 +306,47 @@ await shot("T2-reflow-keeps-place", {}, R, async (p) => {
   await snap(p, "T2-panel-open-same-place");
   await p.keyboard.press("Control+."); await p.waitForTimeout(1500); must(await verseVisible(p, v), `verse ${v} not in view after closing the panel`);
 });
+// Compare translations (#167): keyboard open/tick/close (focus back on the verse, selection kept),
+// menu entry on desktop + phone (Copy group right after the colours), 150/200% text, a BPH psalm,
+// a limit message, the palette's "compare …". Only a handful of chapters (shared API.Bible key).
+const CMP = /^(Compare translations|Sammenlign oversættelser)/;
+const cmpDialog = (p) => p.getByRole("dialog").filter({ hasText: /Compare translations|Sammenlign oversættelser/ }).last();
+const cmpOpenKey = async (p, v = 16) => { await toVerse(p, 2); for (let i = 2; i < v; i++) await p.keyboard.press("ArrowDown"); await p.waitForTimeout(300); await p.keyboard.press("p"); await p.waitForTimeout(3500); must((await cmpDialog(p).count()) === 1, "p did not open Compare"); };
+const cmpOpenMenu = (phone) => async (p) => { await p.locator('[data-verse-focus="16"]').first().click(); await p.waitForTimeout(900); await p.getByRole(phone ? "button" : "menuitem", { name: CMP }).first().click(); await p.waitForTimeout(3500); must((await cmpDialog(p).count()) === 1, "menu did not open Compare"); };
+await shot("C1-compare-keyboard", {}, R, async (p) => {
+  await cmpOpenKey(p);
+  must(await p.evaluate(() => document.activeElement?.tagName === "H2"), "focus not on the dialog title");
+  const nkjv = cmpDialog(p).getByRole("checkbox", { name: /NKJV/ });
+  await nkjv.focus(); await p.keyboard.press("Space"); await p.waitForTimeout(500);
+  must((await cmpDialog(p).locator("section h3", { hasText: "NKJV" }).count()) === 0, "unticking did not remove NKJV");
+  await snap(p, "C1b-compare-unticked");
+  await p.keyboard.press("Space"); await p.waitForTimeout(1500);
+  must((await cmpDialog(p).locator("section h3", { hasText: "NKJV" }).count()) === 1, "ticking did not bring NKJV back");
+}, true);
+await shot("C1c-compare-close-keeps-verse", {}, R, async (p) => {
+  await cmpOpenKey(p); await p.keyboard.press("Escape"); await p.waitForTimeout(800);
+  must((await cmpDialog(p).count()) === 0, "Esc did not close"); must((await verseNow(p)) === "16", `focus not back on verse 16: ${JSON.stringify(await active(p))}`);
+});
+await shot("C2-compare-clean-dark", { theme: "dark", style: "clean" }, R, cmpOpenMenu(false), true);
+await shot("C3-compare-phone-da", { ...PH, lang: "da" }, R, cmpOpenMenu(true), true);
+await shot("C4-phone-menu-150", { ...PH, textSize: 150 }, R, async (p) => { await p.locator('[data-verse-focus="16"]').first().click(); await p.waitForTimeout(900); const b = await p.getByRole("button", { name: CMP }).first().boundingBox(); must(b && b.y + b.height <= 844, "Compare not visible without scrolling at 150%"); });
+await shot("C4b-compare-phone-150", { ...PH, textSize: 150 }, R, cmpOpenMenu(true));
+await shot("C5-compare-200", { textSize: 200 }, R, async (p) => { await cmpOpenKey(p); }, true);
+await shot("C6-compare-bph-psalm", { lang: "da" }, R, async (p) => {
+  await p.evaluate(() => localStorage.setItem("translationId", "20c3695eb7339cca-01")); await p.goto(BASE + "/read/PSA/51?v=3"); await p.waitForTimeout(2500);
+  await p.locator('[data-verse-focus="3"]').first().click(); await p.waitForTimeout(900); await p.getByRole("menuitem", { name: CMP }).first().click(); await p.waitForTimeout(3500);
+  must(/Versene har andre numre her: 51,3 i BPH/.test(await cmpDialog(p).innerText()), "no numbering note");
+}, true);
+await shot("C7-compare-limit", {}, R, async (p) => {
+  await p.route("**/api/passages/63097d2a0a2f7db3-01/**", (r) => r.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ reason: "daily", retryAfterSeconds: 40000 }) }));
+  await cmpOpenKey(p);
+  must(/NKJV can.t be shown right now\. Try again tomorrow\./.test(await cmpDialog(p).innerText()), "no limit message in the NKJV block");
+  must((await cmpDialog(p).locator("section h3", { hasText: "NIV" }).count()) === 1, "other blocks gone");
+}, true);
+await shot("C8-palette-compare", {}, R, async (p) => {
+  await palette("compare rom 8:28")(p); await snap(p, "C8a-palette-compare-row"); await p.keyboard.press("Enter"); await p.waitForTimeout(3500);
+  must(/Romans 8:28/.test(await cmpDialog(p).innerText()), "palette did not open Compare for Romans 8:28"); must(/\/read\/JHN\/3/.test(p.url()), "the reader moved");
+});
 // Leave the account at the default size
 { const ctx = await ctxFor({}); await ctx.request.patch(BASE + "/api/preferences", { data: { readerStyle: "paper", textSize: 100 }, headers: { Origin: process.env.ORIGIN ?? BASE } }); await ctx.close(); }
 fs.writeFileSync(`${OUT}/axe${ONLY ? "-partial" : ""}.json`, JSON.stringify(audits, null, 1));

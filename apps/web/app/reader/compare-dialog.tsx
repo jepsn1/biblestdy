@@ -431,7 +431,7 @@ export function CompareDialog({
 
   const foot = (
     <footer className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2.5 sm:px-5 pb-[max(env(safe-area-inset-bottom),0.625rem)]">
-      <ScriptureCredit className="min-w-0 flex-1" onFollow={() => onOpenChange(false)} />
+      <ScriptureCredit className="min-w-0 max-sm:basis-full sm:flex-1" onFollow={() => onOpenChange(false)} />
       {!allowAll && (
         <p id={`${ids}-cap`} className="basis-full text-meta text-muted-foreground sm:order-first">
           {t("compare.copyCap", { count: allCount })}
@@ -442,6 +442,7 @@ export function CompareDialog({
         size="sm"
         className="pointer-coarse:h-11"
         disabled={!allowAll || copyBlocks.length === 0}
+        // Phones: the two buttons share the row under the credit
         aria-describedby={!allowAll ? `${ids}-cap` : undefined}
         onClick={() => void copyAll()}
       >
@@ -470,7 +471,8 @@ export function CompareDialog({
     </>
   );
 
-  const final = () => (jumped.current ? false : finalFocus());
+  // Continue in: the text (it stays mounted while the new chapter loads)
+  const final = () => (jumped.current ? (document.getElementById("chapter-text") ?? false) : finalFocus());
 
   if (isMobile) {
     return (
