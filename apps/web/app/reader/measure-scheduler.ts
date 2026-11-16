@@ -14,10 +14,11 @@
  * A notice with the size last seen for that box is skipped. A box's first
  * notice after observe() still runs: it may have moved since the mount's
  * own measure. Webfonts landing rewrap the words inside unchanged boxes:
- * every measurer runs once then.
+ * every measurer runs once then — and so does in-flow ink appearing (a
+ * phone's note markers push the words along inside the same boxes, #202).
  */
 
-export type MeasureReason = "resize" | "fonts";
+export type MeasureReason = "resize" | "fonts" | "reflow";
 
 export type MeasureJob = {
   /** Read layout, then set state. Swappable: callers keep the job and
@@ -82,7 +83,7 @@ export function createMeasureScheduler(makeObserver: (cb: (entries: ResizeObserv
         }
       };
     },
-    /** Every watching job, once (webfonts landed). */
+    /** Every watching job, once (webfonts landed, in-flow ink changed). */
     runAll(reason: MeasureReason) {
       runJobs(new Set([...watchers.values()].flatMap((jobs) => [...jobs])), reason);
     },

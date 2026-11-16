@@ -171,3 +171,16 @@ export function collisions<B extends Rect, W extends Rect>(boxes: B[], words: W[
   for (const b of boxes) for (const w of words) if (intersects(b, w)) hits.push([b, w]);
   return hits;
 }
+
+/** What a chapter prints IN the text flow, beside its words (phone note
+ * markers, inline pen lines, the open pen editor): when it changes, the
+ * words move inside unchanged boxes — the ink must re-measure (#202). */
+export function inFlowInkKey(
+  markers: Iterable<readonly { id: string }[]>,
+  lines: Iterable<readonly { id: string; text?: string | null }[]>,
+  editingId: string | null,
+): string {
+  const ids = (groups: Iterable<readonly { id: string; text?: string | null }[]>) =>
+    [...groups].flatMap((g) => g.map((x) => `${x.id}:${x.text?.length ?? 0}`)).join(",");
+  return `${ids(markers)}|${ids(lines)}|${editingId ?? ""}`;
+}

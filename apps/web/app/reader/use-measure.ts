@@ -47,6 +47,21 @@ export function useMeasure(
   );
 }
 
+/**
+ * Words moved inside unchanged boxes (in-flow ink came or went: a phone's
+ * note markers, inline pen lines): no box resizes, so nothing re-measures on
+ * its own and the washes keep the old word spots (#202). Re-run every
+ * measurer once, before paint, whenever `key` changes.
+ */
+export function useReflow(key: string) {
+  const last = useRef("");
+  useLayoutEffect(() => {
+    if (key === last.current) return;
+    last.current = key;
+    scheduler.runAll("reflow");
+  }, [key]);
+}
+
 /** Same plain data (rects, numbers): keep the old value — no re-render. */
 export function sameData<T>(a: T, b: T): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);

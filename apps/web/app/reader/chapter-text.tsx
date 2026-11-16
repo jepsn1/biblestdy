@@ -19,7 +19,8 @@ import { cn, focusField, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
 import { anchorReferenceLabel, canCopy, formatCopy } from "./copy-attribution";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE, NOTE_INK_WASH } from "./highlight-colors";
-import { lineOf, type Rect } from "./ink-geometry";
+import { inFlowInkKey, lineOf, type Rect } from "./ink-geometry";
+import { useReflow } from "./use-measure";
 import {
   ActionMenu,
   ActionMenuColors,
@@ -879,6 +880,8 @@ export function ChapterText({
   const markersByVerse = new Map<number, NoteMark[]>();
   if (mobile)
     for (const m of noteMarks) markersByVerse.set(m.startVerse, [...(markersByVerse.get(m.startVerse) ?? []), m]);
+  // They push the words along without resizing a box: re-measure the ink
+  useReflow(inFlowInkKey(markersByVerse.values(), linesByVerse.values(), editingId));
   const laid = layoutChapter(chapter);
   const blocks = span ? sliceBlocks(laid, span) : laid;
   // Last piece of each verse (a verse can run over several poetry lines)
