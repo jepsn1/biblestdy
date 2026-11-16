@@ -31,7 +31,7 @@ Facts that matter:
 | Copyright page linked from every page with Bible text (§7) | `/copyright` (public; lines verbatim from `GET /api/copyright` = API.Bible metadata, holders in `TRANSLATION_INFO.holder`); credit line, palette + note references, landing quote link there |
 | Cache ≤ 30 days, changes within 24 h (§11) | `CachingScriptureProvider`: 24 h TTL, hard ceiling 25 days. Purge one translation: `tools/purge-scripture-cache.sh <bibleId>` (prod container; `API_PORT=3001` for dev). Restart purges all. |
 | Copy/print ≤ 100 verses (§12) | `reader/copy-attribution.ts` `canCopy` + toast; `lib/print-limit.ts` blanks the text in print over 100 |
-| Donations only as minor, non-intrusive links | support pop-up removed; quiet "Support biblestdy" links in Settings |
+| Donations only as minor, non-intrusive links | support pop-up removed; quiet "Support biblestdy" links in Settings; "☕ Buy me a coffee" as plain muted text in the landing footer and the reader's running foot (end of the credit line, only in spare room — dropped first, never displaces the credit or source; phones: own line under the chapter's foot) |
 | No AI/LLM/TTS on licensed text (§9) | none in the codebase (checked 2026-11-16). VISION's AI credits would break NIV/BPH/NKJV terms. |
 
 Open: highlight/annotation `quote` columns store marked words of licensed text in our DB (palette search) — not refreshed by the 30-day rule; ask API.Bible or recompute from the cache.

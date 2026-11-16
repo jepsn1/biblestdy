@@ -3,7 +3,10 @@
  * Only ever a quiet link the reader goes looking for — never a notice, popup
  * or banner over the reading (API.Bible Non-Commercial Agreement: "minor,
  * non-intrusive links" only; "interstitials or disruptive messaging ... are
- * strictly prohibited").
+ * strictly prohibited"). "☕ Buy me a coffee" also sits in the landing
+ * footer and the reader's running foot below the text (reader/page-foot.tsx):
+ * plain muted text like the credit line, no colour or motion, shown only in
+ * spare room (the first thing dropped; never crowds the credit/source).
  */
 
 export const INSTAGRAM_HANDLE = "marcusjepsn";

@@ -1,11 +1,13 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { useLiveShortcut } from "~/lib/shortcuts";
+import { COFFEE_URL } from "~/lib/support";
 import { cn, focusRing } from "~/lib/utils";
-import { lineWidth, partsThatFit } from "./sheet-layout";
+import { coffeeFits, lineWidth, partsThatFit } from "./sheet-layout";
 import { turnStill } from "./turn-still";
 
 /** One end of the foot. `label` is what it says; `name` its full accessible
@@ -41,6 +43,12 @@ export type FootButton = {
  * longer fit beside it (the verse range under the verses themselves, the
  * translation name in the header). The folio stays one line (truncated as
  * a last resort); a long copyright wraps, it is never cut.
+ * "☕ Buy me a coffee" (lib/support.ts) closes the credit line, after the
+ * source: a quiet link in spare room only. It shows only where the credit
+ * line keeps every part and takes no more lines with it than without, so
+ * the foot never grows (no text lost per page) and the credit and source
+ * are never pushed out or cut — it is the first thing to go. Phones (no credit line; the room is free at the chapter's
+ * end): its own centred line under the buttons, a full touch target.
  */
 export function PageFoot({
   label,
@@ -74,11 +82,19 @@ export function PageFoot({
   const credits = credit ?? [];
   // The source rides on the last part (measured with it): never dropped
   const measured = source && credits.length > 0 ? [...credits.slice(0, -1), `${credits.at(-1)}\u00a0·\u00a0${source.label}`] : credits;
-  const fit = useFit(position, measured);
+  const { t } = useTranslation();
+  const coffeeLabel = t("support.coffee");
+  const fit = useFit(position, measured, coffeeLabel);
   const creditLine = credits.length > 0 && (
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
       <CreditParts parts={credits.slice(-fit.credit)} link={creditLink} source={source} />
+      {fit.coffee && (
+        <>
+          {SEP}
+          <Coffee label={coffeeLabel} />
+        </>
+      )}
     </p>
   );
   return (
@@ -107,6 +123,11 @@ export function PageFoot({
       </div>
       <FootEnd button={next} dir="next" phone={phone} />
       {fit.creditWide && creditLine}
+      {phone && (
+        <p className={cn(CREDIT, "col-span-3 mt-2 text-center")}>
+          <Coffee label={coffeeLabel} className="inline-flex min-h-11 items-center px-2" />
+        </p>
+      )}
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
         {[position, measured].map((parts, row) => (
@@ -117,7 +138,45 @@ export function PageFoot({
             ))}
           </div>
         ))}
+        {!phone && (
+          <div className={CREDIT}>
+            <span>{COFFEE_GLYPH}</span>
+            <span>{coffeeLabel}</span>
+          </div>
+        )}
       </div>
+      {/* Wrap ruler: the credit's own line as set (useFit sets its width),
+          without and with the coffee — does it cost a line? */}
+      {!phone && credits.length > 0 && (
+        <div ref={fit.wrapRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden">
+          {[false, true].map((withCoffee) => (
+            <p key={String(withCoffee)} className={cn(CREDIT, "text-center text-balance")}>
+              {/* As CreditParts sets it */}
+              {credits.map((part, i) => (
+                <Fragment key={i}>
+                  {i > 0 && SEP}
+                  <span className={i < credits.length - 1 ? "inline-block max-w-full" : undefined}>{part}</span>
+                </Fragment>
+              ))}
+              {source && (
+                <>
+                  {"\u00a0·\u00a0"}
+                  <span className="whitespace-nowrap">{source.label}</span>
+                </>
+              )}
+              {withCoffee && (
+                <>
+                  {SEP}
+                  <span className="whitespace-nowrap">
+                    {COFFEE_GLYPH}
+                    {coffeeLabel}
+                  </span>
+                </>
+              )}
+            </p>
+          ))}
+        </div>
+      )}
     </nav>
   );
 }
@@ -125,18 +184,38 @@ export function PageFoot({
 const FOLIO = "font-serif text-control text-muted-foreground tabular-nums";
 const CREDIT = "text-meta text-muted-foreground";
 const SEP = "\u00a0· ";
+const COFFEE_GLYPH = "☕\u00a0";
+
+/** "☕ Buy me a coffee": a minor, non-intrusive donation link (API.Bible
+ * non-commercial terms, lib/support.ts) — as quiet as the source link. */
+function Coffee({ label, className }: { label: string; className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap", className)}>
+      {/* inline-block: the underline skips the cup */}
+      <span aria-hidden className="inline-block">
+        {COFFEE_GLYPH}
+      </span>
+      {label}
+      <span className="sr-only"> {t("copyright.newTab")}</span>
+    </a>
+  );
+}
 
 /**
  * How the centre fits between the two buttons, measured on the ruler
  * (natural widths, so a line comes back as soon as there's room again):
  * the folio keeps the parts that fit there; the credit stays under it while
  * it fits whole, else takes the foot's full width on a line of its own.
+ * The coffee link joins that line only while every credit part is kept and
+ * the line, with it, still fits there whole (coffeeFits).
  */
-function useFit(position: string[], credit: string[]) {
+function useFit(position: string[], credit: string[], coffee: string) {
   const navRef = useRef<HTMLElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false });
-  const key = JSON.stringify([position, credit]);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false, coffee: false });
+  const key = JSON.stringify([position, credit, coffee]);
   useLayoutEffect(() => {
     const nav = navRef.current;
     const ruler = rulerRef.current;
@@ -151,17 +230,34 @@ function useFit(position: string[], credit: string[]) {
       const gap = parseFloat(getComputedStyle(nav).columnGap) || 0;
       const full = nav.clientWidth;
       const centre = full - 2 * Math.max(outer(ends[0]), outer(ends[1])) - 2 * gap;
-      const [folio = [], credits = []] = [...ruler.children].map((row) =>
+      const [folio = [], credits = [], cup = []] = [...ruler.children].map((row) =>
         [...row.children].map((el) => el.getBoundingClientRect().width),
       );
       const creditWide = lineWidth(credits) > centre + 0.5;
+      const room = creditWide ? full : centre;
+      const credit = partsThatFit(credits, room);
+      // Own line (it may wrap): the coffee rides on its last line's spare
+      // room — the same wrapped line, with and without it, as tall
+      const wrap = wrapRef.current;
+      let wrapsAlike = false;
+      if (creditWide && wrap) {
+        wrap.style.width = `${full}px`;
+        const [alone, joined] = [...wrap.children].map((el) => el.getBoundingClientRect().height);
+        wrapsAlike = !!alone && joined! <= alone + 0.5;
+      }
       const next = {
         position: partsThatFit(folio, centre),
-        credit: partsThatFit(credits, creditWide ? full : centre),
+        credit,
         creditWide,
+        coffee:
+          cup.length > 0 &&
+          credit === credits.length - 1 &&
+          (creditWide ? wrapsAlike : coffeeFits(credits, cup.reduce((sum, w) => sum + w, 0), room)),
       };
       setFit((f) =>
-        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide ? f : next,
+        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide && f.coffee === next.coffee
+          ? f
+          : next,
       );
     };
     measure();
@@ -181,7 +277,7 @@ function useFit(position: string[], credit: string[]) {
       cancelAnimationFrame(frame);
     };
   }, [key]);
-  return { navRef, rulerRef, ...fit };
+  return { navRef, rulerRef, wrapRef, ...fit };
 }
 
 /** The credit line's parts: the translation's own (one link to its
