@@ -45,6 +45,7 @@ export function useNoteEditorOpen(): boolean {
     () => noteEditors > 0,
     () => false,
   );
+}
 
 /** A passage to compare (#167): a selection (stored verse + word numbers,
  * in its own translation), or a typed reference in the reading translation's
