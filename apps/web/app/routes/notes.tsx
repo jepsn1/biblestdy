@@ -21,6 +21,7 @@ import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
 import { zoomLockHandle } from "~/lib/viewport";
 import { anchorLabel, compareAnchors, filterNotes, keepOrder, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
+import { readHref } from "../notes/verse-resolver";
 import { readingHref, readingPlace } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
@@ -289,6 +290,10 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           onDetach={(id, anchorId) => void actions.detach(id, anchorId)}
           onAttach={actions.attach}
           onShowAnchor={(a) => readAnchor(open, a)}
+          onReadRef={(r, translationId) => {
+            if (translationId) localStorage.setItem("translationId", translationId);
+            navigate(readHref(r, open.id));
+          }}
           selectedAnchorId={null}
           onClose={() => navigate(hrefOf())}
         />

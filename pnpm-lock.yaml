@@ -165,6 +165,9 @@ importers:
       isbot:
         specifier: ^5.2.0
         version: 5.2.0
+      lexical:
+        specifier: 0.35.0
+        version: 0.35.0
       lucide-react:
         specifier: ^1.23.0
         version: 1.23.0(react@19.2.7)

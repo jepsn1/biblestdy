@@ -36,7 +36,7 @@ import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { cn, focusTitle } from "~/lib/utils";
-import { OPEN_SHORTCUTS } from "../reader/dialog-events";
+import { INSERT_VERSE, OPEN_SHORTCUTS, useNoteEditorOpen } from "../reader/dialog-events";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
 import { openPlace } from "../reader/place-chooser";
@@ -78,6 +78,7 @@ function useActions(r: ReaderActions) {
   const sizeIdx = TEXT_SIZES.indexOf(size);
 
   const isMobile = useIsMobile();
+  const noteOpen = useNoteEditorOpen();
   const actions: (PaletteAction & { run: () => void; keepOpen?: boolean; opensDialog?: boolean })[] = [
     {
       id: "translations",
@@ -186,6 +187,16 @@ function useActions(r: ReaderActions) {
       opensDialog: true,
       run: () => window.dispatchEvent(new Event(OPEN_SHORTCUTS)),
     }]),
+    // While a note is open (#160): its "+ Verse" picker, the caret kept
+    ...(noteOpen ? [{
+      id: "insert-verse",
+      label: t("palette.insertVerse"),
+      keywords: [...both("palette.insertVerse"), ...both("note.verseButton"), "skriftsted reference passage"],
+      shortcut: `${modKey()}Shift+E`,
+      common: true,
+      opensDialog: true,
+      run: () => window.dispatchEvent(new Event(INSERT_VERSE)),
+    }] : []),
   ];
   return actions;
 }
