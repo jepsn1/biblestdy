@@ -1,3 +1,5 @@
+import type { Scheme } from './versification.js'
+
 /**
  * Static facts about the translations we offer, keyed by abbreviation: the
  * native title (API.Bible names can carry an English gloss), a one-line
@@ -18,6 +20,8 @@ export interface TranslationInfo {
   /** Who holds the rights (public domain: who maintains the text) and their
    * site — the copyright page links there (API.Bible ToS §7.1). */
   holder: { name: string; url: string }
+  /** How it numbers verses (#166): BPH numbers the OT the Hebrew way. */
+  versification: Scheme
 }
 
 export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
@@ -29,6 +33,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     description: { en: 'Modern, easy Danish', da: 'Moderne, letlæst dansk' },
     rights: { en: '© Biblica 2015', da: '© Biblica 2015' },
     holder: { name: 'Biblica, Inc.', url: 'https://www.biblica.com' },
+    versification: 'org',
   },
   NIV: {
     name: 'New International Version',
@@ -37,6 +42,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     description: { en: 'Modern, readable English', da: 'Moderne, letlæst engelsk' },
     rights: { en: '© Biblica 2011', da: '© Biblica 2011' },
     holder: { name: 'Biblica, Inc.', url: 'https://www.biblica.com' },
+    versification: 'eng',
   },
   NKJV: {
     name: 'New King James Version',
@@ -45,6 +51,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     description: { en: 'Classic English, literal', da: 'Klassisk engelsk, ordret' },
     rights: { en: '© Thomas Nelson 1982', da: '© Thomas Nelson 1982' },
     holder: { name: 'Thomas Nelson', url: 'https://www.thomasnelsonbibles.com' },
+    versification: 'eng',
   },
   WEB: {
     name: 'World English Bible',
@@ -53,6 +60,7 @@ export const TRANSLATION_INFO: Record<string, TranslationInfo> = {
     description: { en: 'Modern English', da: 'Moderne engelsk' },
     rights: { en: 'Public domain', da: 'Fri af ophavsret' },
     holder: { name: 'eBible.org', url: 'https://worldenglish.bible' },
+    versification: 'eng',
   },
 }
 
