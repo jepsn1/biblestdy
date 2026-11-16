@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { INSERT_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
 import { focusEditor, mergeRegister } from "./lexical-util";
 import { $insertScriptureRef, $isScriptureRefNode, $restoreSelection, $selectChip } from "./scripture-ref-node";
+import { endsSpotlight } from "./spotlight";
 
 const canonical = (href: string) => {
   const ref = parseScriptureHref(href);
@@ -27,7 +28,8 @@ function $firstChip(href: string): NodeKey | null {
 
 /**
  * The references overview's hands in the editor (#161): "Show in text"
- * selects the reference's first chip, scrolls it into view and flashes it
+ * selects the reference's first chip, scrolls it into view and tints it
+ * until the next click or Escape (#190)
  * (focus moves there, in the editor); "Insert in text" puts a chip where the
  * caret last was. Listens on the note panel's <aside>, so a second editor
  * elsewhere never answers.
@@ -39,7 +41,17 @@ export function RefBridge() {
     // The caret as it last stood: clicking the overview takes focus away
     let last: BaseSelection | null = null;
     let aside: HTMLElement | null = null;
-    let flashTimer = 0;
+    let lit: HTMLElement | null = null;
+    const unlight = () => {
+      lit?.classList.remove("chip-flash");
+      lit = null;
+      document.removeEventListener("click", onEnd, true);
+      document.removeEventListener("keydown", onEnd, true);
+    };
+    // Added mid-click: this click's capture phase is past, so it can't end it
+    const onEnd = (e: Event) => {
+      if (endsSpotlight(e as KeyboardEvent, document)) unlight();
+    };
 
     const onShow = (e: Event) => {
       const detail = (e as CustomEvent<RefEventDetail>).detail;
@@ -54,13 +66,12 @@ export function RefBridge() {
       if (!el) return;
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       el.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
-      // The flash: CSS .chip-flash (none under reduced motion — the
-      // selection ring says it)
-      el.classList.remove("chip-flash");
-      void el.offsetWidth;
+      // The tint: CSS .chip-flash, no timer (#190)
+      unlight();
       el.classList.add("chip-flash");
-      window.clearTimeout(flashTimer);
-      flashTimer = window.setTimeout(() => el.classList.remove("chip-flash"), 2600);
+      lit = el;
+      document.addEventListener("click", onEnd, true);
+      document.addEventListener("keydown", onEnd, true);
     };
     const onInsert = (e: Event) => {
       const detail = (e as CustomEvent<RefEventDetail>).detail;
@@ -90,7 +101,7 @@ export function RefBridge() {
         aside?.addEventListener(INSERT_REF, onInsert);
       }),
       unlisten,
-      () => window.clearTimeout(flashTimer),
+      unlight,
     );
   }, [editor]);
   return null;

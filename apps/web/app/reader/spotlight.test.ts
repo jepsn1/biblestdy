@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { coverInto, spanSize } from "./mark-coverage";
-import { markStartSelector, noteMarkId, spotlitWords } from "./spotlight";
+import { endsSpotlight, markStartSelector, noteMarkId, spotlitWords } from "./spotlight";
 
 const passage = { translationId: "WEB", book: "GEN", chapter: 1 };
 const verses = [
@@ -87,5 +87,34 @@ describe("markStartSelector", () => {
   it("the reader looks references up by word, not by wrapper span", () => {
     const reader = readFileSync(new URL("./paginated-chapter.tsx", import.meta.url), "utf8");
     expect(reader).not.toMatch(/data-annotation-anchor/);
+  });
+});
+
+describe("endsSpotlight (#190: no timer)", () => {
+  const el = (keeps: boolean) => ({ closest: (s: string) => (keeps && s.includes("data-foot-end") ? {} : null) });
+  const doc = (open: boolean) => ({ querySelector: () => (open ? ({} as Element) : null) });
+  it("any click ends it, the text included", () => {
+    expect(endsSpotlight({ type: "click", target: el(false) as unknown as Element }, doc(false))).toBe(true);
+    expect(endsSpotlight({ type: "click", target: null }, doc(false))).toBe(true);
+  });
+  it("a page turn keeps it", () => {
+    expect(endsSpotlight({ type: "click", target: el(true) as unknown as Element }, doc(false))).toBe(false);
+  });
+  it("Escape ends it, unless a menu or dialog takes the Escape first", () => {
+    expect(endsSpotlight({ type: "keydown", key: "Escape", target: null }, doc(false))).toBe(true);
+    expect(endsSpotlight({ type: "keydown", key: "Escape", target: null }, doc(true))).toBe(false);
+  });
+  it("other keys and scrolls keep it", () => {
+    expect(endsSpotlight({ type: "keydown", key: "ArrowRight", target: null }, doc(false))).toBe(false);
+    expect(endsSpotlight({ type: "pointerdown", target: null }, doc(false))).toBe(false);
+  });
+});
+
+describe("spotlight has no timer (#190)", () => {
+  const read = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8");
+  it("no timeout clears the chip or verse tint", () => {
+    expect(read("./ref-bridge.tsx")).not.toMatch(/setTimeout\([^)]*chip-flash/);
+    expect(read("./paginated-chapter.tsx")).not.toContain("verse-flash");
+    expect(read("../app.css")).not.toMatch(/animation: verse-flash/);
   });
 });

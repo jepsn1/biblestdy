@@ -393,33 +393,31 @@
   }
 }
 
-/* Jump-to-verse (#53): the target verse's words glow briefly, then fade.
-   Class added/removed by the reader; reduced motion gets a static tint. */
-.verse-flash {
+/* Jump-to-verse (#53) / "Read here": the target verses' words are tinted
+   until the spotlight ends — next click, Escape, chapter change (#190). A
+   short fade in; reduced motion gets it at once. */
+[data-word][data-flash] {
   border-radius: 2px;
-  animation: verse-flash 2.6s ease-out forwards;
+  background-color: var(--selection);
+  animation: spot-in 300ms ease-out;
 }
-@keyframes verse-flash {
-  0%,
-  45% {
-    background-color: var(--selection);
-  }
-  100% {
+@keyframes spot-in {
+  from {
     background-color: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .verse-flash {
+  [data-word][data-flash] {
     animation: none;
-    background-color: var(--selection);
   }
 }
 
-/* A note's references overview, "Show in text" (#161): the chip glows
-   briefly. Reduced motion: none — the chip's selection ring marks it. */
+/* A note's references overview, "Show in text" (#161): the chip is tinted
+   until the next click or Escape (#190); reduced motion: no fade. */
 .chip-flash {
   border-radius: var(--radius-sm);
-  animation: verse-flash 2.6s ease-out forwards;
+  background-color: var(--selection);
+  animation: spot-in 300ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .chip-flash {

@@ -49,7 +49,7 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { useLocalizer } from "./localizer";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
-import { markStartSelector, noteMarkId } from "./spotlight";
+import { markStartSelector, noteMarkId, useSpotlightEnd } from "./spotlight";
 import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
 import { turnStill } from "./turn-still";
@@ -558,6 +558,7 @@ export function PaginatedChapter({
       setAnimate(true);
       setPage(Math.max(0, Math.min(target, pageCount - 1)));
     }
+    setFlash(null); // another reference replaces the verse spotlight
     setSelectedMarkId(markId);
   }
 
@@ -675,6 +676,9 @@ export function PaginatedChapter({
     setRovingVerse(null);
     readingVerse.current = null;
     placePage.current = null;
+    // The reference spotlight ends with its chapter (#190)
+    setFlash(null);
+    setSelectedMarkId(null);
     // Phones: a new chapter starts at the top
     if (scrollMode) viewportOf()?.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -726,7 +730,8 @@ export function PaginatedChapter({
     const target = range && targetVerses(chapter.verses.map((v) => v.verse), range);
     if (!target) return;
     wantedVerse.current = target.start;
-    setFlash(target); // a fresh object: a repeat jump flashes again
+    setFlash(target); // the jumped-to verses stay lit (#190)
+    setSelectedMarkId(null); // replaces a reference's spotlight
     setVerseTick((t) => t + 1);
     if (scrollMode) {
       const el = verseEl(target.start);
@@ -755,28 +760,12 @@ export function PaginatedChapter({
     setResolvedKey(chapterKey);
   }, [pageCount, stride, chapterKey, scrollMode, verseTick]);
 
-  // The verse's words glow briefly (CSS .verse-flash). Applied to the DOM:
-  // a transient effect, no reason to re-render the chapter text for it.
-  useEffect(() => {
-    const content = mainRef.current;
-    if (!flash || !content) return;
-    const words = [...content.querySelectorAll<HTMLElement>("[data-verse][data-word]")].filter(
-      (el) => {
-        const v = Number(el.dataset.verse);
-        return v >= flash.start && v <= flash.end;
-      },
-    );
-    for (const el of words) el.classList.remove("verse-flash");
-    void content.offsetWidth; // restart the animation on a repeat jump
-    for (const el of words) el.classList.add("verse-flash");
-    const timer = window.setTimeout(() => {
-      for (const el of words) el.classList.remove("verse-flash");
-    }, 3000);
-    return () => {
-      window.clearTimeout(timer);
-      for (const el of words) el.classList.remove("verse-flash");
-    };
-  }, [flash, chapterKey]);
+  // The reference spotlight stays until the next click or tap (not a page
+  // turn), Escape, chapter change or another reference (#190) — no timer
+  useSpotlightEnd(flash !== null || selectedMarkId !== null, () => {
+    setFlash(null);
+    setSelectedMarkId(null);
+  });
 
   // Mirror the page into the URL (replace, no history spam) and lastRead
   useEffect(() => {
@@ -1289,6 +1278,7 @@ export function PaginatedChapter({
       allNotes={allNotes}
       activeAnnotationId={activeAnnotationId}
       selectedMarkId={selectedMarkId}
+      flash={flash}
       mobile={scrollMode}
       onAddHighlight={add}
       onRecolorHighlight={recolor}
@@ -1398,15 +1388,7 @@ export function PaginatedChapter({
         defaultSize={openNote ? `${100 - noteSize}%` : "100%"}
         className="flex min-h-0 flex-col"
       >
-      {/* Any press in the reader cancels the reference spotlight (a mouse
-          nicety; keyboard users clear it from the note's references).
-          Pointer-up: word presses stop it there (chapter-text.tsx) */}
-      <div
-        ref={paneRef}
-        role="presentation"
-        className="relative min-h-0 flex-1"
-        onPointerUp={() => selectedMarkId && setSelectedMarkId(null)}
-      >
+      <div ref={paneRef} className="relative min-h-0 flex-1">
         {scrollMode ? (
           /* Phone: one ragged-right column, scrolled vertically. The ink
              layers share the region's box, so they scroll with the text. */
