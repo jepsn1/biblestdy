@@ -134,18 +134,20 @@ export function AccountChip() {
     <>
       {isMobile ? (
         <>
-          {/* Below sm the chip leaves the nav (one row); the More sheet's
-              Settings row opens this same drawer */}
+          {/* Below sm (or a row under 36rem) the chip leaves the nav; More's
+              Settings row opens this same drawer. Worded here too (#144:
+              no lone initial between sm and md) */}
           <button
             ref={chipRef}
             type="button"
             aria-label={t("settings.open")}
-            className={cn(chipClass, "hidden sm:flex")}
+            className="hidden shrink-0 items-center gap-2 rounded-full pr-2.5 hover:bg-muted sm:@min-[36rem]/nav:flex"
             onPointerEnter={want}
             onFocus={want}
             onClick={() => openFromChip(true)}
           >
-            {initial}
+            <span className={chipClass}>{initial}</span>
+            <span className="text-control">{t("settings.short")}</span>
           </button>
           <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
             {/* Content-sized (#62): grows with the rows, capped at 92dvh */}
@@ -176,7 +178,8 @@ export function AccountChip() {
                   className={cn(
                     // hidden below sm here too: the first render (isMobile
                     // not known yet) mustn't show, or measure, the chip
-                    "hidden shrink-0 items-center gap-2 rounded-full pr-2.5 hover:bg-muted sm:flex",
+                    // …and under a 36rem row, where More holds Settings (#144)
+                    "hidden shrink-0 items-center gap-2 rounded-full pr-2.5 hover:bg-muted sm:@min-[36rem]/nav:flex",
                   )}
                 />
               }
@@ -191,6 +194,9 @@ export function AccountChip() {
           </Hint>
           <PopoverContent
             align="end"
+            // Opened from More (the chip is out of the row): under More
+            anchor={() => (chipRef.current?.checkVisibility?.() === false ? returnTo.current : chipRef.current)}
+            finalFocus={backTo}
             className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0"
           >
             {/* The × is the popover's Close part: Base UI traps focus only with one */}

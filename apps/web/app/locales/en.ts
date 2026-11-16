@@ -24,6 +24,8 @@ export default {
     installIosStep2: "Choose \u201cAdd to Home Screen\u201d",
     installIosWhy: "biblestdy opens full-screen like a native app \u2014 no browser chrome.",
     settingsHint: "Theme, text size, language, shortcuts and your account",
+    allNotes: "All notes",
+    allNotesHint: "Every note you have written, with search",
     jumpOpen: "Go to reference",
     jumpClose: "Close",
     jumpInvalid: "Unknown reference — try “John 3:16” or “Rom 8”",

@@ -114,7 +114,7 @@ export function useChapterStrip() {
 
 /** Phone layout, or large text the paged sheet can't hold: one scrolling
  * column, no pages. */
-function useScrollMode() {
+export function useScrollMode() {
   const paged = useViewportFits(pagedFits);
   const [phone, setPhone] = useState(
     () => typeof window !== "undefined" && window.matchMedia(SCROLL_MODE_QUERY).matches,

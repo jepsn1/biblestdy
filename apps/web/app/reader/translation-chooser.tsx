@@ -97,10 +97,11 @@ export function TranslationChooser({
   const trigger = (
     <>
       <span className="font-mono text-control font-medium tracking-[0.02em]">{current.abbreviation}</span>
-      <ChevronDown className="size-4" aria-hidden />
+      {/* The shed order's last step (#144): a very narrow row keeps the word */}
+      <ChevronDown className="size-4 @max-[28rem]/nav:hidden" aria-hidden />
     </>
   );
-  const triggerClass = "ml-1 shrink-0 gap-1 px-2 text-muted-foreground hover:text-foreground";
+  const triggerClass = "ml-1 shrink-0 gap-1 px-2 text-muted-foreground hover:text-foreground @max-[28rem]/nav:px-1.5";
 
   if (isMobile) {
     return (

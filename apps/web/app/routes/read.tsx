@@ -18,7 +18,7 @@ import { fetchScripture } from "~/lib/scripture-fetch";
 import { describeRouteError } from "~/lib/route-error";
 import { zoomLockHandle } from "~/lib/viewport";
 import { adjacentChapter } from "../reader/chapter-nav";
-import { PaginatedChapter, useChapterStrip } from "../reader/paginated-chapter";
+import { PaginatedChapter, useChapterStrip, useScrollMode } from "../reader/paginated-chapter";
 import { ReaderError } from "../reader/reader-error";
 import { chapterQuery, loadChapter, prefetchNeighbours, readingPausedFor, retryWhenLimited } from "../reader/chapter-cache";
 import { ChapterSkeleton } from "../reader/chapter-skeleton";
@@ -300,6 +300,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
 
   // The paged sheet heads its text with the chapter strip
   const chapterStrip = useChapterStrip();
+  const scrollMode = useScrollMode();
   // The last chapter the spread shows when chapters run on (#146), per chapter
   const [spread, setSpread] = useState<{ key: string; end: number | null }>({ key: "", end: null });
   const chapterKey = `${chapter.book}.${chapter.chapter}`;
@@ -322,6 +323,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           onToggleAnnotationBoxes={() => setAnnotationBoxesOpen((v) => !v)}
           chapterInStrip={chapterStrip}
           chapterTo={spreadEnd}
+          scrollMode={scrollMode}
         />
         <PaginatedChapter
           chapter={chapter}

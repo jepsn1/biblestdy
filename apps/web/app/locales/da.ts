@@ -64,6 +64,8 @@ const da: typeof en = {
     installIosStep2: "V\u00e6lg \u00bbF\u00f8j til hjemmesk\u00e6rm\u00ab",
     installIosWhy: "biblestdy \u00e5bner i fuld sk\u00e6rm som en rigtig app \u2014 uden browserens knapper og adresselinje.",
     settingsHint: "Tema, tekststørrelse, sprog, genveje og din konto",
+    allNotes: "Alle noter",
+    allNotesHint: "Alle de noter, du har skrevet, med søgning",
     jumpOpen: "Gå til skriftsted",
     jumpClose: "Luk",
     jumpInvalid: "Ukendt skriftsted — prøv »Joh 3,16« eller »Rom 8«",

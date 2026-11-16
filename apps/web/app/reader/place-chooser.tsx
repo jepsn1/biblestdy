@@ -52,8 +52,6 @@ export function PlaceChooser({
   chapter,
   chapterTo = null,
   stripShown = false,
-  ref,
-  style,
 }: {
   /** "" when the route's book is unknown (error shell). */
   book: string;
@@ -62,9 +60,6 @@ export function PlaceChooser({
   chapterTo?: number | null;
   /** The paged sheet's chapter strip shows: open on the books. */
   stripShown?: boolean;
-  /** The row's flexible part (nav-fit measures everything else). */
-  ref?: React.Ref<HTMLButtonElement>;
-  style?: React.CSSProperties;
 }) {
   const { t } = useTranslation();
   const nameOf = useBookName();
@@ -123,7 +118,15 @@ export function PlaceChooser({
       <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </>
   );
-  const triggerClass = "-ml-1 min-w-0 justify-start gap-1.5 pl-1.5 text-control";
+  // The row's give: grows from 0 up to its own width and shrinks to 5em of
+  // name (+ number, chevron, padding) — so the row wraps (last resort) only
+  // when even that won't fit, never because the full name doesn't (#144)
+  // (A short name — "Job", "Ruth" — is already that short: it keeps its width.)
+  const short = !known || nameOf(book).length <= 8;
+  const triggerClass = cn(
+    "-ml-1 justify-start gap-1.5 pl-1.5 text-control",
+    short ? "shrink-0" : "min-w-[calc(5em+3.5rem)] max-w-max shrink grow basis-0",
+  );
   const panel = (
     <PlacePanel
       book={known ? book : ""}
@@ -148,13 +151,11 @@ export function PlaceChooser({
         <PopoverTrigger
           render={
             <Button
-              ref={ref}
               variant="ghost"
               size="sm"
               data-nav-book=""
               aria-label={label}
               aria-haspopup="dialog"
-              style={style}
               className={triggerClass}
             />
           }

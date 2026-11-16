@@ -1,7 +1,6 @@
 import type { Translation } from "@biblestdy/shared";
 import { useTranslation } from "react-i18next";
 import { MonitorDown, NotebookText, Share, SquarePlus } from "lucide-react";
-import { useRef } from "react";
 import { Link } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
@@ -11,7 +10,6 @@ import { cn, focusRing } from "~/lib/utils";
 import { AccountChip } from "./account-settings";
 import { PANEL_TOGGLE } from "./connections-panel";
 import { MoreSheet } from "./more-sheet";
-import { NAME_MIN_EM, useNavWraps } from "./nav-fit";
 import { PaletteTrigger } from "../palette/palette-trigger";
 import { PlaceChooser } from "./place-chooser";
 import { TranslationChooser } from "./translation-chooser";
@@ -28,6 +26,7 @@ export function ReaderNav({
   onToggleAnnotationBoxes,
   chapterInStrip = false,
   chapterTo = null,
+  scrollMode = false,
 }: {
   book: string;
   chapter: number;
@@ -42,12 +41,11 @@ export function ReaderNav({
   chapterInStrip?: boolean;
   /** The spread runs on to this chapter (#146). */
   chapterTo?: number | null;
+  /** The text scrolls (phones, very large text): More offers margin notes. */
+  scrollMode?: boolean;
 }) {
   const { t } = useTranslation();
   const pwa = usePwaInstall();
-  const rowRef = useRef<HTMLDivElement>(null);
-  const nameRef = useRef<HTMLButtonElement>(null);
-  const wraps = useNavWraps(rowRef, nameRef);
 
   return (
     <nav
@@ -55,20 +53,16 @@ export function ReaderNav({
       className="relative shrink-0 border-b border-border bg-background/85"
     >
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-      {/* One row (a second row costs reading height on every phone page):
-          the book name gives way (ellipsis), the rest keeps its size; phones
-          reach the settings through More. Only when even a short name won't
-          fit (large text, narrow pane) does the row wrap, never hiding a
-          control. */}
-      <div
-        ref={rowRef}
-        className={cn(
-          // A container: the search field shows by the row's own width, not
-          // the viewport's (text size and panels count alike)
-          "@container/nav flex items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4",
-          wraps ? "flex-wrap" : "flex-nowrap",
-        )}
-      >
+      {/* One row (a second row costs reading height on every phone page).
+          One shed order, decided by CSS on the row's own width in rem — a
+          container, so text size and window count alike, nothing measured
+          (#144): the wordmark goes (< 56rem), the search field becomes a
+          worded "Search" (< 48rem), Notes + Settings move into a worded
+          More (< 36rem; phones always), the translation drops its chevron
+          (< 28rem). The book name gives way first throughout (ellipsis),
+          down to a recognisable 5em; only a row too narrow for even that
+          (a phone at 200 %) wraps, as the last resort — never an icon alone. */}
+      <div className="@container/nav flex flex-wrap items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
         {/* The wordmark (the sidebar's, before it went): whose site this is,
             and home. Only where the row has room (rem: large text hides it first) */}
         <Link
@@ -82,16 +76,7 @@ export function ReaderNav({
         {/* The address — "Salmerne 23 ⌄" — and the one pointer route to any
             book and chapter (persona panel 2026-11-15). The name gives way
             first when the row is short; the chapter number never. */}
-        <PlaceChooser
-          ref={nameRef}
-          book={book}
-          chapter={chapter}
-          chapterTo={chapterTo}
-          stripShown={chapterInStrip}
-          // Wrapped: the address stays on the first line and fills what that
-          // line leaves — its minimum plus number, chevron and padding
-          style={wraps ? { flex: "1 1 0", minWidth: `calc(${NAME_MIN_EM}em + 3.5rem)` } : undefined}
-        />
+        <PlaceChooser book={book} chapter={chapter} chapterTo={chapterTo} stripShown={chapterInStrip} />
 
         {/* The edition, part of the citation ("Salmerne 23 · BPH"): right
             after the address, quieter than it, a clear gap between (#11) */}
@@ -114,7 +99,8 @@ export function ReaderNav({
           <Button
             variant={connectionsOpen ? "secondary" : "ghost"}
             size="sm"
-            className="hidden shrink-0 gap-1.5 px-2.5 sm:inline-flex"
+            // Into More below 36rem (MORE_BELOW_REM) and on phones
+            className="hidden shrink-0 gap-1.5 px-2.5 sm:@min-[36rem]/nav:inline-flex"
             aria-label={t("nav.connectionsLabel")}
             aria-pressed={connectionsOpen}
             {...{ [PANEL_TOGGLE]: "connections" }}
@@ -130,6 +116,7 @@ export function ReaderNav({
           onToggleConnections={onToggleConnections}
           annotationBoxesOpen={annotationBoxesOpen}
           onToggleAnnotationBoxes={onToggleAnnotationBoxes}
+          marginToggle={scrollMode}
           pwa={pwa}
         />
 
