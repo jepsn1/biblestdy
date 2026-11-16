@@ -44,11 +44,13 @@ export type FootButton = {
  * translation name in the header). The folio stays one line (truncated as
  * a last resort); a long copyright wraps, it is never cut.
  * "☕ Buy me a coffee" (lib/support.ts) closes the credit line, after the
- * source: a quiet link in spare room only. It shows only where the credit
- * line keeps every part and takes no more lines with it than without, so
- * the foot never grows (no text lost per page) and the credit and source
- * are never pushed out or cut — it is the first thing to go. Phones (no credit line; the room is free at the chapter's
- * end): its own centred line under the buttons, a full touch target.
+ * source, where the credit line keeps every part and takes no more lines
+ * with it than without. Short of that room it never pushes the credit or
+ * source: it moves to a third line of its own (folio / credit / coffee),
+ * centred, and the foot grows by that line (the text column, flex-1 above
+ * it, gives the room; the page count is re-measured). Always shown. Phones
+ * (no credit line; the room is free at the chapter's end): its own centred
+ * line under the buttons, a full touch target.
  */
 export function PageFoot({
   label,
@@ -89,7 +91,7 @@ export function PageFoot({
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
       <CreditParts parts={credits.slice(-fit.credit)} link={creditLink} source={source} />
-      {fit.coffee && (
+      {fit.coffeeInline && (
         <>
           {SEP}
           <Coffee label={coffeeLabel} />
@@ -123,10 +125,17 @@ export function PageFoot({
       </div>
       <FootEnd button={next} dir="next" phone={phone} />
       {fit.creditWide && creditLine}
-      {phone && (
+      {phone ? (
         <p className={cn(CREDIT, "col-span-3 mt-2 text-center")}>
           <Coffee label={coffeeLabel} className="inline-flex min-h-11 items-center px-2" />
         </p>
+      ) : (
+        !fit.coffeeInline && (
+          // No room at the credit's end: a third line, never over the credit
+          <p className={cn(CREDIT, "col-span-3 text-center")}>
+            <Coffee label={coffeeLabel} />
+          </p>
+        )
       )}
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
@@ -208,13 +217,13 @@ function Coffee({ label, className }: { label: string; className?: string }) {
  * the folio keeps the parts that fit there; the credit stays under it while
  * it fits whole, else takes the foot's full width on a line of its own.
  * The coffee link joins that line only while every credit part is kept and
- * the line, with it, still fits there whole (coffeeFits).
+ * the line, with it, takes no more lines (coffeeFits); else it gets its own.
  */
 function useFit(position: string[], credit: string[], coffee: string) {
   const navRef = useRef<HTMLElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false, coffee: false });
+  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false, coffeeInline: false });
   const key = JSON.stringify([position, credit, coffee]);
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -249,13 +258,13 @@ function useFit(position: string[], credit: string[], coffee: string) {
         position: partsThatFit(folio, centre),
         credit,
         creditWide,
-        coffee:
+        coffeeInline:
           cup.length > 0 &&
           credit === credits.length - 1 &&
           (creditWide ? wrapsAlike : coffeeFits(credits, cup.reduce((sum, w) => sum + w, 0), room)),
       };
       setFit((f) =>
-        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide && f.coffee === next.coffee
+        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide && f.coffeeInline === next.coffeeInline
           ? f
           : next,
       );

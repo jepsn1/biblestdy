@@ -136,12 +136,12 @@ describe("coffee link fit", () => {
     expect(coffeeFits(credit, coffee, 514)).toBe(true); // 392 + 12 + 110
   });
 
-  it("short of room: the coffee goes first, every credit part stays", () => {
+  it("short of room: not on the credit line (its own line instead), every credit part stays", () => {
     expect(coffeeFits(credit, coffee, 500)).toBe(false);
     expect(partsThatFit(credit, 500)).toBe(2);
   });
 
-  it("no credit line: no coffee there", () => {
+  it("no credit line: not on it (its own line instead)", () => {
     expect(coffeeFits([12], coffee, 1000)).toBe(false);
   });
 });

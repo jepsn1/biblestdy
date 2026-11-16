@@ -145,7 +145,8 @@ export function lineWidth(widths: number[]): number {
 /**
  * The coffee link (`coffee` px) closes the credit line (`[separator,
  * ...parts]`) only where the whole line, with it, fits `room` on one line:
- * it never drops, wraps or pushes out a credit part — it goes first. (A
+ * it never drops, wraps or pushes out a credit part — else it takes a line
+ * of its own under the credit (page-foot.tsx). (A
  * credit on its own, wrapped line is measured as set instead: page-foot.tsx.)
  */
 export function coffeeFits(credit: number[], coffee: number, room: number): boolean {
