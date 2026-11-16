@@ -517,6 +517,7 @@ const da: typeof en = {
     },
   },
   support: {
+    coffee: "Spendér en kaffe",
     follow: "Følg på Instagram (@{{handle}})",
     chat: "Kom med i gruppechatten på Instagram",
     settings: "Støt biblestdy",

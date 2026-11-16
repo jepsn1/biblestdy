@@ -18,6 +18,7 @@ import { Link } from "react-router";
 import { buttonVariants } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { API_BIBLE_URL, operator } from "~/lib/app-info";
+import { COFFEE_URL } from "~/lib/support";
 import { setUiLanguage } from "~/lib/i18n";
 import { cn } from "~/lib/utils";
 import { StudyMock } from "./study-mock";
@@ -266,6 +267,11 @@ export function Landing() {
             </Link>
             <a href={API_BIBLE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
               {t("copyright.via")}
+              <span className="sr-only"> {t("copyright.newTab")}</span>
+            </a>
+            <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+              <span aria-hidden>☕ </span>
+              {t("support.coffee")}
               <span className="sr-only"> {t("copyright.newTab")}</span>
             </a>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-foreground">
