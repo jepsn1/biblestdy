@@ -8,6 +8,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import { useFumsView } from "~/lib/fums";
 import { useTextSize, useViewportFits } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
@@ -37,7 +38,8 @@ import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, stripFits, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { MarksLoadError, useMarksLoad } from "./marks-load-error";
-import { PageFoot, type FootButton } from "./page-foot";
+import { CreditParts, PageFoot, type FootButton } from "./page-foot";
+import { API_BIBLE_URL } from "~/lib/app-info";
 import { ChapterStrip } from "./chapter-strip";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
@@ -163,6 +165,7 @@ export function PaginatedChapter({
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const nameOf = useBookName();
+  useFumsView(chapter);
   /** Chapter–verse separator in the UI language: "3:16" / "3,16". */
   const sep = bookLocale(i18n.language) === "da" ? "," : ":";
   const contentRef = useRef<HTMLDivElement>(null);
@@ -911,7 +914,16 @@ export function PaginatedChapter({
     ? t("reader.publicDomain")
     : chapter.copyright;
   const credit = [translation.name, copyright].filter((part): part is string => !!part);
-  const attribution = credit.join(" · ");
+  // The credit leads to the translation's full copyright entry (ToS §7.2);
+  // the text's source is cited after it (API.Bible Starter plan)
+  const creditLink = {
+    href: `/copyright#${encodeURIComponent(translation.abbreviation)}`,
+    more: t("copyright.linkFor", { abbr: translation.abbreviation }),
+  };
+  // (a FUMS token = the text came from API.Bible; fixtures carry none)
+  const source = chapter.fumsToken
+    ? { label: "API.Bible", href: API_BIBLE_URL, more: t("copyright.newTab") }
+    : undefined;
   /** ":1–11" — the verses on this page (one verse: ":16"); "," in Danish. */
   const verseSpan = pageVerses
     ? `${sep}${pageVerses.first}${pageVerses.last !== pageVerses.first ? `–${pageVerses.last}` : ""}`
@@ -1208,7 +1220,11 @@ export function PaginatedChapter({
 
   /** End of chapter, phones: the attribution right after the last verse
    * (their foot has no credit line). The foot's Next goes on. */
-  const chapterEnd = <p className="mt-10 font-sans text-meta text-muted-foreground">{attribution}</p>;
+  const chapterEnd = (
+    <p className="mt-10 font-sans text-meta text-muted-foreground">
+      <CreditParts parts={source ? [...credit, source.label] : credit} link={creditLink} source={source} />
+    </p>
+  );
 
   const chapterText = (
     <ChapterText
@@ -1480,6 +1496,8 @@ export function PaginatedChapter({
                     label={t("reader.pagesNav")}
                     position={[shortRange, t("reader.pageOf", { page: page + 1, count: pageCount })]}
                     credit={credit}
+                    creditLink={creditLink}
+                    source={source}
                     prev={prevButton}
                     next={nextButton}
                     phone={false}

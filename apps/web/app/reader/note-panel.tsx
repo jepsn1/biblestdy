@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Anchor, Chapter, Note, NoteAnchor } from "@biblestdy/shared";
 import { words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
+import { noteView } from "~/lib/fums";
 import { api } from "~/lib/query";
 import { cn, focusRing, focusTitle } from "~/lib/utils";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -24,6 +25,7 @@ import { setOpenNote } from "~/lib/next-path";
 import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
 import { useIsDark } from "~/lib/theme";
 import { PanelHeader } from "./panel-header";
+import { ScriptureCredit } from "./scripture-credit";
 import { TagChips } from "./tag-chips";
 import { noteEditor } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
@@ -100,6 +102,11 @@ function ReferencesTable({
     })),
   });
   const chapterOf = new Map(chapterKeys.map(([key], i) => [key, results[i].data]));
+  // The snippets show their words: each chapter shown counts as a view (FUMS)
+  const tokens = results.map((r) => r.data?.fumsToken ?? "").join(" ");
+  useEffect(() => {
+    for (const token of tokens.split(" ")) if (token) noteView(token);
+  }, [tokens]);
 
   return (
     <section className="flex h-full min-h-0 flex-col px-3 py-2">
@@ -161,6 +168,8 @@ function ReferencesTable({
           );
         })}
         </div>
+        {/* The snippets quote Bible text: its copyright link (ToS §7.2) */}
+        {note.anchors.length > 0 && <ScriptureCredit className="px-1.5 pt-1" />}
       </ScrollArea>
       {onAttach && (
         <div className="shrink-0 pt-1.5">

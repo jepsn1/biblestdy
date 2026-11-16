@@ -1,6 +1,6 @@
 import type { Anchor, Chapter } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { anchorQuote, anchorReferenceLabel, formatCopy, MAX_QUOTE } from "./copy-attribution";
+import { anchorQuote, anchorReferenceLabel, anchorVerseCount, canCopy, formatCopy, MAX_COPY_VERSES, MAX_QUOTE } from "./copy-attribution";
 
 const john3: Chapter = {
   translationId: "web",
@@ -84,5 +84,26 @@ describe("anchorQuote", () => {
   it("clipped to what the API stores", () => {
     const long: Chapter = { ...john3, verses: [{ verse: 1, text: "word ".repeat(1000) }] };
     expect(anchorQuote(long, anchor(1, 0, 1, 999)).length).toBeLessThanOrEqual(MAX_QUOTE);
+  });
+});
+
+describe("copy limit (ToS §12: 100 verses)", () => {
+  const psalm119: Chapter = {
+    translationId: "web",
+    book: "PSA",
+    chapter: 119,
+    verses: Array.from({ length: 176 }, (_, i) => ({ verse: i + 1, text: "word word" })),
+  };
+  const span = (from: number, to: number): Anchor => ({ ...anchor(from, 0, to, 1), book: "PSA", chapter: 119 });
+
+  it("allows up to 100 verses, refuses more", () => {
+    expect(canCopy(psalm119, span(1, MAX_COPY_VERSES))).toBe(true);
+    expect(canCopy(psalm119, span(1, MAX_COPY_VERSES + 1))).toBe(false);
+    expect(canCopy(psalm119, span(50, 50))).toBe(true);
+  });
+
+  it("counts a verse bridge as all its verses", () => {
+    const bridged: Chapter = { ...john3, verses: [{ verse: 14, label: "14–15", text: "a b" }, { verse: 16, text: "c" }] };
+    expect(anchorVerseCount(bridged, anchor(14, 0, 16, 0))).toBe(3);
   });
 });

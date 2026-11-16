@@ -534,3 +534,20 @@
     animation: none;
   }
 }
+
+/* Print limit (API.Bible ToS §12, lib/print-limit): over 100 verses on the
+   page, the print leaves the Scripture out and carries the note instead */
+.print-limit-note {
+  display: none;
+}
+@media print {
+  html[data-print-limited] [data-scripture] {
+    display: none !important;
+  }
+  html[data-print-limited] .print-limit-note {
+    display: block;
+    padding: 2rem;
+    font-family: var(--font-sans);
+    color: black;
+  }
+}

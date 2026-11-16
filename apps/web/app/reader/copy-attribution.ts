@@ -17,6 +17,29 @@ function selectedText(chapter: Chapter, anchor: Anchor): string {
   return parts.join(" ");
 }
 
+/**
+ * Most verses one copy (or print) may carry: API.Bible ToS §12 — content
+ * may not be freely copied, printing is restricted to 100 verses.
+ */
+export const MAX_COPY_VERSES = 100;
+
+/** How many verses an anchor covers in this chapter (a bridge "14–15"
+ * counts as both). */
+export function anchorVerseCount(chapter: Chapter, anchor: Anchor): number {
+  let count = 0;
+  for (const v of chapter.verses) {
+    if (v.verse < anchor.startVerse || v.verse > anchor.endVerse) continue;
+    const bridge = v.label ? /[-–](\d+)$/.exec(v.label) : null;
+    count += bridge ? Math.max(1, Number(bridge[1]) - v.verse + 1) : 1;
+  }
+  return count;
+}
+
+/** Within the copy limit? */
+export function canCopy(chapter: Chapter, anchor: Anchor): boolean {
+  return anchorVerseCount(chapter, anchor) <= MAX_COPY_VERSES;
+}
+
 /** Longest quote the API stores (MAX_QUOTE there). */
 export const MAX_QUOTE = 2000;
 

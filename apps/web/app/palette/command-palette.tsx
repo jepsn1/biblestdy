@@ -41,6 +41,7 @@ import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-choos
 import { OPEN_PLACE } from "../reader/place-chooser";
 import { useAllAnnotationsQuery } from "../reader/use-annotations";
 import { useAllHighlightsQuery } from "../reader/use-highlights";
+import { ScriptureCredit } from "../reader/scripture-credit";
 import { useAllNotesQuery } from "../reader/use-notes";
 import { paletteOpener, takeTypeahead } from "./open-palette";
 import { buildResults, matchRanges, type GroupId, type PaletteAction, type PaletteItem } from "./palette-results";
@@ -435,6 +436,7 @@ export function CommandPalette({
 
   const here = `${nameOf(reader.book)} ${reader.chapter}`;
   const count = selectable.length;
+  const quotesShown = items.some((it) => it.group === "highlights" || it.group === "annotations");
   // Result count for screen readers, settled (not every keystroke)
   const [status, setStatus] = useState("");
   useEffect(() => {
@@ -648,6 +650,10 @@ export function CommandPalette({
             })}
           </ul>
         </ScrollArea>
+        {/* Marked words quote Bible text: its copyright link (ToS §7.2) */}
+        {quotesShown && (
+          <ScriptureCredit className="border-t border-border px-4.5 py-2" onFollow={() => onOpenChange(false)} />
+        )}
         {/* How to search: folded, and only before typing or when nothing's
             found (outside the listbox: a listbox holds only options) */}
         {(!query.trim() || count === 0) && (

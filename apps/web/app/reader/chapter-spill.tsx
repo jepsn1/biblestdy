@@ -2,6 +2,7 @@ import type { Anchor, Chapter, HighlightColor, Note } from "@biblestdy/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useFumsView } from "~/lib/fums";
 import { revealColor, setHighlightFilter, type HighlightFilter } from "~/lib/highlight-filter";
 import { AnnotationMarks } from "./annotation-marks";
 import { ChapterText } from "./chapter-text";
@@ -123,6 +124,8 @@ export function ChapterSpill({
   const sig = `${translationId}/${book}.${chapter.chapter}|${lastPage}|${stride}|${layoutKey}|${inkSig}|${fontTick}`;
   const [fit, setFit] = useState<{ sig: string; n: number } | null>(null);
   const n = fit?.sig === sig ? fit.n : null;
+  // Shown once the reader is on the page it runs on into (FUMS)
+  useFumsView(page >= lastPage && n ? chapter : null);
 
   // Measured before paint: first every candidate is laid out after the
   // chapter's end, then only the leading verses that sit wholly on its last

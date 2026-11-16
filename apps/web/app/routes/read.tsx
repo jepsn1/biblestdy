@@ -7,7 +7,6 @@ import { data, type ShouldRevalidateFunctionArgs, useRevalidator, useSearchParam
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
-import { activeSeconds, readerBusy, shouldShowSupport, snoozeSupport, startActiveClock, supportSnoozed } from "~/lib/support";
 import { loadTextSize } from "~/lib/text-size";
 import { loadHighlightLabels } from "~/lib/highlight-labels";
 import { queryClient } from "~/lib/query";
@@ -30,7 +29,6 @@ import { OPEN_SHORTCUTS, ShortcutsDialog } from "../reader/shortcuts-dialog";
 import { ColorNamesDialog, OPEN_COLOR_NAMES } from "../reader/color-names-dialog";
 import { SkipToText } from "../reader/skip-link";
 import { StyleChooser } from "../reader/style-chooser";
-import { SupportNotice } from "../reader/support-notice";
 import { LazyCommandPalette } from "../palette/lazy-palette";
 import { OPEN_PALETTE } from "../palette/open-palette";
 import { pushRecent } from "~/lib/recent-passages";
@@ -291,41 +289,6 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
     };
   }, []);
 
-  // Support notice: counts active reading; at a chapter change
-  // (never mid-chapter, never on open) once 10 min are reached and the
-  // reader isn't busy, shows after the new chapter has settled.
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [supportClosed, setSupportClosed] = useState(false);
-  useEffect(() => startActiveClock(userId), [userId]);
-  const here = `${chapter.book}/${chapter.chapter}`;
-  const lastChapter = useRef(here);
-  const sideViewRef = useRef(sideView);
-  sideViewRef.current = sideView;
-  useEffect(() => {
-    if (lastChapter.current === here) return;
-    lastChapter.current = here;
-    if (supportClosed || needsStyleChoice) return;
-    const timer = window.setTimeout(() => {
-      const view = sideViewRef.current;
-      if (
-        shouldShowSupport({
-          snoozed: supportClosed || supportSnoozed(userId),
-          seconds: activeSeconds(userId),
-          noteOpen: view !== null && view !== "connections",
-          busy: readerBusy(),
-        })
-      ) {
-        setSupportOpen(true);
-      }
-    }, 1500);
-    return () => window.clearTimeout(timer);
-  }, [here, supportClosed, needsStyleChoice, userId]);
-  function closeSupport() {
-    setSupportOpen(false);
-    setSupportClosed(true);
-    snoozeSupport(userId); // back in 30 days (this device)
-  }
-
   // The paged sheet heads its text with the chapter strip
   const chapterStrip = useChapterStrip();
 
@@ -376,7 +339,6 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           nextHref: nextChapter ? chapterHref(nextChapter) : null,
         }}
       />
-      {supportOpen && <SupportNotice onClose={closeSupport} />}
       {needsStyleChoice && !styleChosen && (
         <StyleChooser verse={chapter.verses[0]} onDone={() => setStyleChosen(true)} />
       )}

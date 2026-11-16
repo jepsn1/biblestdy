@@ -13,10 +13,10 @@ import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale } from "~/lib/book-name";
 import type { ReaderTool } from "./tool-palette";
-import { notifyCopied, notifyCopyFailed } from "~/lib/notify";
+import { notifyCopied, notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
 import { cn, focusField, focusRing } from "~/lib/utils";
 import { AnnotationEditor } from "./annotation-editor";
-import { anchorReferenceLabel, formatCopy } from "./copy-attribution";
+import { anchorReferenceLabel, canCopy, formatCopy } from "./copy-attribution";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE, NOTE_INK_WASH } from "./highlight-colors";
 import { lineOf, type Rect } from "./ink-geometry";
 import {
@@ -591,6 +591,11 @@ export function ChapterText({
       const native = window.getSelection();
       if (native && !native.isCollapsed) return;
       if (!e.clipboardData) return;
+      if (!canCopy(chapter, copyAnchor)) {
+        e.preventDefault(); // nothing leaves: say why instead
+        notifyCopyLimit();
+        return;
+      }
       const { text, html } = formatCopy(chapter, copyAnchor, translationAbbreviation, locale);
       e.clipboardData.setData("text/plain", text);
       e.clipboardData.setData("text/html", html);
@@ -601,6 +606,10 @@ export function ChapterText({
   }, [copyAnchor, chapter, translationAbbreviation, locale]);
 
   async function copyAnchorText(anchor: Anchor) {
+    if (!canCopy(chapter, anchor)) {
+      notifyCopyLimit();
+      return;
+    }
     const { text, html } = formatCopy(chapter, anchor, translationAbbreviation, locale);
     try {
       await navigator.clipboard.write([
@@ -859,6 +868,8 @@ export function ChapterText({
   return (
     <div
       ref={rootRef}
+      // Counted by the print limit (lib/print-limit)
+      data-scripture
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

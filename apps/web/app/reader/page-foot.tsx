@@ -1,5 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Link } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { cn, focusRing } from "~/lib/utils";
@@ -42,6 +43,8 @@ export function PageFoot({
   label,
   position,
   credit,
+  creditLink,
+  source,
   prev,
   next,
   phone,
@@ -54,17 +57,23 @@ export function PageFoot({
   position: string[];
   /** Translation credit, its parts kept whole the same way. */
   credit?: string[];
+  /** Where the credit leads: the translation's entry on the copyright page
+   * (ToS §7.2), and its accessible name's tail. */
+  creditLink?: { href: string; more: string };
+  /** The text's source, cited last on the credit line as an outside link
+   * (API.Bible Starter plan). Never dropped for room. */
+  source?: { label: string; href: string; more: string };
   prev: FootButton;
   next: FootButton;
   phone: boolean;
   className?: string;
 }) {
-  const credits = credit ?? [];
+  const credits = source ? [...(credit ?? []), source.label] : (credit ?? []);
   const fit = useFit(position, credits);
   const creditLine = credits.length > 0 && (
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
-      <Parts parts={credits.slice(-fit.credit)} wrapLong />
+      <CreditParts parts={credits.slice(-fit.credit)} link={creditLink} source={source} />
     </p>
   );
   return (
@@ -168,6 +177,46 @@ function useFit(position: string[], credit: string[]) {
   }, [key]);
   return { navRef, rulerRef, ...fit };
 }
+
+/** The credit line's parts: the translation's own (one link to its
+ * copyright entry), then the source (its own outside link). */
+export function CreditParts({
+  parts,
+  link,
+  source,
+}: {
+  parts: string[];
+  link?: { href: string; more: string };
+  source?: { label: string; href: string; more: string };
+}) {
+  const withSource = !!source && parts[parts.length - 1] === source.label;
+  const own = withSource ? parts.slice(0, -1) : parts;
+  return (
+    <>
+      {own.length > 0 &&
+        (link ? (
+          <Link to={link.href} className={CREDIT_LINK}>
+            <Parts parts={own} wrapLong />
+            <span className="sr-only"> — {link.more}</span>
+          </Link>
+        ) : (
+          <Parts parts={own} wrapLong />
+        ))}
+      {withSource && (
+        <>
+          {own.length > 0 && SEP}
+          <a href={source.href} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap")}>
+            {source.label}
+            <span className="sr-only"> {source.more}</span>
+          </a>
+        </>
+      )}
+    </>
+  );
+}
+
+/** Quiet as the line it sits in: underlined on hover/focus only. */
+const CREDIT_LINK = cn("rounded-sm underline-offset-2 hover:text-foreground hover:underline", focusRing);
 
 /** "a · b": each part kept whole when the line wraps (after a dot); a
  * part longer than the line (`wrapLong`) wraps inside itself instead. */

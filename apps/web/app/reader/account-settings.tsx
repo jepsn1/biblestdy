@@ -22,7 +22,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { useIsMobile } from "~/hooks/use-mobile";
-import { appChannel, appVersion } from "~/lib/app-info";
+import { API_BIBLE_URL, appChannel, appVersion } from "~/lib/app-info";
 import { authClient } from "~/lib/auth-client";
 import { clearAllDrafts } from "~/lib/note-drafts";
 import { setUiLanguage } from "~/lib/i18n";
@@ -36,7 +36,7 @@ import { openColorNames } from "./color-names-dialog";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { PanelHeader, panelTitleClass } from "./panel-header";
 import { OPEN_SHORTCUTS } from "./shortcuts-dialog";
-import { SupportLinks } from "./support-notice";
+import { SupportLinks } from "./support-links";
 
 /** Event name: phones open the settings from the More sheet (the chip
  * leaves the one-row nav below sm); `detail` = the element focus goes back
@@ -385,11 +385,8 @@ function SettingsContent({
 
       <Separator className="my-2" />
 
-      {/* The one-time support notice, findable again (Instagram, new tab) */}
-      <div className="flex flex-col gap-2 py-1">
-        <p className="text-control font-medium">{t("support.settings")}</p>
-        <SupportLinks quiet />
-      </div>
+      {/* Support: a quiet link, found when looked for (Non-Commercial Agreement) */}
+      <SupportLinks />
 
       <Separator className="my-2" />
 
@@ -406,7 +403,16 @@ function SettingsContent({
         {t("settings.version")} {appVersion} · {appChannel} ·{" "}
         <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
           {t("settings.privacy")}
-        </Link>
+        </Link>{" "}
+        ·{" "}
+        <Link to="/copyright" className="underline-offset-2 hover:text-foreground hover:underline">
+          {t("copyright.link")}
+        </Link>{" "}
+        ·{" "}
+        <a href={API_BIBLE_URL} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">
+          {t("copyright.via")}
+          <span className="sr-only"> {t("copyright.newTab")}</span>
+        </a>
       </p>
     </div>
   );

@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { buttonVariants } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { operator } from "~/lib/app-info";
+import { API_BIBLE_URL, operator } from "~/lib/app-info";
 import { setUiLanguage } from "~/lib/i18n";
 import { cn } from "~/lib/utils";
 import { StudyMock } from "./study-mock";
@@ -115,7 +115,11 @@ export function Landing() {
                 {t("landing.whyVerse")}
               </p>
               <footer className="mt-3 font-mono text-meta text-muted-foreground">
-                {t("landing.whyVerseRef")}
+                {/* Every page showing Bible text links its copyright (ToS §7.2) */}
+                <Link to="/copyright#WEB" className="underline-offset-2 hover:text-foreground hover:underline">
+                  {t("landing.whyVerseRef")}
+                  <span className="sr-only"> — {t("copyright.linkFor", { abbr: "WEB" })}</span>
+                </Link>
               </footer>
             </blockquote>
             <p className="mt-8 text-reading text-pretty text-muted-foreground">
@@ -257,6 +261,13 @@ export function Landing() {
             <Link to="/privacy" className="hover:text-foreground">
               {t("settings.privacy")}
             </Link>
+            <Link to="/copyright" className="hover:text-foreground">
+              {t("copyright.link")}
+            </Link>
+            <a href={API_BIBLE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+              {t("copyright.via")}
+              <span className="sr-only"> {t("copyright.newTab")}</span>
+            </a>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-foreground">
               {SUPPORT_EMAIL}
             </a>
