@@ -196,8 +196,6 @@ export const userPreference = pgTable('user_preference', {
     .references(() => user.id, { onDelete: 'cascade' }),
   readerStyle: text('reader_style'),
   textSize: smallint('text_size'),
-  /** One-time support notice closed; null = not yet. */
-  supportNoticeDismissedAt: timestamp('support_notice_dismissed_at'),
   /** Renamed highlight colours only ({blue: "God speaking"}); {} = defaults. */
   highlightLabels: jsonb('highlight_labels')
     .$type<Record<string, string>>()

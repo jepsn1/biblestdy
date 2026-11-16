@@ -44,15 +44,13 @@ export function parseHighlightLabels(v: unknown): HighlightLabels | null {
 }
 
 /** Per-account preferences. null readerStyle = never chosen → onboarding
- * chooser; null textSize = never changed → 100%. supportNoticeDismissed: the
- * one-time "follow on Instagram" notice was closed (once per account).
+ * chooser; null textSize = never changed → 100%.
  * highlightLabels: renamed colours only ({} = all called by their colour).
  * singleKeyShortcuts (#145, WCAG 2.1.4): false = keys without Ctrl/⌘/Alt
  * (t, /, ?, [ ], h…) do nothing; true by default. */
 export interface Preferences {
   readerStyle: ReaderStyle | null
   textSize: TextSize | null
-  supportNoticeDismissed: boolean
   highlightLabels: HighlightLabels
   singleKeyShortcuts: boolean
 }
@@ -61,8 +59,6 @@ export interface Preferences {
 export type PreferencesPatch = Partial<{
   readerStyle: ReaderStyle
   textSize: TextSize
-  /** One-way: only `true` is accepted. */
-  supportNoticeDismissed: true
   /** Replaces the whole map (an absent colour = its colour name again). */
   highlightLabels: HighlightLabels
   singleKeyShortcuts: boolean
