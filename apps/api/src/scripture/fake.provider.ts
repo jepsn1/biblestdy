@@ -11,12 +11,14 @@ const FAKE_TRANSLATIONS: Translation[] = [
     name: 'World English Bible (fixture)',
     abbreviation: 'WEB',
     language: 'en',
+    copyright: 'PUBLIC DOMAIN',
   },
   {
     id: 'WEB2',
     name: 'World English Bible alt (fixture)',
     abbreviation: 'WEB2',
     language: 'en',
+    copyright: 'PUBLIC DOMAIN',
   },
 ];
 

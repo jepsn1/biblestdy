@@ -12,6 +12,9 @@ export interface SessionUser {
   id: string;
   email: string;
   name: string;
+  /** The sign-in session (one per device/browser): FUMS derives its
+   * anonymous device id from it. Absent in tests' stand-in guards. */
+  sessionId?: string;
 }
 
 export type AuthedRequest = Request & { user: SessionUser };
@@ -29,6 +32,7 @@ export class SessionGuard implements CanActivate {
       id: session.user.id,
       email: session.user.email,
       name: session.user.name,
+      sessionId: session.session.id,
     };
     return true;
   }

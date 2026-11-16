@@ -4,13 +4,15 @@ import { DrizzleQuotaStore } from '../reading-quota/drizzle.store';
 import { QuotaPruneSchedule } from '../reading-quota/prune.schedule';
 import { ReadingQuotaService } from '../reading-quota/service';
 import { ApiBibleProvider } from './apibible.provider';
+import { CacheAdminController } from './cache-admin.controller';
 import { CachingScriptureProvider } from './caching.provider';
+import { CopyrightController } from './copyright.controller';
 import { FakeScriptureProvider } from './fake.provider';
 import { SCRIPTURE_PROVIDER } from './provider';
 import { ScriptureController } from './scripture.controller';
 
 @Module({
-  controllers: [ScriptureController],
+  controllers: [ScriptureController, CopyrightController, CacheAdminController],
   providers: [
     {
       provide: SCRIPTURE_PROVIDER,
