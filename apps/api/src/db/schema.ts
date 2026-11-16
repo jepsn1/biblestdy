@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   date,
   index,
   integer,
@@ -202,5 +203,7 @@ export const userPreference = pgTable('user_preference', {
     .$type<Record<string, string>>()
     .notNull()
     .default({}),
+  /** Single-character shortcuts on (#145, WCAG 2.1.4); false = turned off. */
+  singleKeyShortcuts: boolean('single_key_shortcuts').notNull().default(true),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

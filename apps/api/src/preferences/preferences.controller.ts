@@ -74,6 +74,14 @@ export class PreferencesController {
       }
       patch.highlightLabels = labels;
     }
+    if (dto.singleKeyShortcuts !== undefined) {
+      if (typeof dto.singleKeyShortcuts !== 'boolean') {
+        throw new BadRequestException(
+          'singleKeyShortcuts must be true or false',
+        );
+      }
+      patch.singleKeyShortcuts = dto.singleKeyShortcuts;
+    }
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException('nothing to update');
     }

@@ -13,6 +13,7 @@ export class InMemoryPreferencesStore implements PreferencesStore {
         textSize: null,
         supportNoticeDismissed: false,
         highlightLabels: {},
+        singleKeyShortcuts: true,
       },
     );
   }
