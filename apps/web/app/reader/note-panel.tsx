@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, NoteAnchor } from "@biblestdy/shared";
-import { words, wordRangeInVerse } from "@biblestdy/shared";
+import type { Anchor, Chapter, Note, NoteAnchor, ScriptureRef } from "@biblestdy/shared";
+import { refsInMarkdown, words, wordRangeInVerse } from "@biblestdy/shared";
 import { useQueries } from "@tanstack/react-query";
 import { noteView } from "~/lib/fums";
 import { api } from "~/lib/query";
@@ -19,7 +19,7 @@ import { Button } from "~/components/ui/button";
 import { Hint } from "~/components/hint";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { AddReference } from "../notes/add-reference";
-import { anchorLabel } from "../notes/note-list";
+import { anchorLabel, referenceLabel } from "../notes/note-list";
 import { notifyError } from "~/lib/notify";
 import { setOpenNote } from "~/lib/next-path";
 import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
@@ -72,13 +72,18 @@ function snippetOf(chapter: Chapter | undefined, a: NoteAnchor): string {
  * anchored words, unlink. Click a row to read there with the span flashed. */
 function ReferencesTable({
   note,
+  inline,
   selectedAnchorId,
   onShowAnchor,
+  onReadRef,
   onDetach,
   onAttach,
   mobile = false,
 }: {
   note: Note;
+  /** The references in the text (#160), read from the live body. */
+  inline: ScriptureRef[];
+  onReadRef?: (ref: ScriptureRef) => void;
   selectedAnchorId: string | null;
   onShowAnchor: (anchor: NoteAnchor) => void;
   onDetach: (id: string, anchorId: string) => void;
@@ -115,11 +120,32 @@ function ReferencesTable({
       </h3>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col">
-        {note.anchors.length === 0 && (
+        {note.anchors.length === 0 && inline.length === 0 && (
           <p className="px-1.5 py-1 font-serif text-meta text-muted-foreground italic">
             {t("note.noReferences")}
           </p>
         )}
+        {/* In the text (#160): the list follows the body; the overview's own
+            layout comes with #161 */}
+        {inline.map((r) => {
+          const name = referenceLabel(r, nameOf, locale);
+          return (
+            <button
+              key={`${r.book}.${r.chapter}.${r.verse}-${r.endChapter}.${r.endVerse}`}
+              type="button"
+              title={t("note.readPassage")}
+              aria-label={`${name}: ${t("note.readPassage")}`}
+              onClick={() => onReadRef?.(r)}
+              className={cn(
+                "rounded px-1.5 text-left text-meta tabular-nums whitespace-nowrap text-primary hover:bg-accent/50",
+                mobile ? "py-2.5" : "py-1",
+                focusRing,
+              )}
+            >
+              {name}
+            </button>
+          );
+        })}
         {note.anchors.map((a) => {
           const isSelected = a.id === selectedAnchorId;
           return (
@@ -271,6 +297,7 @@ export function NotePanel({
   onDetach,
   onAttach,
   onShowAnchor,
+  onReadRef,
   selectedAnchorId,
   onClose,
   onOpenInNotes,
@@ -285,6 +312,9 @@ export function NotePanel({
   /** Adds a typed passage as a reference ("Add passage"). */
   onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
   onShowAnchor: (anchor: NoteAnchor) => void;
+  /** Reads an inline reference (a chip's "Read here", its list row) — in
+   * `translationId` when given ("Read in WEB"). */
+  onReadRef?: (ref: ScriptureRef, translationId?: string) => void;
   /** Anchor id of the selected reference (spotlit in the reader). */
   selectedAnchorId: string | null;
   onClose: () => void;
@@ -542,6 +572,8 @@ export function NotePanel({
   }, [mobile, page]);
 
   const status = failed ? "failed" : dirty || inFlight > 0 ? "saving" : "saved";
+  // The text's references, ahead of the save that stores them (#158)
+  const inlineRefs = useMemo(() => refsInMarkdown(liveBody), [liveBody]);
 
   return (
     <aside ref={asideRef} className="flex h-full w-full flex-col bg-background">
@@ -594,6 +626,7 @@ export function NotePanel({
             markdown={liveBody}
             onChange={setBody}
             onReady={onEditorReady}
+            onReadRef={onReadRef}
             placeholder={t("note.bodyPlaceholder")}
             dark={dark}
             mobile={mobile}
@@ -618,6 +651,8 @@ export function NotePanel({
         const references = (
           <ReferencesTable
             note={note}
+            inline={inlineRefs}
+            onReadRef={onReadRef}
             selectedAnchorId={selectedAnchorId}
             onShowAnchor={onShowAnchor}
             onDetach={onDetach}

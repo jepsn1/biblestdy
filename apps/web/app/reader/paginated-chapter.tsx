@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, translationInfo, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type Translation } from "@biblestdy/shared";
+import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, translationInfo, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
@@ -34,6 +34,7 @@ import { VERSE_FOCUS } from "./keyboard-selection";
 import { ConnectionsPanel } from "./connections-panel";
 import { HighlightMarks } from "./highlight-marks";
 import { NOTE_OPENER, NotePanel } from "./note-panel";
+import { readHref } from "../notes/verse-resolver";
 import { noteEditor } from "./note-editor-loader";
 import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, stripFits, type Span } from "./sheet-layout";
@@ -601,6 +602,13 @@ export function PaginatedChapter({
     // chapter whole, where it is
     if (here && (flowFrom === null || a.startVerse >= flowFrom)) jumpToMark(markId);
     else navigate(`/read/${a.book}/${a.chapter}?note=${openNoteId}&mark=${markId}`);
+  }
+
+  /** An inline reference's "Read here" (#160): its verses flash, the note
+   * stays open; "Read in WEB" switches translation on the way. */
+  function readRef(ref: ScriptureRef, translationId?: string) {
+    if (translationId) localStorage.setItem("translationId", translationId);
+    navigate(readHref(ref, openNoteId ?? undefined));
   }
 
   // Consume ?mark once the chapter's marks are rendered and measured.
@@ -1623,6 +1631,7 @@ export function PaginatedChapter({
               onAttach={notesApi.attach}
               onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
               onShowAnchor={showAnchor}
+              onReadRef={readRef}
               selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
               onClose={closeNote}
             />
@@ -1671,6 +1680,7 @@ export function PaginatedChapter({
                   onAttach={notesApi.attach}
                   onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
                   onShowAnchor={showAnchor}
+              onReadRef={readRef}
                   selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
                   onClose={closeNote}
                   mobile
