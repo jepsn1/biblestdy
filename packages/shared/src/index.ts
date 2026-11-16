@@ -4,6 +4,7 @@ export {
   findBook,
   getBook,
   bookIndex,
+  chapterCount,
   bookName,
   suggestBooks,
   type Book,

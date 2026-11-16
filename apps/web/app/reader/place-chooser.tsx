@@ -1,4 +1,4 @@
-import { BOOKS, getBook } from "@biblestdy/shared";
+import { BOOKS, chapterCount, getBook, type Scheme } from "@biblestdy/shared";
 import { ArrowLeft, ChevronDown, CornerDownLeft, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -52,6 +52,7 @@ export function PlaceChooser({
   chapter,
   chapterTo = null,
   stripShown = false,
+  scheme = "eng",
 }: {
   /** "" when the route's book is unknown (error shell). */
   book: string;
@@ -60,6 +61,8 @@ export function PlaceChooser({
   chapterTo?: number | null;
   /** The paged sheet's chapter strip shows: open on the books. */
   stripShown?: boolean;
+  /** The reading translation's numbering (BPH: Joel 4, Malachi 3). */
+  scheme?: Scheme;
 }) {
   const { t } = useTranslation();
   const nameOf = useBookName();
@@ -131,6 +134,7 @@ export function PlaceChooser({
     <PlacePanel
       book={known ? book : ""}
       chapter={chapter}
+      scheme={scheme}
       offerOnChapters={isMobile}
       startStep={start.step}
       focusFilter={start.typing || (!isMobile && !returnTo.current)}
@@ -191,6 +195,7 @@ export function PlaceChooser({
 function PlacePanel({
   book,
   chapter,
+  scheme,
   offerOnChapters,
   startStep,
   focusFilter,
@@ -198,6 +203,7 @@ function PlacePanel({
 }: {
   book: string;
   chapter: number;
+  scheme: Scheme;
   /** Phones open on the chapters: Recent sits above them too (#142). */
   offerOnChapters: boolean;
   startStep: Step;
@@ -248,7 +254,7 @@ function PlacePanel({
   }
 
   function pickBook(id: string) {
-    if ((getBook(id)?.chapters ?? 1) === 1) {
+    if (chapterCount(id, scheme) <= 1) {
       onDone();
       void navigate(`/read/${id}/1`);
       return;
@@ -337,7 +343,7 @@ function PlacePanel({
     : step === "books" && activeId && query
       ? nameOf(activeId)
       : null;
-  const count = getBook(stepBook)?.chapters ?? 1;
+  const count = chapterCount(stepBook, scheme) || 1;
 
   return (
     <div role="presentation" data-place-step={step} onKeyDown={onPanelKey} className="flex min-h-0 flex-1 flex-col">

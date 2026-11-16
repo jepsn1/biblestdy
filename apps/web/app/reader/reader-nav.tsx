@@ -11,6 +11,7 @@ import { AccountChip } from "./account-settings";
 import { PANEL_TOGGLE } from "./connections-panel";
 import { MoreSheet } from "./more-sheet";
 import { PaletteTrigger } from "../palette/palette-trigger";
+import { schemeOf } from "./chapter-nav";
 import { PlaceChooser } from "./place-chooser";
 import { TranslationChooser } from "./translation-chooser";
 
@@ -76,7 +77,13 @@ export function ReaderNav({
         {/* The address — "Salmerne 23 ⌄" — and the one pointer route to any
             book and chapter (persona panel 2026-11-15). The name gives way
             first when the row is short; the chapter number never. */}
-        <PlaceChooser book={book} chapter={chapter} chapterTo={chapterTo} stripShown={chapterInStrip} />
+        <PlaceChooser
+          book={book}
+          chapter={chapter}
+          chapterTo={chapterTo}
+          stripShown={chapterInStrip}
+          scheme={schemeOf(translations.find((tr) => tr.id === translationId)?.abbreviation)}
+        />
 
         {/* The edition, part of the citation ("Salmerne 23 · BPH"): right
             after the address, quieter than it, a clear gap between (#11) */}

@@ -1,4 +1,4 @@
-import { BOOKS, bookIndex, type Reference, type VerseRange } from "@biblestdy/shared";
+import { BOOKS, bookIndex, chapterCount, translationInfo, type Reference, type Scheme, type VerseRange } from "@biblestdy/shared";
 
 // Moved to @biblestdy/shared (#158) so the reader and notes share one resolver
 export { targetVerses, type VerseRange } from "@biblestdy/shared";
@@ -14,17 +14,24 @@ export { targetVerses, type VerseRange } from "@biblestdy/shared";
 
 export type ChapterRef = { book: string; chapter: number };
 
+/** How a translation numbers chapters and verses (#174): BPH the
+ * original-language way (Joel 4, Malachi 3), the rest the English way. */
+export function schemeOf(abbreviation: string | undefined): Scheme {
+  return (abbreviation && translationInfo(abbreviation)?.versification) || "eng";
+}
+
 /** The chapter before/after, continuing into the neighbouring book; null at
- * Genesis 1 / Revelation 22 (or for an unknown book). */
-export function adjacentChapter(ref: ChapterRef, dir: -1 | 1): ChapterRef | null {
+ * Genesis 1 / Revelation 22 (or for an unknown book). Chapter counts follow
+ * the translation's scheme (BPH: Joel 3 → Joel 4, Malachi 3 → Matthew 1). */
+export function adjacentChapter(ref: ChapterRef, dir: -1 | 1, scheme: Scheme = "eng"): ChapterRef | null {
   const i = bookIndex(ref.book);
   if (i < 0) return null;
   const book = BOOKS[i];
   const next = ref.chapter + dir;
-  if (next >= 1 && next <= book.chapters) return { book: book.id, chapter: next };
+  if (next >= 1 && next <= chapterCount(book.id, scheme)) return { book: book.id, chapter: next };
   const neighbour = BOOKS[i + dir];
   if (!neighbour) return null;
-  return { book: neighbour.id, chapter: dir === 1 ? 1 : neighbour.chapters };
+  return { book: neighbour.id, chapter: dir === 1 ? 1 : chapterCount(neighbour.id, scheme) };
 }
 
 /** Wanted page from `?p=`: "last", a 0-based index, or 0 when absent/bad. */

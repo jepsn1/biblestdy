@@ -20,6 +20,7 @@ import {
   parsePageParam,
   parseVerseParam,
   resolvePage,
+  schemeOf,
   targetVerses,
   type VerseRange,
   type WantedPage,
@@ -176,6 +177,8 @@ export function PaginatedChapter({
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const nameOf = useBookName();
+  /** This translation's chapter counts (BPH: Joel 4, Malachi 3). */
+  const scheme = schemeOf(translation.abbreviation);
   useFumsView(chapter);
   /** Chapter–verse separator in the UI language: "3:16" / "3,16". */
   const sep = bookLocale(i18n.language) === "da" ? "," : ":";
@@ -356,7 +359,7 @@ export function PaginatedChapter({
   const sectionRefs = [section0, section1, section2];
   const chain: (ChapterRef | null)[] = [];
   for (let i = 0; i < MAX_RUN_ON; i++) {
-    const ref = i === 0 ? (scrollMode ? null : nextChapter) : chain[i - 1] && adjacentChapter(chain[i - 1]!, 1);
+    const ref = i === 0 ? (scrollMode ? null : nextChapter) : chain[i - 1] && adjacentChapter(chain[i - 1]!, 1, scheme);
     chain.push(ref?.book === chapter.book ? ref : null);
   }
   const [runOns, setRunOns] = useState<(RunOn | null)[]>(() => Array(MAX_RUN_ON).fill(null));
@@ -393,12 +396,12 @@ export function PaginatedChapter({
       onwardState = { flowFrom: runOn.nextFrom };
       break;
     }
-    onward = adjacentChapter(ref, 1);
+    onward = adjacentChapter(ref, 1, scheme);
     onwardState = null;
   }
   // Near the end, read ahead what runs on to the next chapter's last page
   // (a short psalm is all last page): ready before the reader gets there
-  const onwardAfter = onward && adjacentChapter(onward, 1);
+  const onwardAfter = onward && adjacentChapter(onward, 1, scheme);
   const lookAhead = nearEnd && onward ? [onward, onwardAfter?.book === onward.book ? onwardAfter : null] : [];
   const lookAheadKey = lookAhead.map((r) => r && `${r.book}.${r.chapter}`).join();
   useEffect(() => {
@@ -815,7 +818,7 @@ export function PaginatedChapter({
     const seq = ++turnSeq.current;
     // Going on: the chapter after the target runs on to its last page (#flow)
     // — a short one (a psalm) is all last page, so read it ahead now
-    const after = dir === "next" && !scrollMode ? adjacentChapter(target, 1) : null;
+    const after = dir === "next" && !scrollMode ? adjacentChapter(target, 1, scheme) : null;
     const runsOnTo = after?.book === target.book ? after : null;
     prefetchNeighbours(chapter.translationId, [runsOnTo], { needed: true });
     // Normally read ahead already; else fetched now, while the page stays live
@@ -1193,9 +1196,13 @@ export function PaginatedChapter({
           ? pv
           : { first, last },
     );
-    // A page the reader chose (not our own reflow correction) sets the place
-    if (first !== null && (readingVerse.current === null || (!reflow && !restoring.current && page !== placePage.current)))
-      readingVerse.current = first;
+    // A page the reader chose (not our own reflow correction) sets the place:
+    // its first verse, or the verse jumped to (?v=) while it is on this page,
+    // so switching translation again goes from there (#174: Mal 3,19 → 4:1)
+    if (first !== null && (readingVerse.current === null || (!reflow && !restoring.current && page !== placePage.current))) {
+      const jumped = wantedVerse.current;
+      readingVerse.current = jumped !== null && last !== null && jumped >= first && jumped <= last ? jumped : first;
+    }
     placePage.current = page;
     restoring.current = false;
     if (placeRef) placeRef.current = readingVerse.current;
@@ -1446,6 +1453,7 @@ export function PaginatedChapter({
                       book={chapter.book}
                       chapter={chapter.chapter}
                       spreadEnd={spreadEnd}
+                      scheme={scheme}
                       className="-ml-2 mb-[calc(var(--spacing-sheet-air)/2)] shrink-0"
                     />
                   )}

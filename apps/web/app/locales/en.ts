@@ -517,6 +517,10 @@ export default {
     selected: "Selected",
     switched: "Now reading {{name}}. Your highlights and margin notes in {{prev}} are kept.",
     back: "Back to {{abbr}}",
+    renumbered: "Verse numbers differ here: {{from}} in {{prev}} is {{to}}.",
+    psalmTitle: "The psalm title has no verse number in {{abbr}}, so you\u2019re at verse 1.",
+    nearest: "{{abbr}} has no {{ref}}, so you\u2019re at the nearest verse.",
+    switchFailed: "Couldn\u2019t switch to {{abbr}}. Check your connection and try again.",
   },
   palette: {
     open: "Search or go to…",
