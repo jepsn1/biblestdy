@@ -225,6 +225,8 @@ const da: typeof en = {
     showInText: "Vis i teksten",
     insertInText: "Indsæt i teksten",
     shownInText: "{{ref}} er valgt i teksten",
+    /** Phone (#195): the note drawer, folded down while its reference is shown in the text */
+    backToNote: "Tilbage til noten",
     showText: "Vis tekst",
     notInShort: "Findes ikke i {{abbr}}",
     removeReference: "Fjern dette bibelvers",

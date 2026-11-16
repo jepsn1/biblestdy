@@ -33,6 +33,7 @@ import {
 import type { NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
+import { isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
 import { compareDialog } from "./compare-loader";
@@ -314,6 +315,10 @@ export function ChapterText({
 
   /** Desktop drag: start word, last word reached (pointer events can outrun renders), touch origin. */
   const dragSel = useRef<{ start: WordPos; last: WordPos; moved: boolean; x: number; y: number } | null>(null);
+  /** The pointer press under way (#195): a touch counts as a tap on the
+   * words only when it passes the tap rule (tap-rule.ts). */
+  const press = useRef<(Press & { mouse: boolean }) | null>(null);
+  useEffect(() => watchScroll(), []);
 
   /** Where focus was when a menu opened (inside the text, e.g. #65's verse
    * focus) — a keyboard close returns there, else to the text itself. */
@@ -714,6 +719,7 @@ export function ChapterText({
    * possible) — a mouse drag paints the same word-snapped wash the phone
    * handles do, and the release opens the menu. */
   function onPointerDown(event: React.PointerEvent) {
+    press.current = { ...startPress(event.clientX, event.clientY, event.timeStamp, lastScroll()), mouse: event.pointerType === "mouse" };
     if (mobile || event.button !== 0) return;
     const pos = wordPosOf(event.target);
     if (!pos) return;
@@ -724,6 +730,7 @@ export function ChapterText({
   }
 
   function onPointerMove(event: React.PointerEvent) {
+    if (press.current) press.current = { ...press.current, ...movePress(press.current, event.clientX, event.clientY) };
     const drag = dragSel.current;
     if (!drag || event.buttons !== 1) return;
     const pos = wordPosOf(event.target);
@@ -741,9 +748,10 @@ export function ChapterText({
     setTouchSel({ a: drag.start, b: pos });
   }
 
-  /** Release: a drag opens the selection menu; a press without drag (or a
-   * phone tap) is a click on the word. Pointer events, not click: the words
-   * are not controls — keyboard selection is #65's verse focus. */
+  /** Release: a drag opens the selection menu; a mouse press without drag
+   * is a click on the word. Pointer events, not click, for the mouse: the
+   * words are not controls — keyboard selection is #65's verse focus.
+   * Touch and pen wait for the click instead (onTap, #195). */
   function onPointerUp(event: React.PointerEvent) {
     const drag = dragSel.current;
     dragSel.current = null;
@@ -759,12 +767,25 @@ export function ChapterText({
       return;
     }
     if (drag && !menuRef.current) setTouchSel(null); // press without drag = a click
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.pointerType !== "mouse") return;
     const pos = wordPosOf(event.target);
     if (pos) onWordClick(event, pos);
   }
 
-  function onWordClick(event: React.PointerEvent, pos: WordPos) {
+  /** A touch on the words (#195): only a deliberate tap acts. The browser
+   * fires no click for a scroll, a swipe or the touch that stops a fling
+   * (pointerup does fire for that one — it used to open notes mid-scroll);
+   * the tap rule turns away slow drags and holds it still lets through. */
+  function onTap(event: React.MouseEvent) {
+    const p = press.current;
+    press.current = null;
+    if (p?.mouse || event.button !== 0) return; // the mouse acts on pointerup
+    if (p && !isTap(p, event.clientX, event.clientY, event.timeStamp)) return;
+    const pos = wordPosOf(event.target);
+    if (pos) onWordClick(event, pos);
+  }
+
+  function onWordClick(event: React.MouseEvent, pos: WordPos) {
     const markId = annotationCoverage.get(`${pos.verse}:${pos.word}`)?.id;
     const hit = hlCoverage.get(`${pos.verse}:${pos.word}`);
     if (activeTool) {
@@ -915,6 +936,9 @@ export function ChapterText({
   );
 
   return (
+    // The click is a touch tap on the words (onTap, #195) — not a control:
+    // the keyboard has #65's verse focus
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={rootRef}
       // Counted by the print limit (lib/print-limit)
@@ -922,7 +946,9 @@ export function ChapterText({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onClick={onTap}
       onPointerCancel={() => {
+        press.current = null;
         // The browser took the pointer (pan, palm): no half-made selection left behind
         if (!dragSel.current) return;
         dragSel.current = null;
