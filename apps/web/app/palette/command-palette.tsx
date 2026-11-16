@@ -40,6 +40,7 @@ import { INSERT_VERSE, openCompare, OPEN_SHORTCUTS, useNoteEditorOpen, type Comp
 import { referenceLabel } from "~/lib/reference-label";
 // Its Compare rows' words (shared with the Compare chunk, #167)
 import "../locales/compare";
+import { showToursAgain } from "../notes/tour-replay";
 import { HIGHLIGHT_SWATCH } from "../reader/highlight-colors";
 import { OPEN_TRANSLATIONS, translationTitle } from "../reader/translation-chooser";
 import { openPlace } from "../reader/place-chooser";
@@ -222,6 +223,13 @@ function useActions(r: ReaderActions) {
       opensDialog: true,
       run: () => window.dispatchEvent(new Event(INSERT_VERSE)),
     }] : []),
+    // The notes tours again (#162) — in an open note it starts at once
+    {
+      id: "replay-tour",
+      label: t("tour.replay"),
+      keywords: [...both("tour.replay"), ...both("tour.replayKeywords")],
+      run: showToursAgain,
+    },
   ];
   return actions;
 }

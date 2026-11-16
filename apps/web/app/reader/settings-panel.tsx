@@ -31,6 +31,7 @@ import { api } from "~/lib/query";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { SingleKeysSwitch } from "./shortcuts-dialog";
 import { SupportLinks } from "./support-links";
+import { showToursAgain } from "../notes/tour-replay";
 
 /*
  * The settings surface's rows and its two confirms (account-settings.tsx
@@ -114,6 +115,7 @@ export function SettingsContent({
   onDelete,
   onColorNames,
   onShortcuts,
+  onReplayTour,
 }: {
   email: string;
   onSignOut: () => void;
@@ -121,6 +123,8 @@ export function SettingsContent({
   onColorNames: () => void;
   /** Keyboard users only (desktop): opens the shortcuts list. */
   onShortcuts?: () => void;
+  /** Before the notes tours start again (#162): the settings close. */
+  onReplayTour: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const ids = useId();
@@ -234,6 +238,14 @@ export function SettingsContent({
           )}
         </Button>
       )}
+
+      {/* The notes tours (#162): note + Notes page, from the start */}
+      <Button variant="ghost" className="h-10 justify-start px-0 hover:bg-transparent hover:underline max-sm:h-12" onClick={() => {
+          onReplayTour();
+          showToursAgain();
+        }}>
+        {t("tour.replay")}
+      </Button>
 
       {/* WCAG 2.1.4 (#145): every device — an iPad with a keyboard fires them too */}
       <SingleKeysSwitch />

@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Note, NoteAnchor, Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ListSkeleton } from "~/components/list-skeleton";
 import { Button, buttonVariants } from "~/components/ui/button";
@@ -26,6 +26,7 @@ import { readingHref, readingPlace } from "../reader/chapter-nav";
 import { NotePanel } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
+import { NotesTourHost } from "../notes/tour-host";
 import type { Route } from "./+types/notes";
 
 // App route: zoom locked (#61) — the in-app Text size setting enlarges text
@@ -79,6 +80,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const searchId = useId();
   const listHeadingId = useId();
   const sortId = useId();
+  const tourRoot = useCallback(() => document.querySelector<HTMLElement>("main"), []);
 
   const filtered = filterNotes(notes, { query, topic, sort, bookName: nameOf, locale });
   // The order freezes per view (open note, filter, sort): editing a note
@@ -154,7 +156,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         {t("notes.listLabel")}
       </h2>
       <div className="flex shrink-0 flex-col gap-2 border-b border-border p-3">
-        <div className="relative">
+        <div className="relative" data-tour="notes-search">
           <label htmlFor={searchId} className="sr-only">
             {t("notes.search")}
           </label>
@@ -195,6 +197,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
               localStorage.setItem(SORT_KEY, picked);
             }}
             aria-labelledby={sortId}
+            data-tour="notes-sort"
             spacing={1}
             className="rounded-lg bg-muted p-0.5"
           >
@@ -328,6 +331,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         ) : (
           <Link
             to={back}
+            data-tour="notes-mark"
             // Phones: the arrow + place say it ("Tilbage til" would push the
             // place off the row); the name stays whole
             aria-label={backRef ? t("notes.backToPlace", { ref: backRef }) : undefined}
@@ -350,7 +354,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           {t("notes.title")}
         </h1>
         {params.id && mobile && <span className="flex-1" />}
-        <Button size="sm" className="max-md:h-10" onClick={() => void newNote()}>
+        <Button size="sm" className="max-md:h-10" data-tour="notes-new" onClick={() => void newNote()}>
           <Plus aria-hidden />
           {t("notes.new")}
         </Button>
@@ -359,6 +363,8 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         {listPane}
         {editorPane}
       </div>
+      {/* First visit (#162): search, sort, new note — while no note is open */}
+      <NotesTourHost root={tourRoot} enabled={loaded && !params.id} />
     </main>
   );
 }

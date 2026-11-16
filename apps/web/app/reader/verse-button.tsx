@@ -94,6 +94,7 @@ export function VerseButton() {
             one control here with a word, found by Tab from the note */}
         <button
           type="button"
+          data-tour="note-verse"
           // Before the click moves focus: the caret as it stood
           onPointerDown={() => editor && (saved.current = saveSelection(editor))}
           onClick={() => {
