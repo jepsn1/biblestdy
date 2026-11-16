@@ -15,6 +15,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
 import { Popover, PopoverContent } from "~/components/ui/popover";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { useColorName } from "~/lib/highlight-labels";
 import { useLiveShortcut } from "~/lib/shortcuts";
 import { cn, focusRing } from "~/lib/utils";
@@ -100,9 +101,13 @@ export function ActionMenu({
         >
           <DrawerContent {...{ [SELECTION_UI_ATTR]: "" }} finalFocus={false}>
             <DrawerTitle className="sr-only">{label}</DrawerTitle>
-            <div className="flex flex-col px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
-              {children}
-            </div>
+            {/* Large text can outgrow the drawer: it scrolls, and a fade at
+                the bottom says there's more below */}
+            <ScrollArea className={OVERFLOW_FADE} viewportClassName="max-h-[calc(100dvh-7rem)]">
+              <div className="flex flex-col px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+                {children}
+              </div>
+            </ScrollArea>
           </DrawerContent>
         </Drawer>
       </MenuCtx.Provider>
@@ -134,6 +139,11 @@ export function ActionMenu({
     </MenuCtx.Provider>
   );
 }
+
+/** A bottom fade while a scroll area has more below (Base UI sets
+ * data-overflow-y-end until it's scrolled to the end). */
+const OVERFLOW_FADE =
+  "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-10 after:h-10 after:bg-linear-to-t after:from-popover after:to-transparent after:opacity-0 after:transition-opacity data-overflow-y-end:after:opacity-100 motion-reduce:after:transition-none";
 
 const mobileItem =
   "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-phone hover:bg-accent [&_svg]:size-5 [&_svg]:shrink-0";

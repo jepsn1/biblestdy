@@ -6,7 +6,7 @@ import {
   HIGHLIGHT_COLORS,
   words,
 } from "@biblestdy/shared";
-import { Copy, Eraser, FileText, Link2, PenLine, X } from "lucide-react";
+import { BookCopy, Copy, Eraser, FileText, Link2, PenLine, X } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
@@ -35,6 +35,9 @@ import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
+import { compareDialog } from "./compare-loader";
+import { noteCompareFocus, noteCompareSelection } from "./compare-target";
+import { openCompare } from "./dialog-events";
 import { layoutChapter, openingLabel, sliceBlocks, type VerseSpan, type WordPiece } from "./chapter-layout";
 import {
   extendByVerse,
@@ -62,6 +65,9 @@ type MenuState =
   | { kind: "mark"; annotation: Annotation; at: WordPos }
   /** Picking an existing note to anchor to the selection too. */
   | { kind: "attach"; anchor: Anchor }
+  /** Compare translations is open for it (#167): no menu, but the
+   * selection stays — every close of the dialog comes back to it. */
+  | { kind: "compare"; anchor: Anchor }
   | null;
 
 // Marked spans carry no inline decoration — AnnotationMarks draws a hand-drawn
@@ -189,8 +195,11 @@ export function ChapterText({
   const rootRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   // The menu offers Create note: have the editor chunk on its way (M8)
+  // …and Compare translations (#167)
   useEffect(() => {
-    if (menu) noteEditor.preload();
+    if (!menu) return;
+    noteEditor.preload();
+    compareDialog.preload();
   }, [menu]);
   // Tap-selection (mobile): a = the end fixed at tap, b = the dragged end.
   // Either handle may drag either end; buildAnchor normalizes the order.
@@ -238,6 +247,12 @@ export function ChapterText({
     [touchSel, chapter.translationId, chapter.book, chapter.chapter],
   );
   useEffect(() => onSelectionChange(selAnchor), [selAnchor, onSelectionChange]);
+  // What the palette's / translation sheet's Compare acts on (#167)
+  const compareKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
+  useEffect(() => {
+    noteCompareSelection(compareKey, selAnchor);
+    return () => noteCompareSelection(compareKey, null);
+  }, [compareKey, selAnchor]);
 
   // Keyboard study (#65): verse cursor + word-snapped selection (touchSel)
   const spanFrom = span?.from ?? null;
@@ -259,6 +274,16 @@ export function ChapterText({
   /** Verse whose number has keyboard focus (focus-visible): its words get a
    * quiet underline, so it is clear what h/n/m/c act on. */
   const [focusedVerse, setFocusedVerse] = useState<number | null>(null);
+  useEffect(() => {
+    if (focusedVerse === null || !verseIdx.words.has(focusedVerse)) {
+      noteCompareFocus(compareKey, null);
+      return;
+    }
+    const sel = verseSel(verseIdx, focusedVerse);
+    noteCompareFocus(compareKey, buildAnchor(passage, sel.a, sel.b));
+    return () => noteCompareFocus(compareKey, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- passage is derived from chapter
+  }, [compareKey, focusedVerse, verseIdx]);
 
   // Handle positions, measured from the boundary words (fixed/viewport coords
   // — getBoundingClientRect sees through the sheet's scale transform)
@@ -302,7 +327,7 @@ export function ChapterText({
    * here: the menu's own close then hands over instead of clearing. */
   const nextMenu = useRef<MenuState>(null);
   useEffect(() => {
-    if (menu?.kind === "compose" || menu?.kind === "attach") nextMenu.current = null;
+    if (menu?.kind === "compose" || menu?.kind === "attach" || menu?.kind === "compare") nextMenu.current = null;
   }, [menu]);
 
   /** Menu gone → its selection goes too (unless a new drag already started). */
@@ -379,7 +404,23 @@ export function ChapterText({
     setMenu({ kind: "selection", anchor });
   }
 
-  /** h / n / m / c on an anchor — from a focused verse or its open menu. */
+  /** Compare translations for an anchor (#167): the dialog opens, the
+   * selection (if any) stays, and every close brings focus back to its
+   * first verse — the menu that opened it is gone by then. */
+  function startCompare(anchor: Anchor) {
+    const compare = { kind: "compare" as const, anchor };
+    nextMenu.current = compare; // the menu's own close hands over
+    setMenu(compare);
+    openCompare({
+      anchor,
+      returnTo: () => {
+        setMenu((m) => (m?.kind === "compare" ? null : m));
+        requestAnimationFrame(() => focusVerse(anchor.startVerse));
+      },
+    });
+  }
+
+  /** h / n / m / c / p on an anchor — from a focused verse or its open menu. */
   function keyAction(key: string, anchor: Anchor, highlight: Highlight | null): boolean {
     if (key === "h" && !highlight) {
       const exists = highlights.some(
@@ -400,6 +441,7 @@ export function ChapterText({
       setTouchSel((sel) => sel ?? { a: { verse: anchor.startVerse, word: anchor.startWord }, b: { verse: anchor.endVerse, word: anchor.endWord } });
       return true;
     } else if (key === "c") void copyAnchorText(anchor);
+    else if (key === "p") startCompare(anchor);
     else return false;
     return true;
   }
@@ -414,6 +456,7 @@ export function ChapterText({
       if (e.shiftKey || singleKeyOff(e)) return; // off (#145): the menu's own typeahead
       const anchor = m.kind === "highlight" ? m.highlight : m.anchor;
       const willCompose = e.key === "m" && m.kind === "selection";
+      // p hands the menu over to the dialog (its close keeps the selection)
       if (keyAction(e.key, anchor, m.kind === "highlight" ? m.highlight : null)) {
         e.preventDefault();
         e.stopPropagation(); // no typeahead in the menu
@@ -463,7 +506,7 @@ export function ChapterText({
       default:
         if (e.shiftKey || singleKeyOff(e)) return;
         if (keyAction(e.key, keyTarget(cursor), null)) {
-          if (e.key !== "m") setTouchSel(null);
+          if (e.key !== "m" && e.key !== "p") setTouchSel(null);
           handled();
         }
     }
@@ -853,6 +896,20 @@ export function ChapterText({
     </span>
   );
 
+  /** Copy + Compare translations: one group, Compare right after Copy
+   * (#167). On phones it sits right after the colours, so it shows without
+   * scrolling at 150% text. */
+  const copyGroup = (anchor: Anchor, icons = true) => (
+    <>
+      <ActionMenuItem hint={t("menu.copyHint")} icon={icons ? <Copy aria-hidden /> : undefined} shortcut="c" onSelect={() => void copyAnchorText(anchor)}>
+        {t("menu.copy")}
+      </ActionMenuItem>
+      <ActionMenuItem hint={t("menu.compareHint")} icon={icons ? <BookCopy aria-hidden /> : undefined} shortcut="p" onSelect={() => startCompare(anchor)}>
+        {t("menu.compare")}
+      </ActionMenuItem>
+    </>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -1188,6 +1245,12 @@ export function ChapterText({
               onPick={(color) => addHighlight(menu.anchor, color)}
             />
             <ActionMenuSeparator />
+            {mobile && (
+              <>
+                {copyGroup(menu.anchor)}
+                <ActionMenuSeparator />
+              </>
+            )}
             <ActionMenuItem
               hint={t("menu.annotateHint")}
               icon={<PenLine aria-hidden />}
@@ -1220,10 +1283,12 @@ export function ChapterText({
                 {t("menu.noteLink")}
               </ActionMenuItem>
             )}
-            <ActionMenuSeparator />
-            <ActionMenuItem hint={t("menu.copyHint")} icon={<Copy aria-hidden />} shortcut="c" onSelect={() => void copyAnchorText(menu.anchor)}>
-              {t("menu.copy")}
-            </ActionMenuItem>
+            {!mobile && (
+              <>
+                <ActionMenuSeparator />
+                {copyGroup(menu.anchor)}
+              </>
+            )}
           </>
         )}
         {menu?.kind === "mark" && (
@@ -1245,9 +1310,7 @@ export function ChapterText({
             >
               {t("marks.addText")}
             </ActionMenuItem>
-            <ActionMenuItem hint={t("menu.copyHint")} icon={<Copy aria-hidden />} shortcut="c" onSelect={() => void copyAnchorText(menu.annotation)}>
-              {t("menu.copy")}
-            </ActionMenuItem>
+            {copyGroup(menu.annotation)}
             <ActionMenuSeparator />
             <ActionMenuItem destructive icon={<Eraser aria-hidden />} onSelect={() => onRemoveAnnotation(menu.annotation.id)}>
               {t("marks.remove")}
@@ -1264,12 +1327,16 @@ export function ChapterText({
               }}
             />
             <ActionMenuSeparator />
+            {mobile && (
+              <>
+                {copyGroup(menu.highlight, false)}
+                <ActionMenuSeparator />
+              </>
+            )}
             <ActionMenuItem hint={t("menu.createNoteHint")} shortcut="n" onSelect={() => onAddNote(menu.highlight)}>
               {t("menu.addNote")}
             </ActionMenuItem>
-            <ActionMenuItem hint={t("menu.copyHint")} shortcut="c" onSelect={() => void copyAnchorText(menu.highlight)}>
-              {t("menu.copy")}
-            </ActionMenuItem>
+            {!mobile && copyGroup(menu.highlight, false)}
             <ActionMenuSeparator />
             <ActionMenuItem destructive onSelect={() => onRemoveHighlight(menu.highlight.id)}>
               {t("menu.removeHighlight")}

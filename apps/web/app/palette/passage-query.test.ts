@@ -1,6 +1,6 @@
 import { formatReference, type BookLocale } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
-import { bookQuery, findPassages, reversedBook, typoBooks } from "./passage-query";
+import { bookQuery, compareQuery, findPassages, reversedBook, typoBooks } from "./passage-query";
 
 /** Hits as "John 3:16" strings (English names, `:`), best first. */
 const refs = (input: string, locale: BookLocale = "en") => findPassages(input, locale).map((h) => formatReference(h.ref));
@@ -239,5 +239,19 @@ describe("book helpers", () => {
     const t = performance.now();
     for (let i = 0; i < 200; i++) findPassages("phillipians 4:13", "en");
     expect((performance.now() - t) / 200).toBeLessThan(5);
+  });
+});
+
+describe("compareQuery (#167)", () => {
+  it("takes the passage after compare / sammenlign", () => {
+    expect(compareQuery("compare rom 8:28")).toBe("rom 8:28");
+    expect(compareQuery("Sammenlign joh 3,16")).toBe("joh 3,16");
+    expect(compareQuery("  COMPARE   ps 51 ")).toBe("ps 51");
+  });
+  it("no prefix, or nothing after it yet: null", () => {
+    expect(compareQuery("rom 8:28")).toBeNull();
+    expect(compareQuery("compare")).toBeNull();
+    expect(compareQuery("compare ")).toBeNull();
+    expect(compareQuery("comparers 3")).toBeNull();
   });
 });
