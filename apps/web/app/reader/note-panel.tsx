@@ -32,7 +32,7 @@ import { VERSE_FOCUS } from "./keyboard-selection";
 import { LoadError } from "./marks-load-error";
 import { useNoteTags } from "./use-tags";
 import { lazyModule, preloadWhenIdle, useLazyModule } from "~/lib/lazy-module";
-import { NoteTourHost } from "../notes/tour-host";
+import { NoteTourHost, type TourKit } from "../notes/tour-host";
 
 /** "+ Verse"'s dialog/drawer: its own chunk, fetched when idle. */
 const versePicker = lazyModule(() => import("./verse-picker"));
@@ -51,6 +51,8 @@ function ReferencesOverview(props: ReferencesOverviewProps) {
 
 /** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
 const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker };
+/** What the notes tours' chunk borrows from here (tour-host.tsx). */
+export const TOUR_KIT: TourKit = { Popover, PopoverContent, Button };
 
 /** Marks a control that opens a note (margin chip, phone marker): the side
  * panel takes focus from it and hands it back on close (#63). */
@@ -659,7 +661,7 @@ export function NotePanel({
       })()}
 
       {/* The note tour (#162): its code arrives only when it will show */}
-      <NoteTourHost root={tourRoot} body={liveBody} />
+      <NoteTourHost root={tourRoot} body={liveBody} kit={TOUR_KIT} />
 
       {picking && (
         <VersePicker

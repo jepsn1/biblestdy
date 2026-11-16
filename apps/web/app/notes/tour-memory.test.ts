@@ -1,16 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  afterTyping,
-  claimTour,
-  readTour,
-  releaseTour,
-  replayTours,
-  REPLAY_TOURS,
-  skipAllTours,
-  tourDue,
-  tourHostMounted,
-  writeTour,
-} from "./tour-state";
+import { afterTyping, claimTour, releaseTour, replayTours, skipAllTours, writeTour } from "./tour-memory";
+import { readTour, REPLAY_TOURS, tourDue, type ReplayDetail } from "./tour-state";
 
 function memoryStorage() {
   const m = new Map<string, string>();
@@ -56,9 +46,11 @@ describe("tour memory (per device)", () => {
     expect(replayTours()).toBe(false);
     expect(heard).toHaveBeenCalledOnce();
     expect(tourDue("note") && tourDue("notes")).toBe(true);
-    const unmount = tourHostMounted();
+    // An open note takes it
+    const take = (e: Event) => ((e as CustomEvent<ReplayDetail>).detail.taken = true);
+    window.addEventListener(REPLAY_TOURS, take);
     expect(replayTours()).toBe(true);
-    unmount();
+    window.removeEventListener(REPLAY_TOURS, take);
     expect(replayTours()).toBe(false);
   });
 

@@ -23,7 +23,7 @@ import { zoomLockHandle } from "~/lib/viewport";
 import { filterNotes, keepOrder, noteRefLabels, noteTitle, referenceLabel, type NoteSort } from "../notes/note-list";
 import { readHref } from "../notes/verse-resolver";
 import { readingHref, readingPlace } from "../reader/chapter-nav";
-import { NotePanel } from "../reader/note-panel";
+import { NotePanel, TOUR_KIT } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
 import { NotesTourHost } from "../notes/tour-host";
@@ -364,7 +364,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         {editorPane}
       </div>
       {/* First visit (#162): search, sort, new note — while no note is open */}
-      <NotesTourHost root={tourRoot} enabled={loaded && !params.id} />
+      <NotesTourHost root={tourRoot} enabled={loaded && !params.id} kit={TOUR_KIT} />
     </main>
   );
 }

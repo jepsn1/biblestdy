@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import i18n from "~/lib/i18n";
 import "../locales/tour";
-import { replayTours } from "./tour-state";
+import { replayTours } from "./tour-memory";
 
 /** Settings' and the palette's "Show the tour again" (#162): both tours
  * from the start — at once in an open note or on the Notes page, else a

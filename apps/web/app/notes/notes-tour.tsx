@@ -1,13 +1,12 @@
-import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { scriptureLinks } from "@biblestdy/shared";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Button } from "~/components/ui/button";
-import { Popover, PopoverContent } from "~/components/ui/popover";
 import { cn, focusRing } from "~/lib/utils";
 import "../locales/tour";
-import { afterTyping, claimTour, readTour, releaseTour, skipAllTours, tourDue, writeTour, type TourId } from "./tour-state";
+import { afterTyping, claimTour, releaseTour, skipAllTours, writeTour } from "./tour-memory";
+import { readTour, tourDue, type TourId } from "./tour-state";
+import type { TourKit } from "./tour-host";
 import { insertedSince, isTypingKey, nextPlace, TOUR_STEPS, type TourPlace, type TourStep } from "./tour-steps";
 
 /**
@@ -96,6 +95,8 @@ type TourProps = {
   replay?: boolean;
   /** The tour is over (done, skipped, closed, snoozed, or nothing to show). */
   onEnd: () => void;
+  /** The page's Popover and Button (tour-host.tsx: TourKit). */
+  kit: TourKit;
 };
 
 /** First note opened: write here → "+ Verse" → the verses overview. */
@@ -108,8 +109,9 @@ export function NotesPageTour(props: TourProps) {
   return <Tour id="notes" {...props} />;
 }
 
-function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: TourId; body?: string }) {
+function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & { id: TourId; body?: string }) {
   const { t } = useTranslation();
+  const { Popover, PopoverContent, Button } = kit;
   const steps = TOUR_STEPS[id];
   /** The note tour leaves focus where the writer has it. */
   const keepFocus = id === "note";
@@ -120,6 +122,7 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
   const textId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
+  const arrowRef = useRef<HTMLSpanElement>(null);
   const ended = useRef(false);
   const lastKey = useRef(0);
   /** Where Tab came to the card from (and its caret). */
@@ -171,9 +174,9 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
   }
 
   // The latest of everything, for the listeners and the clock below
-  const live = useRef({ place, hidden, step, end, next, find, visible, foreignPopup });
+  const live = useRef({ place, hidden, step, end, next, find, visible, foreignPopup, placeArrow: () => {} });
   useEffect(() => {
-    live.current = { place, hidden, step, end, next, find, visible, foreignPopup };
+    live.current = { place, hidden, step, end, next, find, visible, foreignPopup, placeArrow };
   });
 
   // The clock: start when the page has settled and nobody's typing; then
@@ -205,6 +208,7 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
       }
       const el = l.find(l.step);
       setHidden(l.foreignPopup() || keyboardUp() || !el || !shown(el) || !visibleRect(el));
+      l.placeArrow();
     };
     const timer = window.setInterval(tick, 200);
     return () => window.clearInterval(timer);
@@ -334,6 +338,29 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place?.index]);
 
+  // The arrow points at the middle of the target's visible part (kept
+  // inside the card's corners); the clock below keeps it there
+  function placeArrow() {
+    const arrow = arrowRef.current;
+    const card = cardRef.current;
+    const el = find(step);
+    if (!arrow || !card || !el) return;
+    const c = card.getBoundingClientRect();
+    const r = visibleRect(el) ?? el.getBoundingClientRect();
+    const x = Math.min(Math.max(r.left + r.width / 2 - c.left, 16), c.width - 16);
+    arrow.style.left = `${Math.round(x - 8)}px`;
+  }
+  // Just placed: follow the card for a few frames while it settles
+  useEffect(() => {
+    if (!place || hidden) return;
+    let frames = 0;
+    let raf = requestAnimationFrame(function follow() {
+      live.current.placeArrow();
+      if (++frames < 20) raf = requestAnimationFrame(follow);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [place, hidden]);
+
   /** The card is a little loop: Tab past its ends goes back to the page. */
   function onCardKey(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "Tab") return;
@@ -378,17 +405,22 @@ function Tour({ id, root, body = "", replay = false, onEnd }: TourProps & { id: 
             data-tour-card=""
             onKeyDown={onCardKey}
             className={cn(
-              "w-auto max-w-[18rem] gap-2.5 px-3.5 py-3",
+              "group/tour w-auto max-w-[18rem] gap-2.5 px-3.5 py-3",
               // At most a 120ms fade; still under reduced motion
               "animate-none! transition-opacity duration-[120ms] data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none",
             )}
           >
-            <PopoverPrimitive.Arrow className="data-[side=bottom]:-top-[7px] data-[side=top]:-bottom-[7px] data-[side=top]:rotate-180">
-              <svg width="16" height="8" viewBox="0 0 16 8" aria-hidden className="block">
+            {/* 8px arrow with a hairline, under the target's middle */}
+            <span
+              ref={arrowRef}
+              aria-hidden
+              className="absolute left-4 group-data-[side=bottom]/tour:-top-[7px] group-data-[side=top]/tour:-bottom-[7px] group-data-[side=top]/tour:rotate-180"
+            >
+              <svg width="16" height="8" viewBox="0 0 16 8" className="block">
                 <path d="M0 8 8 0.5 16 8Z" className="fill-popover" />
                 <path d="M0 8 8 0.5 16 8" className="fill-none stroke-foreground/10" />
               </svg>
-            </PopoverPrimitive.Arrow>
+            </span>
             <span id={labelId} className="sr-only">
               {t("tour.label", { n: place.n, total: place.total })}
             </span>
