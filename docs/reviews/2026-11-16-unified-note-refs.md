@@ -3,7 +3,7 @@
 **Scope:** how every link between a note and the Bible should look and behave on the reader page, whichever direction it was made from (selection → note, or note → `@`/"+ Bibelvers"), in four states (resting, note open, spotlit, hover/focus). Also: is "tag a mark" worth building, and how should the build be split?
 **Owner's brief (voice notes, 2026-11-16):** (1) unify; (2) note open = its passages fully highlighted; (3) separate "note open" from the spotlight; (4) a connector from bracket to label; (5) tag a mark from `@`; (6) know plain passage vs highlight vs pen mark vs annotation; (7) "it takes me here and not there".
 **Panel: all 8** (owner's call, per REVIEW-PROCESS). Round 1: full findings from each persona. Round 2: one ping-pong round on a decisions draft. Every persona answered ok, objection or pick on 11 decisions and 7 conflicts.
-**Evidence:** dev server on `d01c23b` (worktree, ports 3998/5998), test user `delivered+unify@resend.dev`, WEB John 3 seeded with three notes:
+**Evidence:** dev server on `d01c23b`; main has since gained #195/#196, which touch the phone drawer (worktree, ports 3998/5998), test user `delivered+unify@resend.dev`, WEB John 3 seeded with three notes:
 - "The bronze serpent": selection, 3:14–15
 - "Born again": inline chips 3:3, 3:16 and Rom 8:14
 - "God so loved": selection over the gold highlight on 3:16
@@ -33,7 +33,7 @@ The seed also has the standard highlights and pen marks. 27 custom shots plus a 
 | # | Finding | Sev. | Raised by |
 |---|---|---|---|
 | 1 | Opening a note lands on a page without its passage (U03, U81) | blocker | all 8 (Jonas: cause traced, S) |
-| 2 | Phone: spotlight fires under a 90% drawer; nothing visible (U64) | blocker | Freja, Birthe, Sofie, Kasper, Elias, Jonas, Ruth, Mads |
+| 2 | Phone: spotlight fires under a 90% drawer; nothing visible (U64). **Partly fixed since:** #195 (merged after the evidence was taken) folds the drawer to a bar on an overview-row tap; re-verify. Still open: the drawer opens near full height, and chip "Read here" closes it | blocker | Freja, Birthe, Sofie, Kasper, Elias, Jonas, Ruth, Mads |
 | 3 | Phone: highlight wash sits on the wrong words (offset by the note icon), and the gold paints over the marker (U60/U61/U66) | blocker | Ruth, Sofie, Mads, Jonas, Freja, Kasper (verified) |
 | 4 | Four looks for "show me this ref" (spotlight A, gold flash B, chip tint, popover) | major | all 8 |
 | 5 | Inline refs have no bracket; their label sits on another note's bracket (3:16) | major | all 8 (Mads: blocker) |
@@ -190,7 +190,7 @@ Each issue is one agent with its own files. The order is the dependency order. "
    - Open-from-marker and any spotlight snap to 45% and scroll the passage into view; "Back to note" handle; never close the drawer to show text.
    - One marker per verse: short title, or "2 notes" → list.
    - Gutter bracket starts level with the marker and hides while the drawer is full.
-   Files: `paginated-chapter.tsx` (drawer block), `components/ui/drawer.tsx`, `chapter-text.tsx` (markers), `annotation-marks.tsx` (compact gutter). M. **After #195** (drawer work in flight) and 4, 6.
+   Files: `paginated-chapter.tsx` (drawer block), `components/ui/drawer.tsx`, `chapter-text.tsx` (markers), `annotation-marks.tsx` (compact gutter). M. Builds on #195's fold-to-bar (merged during this review; re-verify U64 first). After 4, 6.
 10. **Tag a mark (C4, owner's pick)**, last:
     - Storage, for (a) or (b): title attribute on the `bible:` link, `ScriptureRefNode.__mark` (exportJSON v2, import reads the title), `refsInMarkdown` returns it.
     - Additive `note_ref.mark_kind/mark_id` (run before deploy).
