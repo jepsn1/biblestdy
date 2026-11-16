@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insertedSince, isTypingKey, nextPlace, TOUR_STEPS, type TourStep } from "./tour-steps";
+import { holePad, insertedSince, isTypingKey, nextPlace, scrimPath, textEndPoint, TOUR_STEPS, type TourStep } from "./tour-steps";
 
 const note = TOUR_STEPS.note;
 const notes = TOUR_STEPS.notes;
@@ -62,5 +62,44 @@ describe("isTypingKey", () => {
     for (const key of ["Tab", "Escape", "ArrowDown", "Shift", "F6"]) expect(isTypingKey(k(key))).toBe(false);
     expect(isTypingKey(k("e", { ctrlKey: true }))).toBe(false);
     expect(isTypingKey(k("z", { metaKey: true }))).toBe(false);
+  });
+});
+
+describe("the scrim (#192)", () => {
+  it("no target: the whole viewport, no hole", () => {
+    expect(scrimPath(400, 800, null)).toBe("M0 0H400V800H0Z");
+  });
+
+  it("cuts a rounded hole round the target, padded, inside the viewport", () => {
+    const d = scrimPath(400, 800, { left: 10, top: 20, width: 100, height: 40 }, 6, 8);
+    expect(d.startsWith("M0 0H400V800H0ZM12 14H")).toBe(true);
+    expect(d).toContain("H108A8 8 0 0 1 116 22V");
+    // Padding never reaches past the viewport's edge
+    expect(scrimPath(400, 800, { left: 0, top: 0, width: 400, height: 50 }, 6, 8)).toMatch(/^M0 0H400V800H0ZM8 0H392A8 8 0 0 1 400 8V/);
+  });
+
+  it("a hole too small for the corners keeps them inside it", () => {
+    expect(scrimPath(400, 800, { left: 10, top: 10, width: 6, height: 6 }, 0, 8)).toContain("A3 3 ");
+  });
+
+  it("a pane's hole is its edge; a control's leaves room for the ring", () => {
+    expect(holePad({ inset: true })).toBe(0);
+    expect(holePad({})).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("textEndPoint", () => {
+  const pane = { left: 300, top: 100, width: 800, height: 500 };
+  it("only the writing step points at the end of the text", () => {
+    expect(TOUR_STEPS.note.filter((s) => s.atTextEnd).map((s) => s.id)).toEqual(["body"]);
+  });
+  it("just under the last line, at its start", () => {
+    expect(textEndPoint(pane, { left: 312, top: 110, width: 400, height: 24 })).toEqual({ left: 312, top: 134, width: 24, height: 0 });
+  });
+  it("a long note: kept inside the pane with room for the card", () => {
+    expect(textEndPoint(pane, { left: 312, top: 900, width: 400, height: 24 }).top).toBe(600 - 120);
+  });
+  it("no line to measure: the pane itself", () => {
+    expect(textEndPoint(pane, null)).toEqual(pane);
   });
 });
