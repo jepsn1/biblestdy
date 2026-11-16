@@ -1,5 +1,5 @@
 import { parseScriptureHref, resolveInChapter, toScriptureRef, type Chapter, type ScriptureRef, type Translation } from "@biblestdy/shared";
-import { CANONICAL, mapRange } from "@biblestdy/shared/versification";
+import { localRef } from "@biblestdy/shared/versification";
 import { useQuery } from "@tanstack/react-query";
 import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
 import { ArrowRight } from "lucide-react";
@@ -181,10 +181,17 @@ function RefPreview({
     queryFn: () => api<Translation[]>("/api/translations"),
     staleTime: Infinity,
   });
+  const current = translations.data?.find((tr) => tr.id === translationId);
+  const abbr = current?.abbreviation ?? "";
+  // The stored (English) numbers where this translation has them (#163:
+  // Mal 4,2 is BPH Mal 3,20); undefined until the list is in, null = no
+  // counterpart (Neh 7,68 in BPH) — never the same number instead
+  const local = useMemo(() => (translations.data ? localRef(scripture, abbr) : undefined), [translations.data, scripture, abbr]);
+  const at0 = local?.ref ?? scripture;
   const chapter = useQuery({
-    queryKey: ["chapter", translationId, scripture.book, scripture.chapter],
-    queryFn: () => api<Chapter>(`/api/passages/${translationId}/${scripture.book}/${scripture.chapter}`),
-    enabled: !!translationId,
+    queryKey: ["chapter", translationId, at0.book, at0.chapter],
+    queryFn: () => api<Chapter>(`/api/passages/${translationId}/${at0.book}/${at0.chapter}`),
+    enabled: !!translationId && !!local,
     staleTime: 60 * 60 * 1000, // scripture text is immutable
     retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2,
   });
@@ -193,26 +200,20 @@ function RefPreview({
     if (token) noteView(token);
   }, [token]);
 
-  const current = translations.data?.find((tr) => tr.id === translationId);
-  const abbr = current?.abbreviation ?? "";
   const missing = chapter.error instanceof ApiError && chapter.error.status === 404;
-  const at = chapter.data ? resolveInChapter(scripture, chapter.data) : missing ? "notInTranslation" : null;
+  const at =
+    local === null ? "notInTranslation" : local && chapter.data ? resolveInChapter(local.ref, chapter.data) : missing ? "notInTranslation" : null;
   const resolved = at && at !== "notInTranslation" ? at : null;
   const notHere = at === "notInTranslation";
-  // Numbered differently here (#166's map: English Mal 4 is BPH Mal
-  // 3,19–24): say where, and read it there
-  const renumbered = useMemo(() => {
-    if (!notHere || !abbr) return null;
-    const slices = mapRange(scripture, CANONICAL, abbr);
-    const first = slices[0];
-    const last = slices[slices.length - 1];
-    if (!first || slices.some((sl) => sl.kind !== "renumbered" && sl.kind !== "moved")) return null;
-    return toScriptureRef({ book: first.book, chapter: first.chapter, verse: first.startVerse, endChapter: last.chapter, endVerse: last.endVerse });
-  }, [notHere, abbr, scripture]);
-  // Else the canonical (English-numbered) translation, offered where this
-  // one lacks the place — never a guess at a neighbour
-  const elsewhere = notHere && !renumbered ? translations.data?.find((tr) => tr.abbreviation === "WEB" && tr.id !== translationId) : undefined;
+  // The canonical (English-numbered) translation, offered where this one
+  // lacks the place — never a guess at a neighbour
+  const elsewhere = notHere ? translations.data?.find((tr) => tr.abbreviation === "WEB" && tr.id !== translationId) : undefined;
   const sep = locale === "da" ? "," : ":";
+  // Numbered differently here, or a bridge: say where ("· i BPH 3,20")
+  const where =
+    resolved && local && (resolved.bridged || local.renumbered)
+      ? `${local.ref.chapter}${sep}${resolved.printedEnd > resolved.printedStart ? `${resolved.printedStart}–${resolved.printedEnd}` : resolved.printedStart}`
+      : null;
   const verses = resolved && chapter.data ? chapter.data.verses.filter((v) => v.verse >= resolved.startVerse && v.verse <= resolved.endVerse) : [];
 
   const actionClass = cn("inline-flex items-center gap-1 rounded-sm text-list font-medium", mobile ? "min-h-11 px-2" : "min-h-7 px-1.5", focusRing);
@@ -230,18 +231,17 @@ function RefPreview({
       >
         <p className="text-list">
           <span className="font-medium text-foreground">{label}</span>
-          {abbr && !resolved?.bridged && <span className="text-muted-foreground"> · {abbr}</span>}
-          {abbr && resolved?.bridged && (
+          {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
+          {abbr && where && (
             <span className="text-muted-foreground">
               {" "}
-              · {t("note.refIn", { abbr, ref: `${scripture.chapter}${sep}${resolved.printedStart}–${resolved.printedEnd}` })}
+              · {t("note.refIn", { abbr, ref: where })}
             </span>
           )}
         </p>
         {notHere ? (
           <p className="text-list text-muted-foreground">
             {t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}
-            {renumbered && ` ${t("note.refNumberedAs", { abbr, ref: chipLabel(renumbered, locale).replace(/–/g, "\u2060–\u2060") })}`}
           </p>
         ) : chapter.isError ? (
           <p className="text-list text-muted-foreground">{t("note.refPreviewFailed")}</p>
@@ -265,20 +265,7 @@ function RefPreview({
         )}
         <div className="-mx-1.5 flex items-center justify-between gap-3">
           {notHere ? (
-            renumbered ? (
-              <button
-                ref={readRef}
-                type="button"
-                className={cn(actionClass, "text-primary")}
-                onClick={() => {
-                  onClose(false);
-                  onRead?.(renumbered);
-                }}
-              >
-                {t("note.readRef", { ref: chipLabel(renumbered, locale) })}
-                <ArrowRight className="size-3.5" aria-hidden />
-              </button>
-            ) : elsewhere ? (
+            elsewhere ? (
               <button
                 ref={readRef}
                 type="button"
@@ -301,7 +288,8 @@ function RefPreview({
               className={cn(actionClass, "text-primary")}
               onClick={() => {
                 onClose(false);
-                onRead?.(scripture);
+                // Where this translation has it (BPH Mal 3,20, not Mal 4,2)
+                onRead?.(local?.ref ?? scripture);
               }}
             >
               {t("note.readHere")}

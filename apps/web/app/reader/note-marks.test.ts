@@ -1,6 +1,12 @@
-import type { Chapter, Note, NoteAnchor, NoteRef } from "@biblestdy/shared";
+import type { Chapter, Note, NoteAnchor, NoteRef, Translation } from "@biblestdy/shared";
+import * as vz from "@biblestdy/shared/versification";
 import { describe, expect, it } from "vitest";
-import { noteMarksInChapter, noteTouchesChapter, writtenElsewhere } from "./note-marks";
+import { makeLocalizer } from "./localizer";
+import { noteMarksInChapter as marksWith, noteTouchesChapter, writtenElsewhere } from "./note-marks";
+
+const translations: Translation[] = ["BPH", "WEB", "NIV"].map((a) => ({ id: a, abbreviation: a, name: a, language: a === "BPH" ? "da" : "en" }));
+/** With the map loaded (the reader's steady state). */
+const noteMarksInChapter = (notes: Note[], ch: Chapter) => marksWith(notes, ch, makeLocalizer(vz, translations, ch.translationId));
 
 /** John 3 as BPH stores it: 14–15 is one bridge, stored under 14. */
 const bph: Chapter = {
@@ -119,6 +125,47 @@ describe("noteMarksInChapter (#159)", () => {
       refs: [ref({ book: "ROM" }), ref({ id: "r2", verse: 99 })],
     });
     expect(noteMarksInChapter([n], bph)).toEqual([]);
+  });
+});
+
+describe("noteMarksInChapter maps versification (#163)", () => {
+  const mal3: Chapter = {
+    translationId: "BPH",
+    book: "MAL",
+    chapter: 3,
+    verses: Array.from({ length: 24 }, (_, i) => ({ verse: i + 1, text: `vers ${i + 1}` })),
+  };
+  const mal4web: Chapter = {
+    translationId: "WEB",
+    book: "MAL",
+    chapter: 4,
+    verses: Array.from({ length: 6 }, (_, i) => ({ verse: i + 1, text: `verse ${i + 1}` })),
+  };
+
+  it("a ref stored as Mal 4:5 marks BPH Mal 3,23 — and WEB Mal 4:5", () => {
+    const n = note({ refs: [ref({ book: "MAL", chapter: 4, verse: 5 })] });
+    expect(noteMarksInChapter([n], mal3)).toEqual([expect.objectContaining({ startVerse: 23, endVerse: 23, verseLevel: true })]);
+    expect(noteMarksInChapter([n], mal4web)).toEqual([expect.objectContaining({ startVerse: 5, verseLevel: true })]);
+    // English Mal 3:5 is BPH 3,5 — no shift there
+    expect(noteMarksInChapter([note({ refs: [ref({ book: "MAL", chapter: 3, verse: 5 })] })], mal3)[0]).toMatchObject({ startVerse: 5 });
+  });
+
+  it("anchors map between translations: WEB Mal 4:5 ↔ BPH Mal 3,23", () => {
+    const inWeb = note({ anchors: [anchor({ book: "MAL", chapter: 4, startVerse: 5, endVerse: 5 })] });
+    expect(noteMarksInChapter([inWeb], mal3)).toEqual([expect.objectContaining({ id: "a1", startVerse: 23, verseLevel: true })]);
+    const inBph = note({ anchors: [anchor({ translationId: "BPH", book: "MAL", chapter: 3, startVerse: 23, endVerse: 23 })] });
+    expect(noteMarksInChapter([inBph], mal4web)).toEqual([expect.objectContaining({ startVerse: 5, verseLevel: true })]);
+    // BPH 3,1 is WEB 3:1: not in WEB Mal 4
+    const early = note({ anchors: [anchor({ translationId: "BPH", book: "MAL", chapter: 3, startVerse: 1, endVerse: 1 })] });
+    expect(noteMarksInChapter([early], mal4web)).toEqual([]);
+  });
+
+  it("before the map loads: home marks only, never a verse-level guess", () => {
+    const n = note({
+      anchors: [anchor({ translationId: "BPH", book: "MAL", chapter: 3, startVerse: 1, endVerse: 1 }), anchor({ id: "a2", book: "MAL", chapter: 3 })],
+      refs: [ref({ book: "MAL", chapter: 4, verse: 5 })],
+    });
+    expect(marksWith([n], mal3, null).map((m) => m.id)).toEqual(["a1"]);
   });
 });
 

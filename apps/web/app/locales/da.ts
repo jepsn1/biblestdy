@@ -265,8 +265,6 @@ const da: typeof en = {
     removeRef: "Fjern",
     refNotIn: "{{ref}} findes ikke i {{abbr}}.",
     readIn: "Læs i {{abbr}}",
-    refNumberedAs: "Der hedder det {{ref}}.",
-    readRef: "Læs {{ref}}",
     refPreviewFailed: "Verseteksten kunne ikke hentes.",
     refLoading: "Henter\u2026",
     refRemoved: "{{ref}} fjernet fra noten",

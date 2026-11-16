@@ -19,13 +19,24 @@ import {
   refSnippet,
   snippetChapterOf,
   snippetChapters,
+  type LocalizeRef,
   type OverviewRow,
 } from "../notes/note-list";
+import { canonicalRef, localRef } from "@biblestdy/shared/versification";
+import { makeLocalizer } from "./localizer";
 import { ScriptureCredit } from "./scripture-credit";
 
 /** A note's reader selection as a chip label ("Joh 3,14–15"). */
 const anchorChip = (a: Anchor, locale: "da" | "en") =>
   chipLabel({ book: a.book, chapter: a.chapter, verse: a.startVerse, endVerse: a.endVerse }, locale);
+
+/** An anchor's verses as a reference (its own translation's numbers). */
+const anchorRef = (a: Anchor): ScriptureRef => ({
+  book: a.book,
+  chapter: a.chapter,
+  verse: a.startVerse,
+  ...(a.endVerse !== a.startVerse && { endVerse: a.endVerse }),
+});
 
 /** Snippets are cut here; the cell truncates too (narrow panels). */
 const SNIPPET_MAX = 90;
@@ -40,6 +51,8 @@ const SNIPPET_MAX = 90;
  * fixed heights, so snippets arriving never move anything. Click reads
  * there; "Show in text" selects the chip, "Insert in text" puts a
  * selection into the text; × (selections only) removes with Undo.
+ * Text refs are canonical numbers, shown where the reading translation has
+ * them (#163): "Mal 4,5 · i BPH 3,23".
  */
 export type ReferencesOverviewProps = Parameters<typeof ReferencesOverview>[0];
 
@@ -73,7 +86,8 @@ export function ReferencesOverview({
   onAddVerse: () => void;
   /** Selects the reference's chip in the text; its spoken confirmation. */
   onShowInText: (ref: ScriptureRef) => boolean;
-  onInsertInText: (anchor: NoteAnchor) => void;
+  /** A selection as a canonical (English-numbered) ref, for its href. */
+  onInsertInText: (ref: ScriptureRef) => void;
   /** Phone, while writing: one line ("Verses (4)"), tap to open. */
   collapsed?: boolean;
   onExpand?: () => void;
@@ -96,9 +110,17 @@ export function ReferencesOverview({
   // Not in the reading translation: the canonical (English-numbered) one
   const web = translations.data?.find((tr) => tr.abbreviation === "WEB" && tr.id !== readingId);
 
+  // Stored numbers ↔ the reading translation's (#163); null until the
+  // translation list is in (text rows wait rather than guess)
+  const loc = useMemo(
+    () => (translations.data && readingId ? makeLocalizer({ localRef, canonicalRef }, translations.data, readingId) : null),
+    [translations.data, readingId],
+  );
+  const localize: LocalizeRef = (r) => loc?.local(r)?.ref ?? null;
+
   const rows = useMemo(() => overviewRows(body, note.anchors), [body, note.anchors]);
   const [asked, setAsked] = useState<ReadonlySet<string>>(() => new Set());
-  const chapters = snippetChapters(rows, readingId, { asked });
+  const chapters = snippetChapters(rows, readingId, { asked, localize });
   const results = useQueries({
     queries: chapters.map((c) => ({
       queryKey: ["chapter", c.translationId, c.book, c.chapter],
@@ -238,7 +260,7 @@ export function ReferencesOverview({
     );
 
   const renderRow = (row: OverviewRow): ReactNode => {
-    const c = snippetChapterOf(row, readingId);
+    const c = snippetChapterOf(row, readingId, localize);
     const key = c && chapterKey(c);
     const result = key ? fetched.get(key) : undefined;
     const capped = !!key && !result;
@@ -266,8 +288,10 @@ export function ReferencesOverview({
       const r = row.ref;
       label = chipLabel(r, locale);
       full = referenceLabel(r, nameOf, locale);
-      read = () => onReadRef?.(r);
-      const got = chapter !== undefined ? refSnippet(r, chapter, SNIPPET_MAX) : null;
+      // undefined: not known yet; null: no counterpart here (Neh 7:68 in BPH)
+      const local = loc ? loc.local(r) : undefined;
+      read = () => onReadRef?.(local?.ref ?? r);
+      const got = local === null ? "notInTranslation" : local && chapter !== undefined ? refSnippet(local.ref, chapter, SNIPPET_MAX) : null;
       if (got === "notInTranslation") {
         snippet = t("note.notInShort", { abbr: readingAbbr });
         plain = true;
@@ -279,9 +303,13 @@ export function ReferencesOverview({
       } else {
         if (got) snippet = got.text;
         const sep = locale === "da" ? "," : ":";
-        source = got?.at.bridged
-          ? t("note.refIn", { abbr: readingAbbr, ref: `${r.chapter}${sep}${got.at.printedStart}–${got.at.printedEnd}` })
-          : readingAbbr;
+        // Numbered differently here, or a bridge: say where ("i BPH 3,23")
+        const at = got?.at;
+        const verses = at && (at.printedEnd > at.printedStart ? `${at.printedStart}–${at.printedEnd}` : `${at.printedStart}`);
+        source =
+          at && local && (at.bridged || local.renumbered)
+            ? t("note.refIn", { abbr: readingAbbr, ref: `${local.ref.chapter}${sep}${verses}` })
+            : readingAbbr;
       }
       action = (
         <button
@@ -306,8 +334,15 @@ export function ReferencesOverview({
       const home = abbrOf(a.translationId);
       // Written in another translation: say so (#159's "Skrevet i WEB")
       source = home && a.translationId !== readingId ? t("connections.writtenIn", { abbr: home }) : home;
-      action = (
-        <button type="button" aria-label={`${t("note.insertInText")}, ${full}`} onClick={() => onInsertInText(a)} className={actionClass}>
+      // The href stores canonical numbers: BPH Mal 3,23 → bible:MAL.4.5; a
+      // psalm title alone (no English verse) → the whole psalm
+      action = loc && (
+        <button
+          type="button"
+          aria-label={`${t("note.insertInText")}, ${full}`}
+          onClick={() => onInsertInText(loc.canonical(anchorRef(a), a.translationId) ?? { book: a.book, chapter: a.chapter })}
+          className={actionClass}
+        >
           {t("note.insertInText")}
         </button>
       );

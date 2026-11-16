@@ -10,7 +10,8 @@ import { HighlightMarks } from "./highlight-marks";
 import type { ReaderTool } from "./tool-palette";
 import { useAnnotations } from "./use-annotations";
 import { useHighlights } from "./use-highlights";
-import { noteMarksInChapter } from "./note-marks";
+import { useLocalizer } from "./localizer";
+import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useNotes } from "./use-notes";
 
 /** Most verses ever tried on one page (the rest can't fit anyway). */
@@ -104,7 +105,10 @@ export function ChapterSpill({
   const highlightsApi = useHighlights(translationId, book, chapter.chapter, chapter);
   const annotationsApi = useAnnotations(translationId, book, chapter.chapter, chapter);
   const notesApi = useNotes(translationId, book, chapter.chapter);
-  const noteMarks = noteMarksInChapter(notesApi.notes, chapter);
+  // Refs and other translations' anchors through the versification map
+  // (#163), a lazy chunk: those marks wait for it
+  const localize = useLocalizer(translationId, needsMap(notesApi.notes, translationId));
+  const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize);
   const [selection, setSelection] = useState<Anchor | null>(null);
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);

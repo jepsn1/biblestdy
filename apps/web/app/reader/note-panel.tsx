@@ -472,8 +472,8 @@ export function NotePanel({
     el.setSelectionRange(link.start, link.end);
     return true;
   }
-  function insertInText(a: NoteAnchor) {
-    const ref: ScriptureRef = { book: a.book, chapter: a.chapter, verse: a.startVerse, ...(a.endVerse !== a.startVerse && { endVerse: a.endVerse }) };
+  /** `ref`: canonical numbers already (the overview maps them, #163). */
+  function insertInText(ref: ScriptureRef) {
     if (!sendRef(INSERT_REF, ref)) insertPlain(ref);
   }
   // "+ Verse" in the overview: the toolbar button's dialog (verse-button),

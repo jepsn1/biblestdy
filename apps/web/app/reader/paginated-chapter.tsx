@@ -46,7 +46,8 @@ import { ChapterStrip } from "./chapter-strip";
 import { notePage } from "~/lib/recent-passages";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
-import { noteMarksInChapter } from "./note-marks";
+import { useLocalizer } from "./localizer";
+import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
 import { markStartSelector, noteMarkId } from "./spotlight";
 import { useHighlights } from "./use-highlights";
@@ -285,7 +286,10 @@ export function PaginatedChapter({
   const placePage = useRef<number | null>(null);
   const restoring = useRef(false);
   const layoutSig = useRef("");
-  const noteMarks = noteMarksInChapter(notesApi.notes, chapter);
+  // Refs and other translations' anchors through the versification map
+  // (#163), a lazy chunk: those marks wait for it
+  const localize = useLocalizer(chapter.translationId, needsMap(notesApi.notes, chapter.translationId));
+  const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize);
   // ?note=<id> keeps the panel open across chapter navigation (references
   // table jumps); ?mark=<mark id> flips to the linked span and flashes it.
   const openNoteId = sideView !== null && sideView !== "connections" ? sideView : null;
@@ -593,15 +597,18 @@ export function PaginatedChapter({
       setSelectedMarkId(null);
       return;
     }
-    // Another translation's anchor here is drawn at verse level (#159)
-    const here =
-      a.book === chapter.book &&
-      a.chapter === chapter.chapter &&
-      (a.translationId === chapter.translationId || noteMarks.some((m) => noteMarkId(m) === markId));
+    // Another translation's anchor here is drawn at verse level (#159), at
+    // its number in this translation (#163: WEB Mal 4:5 is BPH Mal 3,23)
+    const mark = noteMarks.find((m) => noteMarkId(m) === markId);
+    const home = a.translationId === chapter.translationId;
+    const here = home ? a.book === chapter.book && a.chapter === chapter.chapter : !!mark;
+    const there = home
+      ? a.chapter
+      : (localize?.fromTranslation({ book: a.book, chapter: a.chapter, verse: a.startVerse }, a.translationId)?.ref.chapter ?? a.chapter);
     // A mark in the verses the page before carried (#flow): open the
     // chapter whole, where it is
-    if (here && (flowFrom === null || a.startVerse >= flowFrom)) jumpToMark(markId);
-    else navigate(`/read/${a.book}/${a.chapter}?note=${openNoteId}&mark=${markId}`);
+    if (here && (flowFrom === null || (mark?.startVerse ?? a.startVerse) >= flowFrom)) jumpToMark(markId);
+    else navigate(`/read/${a.book}/${there}?note=${openNoteId}&mark=${markId}`);
   }
 
   /** An inline reference's "Read here" (#160): its verses flash; the note

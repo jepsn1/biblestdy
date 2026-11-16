@@ -224,8 +224,6 @@ export default {
     removeRef: "Remove",
     refNotIn: "{{ref}} isn\u2019t in {{abbr}}.",
     readIn: "Read in {{abbr}}",
-    refNumberedAs: "There it is {{ref}}.",
-    readRef: "Read {{ref}}",
     refPreviewFailed: "Couldn\u2019t load the verse text.",
     refLoading: "Loading\u2026",
     refRemoved: "{{ref}} removed from the note",

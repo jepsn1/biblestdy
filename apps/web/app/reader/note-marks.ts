@@ -8,14 +8,17 @@ import {
   type ScriptureRef,
 } from "@biblestdy/shared";
 import { noteTitle } from "../notes/note-list";
+import type { Localizer } from "./localizer";
 
 /**
  * Where the chapter's notes show in the text (#159). A note shows in every
  * translation: word-precise on its home translation (the words it was made
  * on), and at verse level everywhere else — an anchor from another
  * translation, or an inline `bible:` ref, marks the whole verse (or bridge)
- * it lands on, never mapped word for word. Pure; tested in
- * note-marks.test.ts.
+ * it lands on, never mapped word for word. Verse-level marks go through
+ * the versification map (#163: English Mal 4:5 marks BPH Mal 3,23), so
+ * they wait for it (`localize` null) rather than land on a wrong verse.
+ * Pure; tested in note-marks.test.ts.
  */
 
 /** One drawn mark of a note in the current chapter. `verseLevel`: a whole
@@ -30,13 +33,20 @@ function anchorRef(a: NoteAnchor): ScriptureRef {
   return ref;
 }
 
-/** Whether a note touches the chapter: an anchor here in any translation,
- * or an inline ref covering it (what the API lists per chapter, #158). */
+/** Whether a note touches the chapter by number: an anchor here in any
+ * translation, or an inline ref covering it. The API's list maps
+ * versification (#163); this only places a restored note at once. */
 export function noteTouchesChapter(note: Note, book: string, chapter: number): boolean {
   return (
     note.anchors.some((a) => a.book === book && a.chapter === chapter) ||
     (note.refs ?? []).some((r) => refTouchesChapter(r, book, chapter))
   );
+}
+
+/** Whether any note needs the versification map to be placed here: an
+ * inline ref, or an anchor made in another translation. */
+export function needsMap(notes: Note[], translationId: string): boolean {
+  return notes.some((n) => (n.refs?.length ?? 0) > 0 || n.anchors.some((a) => a.translationId !== translationId));
 }
 
 /** The translations (ids) a note's anchors here were written in, when none
@@ -54,7 +64,7 @@ export function writtenElsewhere(note: Note, translationId: string, book: string
  * → the "14–15" unit) to whole verses. A verse unit gets at most one mark
  * per note, and none where the note already marks words starting there.
  */
-export function noteMarksInChapter(notes: Note[], chapter: Chapter): NoteMark[] {
+export function noteMarksInChapter(notes: Note[], chapter: Chapter, localize: Localizer | null): NoteMark[] {
   const { translationId, book } = chapter;
   const c = chapter.chapter;
   const wordCount = new Map(chapter.verses.map((v) => [v.verse, words(v.text).length]));
@@ -66,7 +76,8 @@ export function noteMarksInChapter(notes: Note[], chapter: Chapter): NoteMark[] 
       .map((a) => ({ ...a, noteId: n.id, title }));
     const taken = new Set(home.map((m) => m.startVerse));
     const verseLevel: NoteMark[] = [];
-    const place = (id: string, ref: ScriptureRef) => {
+    const place = (id: string, ref: ScriptureRef | null) => {
+      if (!ref) return;
       const r = resolveInChapter(ref, chapter);
       if (r === null || r === "notInTranslation" || taken.has(r.startVerse)) return;
       taken.add(r.startVerse);
@@ -84,9 +95,12 @@ export function noteMarksInChapter(notes: Note[], chapter: Chapter): NoteMark[] 
         verseLevel: true,
       });
     };
-    for (const a of n.anchors)
-      if (a.translationId !== translationId && a.book === book && a.chapter === c) place(a.id, anchorRef(a));
-    for (const r of n.refs ?? []) place(r.id, r);
+    if (localize) {
+      for (const a of n.anchors)
+        if (a.translationId !== translationId && a.book === book)
+          place(a.id, localize.fromTranslation(anchorRef(a), a.translationId)?.ref ?? null);
+      for (const r of n.refs ?? []) if (r.book === book) place(r.id, localize.local(r)?.ref ?? null);
+    }
     return [...home, ...verseLevel];
   });
 }
