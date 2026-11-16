@@ -47,8 +47,8 @@ type Match = { query: string; start: number; nodeKey: NodeKey; id: string };
  * (emails untouched); the parsed match comes first and preselected, so one
  * Enter inserts it; book names follow below a hairline (Enter completes the
  * name). ↑↓ move, Enter/Tab insert, Esc — or a space with no hit — leaves
- * the typed text as it is. The menu sits inside the editor's scroll box
- * (never scrolling the reader behind it into view) and the editor is its
+ * the typed text as it is. The menu sits in the note's panel (never
+ * scrolling the reader behind it into view) and the editor is its
  * combobox: aria-controls/activedescendant on the text, the result spoken in
  * a live region.
  *
@@ -221,39 +221,72 @@ export function RefTypeahead() {
     };
   });
 
-  // Placed under the `@`, inside the editor's scroll box
+  // Placed under the `@`, in the note's panel: below the line it may cover
+  // what's under the editor (the references, the footer) down to the
+  // panel's foot — on a short screen (large text, a phone: #196) the
+  // editor's own box holds barely a row. Never above the editor's top.
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ host: HTMLElement; top: number; left: number; maxH: number } | null>(null);
   const placed = pos !== null;
+  const [scrolled, setScrolled] = useState(0);
   useLayoutEffect(() => {
     if (!editor || !match) {
       setPos(null);
       return;
     }
     const root = editor.getRootElement();
-    const host = root?.closest<HTMLElement>(".mdxeditor");
+    const box = root?.closest<HTMLElement>(".mdxeditor");
+    // The panel (positioned); the editor's box where there is none
+    const host = box?.closest<HTMLElement>("aside") ?? box;
     const textEl = editor.getElementByKey(match.nodeKey);
     const textNode = textEl?.firstChild;
-    if (!host || !textNode || textNode.nodeType !== Node.TEXT_NODE) return;
+    if (!box || !host || !textNode || textNode.nodeType !== Node.TEXT_NODE) return;
     const range = document.createRange();
     const len = textNode.textContent?.length ?? 0;
     range.setStart(textNode, Math.min(match.start, len));
     range.setEnd(textNode, Math.min(match.start + 1, len));
     const at = range.getBoundingClientRect();
-    const box = host.getBoundingClientRect();
+    const frame = host.getBoundingClientRect();
+    const edBox = box.getBoundingClientRect();
+    // The `@` scrolled out of the editor's sight: no menu till it's back
+    if (at.bottom <= edBox.top || at.top >= edBox.bottom) {
+      setPos(null);
+      return;
+    }
+    // Down to the panel's foot — or the on-screen keyboard's top
+    const vv = window.visualViewport;
+    const floor = Math.min(frame.bottom, vv ? vv.offsetTop + vv.height : frame.bottom);
+    const ceiling = Math.max(edBox.top, frame.top);
     const menu = menuRef.current;
     const w = menu?.offsetWidth ?? 288;
     const h = menu?.offsetHeight ?? 0;
-    let top = at.bottom - box.top + host.scrollTop + 4;
-    // No room below inside the box: above the line instead
-    if (at.bottom + h + 4 > box.bottom && at.top - h - 4 > box.top) top = at.top - box.top + host.scrollTop - h - 4;
-    const left = Math.max(4, Math.min(at.left - box.left + host.scrollLeft, host.clientWidth - w - 4));
-    // A long list scrolls within the roomier side of the line (a short box:
-    // big text, a phone), never past the box (20: the menu's padding, gap and a margin)
-    const maxH = Math.max(88, Math.round(Math.max(box.bottom - at.bottom, at.top - box.top) - 20));
+    const inHost = host === box ? host.scrollTop : 0;
+    let top = at.bottom - frame.top + inHost + 4;
+    // No room below: above the line instead
+    if (at.bottom + h + 4 > floor && at.top - h - 4 > ceiling) top = at.top - frame.top + inHost - h - 4;
+    const left = Math.max(4, Math.min(at.left - frame.left + (host === box ? host.scrollLeft : 0), host.clientWidth - w - 4));
+    // A long list scrolls within the roomier side of the line, never past
+    // it (20: the menu's padding, gap and a margin)
+    const maxH = Math.max(88, Math.round(Math.max(floor - at.bottom, at.top - ceiling) - 20));
     setPos((p) => (p && p.host === host && p.top === top && p.left === left && p.maxH === maxH ? p : { host, top, left, maxH }));
     // Again once the menu is drawn: its real size decides the side
-  }, [editor, match, options, placed]);
+  }, [editor, match, options, placed, scrolled]);
+  // The editor scrolls (or the keyboard comes) under an open menu: follow
+  const open = match !== null;
+  useEffect(() => {
+    const box = editor?.getRootElement()?.closest<HTMLElement>(".mdxeditor");
+    if (!open || !box) return;
+    const again = () => setScrolled((n) => n + 1);
+    const vv = window.visualViewport;
+    box.addEventListener("scroll", again, { passive: true });
+    window.addEventListener("resize", again);
+    vv?.addEventListener("resize", again);
+    return () => {
+      box.removeEventListener("scroll", again);
+      window.removeEventListener("resize", again);
+      vv?.removeEventListener("resize", again);
+    };
+  }, [editor, open]);
 
   // The active row stays in sight — the menu's own scroll, never the page's
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -309,7 +342,8 @@ export function RefTypeahead() {
         ) : o.kind === "ref" ? (
           <>
             <span className="font-sans font-medium whitespace-nowrap">{chipLabel(o.ref, locale)}</span>
-            {words && <span className="min-w-0 truncate font-serif text-list text-muted-foreground">{words}</span>}
+            {/* On the active row's tint the muted grey falls short of 4.5:1 (#196) */}
+            {words && <span className={cn("min-w-0 truncate font-serif text-list", i === active ? "text-accent-foreground" : "text-muted-foreground")}>{words}</span>}
           </>
         ) : (
           <span className="font-sans">{o.name}</span>

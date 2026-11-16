@@ -145,7 +145,8 @@ const SHARE_GLYPH = "↗\u00a0";
 function SupportLine({ phone }: { phone: boolean }) {
   const { t } = useTranslation();
   // Touch: a full target (phones always; a tablet's paged foot too)
-  const target = phone ? "inline-flex min-h-11 items-center px-2" : "pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center";
+  // A mouse: 24px tall at least (WCAG 2.5.8, #196)
+  const target = phone ? "inline-flex min-h-11 items-center px-2" : "inline-flex min-h-6 items-center pointer-coarse:min-h-11";
   return (
     <p className={cn(CREDIT, "col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center", phone && "mt-2")}>
       <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap", target)}>

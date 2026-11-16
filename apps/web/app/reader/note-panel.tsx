@@ -24,6 +24,7 @@ import { notifyError } from "~/lib/notify";
 import { setOpenNote } from "~/lib/next-path";
 import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
 import { useIsDark } from "~/lib/theme";
+import { useViewportFits } from "~/lib/text-size";
 import { PanelHeader } from "./panel-header";
 import { INSERT_REF, INSERT_VERSE, SHOW_REF, type RefEventDetail } from "./dialog-events";
 import type { ReferencesOverviewProps } from "./references-overview";
@@ -51,6 +52,10 @@ function ReferencesOverview(props: ReferencesOverviewProps) {
 }
 
 /** What the editor chunk borrows from here (ref-context.ts: EditorKit). */
+/** Room for the tags row while writing: a window ≥ 40rem tall (a phone at
+ * 100–125% text; not at 150%+, nor in landscape). */
+const roomyFits = (heightRem: number) => heightRem >= 40;
+
 const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker, ScrollArea };
 /** What the notes tours' chunk borrows from here (tour-host.tsx). */
 export const TOUR_KIT: TourKit = { Popover, PopoverContent, Button };
@@ -497,6 +502,10 @@ export function NotePanel({
   // folds it again (Freja, Kasper)
   const [writing, setWriting] = useState(false);
   const [peek, setPeek] = useState(false);
+  // A short screen in rem (large text, #196): writing, the tags row steps
+  // aside too, so the note and its `@` menu get the room
+  const roomy = useViewportFits(roomyFits, true, "height");
+  const folded = mobile && writing && !roomy;
 
   // Desktop: the overview's pane hugs its content, capped at 40% of the
   // split, until the reader drags the handle
@@ -527,7 +536,8 @@ export function NotePanel({
   }, [mobile, hug]);
 
   return (
-    <aside ref={asideRef} className="flex h-full w-full flex-col bg-background">
+    // relative: the `@` menu is placed in here (ref-typeahead)
+    <aside ref={asideRef} className="relative flex h-full w-full flex-col bg-background">
       {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
       <PanelHeader onClose={onClose} closeLabel={t("note.close")} className="pl-3">
@@ -564,7 +574,7 @@ export function NotePanel({
       </PanelHeader>
 
       {/* Tags group study across the graph (issue #10) — chips open topic pages */}
-      <div className="border-b border-border px-3 py-1.5">
+      <div className={cn("border-b border-border px-3 py-1.5", folded && "hidden")}>
         <NoteTagsRow noteId={note.id} />
       </div>
 

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { useId, useState, type Ref } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { cn } from "~/lib/utils";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadMarkedTranslationId } from "~/lib/preferences";
@@ -108,7 +109,9 @@ export function VerseField({
       <label htmlFor={inputId} className="sr-only">
         {label}
       </label>
-      <div className="flex items-center gap-1.5">
+      {/* Too narrow for both (large text, #196): the button goes under the
+          field, full width, and the field keeps its room */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <Input
           ref={inputRef}
           id={inputId}
@@ -138,9 +141,9 @@ export function VerseField({
           data-lpignore="true"
           aria-describedby={statusId}
           aria-invalid={problem ? true : undefined}
-          className={mobile ? "h-11" : "h-8"}
+          className={cn("min-w-0 flex-[999_1_12rem]", mobile ? "h-11" : "h-8")}
         />
-        <Button type="submit" variant="outline" size={mobile ? "default" : "sm"} disabled={busy || !text.trim()} className={mobile ? "h-11" : undefined}>
+        <Button type="submit" variant="outline" size={mobile ? "default" : "sm"} disabled={busy || !text.trim()} className={cn("flex-[1_0_auto]", mobile && "h-11")}>
           <Plus aria-hidden />
           {submitLabel}
         </Button>
