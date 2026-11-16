@@ -26,3 +26,17 @@ export function spotlitWords(
   }
   return lit;
 }
+
+/**
+ * The first word of a note's reference ("[data-verse][data-word]" selector) —
+ * where the reader turns or scrolls to. From the reference's own anchor, not
+ * its wrapper span: a reference wholly covered by smaller marks renders no
+ * wrapper of its own. Null until the mark is known (notes still loading).
+ */
+export function markStartSelector(
+  noteMarks: (Anchor & { noteId: string; id: string })[],
+  markId: string,
+): string | null {
+  const m = noteMarks.find((n) => noteMarkId(n) === markId);
+  return m ? `[data-verse="${m.startVerse}"][data-word="${m.startWord}"]` : null;
+}

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { noteMarkId, spotlitWords } from "./spotlight";
+import { coverInto, spanSize } from "./mark-coverage";
+import { markStartSelector, noteMarkId, spotlitWords } from "./spotlight";
 
 const passage = { translationId: "WEB", book: "GEN", chapter: 1 };
 const verses = [
@@ -54,5 +55,37 @@ describe("spotlight styling", () => {
     expect(css).not.toMatch(/\[data-spotlit\]\s+\[data-word\]/);
     // the wrapper only exists for the mark that won a word's coverage
     expect(src).not.toMatch(/data-spotlit=\{seg\./);
+  });
+});
+
+describe("markStartSelector", () => {
+  // A reference wholly covered by smaller marks (a pen underline + another
+  // note): smallest-first coverage gives it no word, so no wrapper span of
+  // its own is rendered — the jump must still find it
+  const covered = { ...passage, noteId: "a", id: "r3", startVerse: 2, startWord: 0, endVerse: 2, endWord: 3 };
+  const pen = { ...passage, id: "pen", startVerse: 2, startWord: 0, endVerse: 2, endWord: 1 };
+  const small = { ...passage, noteId: "b", id: "r4", startVerse: 2, startWord: 2, endVerse: 2, endWord: 3 };
+
+  it("finds a reference that owns no word of the coverage", () => {
+    const coverage = new Map<string, string>();
+    coverInto(
+      coverage,
+      verses,
+      [
+        { ...pen, value: pen.id },
+        ...[covered, small].map((m) => ({ ...m, value: noteMarkId(m) })),
+      ].sort((a, b) => spanSize(a) - spanSize(b)),
+    );
+    expect([...coverage.values()]).not.toContain(noteMarkId(covered));
+    expect(markStartSelector([covered, small], noteMarkId(covered))).toBe('[data-verse="2"][data-word="0"]');
+  });
+
+  it("is null until the mark is known (notes still loading)", () => {
+    expect(markStartSelector([], noteMarkId(covered))).toBeNull();
+  });
+
+  it("the reader looks references up by word, not by wrapper span", () => {
+    const reader = readFileSync(new URL("./paginated-chapter.tsx", import.meta.url), "utf8");
+    expect(reader).not.toMatch(/data-annotation-anchor/);
   });
 });

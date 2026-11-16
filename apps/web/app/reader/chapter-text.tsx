@@ -5,7 +5,6 @@ import {
   DEFAULT_HIGHLIGHT_COLOR,
   HIGHLIGHT_COLORS,
   words,
-  wordRangeInVerse,
 } from "@biblestdy/shared";
 import { Copy, Eraser, FileText, Link2, PenLine, X } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -32,6 +31,7 @@ import {
   type VirtualAnchor,
 } from "./selection-menu";
 import type { NoteMark } from "./use-notes";
+import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
@@ -86,24 +86,6 @@ function groupByAnnotation(
     else segs.push({ annotation, words: [w] });
   }
   return segs;
-}
-
-function coverInto<T>(
-  map: Map<string, T>,
-  verses: Chapter["verses"],
-  items: (Anchor & { value: T })[],
-) {
-  for (const v of verses) {
-    const count = words(v.text).length;
-    for (const it of items) {
-      const range = wordRangeInVerse(it, v.verse, count);
-      if (!range) continue;
-      for (let w = range.start; w <= range.end; w++) {
-        const key = `${v.verse}:${w}`;
-        if (!map.has(key)) map.set(key, it.value);
-      }
-    }
-  }
 }
 
 /** DOMRect fields are prototype getters — spread/JSON see nothing. */
@@ -232,7 +214,6 @@ export function ChapterText({
   // Marks and highlights may overlap/nest (a circled or re-marked word inside
   // a larger span) — cover smallest span first so the most specific one wins
   // clicks + wash. Rendering measures each mark's own word range regardless.
-  const spanSize = (a: Anchor) => (a.endVerse - a.startVerse) * 1000 + (a.endWord - a.startWord);
   const hlCoverage = new Map<string, Highlight>();
   coverInto(
     hlCoverage,
