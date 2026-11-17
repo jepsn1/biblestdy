@@ -562,10 +562,11 @@ export function ReferencesOverview({
             {...hoverProps}
             className={cn("flex min-h-11 min-w-0 flex-col justify-center rounded px-1.5 pt-1.5 text-left", focusRing)}
           >
-            <span className="flex min-w-0 items-baseline gap-1.5">
+            {/* The source (a mark's state, #216, can be long): its own line when it won't fit */}
+            <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
               {labelEl}
               {(source || tagEl) && (
-                <span className={cn("min-w-0 truncate font-sans text-meta", muted)}>
+                <span data-mark-fallback={markLine || undefined} className={cn("min-w-0 max-w-full truncate font-sans text-meta", muted)}>
                   · {source}
                   {tagEl}
                 </span>

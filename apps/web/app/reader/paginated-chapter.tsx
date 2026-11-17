@@ -1949,7 +1949,7 @@ export function PaginatedChapter({
                         data-note-peek=""
                         aria-label={`${t("note.backToNote")}: ${openNote.title || t("note.untitled")}`}
                         onClick={() => unfoldNote()}
-                        className={cn("flex min-h-11 shrink-0 items-center gap-1.5 rounded-md px-2 py-2 text-left font-medium hover:bg-accent", focusRing)}
+                        className={cn("flex min-h-11 shrink-0 items-center gap-1 rounded-md px-1.5 py-2 text-left font-medium hover:bg-accent", focusRing)}
                       >
                         <ChevronUp aria-hidden className="size-4 shrink-0" />
                         {t("note.backToNoteShort")}
