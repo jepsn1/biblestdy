@@ -13,10 +13,11 @@ import {
   type LexicalNode,
   type RangeSelection,
 } from "lexical";
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
 import { $isScriptureRefNode, $selectChip } from "./scripture-ref-node";
 import { requestOpenChip } from "./scripture-chip";
 import { mergeRegister } from "./lexical-util";
+import { ScriptureRefContext } from "./ref-context";
 
 /** The node right before (`back`) or after the collapsed caret. */
 function $besideCaret(sel: RangeSelection, back: boolean): LexicalNode | null {
@@ -36,12 +37,13 @@ const CHIP_KEYS = new Set(["Backspace", "Delete", "Enter", "Escape", "ArrowLeft"
 /**
  * Keys on chips (#160): Backspace (or Delete) next to a chip selects it
  * first, the second press removes it — the toast offers Undo. Enter on a
- * selected chip opens its preview. Any other key (typing, End, ↑↓) first
+ * selected chip opens its preview; Alt+Enter spotlights it in the Bible. Any other key (typing, End, ↑↓) first
  * puts the caret after the chip — a selected chip has no DOM caret, and the
  * browser would act at the start of the note.
  */
 export function ScriptureRefKeys() {
   const editor = useCellValue(rootEditor$);
+  const { spotlightsChip } = useContext(ScriptureRefContext).kit;
   useEffect(() => {
     if (!editor) return;
     const remove = (back: boolean) => (event: KeyboardEvent | null) => {
@@ -95,12 +97,13 @@ export function ScriptureRefKeys() {
           const nodes = sel.getNodes();
           if (nodes.length !== 1 || !$isScriptureRefNode(nodes[0])) return false;
           event?.preventDefault();
-          requestOpenChip(nodes[0].getKey());
+          // Alt+Enter (#213): straight to the Bible, no preview
+          requestOpenChip(nodes[0].getKey(), !!event && spotlightsChip(event));
           return true;
         },
         COMMAND_PRIORITY_HIGH,
       ),
     );
-  }, [editor]);
+  }, [editor, spotlightsChip]);
   return null;
 }

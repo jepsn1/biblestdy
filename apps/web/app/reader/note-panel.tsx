@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "~/lib/toast";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
+import { spotlightsChip } from "~/lib/shortcuts";
 import { Popover, PopoverContent } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import type { EditorKit, PagePlace, ReadRef } from "./ref-context";
@@ -57,7 +58,7 @@ function ReferencesOverview(props: ReferencesOverviewProps) {
  * 100–125% text; not at 150%+, nor in landscape). */
 const roomyFits = (heightRem: number) => heightRem >= 40;
 
-const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker, ScrollArea };
+const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker, ScrollArea, spotlightsChip };
 /** What the notes tours' chunk borrows from here (tour-host.tsx). */
 export const TOUR_KIT: TourKit = { Popover, PopoverContent, Button };
 

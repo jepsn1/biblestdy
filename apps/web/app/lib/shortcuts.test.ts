@@ -6,6 +6,7 @@ import {
   liveShortcut,
   opensPalette,
   opensPlaceChooser,
+  spotlightsChip,
   saveSingleKeys,
   singleKeyOff,
   singleKeysOn,
@@ -205,4 +206,15 @@ describe("opensPalette (search: Ctrl/⌘K, Alt+/, /)", () => {
     expect(opensPalette(key("k", body, { ctrlKey: true }), modalOpen)).toBe(false);
     expect(opensPalette(key("/", body), modalOpen)).toBe(false);
   });
+});
+
+describe("Alt+Enter on a chip (#213)", () => {
+  it("Alt+Enter spotlights a chip; Enter, Ctrl/⌘+Alt+Enter and Shift+Alt+Enter don't", () => {
+    expect(spotlightsChip(key("Enter", body, { altKey: true }))).toBe(true);
+    expect(spotlightsChip(key("Enter", body))).toBe(false);
+    expect(spotlightsChip(key("Enter", body, { altKey: true, ctrlKey: true }))).toBe(false);
+    expect(spotlightsChip(key("Enter", body, { altKey: true, metaKey: true }))).toBe(false);
+    expect(spotlightsChip(key("Enter", body, { altKey: true, shiftKey: true }))).toBe(false);
+  });
+
 });

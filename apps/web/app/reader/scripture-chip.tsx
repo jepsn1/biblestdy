@@ -1,6 +1,6 @@
-import { parseScriptureHref, resolveInChapter, toScriptureRef, type Chapter, type ScriptureRef, type Translation } from "@biblestdy/shared";
+import { formatScriptureHref, parseScriptureHref, resolveInChapter, type Chapter, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import { localRef } from "@biblestdy/shared/versification";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
 import { ArrowRight } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -13,26 +13,39 @@ import { cn, focusRing } from "~/lib/utils";
 import { useReadingTranslationId } from "../notes/add-reference";
 import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext } from "./ref-context";
+import { chipOpensOnClick } from "./chip-click";
+import { hoverRef, spotParam, useRefHover, useRefSpot } from "./spotlight";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
 
-/** Asks a chip to open its preview (Enter on a selected chip). */
+/** Asks a chip to open its preview (Enter on a selected chip), or (#213,
+ * Alt+Enter) to show it in the Bible straight away. */
 const opens = new EventTarget();
-export function requestOpenChip(key: NodeKey) {
-  opens.dispatchEvent(new CustomEvent("open", { detail: key }));
+export function requestOpenChip(key: NodeKey, spotlight = false) {
+  opens.dispatchEvent(new CustomEvent("open", { detail: { key, spotlight } }));
 }
+
+const translationsQuery = {
+  queryKey: ["translations"],
+  queryFn: () => api<Translation[]>("/api/translations"),
+  staleTime: Infinity,
+};
 
 /**
  * An inline reference as the note's reader sees it (#160): the label only,
- * in the UI language and font, gold as everything that navigates. A plain
- * click places the caret (writing comes first); a tap on touch, Enter when
- * selected, or Ctrl/⌘+click opens a preview of the verse in the reading
- * translation.
+ * in the UI language and font, in the note's ink (#213: one relation, one
+ * colour — the bracket on the page is blue too). A click or tap opens a
+ * preview of the verse in the reading translation, the caret after the
+ * chip (#213 C6; a drag that starts on it is no click); Enter on a
+ * selected chip opens it too, Alt+Enter spotlights it in the Bible at once.
+ * Hover — or selecting it — lights its link on the page; the page's hover
+ * on that link outlines it here (hoverRef, spotlight.ts).
  */
 export function ScriptureChip({ editor, nodeKey, href, text }: { editor: LexicalEditor; nodeKey: NodeKey; href: string; text: string }) {
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
   const nameOf = useBookName();
   const ref = useMemo(() => parseScriptureHref(href), [href]);
+  const canonical = useMemo(() => (ref && formatScriptureHref(ref)) ?? null, [ref]);
   const label = ref ? chipLabel(ref, locale) : text;
   const full = ref ? referenceLabel(ref, nameOf, locale) : text;
   const [selected, setSelected] = useState(false);
@@ -40,7 +53,14 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
   const chipRef = useRef<HTMLSpanElement>(null);
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
-  const { kit } = useContext(ScriptureRefContext);
+  const pressedAt = useRef<{ x: number; y: number } | null>(null);
+  const { kit, onRead } = useContext(ScriptureRefContext);
+  const queryClient = useQueryClient();
+  const translationId = useReadingTranslationId();
+  const hovered = useRefHover();
+  const spot = useRefSpot();
+  const outlined = !!canonical && hovered?.from === "page" && hovered.keys.includes(canonical);
+  const spotlit = !!canonical && !!spot?.startsWith("ref:") && spotParam(spot) === canonical;
 
   useEffect(() => {
     const read = () =>
@@ -52,18 +72,40 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
     return editor.registerUpdateListener(read);
   }, [editor, nodeKey]);
 
+  // A chip leaving the text (removed, note closed) takes its hover along
+  useEffect(() => () => hoverRef(null), []);
+
+  // Selected by the keyboard: its link lights on the page, as on hover
+  useEffect(() => {
+    if (!selected || !canonical) return;
+    hoverRef({ from: "note", keys: [canonical] });
+    return () => hoverRef(null);
+  }, [selected, canonical]);
+
   const openPreview = () => {
     if (!ref) return;
     saved.current = saveSelection(editor);
     setOpen(true);
   };
-  const openRef = useRef(openPreview);
+  /** Alt+Enter: "Show in Bible" without the preview — where the reading
+   * translation has it (its numbers, #163), as the preview's button does. */
+  const spotlight = async () => {
+    if (!ref || !onRead) return;
+    const list = await queryClient.fetchQuery(translationsQuery).catch(() => undefined);
+    const abbr = list?.find((tr) => tr.id === translationId)?.abbreviation;
+    const local = abbr ? localRef(ref, abbr) : undefined;
+    onRead(ref, local?.ref ?? ref);
+  };
+  const openRef = useRef({ openPreview, spotlight });
   useEffect(() => {
-    openRef.current = openPreview;
+    openRef.current = { openPreview, spotlight };
   });
   useEffect(() => {
     const on = (e: Event) => {
-      if ((e as CustomEvent<NodeKey>).detail === nodeKey) openRef.current();
+      const { key, spotlight: spot } = (e as CustomEvent<{ key: NodeKey; spotlight: boolean }>).detail;
+      if (key !== nodeKey) return;
+      if (spot) void openRef.current.spotlight();
+      else openRef.current.openPreview();
     };
     opens.addEventListener("open", on);
     return () => opens.removeEventListener("open", on);
@@ -76,14 +118,12 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
     focusEditor(editor, () => $restoreSelection(saved.current));
   }
 
-  /** A plain click: the caret on the nearer side of the chip. */
-  function placeCaret(clientX: number) {
-    const rect = chipRef.current?.getBoundingClientRect();
+  /** A click: the caret right after the chip — where typing goes on once
+   * the preview closes (#213 C6). */
+  function caretAfter() {
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
-      if (!$isScriptureRefNode(node)) return;
-      if (rect && clientX < rect.left + rect.width / 2) node.selectPrevious();
-      else node.selectNext(0, 0);
+      if ($isScriptureRefNode(node)) node.selectNext(0, 0);
     });
     focusEditor(editor);
   }
@@ -95,31 +135,46 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <span
         ref={chipRef}
-        title={t("note.refChipTitle", { ref: full, mod: kit.modKey() })}
+        title={t("note.refChipTitle", { ref: full, alt: kit.modKey() === "⌘" ? "⌥" : "Alt+" })}
         data-selected={selected || open ? "true" : undefined}
+        data-hover={outlined || undefined}
+        data-spot={spotlit || undefined}
         onPointerDown={(e) => {
           pointer.current = e.pointerType;
         }}
+        onPointerEnter={() => canonical && hoverRef({ from: "note", keys: [canonical] })}
+        onPointerLeave={() => !selected && hoverRef(null)}
         onMouseDown={(e) => {
           if (pointer.current !== "mouse" || e.button !== 0) return;
+          // No caret inside the label; the click decides (below)
           e.preventDefault();
-          if (!(e.ctrlKey || e.metaKey)) placeCaret(e.clientX);
+          pressedAt.current = { x: e.clientX, y: e.clientY };
         }}
         // On click, not press: the press would count as outside the
         // preview that it opens
         onClick={(e) => {
-          if (pointer.current !== "mouse" || e.ctrlKey || e.metaKey) openPreview();
+          const mouse = pointer.current === "mouse";
+          const from = pressedAt.current;
+          pressedAt.current = null;
+          if (!chipOpensOnClick({ mouse, button: e.button, from, to: { x: e.clientX, y: e.clientY } })) return;
+          if (mouse) caretAfter();
+          openPreview();
         }}
         className={cn(
           // select-none: the browser never puts the caret inside the label
           // (a click below the text would, and typing there is lost).
-          // Mads (#160): sans 500 at 0.875em (12px floor), gold text on an 8%
-          // tint with a 22% inset hairline; lines never spread or break
-          "cursor-pointer rounded-sm px-[0.3em] select-none font-sans text-[max(12px,0.875em)] leading-[inherit] font-medium whitespace-nowrap text-primary not-italic",
-          "bg-[color-mix(in_oklab,var(--primary)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent)]",
-          "hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]",
+          // Mads (#160): sans 500 at 0.875em (12px floor); #213: the note's
+          // ink — transparent, a 45% hairline, --note-ink-text (4.5:1 in
+          // both themes); lines never spread or break
+          "cursor-pointer rounded-sm px-[0.3em] select-none font-sans text-[max(12px,0.875em)] leading-[inherit] font-medium whitespace-nowrap text-(--note-ink-text) not-italic",
+          "shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--note-ink)_45%,transparent)]",
+          "hover:bg-(--link-wash)",
+          // Spotlit in the Bible: the strong wash, as on the page
+          "data-spot:bg-(--link-wash-strong)",
+          // Its link hovered on the page: outlined (a shape, not a colour)
+          "data-hover:shadow-[inset_0_0_0_1.5px_var(--note-ink)]",
           // Selected/open: a 2px ring 1px off (a shadow — the editor resets outlines)
-          "data-selected:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent),0_0_0_1px_var(--background),0_0_0_3px_var(--ring)]",
+          "data-selected:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--note-ink)_45%,transparent),0_0_0_1px_var(--background),0_0_0_3px_var(--ring)]",
         )}
       >
         <span aria-hidden>{label}</span>

@@ -188,3 +188,9 @@ export function opensPalette(event: ShortcutEvent, doc?: ElementLike["ownerDocum
   if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") return true;
   return event.key === "/" && !ignoreShortcut(event, d);
 }
+
+/** Alt+Enter (⌥↩) on a selected chip in the note (#213): straight to its
+ * spotlight in the Bible, no preview. Enter alone opens the preview. */
+export function spotlightsChip(event: Pick<ShortcutEvent, "key" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey" | "isComposing">): boolean {
+  return event.key === "Enter" && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.isComposing;
+}

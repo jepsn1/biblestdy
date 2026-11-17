@@ -306,6 +306,8 @@ export function AnnotationMarks({
   layoutKey,
   activeAnnotationId,
   spot = null,
+  hover = null,
+  onHoverMark,
   openNoteId = null,
   eraser = false,
   compact = false,
@@ -344,6 +346,12 @@ export function AnnotationMarks({
    * shown, filled; other notes' brackets and the reader's own marks outside
    * its verses step back — never hidden. */
   spot?: SpotRange | null;
+  /** The link hovered (or focused) in the note — its chip or row (#213):
+   * drawn as spotlit, nothing else steps back. Ignored under a spotlight. */
+  hover?: SpotRange | null;
+  /** Pointer or focus on the open note's bracket or label (#213): its chips
+   * and row answer (null: gone). */
+  onHoverMark?: (markKey: string | null) => void;
   /** The note open in the side panel (#211): its links' brackets and labels
    * step up, every other note's step back by colour. The spotlight
    * outranks it. */
@@ -687,11 +695,26 @@ export function AnnotationMarks({
   };
   /** A note link's step on the ladder (#211): rest → open → spotlit; or,
    * while another note is open, stepped back by colour. */
-  const stateOf = (marks: NoteMark[]): "rest" | "open" | "lit" | "back" => {
+  const hoverMark = spotlight ? null : (hover?.markId ?? null);
+  const stateOf = (marks: NoteMark[]): "rest" | "open" | "lit" | "hover" | "back" => {
     if (spotlight) return marks.some((m) => markKey(m) === spotMark) ? "lit" : "rest";
+    if (hoverMark && marks.some((m) => markKey(m) === hoverMark)) return "hover";
     if (!openNote) return "rest";
     return marks.some((m) => m.noteId === openNote) ? "open" : "back";
   };
+
+  /** The open note's bracket or label, under the pointer or focused: its
+   * chips and row answer (#213) — only the open note's, so the margin
+   * never flickers the panel for others. */
+  const hoverOf = (m: NoteMark | null) =>
+    m && onHoverMark && m.noteId === openNoteId
+      ? {
+          onPointerEnter: () => onHoverMark(markKey(m)),
+          onPointerLeave: () => onHoverMark(null),
+          onFocus: () => onHoverMark(markKey(m)),
+          onBlur: () => onHoverMark(null),
+        }
+      : {};
 
   // Note labels in the margin rail (#63): level with their bracket's first
   // line, stacked clear of each other and of default-placed annotation boxes.
@@ -751,7 +774,7 @@ export function AnnotationMarks({
                   fill="none"
                   // Another note open: this one steps back by colour (#211)
                   stroke={state === "back" ? "var(--muted-foreground)" : NOTE_INK}
-                  strokeWidth={state === "lit" ? 2.4 : state === "open" || active ? 2.2 : 1.7}
+                  strokeWidth={state === "lit" || state === "hover" ? 2.4 : state === "open" || active ? 2.2 : 1.7}
                   strokeOpacity={receded(p.markId, p.isNote) ? SPOT_FADE : undefined}
                   data-spot-dim={receded(p.markId, p.isNote) || undefined}
                   data-note-bracket={p.isNote ? (p.members ? "group" : state) : undefined}
@@ -776,7 +799,7 @@ export function AnnotationMarks({
           if (!chip) return null;
           const state = stateOf(m.marks);
           const y = chip.y + chipH / 2;
-          const strong = state === "open" || state === "lit";
+          const strong = state === "open" || state === "lit" || state === "hover";
           if (!strong && !needsConnector(m.hook.y, y, m.lineH)) return null;
           const x = chip.side === "left" ? chip.x + chip.width : chip.x;
           return (
@@ -835,6 +858,7 @@ export function AnnotationMarks({
                 data-bracket-strip=""
                 className="pointer-events-auto absolute w-3 cursor-pointer"
                 style={{ left: x - 6, top: p.box.y + geo.boxTop, height: p.box.h }}
+                {...hoverOf(p.members ? null : lead)}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (eraser) {
@@ -864,7 +888,7 @@ export function AnnotationMarks({
           // One more distinct note than its links? A note can link twice
           const notes = [...new Map(m.marks.map((x) => [x.noteId, x])).values()];
           const text = m.group ? t("reader.notesCount", { count: notes.length }) : title;
-          const filled = state === "open" || state === "lit";
+          const filled = state === "open" || state === "lit" || state === "hover";
           const className = cn(
             // 44px to touch on coarse pointers (an invisible ring round it)
             "pointer-events-auto absolute flex h-6 items-center pointer-coarse:before:absolute pointer-coarse:before:-inset-x-1 pointer-coarse:before:-inset-y-2.5 pointer-coarse:before:content-['']",
@@ -933,6 +957,7 @@ export function AnnotationMarks({
               aria-label={t("reader.noteLinkLabel", { title, passage })}
               aria-expanded={lead.noteId === openNoteId}
               title={title}
+              {...hoverOf(lead)}
               onClick={() => onOpenNote(lead.noteId, { verse: lead.startVerse, word: lead.startWord })}
               className={className}
               style={style}

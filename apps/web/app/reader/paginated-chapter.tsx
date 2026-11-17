@@ -48,10 +48,11 @@ import { notePage } from "~/lib/recent-passages";
 import { scrollsItself, wheelTurner } from "./wheel-turn";
 import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type ReaderTool, type ToolKind } from "./tool-palette";
 import { useLocalizer } from "./localizer";
+import { stepRef } from "./dialog-events";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
 import { moreRefs, type RefLocator } from "./ref-location";
-import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, useSpotlightEnd } from "./spotlight";
+import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, usePageHover, useSpotlightEnd } from "./spotlight";
 import { chipLabel } from "~/lib/reference-label";
 import { pageSpan, placeSelector, reflowPage, type Place } from "./reading-place";
 import { useHighlights } from "./use-highlights";
@@ -374,6 +375,8 @@ export function PaginatedChapter({
     notesApi.notes.find((f) => f.id === openNoteId) ??
     allNotes.find((f) => f.id === openNoteId) ??
     null;
+  // Chip ↔ page hover (#213)
+  const refHover = usePageHover(openNote, noteMarks, chapter, localLookup, spotId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollMode = useScrollMode();
   const strip = useChapterStrip();
@@ -1240,6 +1243,8 @@ export function PaginatedChapter({
         setToolPick((p) => ({ ...p, color: HIGHLIGHT_COLORS[Number(event.key) - 1] }));
         return;
       }
+      // A note open (#213): [ / ] step its verses, else the chapters
+      if ((event.key === "[" || event.key === "]") && openNoteId && stepRef(event.key === "]" ? 1 : -1)) return;
       // Chapters (#65): [ / ] — the chapter's start, both ways
       if (event.key === "[" && prevChapter) void crossTo(prevChapter, "prev");
       if (event.key === "]" && nextChapter) void crossTo(nextChapter, "next");
@@ -1465,6 +1470,7 @@ export function PaginatedChapter({
             scopeRef={mainRef}
             layoutKey={layoutKey}
             spot={spotPlace}
+            hover={refHover.hover}
             open={noteMarks.filter((m) => m.noteId === openNoteId).map((m) => ({ start: m.startVerse, end: m.endVerse }))}
           />
         </div>
@@ -1495,6 +1501,8 @@ export function PaginatedChapter({
         layoutKey={layoutKey}
         activeAnnotationId={activeAnnotationId}
         spot={spotPlace}
+        hover={refHover.hover}
+        onHoverMark={refHover.onHoverMark}
         openNoteId={openNoteId}
         eraser={!scrollMode && tool.kind === "erase"}
         onFocus={setActiveAnnotationId}

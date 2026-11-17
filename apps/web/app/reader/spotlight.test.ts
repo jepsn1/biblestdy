@@ -4,6 +4,7 @@ import type { ScriptureRef } from "@biblestdy/shared";
 import { readHref } from "../notes/verse-resolver";
 import type { NoteMark } from "./note-marks";
 import {
+  hoveredLinks,
   endsSpotlight,
   noteMarkId,
   refSpot,
@@ -155,4 +156,14 @@ describe("spotlight has no timer (#190)", () => {
     expect(read("./paginated-chapter.tsx")).not.toContain("verse-flash");
     expect(read("../app.css")).not.toMatch(/animation: verse-flash/);
   });
+});
+
+describe("hoveredLinks (#213: a hover lights its own link)", () => {
+  const links = [
+    { start: 14, end: 15 },
+    { start: 16, end: 16 },
+  ];
+  it("its own verses", () => expect(hoveredLinks(links, { start: 16, end: 16 })).toEqual([{ start: 16, end: 16 }]));
+  it("inside a selection's link: that one", () => expect(hoveredLinks(links, { start: 15, end: 15 })).toEqual([{ start: 14, end: 15 }]));
+  it("nothing hovered, nothing lit", () => expect(hoveredLinks(links, null)).toEqual([]));
 });

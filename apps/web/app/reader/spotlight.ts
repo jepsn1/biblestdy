@@ -4,9 +4,10 @@ import {
   parseScriptureHref,
   resolveInChapter,
   type ChapterVerses,
+  type Note,
   type ScriptureRef,
 } from "@biblestdy/shared";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { NoteMark } from "./note-marks";
 
 /** Spot id of a note's selection — matches the anchor pipeline's
@@ -108,6 +109,14 @@ export const touchesSpot = (spot: { start: number; end: number } | null, a: { st
  * renders no wrapper of its own. */
 export const spotStartSelector = (p: SpotPlace) => `[data-verse="${p.start}"][data-word="${p.word}"]`;
 
+/** The open note's link washes a hover shows (#213): its own verses, else
+ * the links it overlaps (a reference landing inside a selection). */
+export function hoveredLinks<T extends { start: number; end: number }>(links: T[], hover: { start: number; end: number } | null): T[] {
+  if (!hover) return [];
+  const exact = links.filter((l) => l.start === hover.start && l.end === hover.end);
+  return exact.length ? exact : links.filter((l) => l.start <= hover.end && l.end >= hover.start);
+}
+
 /** Reader's own marks outside the spotlit verses fade to this (#210 C1):
  * still there, never hidden. */
 export const SPOT_FADE = 0.35;
@@ -164,4 +173,92 @@ export function useSpotlightEnd(active: boolean, end: () => void) {
       document.removeEventListener("keydown", on, true);
     };
   }, [active]);
+}
+
+/**
+ * Chip ↔ page, both ways (#213): hovering or focusing a chip or overview
+ * row lights its link on the page; hovering a bracket or label of the open
+ * note outlines its chip(s) and row. One small store, so the editor chunk
+ * and the reader never import each other. Keys: a text reference's
+ * canonical href ("bible:JHN.3.16") or a selection's mark id
+ * ("note:<note>:<anchor>"). After 120 ms (a pass over the text stays
+ * quiet); leaving clears at once. The spotlit reference's id rides along:
+ * its chips take the strong wash.
+ */
+export type RefHover = { from: "note" | "page"; keys: string[] } | null;
+
+const HOVER_DELAY = 120;
+let hover: RefHover = null;
+let spot: string | null = null;
+let timer: ReturnType<typeof setTimeout> | undefined;
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => listeners.delete(l);
+};
+
+/** Hover (or focus) on: `null` ends it at once. */
+export function hoverRef(next: RefHover): void {
+  clearTimeout(timer);
+  if (!next) {
+    if (hover) {
+      hover = null;
+      emit();
+    }
+    return;
+  }
+  timer = setTimeout(() => {
+    hover = next;
+    emit();
+  }, HOVER_DELAY);
+}
+
+export function useRefHover(): RefHover {
+  return useSyncExternalStore(subscribe, () => hover, () => null);
+}
+
+/** The reader's spotlight (spotlight.ts id), for the chips. */
+export function setRefSpot(next: string | null): void {
+  if (next === spot) return;
+  spot = next;
+  emit();
+}
+
+export function useRefSpot(): string | null {
+  return useSyncExternalStore(subscribe, () => spot, () => null);
+}
+
+/** The page's spot id of a hover key, for the open note's links. */
+export const hoverSpot = (key: string, noteId: string) => (key.startsWith("note:") ? key : refSpotId(noteId, key));
+
+/**
+ * The reader's side (#213): where the hovered link lands in this chapter
+ * (drawn like the spotlight's mark, no muting — never while one is on), and
+ * what a hover on the open note's bracket or label says to its chips and
+ * rows: the mark itself (a selection's row) and every text reference that
+ * lands on it. Also hands the spotlight to the chips.
+ */
+export function usePageHover(
+  openNote: Note | null,
+  noteMarks: NoteMark[],
+  chapter: ChapterVerses,
+  local: ((ref: ScriptureRef) => ScriptureRef | null) | null,
+  spotId: string | null,
+): { hover: SpotPlace | null; onHoverMark: (markKey: string | null) => void } {
+  const h = useRefHover();
+  useEffect(() => setRefSpot(spotId), [spotId]);
+  useEffect(() => () => setRefSpot(null), []);
+  const noteId = openNote?.id;
+  let hover: SpotPlace | null = null;
+  if (h && noteId && !spotId)
+    for (const k of h.keys) if ((hover = resolveSpot(hoverSpot(k, noteId), noteMarks, chapter, local))) break;
+  const onHoverMark = (markKey: string | null) => {
+    if (!markKey || !openNote) return hoverRef(null);
+    const hrefs = (openNote.refs ?? [])
+      .map((r) => formatScriptureHref(r))
+      .filter((href): href is string => !!href && resolveSpot(refSpotId(openNote.id, href), noteMarks, chapter, local)?.markId === markKey);
+    hoverRef({ from: "page", keys: [markKey, ...hrefs] });
+  };
+  return { hover, onHoverMark };
 }

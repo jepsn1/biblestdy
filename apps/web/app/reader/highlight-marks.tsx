@@ -3,7 +3,7 @@ import { useState, type RefObject } from "react";
 import { isShown, type HighlightFilter } from "~/lib/highlight-filter";
 import { HIGHLIGHT_BG } from "./highlight-colors";
 import { mergeRanges } from "./note-marks";
-import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
+import { hoveredLinks, SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geometry";
 import { sameData, useMeasure } from "./use-measure";
 
@@ -16,7 +16,19 @@ import { sameData, useMeasure } from "./use-measure";
  * piece (the box-decoration-break: clone look), clamped to its text column.
  */
 
-type MarkRect = { key: string; x: number; y: number; w: number; h: number; color: string; faint?: boolean; dim?: boolean };
+type MarkRect = {
+  key: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: string;
+  faint?: boolean;
+  dim?: boolean;
+  /** One of the open note's links, measured ahead: shown only while it is
+   * hovered (#213). */
+  link?: { start: number; end: number };
+};
 
 /** A colour the key filters out: still there, see-through. */
 const FAINT = 0.3;
@@ -32,6 +44,7 @@ export function HighlightMarks({
   scopeRef,
   layoutKey,
   spot = null,
+  hover = null,
   open = [],
   shown = null,
 }: {
@@ -56,6 +69,10 @@ export function HighlightMarks({
    * wash (again never under a highlight); nothing else changes. The
    * spotlight outranks it: ignored while one is on. */
   open?: { start: number; end: number }[];
+  /** The open note's link hovered in the note (#213): a second soft wash
+   * over its verses (≈ the strong one), drawn from rects measured with the
+   * open note's — a hover never re-measures. */
+  hover?: SpotRange | null;
   /** The colour key's filter (null = all): other colours paint faint. */
   shown?: HighlightFilter;
 }) {
@@ -90,7 +107,12 @@ export function HighlightMarks({
         a: Anchor,
         key: string,
         color: string,
-        { faint = false, dim = false, skip }: { faint?: boolean; dim?: boolean; skip?: (v: number, w: number) => boolean } = {},
+        {
+          faint = false,
+          dim = false,
+          skip,
+          link,
+        }: { faint?: boolean; dim?: boolean; skip?: (v: number, w: number) => boolean; link?: { start: number; end: number } } = {},
       ) => {
         // Measure straight from the word spans — overlapping highlights all
         // render, independent of any per-word ownership. A skipped word
@@ -133,6 +155,7 @@ export function HighlightMarks({
             color,
             faint,
             dim,
+            link,
           });
         });
       };
@@ -162,6 +185,11 @@ export function HighlightMarks({
       else if (!spot)
         // Overlapping links: each verse washed once
         mergeRanges(open).forEach((r, i) => paint(verses(r.start, r.end), `open${i}`, "var(--link-wash)", { skip: under }));
+      // Each link's own wash, for its hover (above the open wash, below
+      // the highlights)
+      if (!spot)
+        for (const r of new Map(open.map((r) => [`${r.start}-${r.end}`, r])).values())
+          paint(verses(r.start, r.end), `link:${r.start}-${r.end}`, "var(--link-wash)", { skip: under, link: r });
       for (const hl of sorted)
         paint(hl, hl.id, HIGHLIGHT_BG[hl.color], { faint: faint(hl), dim: !!spot && !touchesSpot(spot, hl) });
       if (selection) paint(selection, "selection", "var(--selection)");
@@ -170,12 +198,15 @@ export function HighlightMarks({
     [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown, spot?.start, spot?.end, JSON.stringify(open)],
   );
 
+  const lit = new Set(hoveredLinks([...new Map(open.map((r) => [`${r.start}-${r.end}`, r])).values()], spot ? null : hover));
+  const showsLink = (r: MarkRect) => !r.link || [...lit].some((l) => l.start === r.link!.start && l.end === r.link!.end);
+
   return (
     <svg
       aria-hidden
       className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible"
     >
-      {rects.map((r) => (
+      {rects.filter(showsLink).map((r) => (
         <rect
           key={r.key}
           data-wash={r.key}

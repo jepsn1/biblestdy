@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moreRefs, refTag, type RefLocator } from "./ref-location";
+import { moreRefs, refTag, stepIndex, type RefLocator } from "./ref-location";
 
 const locator = (page: number | null, pages: Record<string, number | null>): RefLocator => ({
   book: "JHN",
@@ -40,5 +40,16 @@ describe("moreRefs (#226)", () => {
   it("says nothing when every reference is on this page or unplaced", () => {
     expect(moreRefs([], 0)).toBeNull();
     expect(moreRefs([2, 2, null], 2)).toBeNull();
+  });
+});
+
+describe("] / [ (#213)", () => {
+  it("steps from the spotlit reference, round the ends; none lit: ] the first, [ the last", () => {
+    expect(stepIndex(3, -1, 1)).toBe(0);
+    expect(stepIndex(3, -1, -1)).toBe(2);
+    expect(stepIndex(3, 0, 1)).toBe(1);
+    expect(stepIndex(3, 2, 1)).toBe(0);
+    expect(stepIndex(3, 0, -1)).toBe(2);
+    expect(stepIndex(0, -1, 1)).toBe(-1);
   });
 });
