@@ -751,8 +751,9 @@ export function CommandPalette({
       onKeyDown={onKeyDown}
       className={
         isMobile
-          ? // A filled field: no underline; a 1px edge and, focused, a 2px ring (≥3:1)
-            "h-11 w-full min-w-0 rounded-[10px] bg-muted pr-11 pl-10 text-phone ring-1 ring-muted-foreground/80 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          ? // A filled field: no underline; a 1px edge and, focused, a 2px ring (≥3:1).
+            // px, not rem: large text keeps the field's room for the words
+            "min-h-[44px] w-full min-w-0 rounded-[10px] bg-muted py-1 pr-[44px] pl-[40px] text-phone ring-1 ring-muted-foreground/80 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           : cn(
               "h-12 min-w-0 flex-1 bg-transparent text-control placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone",
               focusTitle,
@@ -871,8 +872,8 @@ export function CommandPalette({
                 scrolled ? "border-border" : "border-transparent",
               )}
             >
-              <div className="relative flex h-14 min-w-0 flex-1 items-center">
-                <Search className="pointer-events-none absolute left-3 size-[18px] text-muted-foreground" aria-hidden />
+              <div className="relative flex min-h-[56px] min-w-0 flex-1 items-center">
+                <Search className="pointer-events-none absolute left-[12px] size-[18px] text-muted-foreground" aria-hidden />
                 {input}
                 {query && (
                   <button
@@ -885,7 +886,7 @@ export function CommandPalette({
                       setQuery("");
                       inputRef.current?.focus();
                     }}
-                    className="absolute right-0 flex size-11 items-center justify-center rounded-[10px] text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="absolute right-0 flex size-[44px] items-center justify-center rounded-[10px] text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <CircleX className="size-[18px]" aria-hidden />
                   </button>
@@ -895,7 +896,8 @@ export function CommandPalette({
                 type="button"
                 aria-label={t("palette.cancelTo", { ref: here })}
                 onClick={closeVia}
-                className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-phone font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                // Grows with large text, but leaves the field its room (capped 22px)
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md px-1 text-[clamp(16px,1rem,22px)] leading-tight font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 {t("palette.cancel")}
               </button>
