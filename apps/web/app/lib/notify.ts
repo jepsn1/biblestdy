@@ -19,7 +19,7 @@ let undoSeq = 0;
 
 /** "Note deleted · Undo". `undo` should resolve once restored; a rejected
  * undo shows its own error toast. */
-export function notifyUndo(message: string, undo: () => Promise<unknown>) {
+export function notifyUndo(message: string, undo: () => Promise<unknown>, ms = UNDO_MS) {
   const id = `undo-${++undoSeq}`;
   let release = () => {};
   const show = (duration: number) =>
@@ -41,9 +41,9 @@ export function notifyUndo(message: string, undo: () => Promise<unknown>) {
         },
       },
     });
-  show(UNDO_MS);
+  show(ms);
   // Same id = updated in place: no timer while focused, a fresh one after
-  release = holdWhileFocused(`.${id}`, (held) => show(held ? Infinity : UNDO_MS));
+  release = holdWhileFocused(`.${id}`, (held) => show(held ? Infinity : ms));
 }
 
 /** Calls `onChange(true)` when focus moves into `selector`, `false` when it

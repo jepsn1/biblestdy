@@ -34,7 +34,11 @@ import {
 import type { NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
-import { isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
+import { edgeScroll, inAnchor } from "./held-selection";
+import { DragRefTag, SelectionPill } from "./selection-pill";
+import { notifyUndo } from "~/lib/notify";
+import { HIGHLIGHT_SWATCH } from "./highlight-colors";
+import { TAP_MAX_MS, isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
 import { compareDialog } from "./compare-loader";
@@ -162,7 +166,8 @@ export function ChapterText({
   /** Verses a jump or "Read here" landed on: tinted until the spotlight
    * ends (#190). Rendered, not a DOM class: re-renders would drop it. */
   flash?: { start: number; end: number } | null;
-  onAddHighlight: (anchor: Anchor, color: HighlightColor) => void;
+  /** Resolves to the new highlight (undefined if saving failed). */
+  onAddHighlight: (anchor: Anchor, color: HighlightColor) => Promise<Highlight | undefined> | void;
   onRecolorHighlight: (id: string, color: HighlightColor) => void;
   onRemoveHighlight: (id: string) => void;
   /** text null = a plain pen mark in `mark` style. */
@@ -191,8 +196,8 @@ export function ChapterText({
   /** "Select words to highlight…" under the heading until first use (#63). */
   firstUseHint?: boolean;
   onDismissHint?: () => void;
-  /** Phone (#13): native selection is disabled — tapping a word selects it,
-   * the menu opens immediately, and two drag handles stretch the span. Note
+  /** Phone (#13): native selection is disabled — tapping a word selects it
+   * with two drag handles to stretch the span; the menu waits (#206). Note
    * marks show as a small marker after the verse number (#63). */
   mobile?: boolean;
   /** Only these verses: chapters run on across pages — the end of one page
@@ -212,6 +217,8 @@ export function ChapterText({
   // Tap-selection (mobile): a = the end fixed at tap, b = the dragged end.
   // Either handle may drag either end; buildAnchor normalizes the order.
   const [touchSel, setTouchSel] = useState<{ a: WordPos; b: WordPos } | null>(null);
+  /** Phone (#206): the tap-selection is held — handles up, no menu yet. */
+  const [held, setHeld] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const draftRef = useRef<HTMLTextAreaElement>(null);
@@ -255,6 +262,90 @@ export function ChapterText({
     [touchSel, chapter.translationId, chapter.book, chapter.chapter],
   );
   useEffect(() => onSelectionChange(selAnchor), [selAnchor, onSelectionChange]);
+  const holding = !!mobile && held && !!touchSel && !menu;
+  /** "Selected: John 3:16. Highlight, Note, More, Close." (polite, on a tap-select) */
+  const [said, setSaid] = useState("");
+  // Any other way the selection goes or its menu comes ends the hold
+  useEffect(() => {
+    if (held && (!touchSel || menu)) {
+      setHeld(false);
+      setSaid("");
+    }
+  }, [held, touchSel, menu]);
+  // A tap on plain text outside it, or Esc, lets a held selection go —
+  // scrolling keeps it (#206). Capture: read before the tap's own handler
+  // (a tap on another word re-selects there, in onWordClick)
+  useEffect(() => {
+    if (!holding) return;
+    const drop = () => setTouchSel(null);
+    const onClick = (e: MouseEvent) => {
+      const el = e.target as Element | null;
+      if (el?.closest?.(`[${SELECTION_UI_ATTR}]`)) return;
+      const word = el?.closest?.("[data-word]");
+      if (!(word && rootRef.current?.contains(word))) drop();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && drop();
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [holding]);
+  /** A selection handle held (#206): which, and the fingertip. */
+  const [handleDrag, setHandleDrag] = useState<{ which: "start" | "end"; x: number; y: number } | null>(null);
+  const dragging = handleDrag !== null;
+  /** The text scrolled lately: the pill waits until it settles. */
+  const [scrolling, setScrolling] = useState(false);
+  /** Bumped on scroll: the handles (and pill) are re-measured. */
+  const [scrolled, setScrolled] = useState(0);
+  const withHandles = !!mobile && !!touchSel;
+  useEffect(() => {
+    if (!withHandles) return;
+    let frame = 0;
+    let settle = 0;
+    const onScroll = () => {
+      setScrolling(true);
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => setScrolling(false), 150);
+      if (!frame) frame = requestAnimationFrame(() => {
+        frame = 0;
+        setScrolled((n) => n + 1);
+      });
+    };
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+      setScrolling(false);
+    };
+  }, [withHandles]);
+  // A handle held near the text's top or bottom edge scrolls it, the
+  // selection following (long passages). Our own scroll keeps the selection.
+  const dragAt = useRef(handleDrag);
+  dragAt.current = handleDrag;
+  /** Fingertip's height below the middle of its handle's word, at grab. */
+  const grabDy = useRef(0);
+  const dragHandleRef = useRef<(which: "start" | "end", x: number, y: number) => void>(() => {});
+  useEffect(() => {
+    if (!dragging) return;
+    const vp = rootRef.current?.closest<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    if (!vp) return;
+    let frame = requestAnimationFrame(function step() {
+      const d = dragAt.current;
+      if (d) {
+        const r = vp.getBoundingClientRect();
+        const by = edgeScroll(d.y, r.top, r.bottom);
+        if (by) {
+          vp.scrollBy(0, by);
+          dragHandleRef.current(d.which, d.x, Math.max(r.top + 4, Math.min(d.y, r.bottom - 4)));
+        }
+      }
+      frame = requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [dragging]);
   // What the palette's / translation sheet's Compare acts on (#167)
   const compareKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => {
@@ -308,7 +399,7 @@ export function ChapterText({
         start: startEl.getBoundingClientRect(),
         end: endEl.getBoundingClientRect(),
       });
-  }, [selAnchor, mobile]);
+  }, [selAnchor, mobile, scrolled]);
 
   // Per word, from the reference's own range: other marks over some of its
   // words (smaller ones win annotationCoverage) must not punch muted holes
@@ -785,10 +876,13 @@ export function ChapterText({
     if (p?.mouse || event.button !== 0) return; // the mouse acts on pointerup
     if (p && !isTap(p, event.clientX, event.clientY, event.timeStamp)) return;
     const pos = wordPosOf(event.target);
-    if (pos) onWordClick(event, pos);
+    // No press on the words just before: a VoiceOver/TalkBack double-tap
+    // (or another virtual click) — straight to the menu, no pill (#206)
+    const virtual = event.detail === 0 || !p || event.timeStamp - p.at > TAP_MAX_MS;
+    if (pos) onWordClick(event, pos, virtual);
   }
 
-  function onWordClick(event: React.MouseEvent, pos: WordPos) {
+  function onWordClick(event: React.MouseEvent, pos: WordPos, virtual = false) {
     const markId = annotationCoverage.get(`${pos.verse}:${pos.word}`)?.id;
     const hit = hlCoverage.get(`${pos.verse}:${pos.word}`);
     if (activeTool) {
@@ -802,6 +896,13 @@ export function ChapterText({
       } else applyTool(activeTool, buildAnchor(passage, pos, pos));
       return;
     }
+    if (holding && selAnchor && inAnchor(selAnchor, pos)) {
+      // Second tap on the selection: its drawer (an unadvertised shortcut)
+      event.stopPropagation();
+      setMenu({ kind: "selection", anchor: selAnchor });
+      return;
+    }
+    if (holding) setTouchSel(null); // a tap anywhere else lets it go
     if (markId?.startsWith("note:")) {
       event.stopPropagation();
       onOpenNote(markId.split(":")[1], { verse: pos.verse, word: pos.word }); // "note:<noteId>:<anchorId>" — open the note panel
@@ -830,18 +931,31 @@ export function ChapterText({
       closeMenu();
       return;
     }
-    // Tap-select: one word selected, menu up immediately, handles stretch it
+    // Tap-select (#206): one word selected, handles stretch it, the menu
+    // waits — it would cover the words being adjusted
     event.stopPropagation();
+    nextMenu.current = null;
+    const anchor = buildAnchor(passage, pos, pos);
     setTouchSel({ a: pos, b: pos });
-    setMenu({ kind: "selection", anchor: buildAnchor(passage, pos, pos) });
+    if (virtual) {
+      setMenu({ kind: "selection", anchor });
+      return;
+    }
+    setMenu(null);
+    setHeld(true);
+    setSaid(t("menu.selected", { ref: anchorReferenceLabel(anchor, locale) }));
   }
 
   /** Drag one end of the tap-selection: the word under the pointer becomes
    * that end; anchor + menu follow live. Ends may cross — the pair is
    * re-normalized so the handles never swap roles mid-drag. */
+  dragHandleRef.current = dragHandle;
   function dragHandle(which: "start" | "end", clientX: number, clientY: number) {
+    // The word level with where the knob was grabbed (the finger sits below
+    // it), seen past the handles themselves
     const hit = document
-      .elementFromPoint(clientX, clientY)
+      .elementsFromPoint(clientX, clientY - grabDy.current)
+      .find((el) => !el.closest(`[${SELECTION_UI_ATTR}]`))
       ?.closest<HTMLElement>("[data-verse][data-word]");
     if (!hit || !rootRef.current?.contains(hit)) return;
     const pos = { verse: Number(hit.dataset.verse), word: Number(hit.dataset.word) };
@@ -855,6 +969,13 @@ export function ChapterText({
       setMenu((m) => (m?.kind === "selection" ? { ...m, anchor } : m));
       return next;
     });
+  }
+
+  /** The pill's Highlight (#206): the last-used colour at once, Undo for 4s. */
+  async function highlightNow(anchor: Anchor) {
+    setTouchSel(null);
+    const h = await onAddHighlight(anchor, defaultColor);
+    if (h) notifyUndo(t("menu.highlighted"), async () => onRemoveHighlight(h.id), 4000);
   }
 
   function addHighlight(anchor: Anchor, color: HighlightColor) {
@@ -1210,7 +1331,7 @@ export function ChapterText({
           drag stretches the span, the menu follows the end word */}
       {mobile &&
         handleRects &&
-        menu?.kind === "selection" &&
+        (menu?.kind === "selection" || holding) &&
         createPortal(
           <>
             {(["start", "end"] as const).map((which) => {
@@ -1228,22 +1349,55 @@ export function ChapterText({
                     e.preventDefault();
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
+                    setHandleDrag({ which, x: e.clientX, y: e.clientY });
+                    grabDy.current = e.clientY - (r.top + r.bottom) / 2;
                   }}
                   onPointerMove={(e) => {
-                    if (e.currentTarget.hasPointerCapture(e.pointerId))
-                      dragHandle(which, e.clientX, e.clientY);
+                    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+                    setHandleDrag({ which, x: e.clientX, y: e.clientY });
+                    dragHandle(which, e.clientX, e.clientY);
                   }}
+                  onPointerUp={() => setHandleDrag(null)}
+                  onPointerCancel={() => setHandleDrag(null)}
                 >
-                  {/* Fat invisible hit area, small visible lollipop */}
-                  <div className="flex h-9 w-9 items-start justify-center">
+                  {/* Fat invisible hit area (44px), small visible lollipop */}
+                  <div className="flex size-11 items-start justify-center">
                     <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary/30 shadow-sm" />
                   </div>
                 </div>
               );
             })}
+            {holding && selAnchor && handleDrag && (
+              <DragRefTag x={handleDrag.x} y={handleDrag.y} text={anchorReferenceLabel(selAnchor, locale)} />
+            )}
+            {holding &&
+              selAnchor &&
+              !handleDrag &&
+              !scrolling &&
+              // Only while some of it is on screen
+              handleRects.start.top < window.innerHeight &&
+              handleRects.end.bottom > 0 && (
+                <SelectionPill
+                  start={handleRects.start}
+                  end={handleRects.end}
+                  label={`${t("menu.selectionLabel")}, ${anchorReferenceLabel(selAnchor, locale)}`}
+                  range={selAnchor.endVerse !== selAnchor.startVerse ? anchorReferenceLabel(selAnchor, locale) : null}
+                  color={HIGHLIGHT_SWATCH[defaultColor]}
+                  onHighlight={() => void highlightNow(selAnchor)}
+                  onNote={() => {
+                    setTouchSel(null);
+                    onAddNote(selAnchor);
+                  }}
+                  onMore={() => setMenu({ kind: "selection", anchor: selAnchor })}
+                  onClose={() => setTouchSel(null)}
+                />
+              )}
           </>,
           document.body,
         )}
+      <p aria-live="polite" className="sr-only">
+        {said}
+      </p>
 
       <ActionMenu
         // A fresh menu per view: focus lands on the new list
@@ -1252,7 +1406,7 @@ export function ChapterText({
         onOpenChange={(open, keyboard) => !open && closeMenu(keyboard)}
         anchor={virtualAnchor}
         mobile={mobile}
-        label={t(
+        label={menu?.kind === "selection" ? `${t("menu.selectionLabel")}, ${anchorReferenceLabel(menu.anchor, locale)}` : t(
           menu?.kind === "highlight"
             ? "menu.highlightLabel"
             : menu?.kind === "mark"
