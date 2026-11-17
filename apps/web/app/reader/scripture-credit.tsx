@@ -21,9 +21,13 @@ export function ScriptureCredit({
   className,
   onFollow,
   quoted,
+  replace,
 }: {
   className?: string;
   onFollow?: () => void;
+  /** The copyright page takes this history entry's place (the phone
+   * search screen's own entry, #243). */
+  replace?: boolean;
   /** Abbreviations of the translations the words shown come from. */
   quoted?: readonly string[];
 }) {
@@ -38,7 +42,7 @@ export function ScriptureCredit({
     .join("; ");
   return (
     <p className={cn("text-meta text-muted-foreground", className)}>
-      <Link to="/copyright" className={LINK} onClick={onFollow}>
+      <Link to="/copyright" replace={replace} className={LINK} onClick={onFollow}>
         {named || t("copyright.quoted")}
       </Link>
       {" · "}

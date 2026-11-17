@@ -514,3 +514,64 @@ describe("Compare {ref} (#167)", () => {
     expect(ids("rom 8:28")).not.toContain("compare");
   });
 });
+
+describe("the phone's search screen (#243)", () => {
+  const more = [
+    { id: "a3", label: "Third", keywords: [], common: true },
+    { id: "a4", label: "Fourth", keywords: [], common: true },
+  ];
+  const phone = (over: Partial<PaletteContext> = {}) => ctx({ phone: true, ...over, actions: [...ctx().actions, ...more] });
+  const lots = [
+    { book: "JHN", chapter: 3 },
+    { book: "PSA", chapter: 23, page: 1 },
+    { book: "ROM", chapter: 8 },
+    { book: "GEN", chapter: 1 },
+    { book: "MRK", chapter: 1 },
+    { book: "ACT", chapter: 2 },
+    { book: "EPH", chapter: 2 },
+  ];
+
+  it("empty: recently read first (Continue on top, at most 5, not here), then at most 3 commands", () => {
+    const rows = buildResults("", phone({ recent: lots }));
+    expect(rows.map((r) => r.id)).toEqual([
+      "recent:PSA/23",
+      "recent:ROM/8",
+      "recent:GEN/1",
+      "recent:MRK/1",
+      "recent:ACT/2",
+      "action:dark",
+      "action:shortcuts",
+      "action:a3",
+    ]);
+    expect(rows[0].label).toBe("Continue: Psalm 23, page 2");
+  });
+
+  it("nothing read yet (or only here): where to start, then the commands — never only commands", () => {
+    expect(ids("", phone({ recent: [{ book: "JHN", chapter: 3 }] }))).toEqual([
+      "start:GEN/1",
+      "start:PSA/23",
+      "start:MRK/1",
+      "start:JHN/1",
+      "action:dark",
+      "action:shortcuts",
+      "action:a3",
+    ]);
+  });
+
+  it("a newcomer with a little read: recent, then where to start, then commands", () => {
+    const rows = ids("", phone({ recent: [{ book: "JHN", chapter: 3 }, { book: "ROM", chapter: 8 }] }));
+    expect(rows.slice(0, 2)).toEqual(["recent:ROM/8", "start:GEN/1"]);
+    expect(rows.at(-1)).toBe("action:a3");
+  });
+
+  it("“rom 8:28” makes Romans 8:28 the first selectable row", () => {
+    for (const q of ["rom 8:28", "rom 8 28", "rom8,28"]) {
+      const first = buildResults(q, phone()).find((r) => !r.disabled);
+      expect(first).toMatchObject({ group: "passage", href: expect.stringMatching(/^\/read\/ROM\/8\b.*28/) });
+    }
+  });
+
+  it("desktop keeps its launcher order", () => {
+    expect(ids("", ctx({ recent: lots })).slice(0, 2)).toEqual(["action:dark", "action:shortcuts"]);
+  });
+});

@@ -7,7 +7,7 @@ import { Button } from "~/components/ui/button";
 import { useLiveShortcut } from "~/lib/shortcuts";
 import { COFFEE_URL } from "~/lib/support";
 import { cn, focusRing } from "~/lib/utils";
-import { openPalette, palette, PALETTE_PROXY } from "~/palette/open-palette";
+import { openPaletteFromTap, palette } from "~/palette/open-palette";
 import { lineWidth, partsThatFit } from "./sheet-layout";
 import { ShareMenu } from "./share-menu";
 import { turnStill } from "./turn-still";
@@ -459,12 +459,8 @@ export function ChapterBar({
           aria-haspopup="dialog"
           onPointerDown={palette.preload}
           onFocus={palette.preload}
-          onClick={() => {
-            // Opener first (Esc comes back here), then the proxy: iOS keeps
-            // the keyboard up only for a focus inside the tap itself
-            openPalette();
-            document.querySelector<HTMLInputElement>(`[${PALETTE_PROXY}]`)?.focus();
-          }}
+          // The shared way in (#243): same search screen as the header's Søg
+          onClick={(e) => openPaletteFromTap(e.currentTarget)}
           className={cn(BAR_BUTTON, "justify-center")}
         >
           <Search aria-hidden />

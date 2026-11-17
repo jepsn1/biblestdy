@@ -44,18 +44,25 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  variant = "card",
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  /** "screen": a whole phone screen of its own (the phone search, #243) —
+   * opaque page colour over the full layout viewport, no backdrop (no dim,
+   * no blur), no zoom: a 100ms fade, none with reduced motion. */
+  variant?: "card" | "screen"
 }) {
   const { t } = useTranslation()
   return (
     <DialogPortal>
-      <DialogOverlay />
+      {variant === "card" && <DialogOverlay />}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-control text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          variant === "card"
+            ? "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-control text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+            : "fixed inset-0 z-50 bg-background text-control text-foreground duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
           className
         )}
         {...props}

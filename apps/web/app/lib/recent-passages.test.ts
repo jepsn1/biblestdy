@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { notePage, placesToOffer, pushRecent, readRecent } from "./recent-passages";
+import { clearRecent, notePage, placesToOffer, pushRecent, readRecent, restoreRecent } from "./recent-passages";
 
 const store = new Map<string, string>();
 beforeEach(() => {
@@ -60,5 +60,18 @@ describe("recent passages", () => {
     });
     expect(() => pushRecent({ book: "JHN", chapter: 3 })).not.toThrow();
     expect(readRecent()).toEqual([]);
+  });
+});
+
+describe("Ryd + undo (#243)", () => {
+  it("forgets all but the chapter you're on; undo brings the rest back behind anything read since", () => {
+    pushRecent({ book: "ROM", chapter: 8 });
+    pushRecent({ book: "PSA", chapter: 23 });
+    pushRecent({ book: "JHN", chapter: 3 });
+    const was = clearRecent({ book: "JHN", chapter: 3 });
+    expect(readRecent()).toEqual([{ book: "JHN", chapter: 3 }]);
+    pushRecent({ book: "GEN", chapter: 1 });
+    restoreRecent(was);
+    expect(readRecent().map((r) => r.book)).toEqual(["GEN", "JHN", "PSA", "ROM"]);
   });
 });
