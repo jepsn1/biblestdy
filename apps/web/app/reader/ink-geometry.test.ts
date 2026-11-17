@@ -91,6 +91,19 @@ describe("placeRailChips", () => {
     expect(b).toEqual({ id: "b", side: "right", x: 900, y: 288, width: 160 });
   });
 
+  it("keeps left chips clear of the tool palette's column, the right side its own edge (#211)", () => {
+    const [a, b] = placeRailChips(
+      [
+        { id: "a", side: "left", centerY: 100 },
+        { id: "b", side: "right", centerY: 100 },
+      ],
+      { ...rail, leftEdge: 120 },
+    )!;
+    expect(a.x).toBe(120);
+    expect(a.width).toBe(80);
+    expect(b.width).toBe(160);
+  });
+
   it("stacks chips on nearby lines instead of overlapping", () => {
     const chips = placeRailChips(
       [

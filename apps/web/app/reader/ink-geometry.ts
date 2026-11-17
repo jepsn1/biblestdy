@@ -104,6 +104,8 @@ export type RailGeometry = {
   /** Outer limits of the region (chips stay inside, with `edge` margin). */
   regionWidth: number;
   edge: number;
+  /** The left edge's own clearance, when wider (the tool palette's column). */
+  leftEdge?: number;
   /** Chip height (the 24px target) and the gap between stacked chips. */
   chipH: number;
   gap: number;
@@ -121,7 +123,7 @@ export type RailChip = { id: string; side: "left" | "right"; x: number; y: numbe
  * inline markers. */
 export function placeRailChips(requests: RailRequest[], rail: RailGeometry): RailChip[] | null {
   const room = {
-    left: rail.leftEnd - rail.edge,
+    left: rail.leftEnd - (rail.leftEdge ?? rail.edge),
     right: rail.regionWidth - rail.edge - rail.rightStart,
   };
   if (requests.some((r) => room[r.side] < rail.chipH)) return null;

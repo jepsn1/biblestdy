@@ -695,7 +695,7 @@ export function AnnotationMarks({
 
   // Note labels in the margin rail (#63): level with their bracket's first
   // line, stacked clear of each other and of default-placed annotation boxes.
-  // Never under the tool rail: the pane edges keep the gutter clear (#211)
+  // Never under the tool rail: the left edge keeps its gutter clear (#211)
   const chips =
     railChips && rail
       ? placeRailChips(
@@ -708,7 +708,8 @@ export function AnnotationMarks({
             leftEnd: rail.leftEnd,
             rightStart: rail.rightStart,
             regionWidth: rail.width,
-            edge: Math.max(EDGE, GUTTER * rail.rem),
+            edge: EDGE,
+            leftEdge: Math.max(EDGE, GUTTER * rail.rem),
             chipH: CHIP_H_REM * rail.rem,
             gap: CHIP_GAP_REM * rail.rem,
             maxWidth: CHIP_MAX_REM * rail.rem,
