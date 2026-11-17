@@ -440,6 +440,7 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
   // (a press may be a scroll), keyboard keeps Enter/Space (detail 0)
   const pressed = useRef(false);
   const live = useLiveShortcut();
+  const bookRef = useCrampedName(bar, button.label);
   return (
     <Hint label={button.name} shortcut={button.hintKey} side="top">
       <Button
@@ -477,9 +478,11 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
         {dir === "prev" && <Icon aria-hidden data-icon="inline-start" />}
         {button.place ? (
           <span className="flex min-w-0">
-            <span className="min-w-0 truncate">{button.place.book}</span>
-            <span data-chapter-num="" className="shrink-0 tabular-nums">
+            <span ref={bookRef} className="min-w-0 truncate data-cramped:hidden">
+              {button.place.book}
               {"\u00a0"}
+            </span>
+            <span data-chapter-num="" className="shrink-0 tabular-nums">
               {button.place.chapter}
             </span>
           </span>
@@ -490,4 +493,29 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
       </Button>
     </Hint>
   );
+}
+
+/** The bar's book name, cut to under ~3 letters ("2 …" at 320px, 200%,
+ * #240): it goes, the chapter number stays — the button's accessible name
+ * still says the book. Measured shown, every time, so hiding it can't flip
+ * the answer back. */
+function useCrampedName(on: boolean, text: string) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const button = el?.closest("button");
+    const bar = button?.parentElement;
+    if (!on || !el || !button || !bar) return;
+    const fit = () => {
+      delete el.dataset.cramped;
+      const em = parseFloat(getComputedStyle(el).fontSize) || 16;
+      if (el.scrollWidth > el.clientWidth + 0.5 && el.clientWidth < 2.6 * em) el.dataset.cramped = "";
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(bar);
+    ro.observe(button);
+    return () => ro.disconnect();
+  }, [on, text]);
+  return ref;
 }
