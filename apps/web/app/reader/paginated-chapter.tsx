@@ -50,6 +50,7 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { useLocalizer } from "./localizer";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
+import type { RefLocator } from "./ref-location";
 import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, useSpotlightEnd } from "./spotlight";
 import { chipLabel } from "~/lib/reference-label";
 import { pageSpan, placeSelector, reflowPage, type Place } from "./reading-place";
@@ -685,6 +686,22 @@ export function PaginatedChapter({
     }
     navigate(readHref(at, openNoteId ?? undefined, spot ? spotParam(spot) : undefined));
   }
+
+  /** The overview's location tags (#214): where each reference's spot
+   * lands — this page, another page, or (the overview's own call) another
+   * chapter. Read at render: a page turn or reflow re-renders the panel. */
+  const refLocator: RefLocator = {
+    book: chapter.book,
+    chapter: chapter.chapter,
+    page: scrollMode ? null : page,
+    pageOf: (spot) => {
+      const place = resolveSpot(spot, noteMarks, chapter, localLookup);
+      if (!place || (flowFrom !== null && place.start < flowFrom)) return undefined;
+      if (scrollMode) return null;
+      const el = stride ? spotEl(spot) : null;
+      return (el && pageOf(el, stride)) ?? undefined;
+    },
+  };
 
   // Consume ?mark once the chapter's marks are rendered and measured: a
   // selection's id, or a text reference's href (with ?note)
@@ -1725,6 +1742,7 @@ export function PaginatedChapter({
               onReadRef={readRef}
               spot={spotId}
               place={chapter}
+              locator={refLocator}
               onClose={closeNote}
             />
           </ResizablePanel>
@@ -1818,6 +1836,7 @@ export function PaginatedChapter({
                   onReadRef={readRef}
                   spot={spotId}
                   place={chapter}
+                  locator={refLocator}
                   onClose={closeNote}
                   mobile
                 />
