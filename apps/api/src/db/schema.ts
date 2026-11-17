@@ -130,6 +130,11 @@ export const noteRef = pgTable(
     endVerse: integer('end_verse'),
     origin: text('origin').notNull().default('inline'),
     position: integer('position'),
+    /** The reader's mark the ref was tagged with (#216): 'highlight' |
+     * 'annotation' + its id, from the link's title. No FK — an erased
+     * mark leaves the ref (the reader falls back to the verse). */
+    markKind: text('mark_kind'),
+    markId: uuid('mark_id'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [

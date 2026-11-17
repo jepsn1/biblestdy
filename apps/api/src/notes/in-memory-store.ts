@@ -1,4 +1,4 @@
-import { type Anchor, type ScriptureRef } from '@biblestdy/shared';
+import { type Anchor, type CitedRef } from '@biblestdy/shared';
 import type { AnchorRow, NoteRow, NoteStore, RefRow } from './notes.store';
 import { refOf } from './notes.service';
 
@@ -8,7 +8,15 @@ export class InMemoryNoteStore implements NoteStore {
   private notes: (NoteRow & { deleted?: boolean })[] = [];
   private anchors: AnchorRow[] = [];
   private refs: RefRow[] = [];
+  /** The users' live marks (#216): id → owner + translation. */
+  private marks = new Map<string, { userId: string; translationId: string }>();
   private seq = 0;
+
+  /** Test seam: a live mark of a user's (translationId null = erased). */
+  setMark(id: string, userId: string, translationId: string | null) {
+    if (translationId === null) this.marks.delete(id);
+    else this.marks.set(id, { userId, translationId });
+  }
   private tick = 0;
 
   /** Strictly increasing edit times — list order is deterministic. */
@@ -23,7 +31,7 @@ export class InMemoryNoteStore implements NoteStore {
   insertNote(
     userId: string,
     data: { title: string; body: string },
-    inlineRefs?: ScriptureRef[],
+    inlineRefs?: CitedRef[],
   ) {
     const row = { id: this.nextId(), userId, ...data, updatedAt: this.stamp() };
     this.notes.push(row);
@@ -31,7 +39,7 @@ export class InMemoryNoteStore implements NoteStore {
     return Promise.resolve(row);
   }
 
-  private replaceInline(noteId: string, refs: ScriptureRef[]) {
+  private replaceInline(noteId: string, refs: CitedRef[]) {
     this.refs = this.refs.filter(
       (r) => !(r.noteId === noteId && r.origin === 'inline'),
     );
@@ -46,6 +54,9 @@ export class InMemoryNoteStore implements NoteStore {
         endVerse: r.endVerse ?? null,
         origin: 'inline',
         position,
+        markKind: r.mark?.kind ?? null,
+        markId: r.mark?.id ?? null,
+        markTranslationId: null,
       }),
     );
   }
@@ -67,7 +78,7 @@ export class InMemoryNoteStore implements NoteStore {
     userId: string,
     id: string,
     patch: { title?: string; body?: string },
-    inlineRefs?: ScriptureRef[],
+    inlineRefs?: CitedRef[],
   ) {
     const row = await this.getNote(userId, id);
     if (!row) return null;
@@ -141,10 +152,17 @@ export class InMemoryNoteStore implements NoteStore {
   }
 
   refsFor(noteIds: string[]) {
+    const owner = (noteId: string) =>
+      this.notes.find((n) => n.id === noteId)?.userId;
     return Promise.resolve(
       this.refs
         .filter((r) => noteIds.includes(r.noteId))
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .map((r) => {
+          const m = r.markId ? this.marks.get(r.markId) : undefined;
+          const mine = m && m.userId === owner(r.noteId);
+          return { ...r, markTranslationId: mine ? m.translationId : null };
+        }),
     );
   }
 

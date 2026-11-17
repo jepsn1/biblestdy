@@ -11,9 +11,9 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import type { Anchor, ScriptureRef } from '@biblestdy/shared';
+import type { Anchor, CitedRef } from '@biblestdy/shared';
 import { db } from '../db';
-import { note, noteAnchor, noteRef } from '../db/schema';
+import { annotation, highlight, note, noteAnchor, noteRef } from '../db/schema';
 
 /** A note row without its anchors. */
 export interface NoteRow {
@@ -41,6 +41,12 @@ export interface RefRow {
   endVerse: number | null;
   origin: string;
   position: number | null;
+  /** The tagged mark (#216): 'highlight' | 'annotation' + id; null = none. */
+  markKind: string | null;
+  markId: string | null;
+  /** Where the mark lives — null when it's gone (erased) or not the note
+   * owner's. Only meaningful with a markId. */
+  markTranslationId: string | null;
 }
 
 /** Live notes only — soft-deleted ones (#64) are invisible to every read. */
@@ -56,7 +62,7 @@ export interface NoteStore {
   insertNote(
     userId: string,
     data: { title: string; body: string },
-    inlineRefs?: ScriptureRef[],
+    inlineRefs?: CitedRef[],
   ): Promise<NoteRow>;
   getNote(userId: string, id: string): Promise<NoteRow | null>;
   /** With `inlineRefs`: REPLACES the note's origin='inline' rows (in text
@@ -65,7 +71,7 @@ export interface NoteStore {
     userId: string,
     id: string,
     patch: { title?: string; body?: string },
-    inlineRefs?: ScriptureRef[],
+    inlineRefs?: CitedRef[],
   ): Promise<NoteRow | null>;
   /** Soft delete (#64): the note leaves every read below; anchors and tags
    * stay attached so restoreNote brings it back exactly. */
@@ -98,7 +104,7 @@ export class DrizzleNoteStore implements NoteStore {
   async insertNote(
     userId: string,
     data: { title: string; body: string },
-    inlineRefs?: ScriptureRef[],
+    inlineRefs?: CitedRef[],
   ): Promise<NoteRow> {
     return db.transaction(async (tx) => {
       const [row] = await tx
@@ -124,7 +130,7 @@ export class DrizzleNoteStore implements NoteStore {
     userId: string,
     id: string,
     patch: { title?: string; body?: string },
-    inlineRefs?: ScriptureRef[],
+    inlineRefs?: CitedRef[],
   ): Promise<NoteRow | null> {
     return db.transaction(async (tx) => {
       const [row] = await tx
@@ -240,21 +246,48 @@ export class DrizzleNoteStore implements NoteStore {
 
   async refsFor(noteIds: string[]): Promise<RefRow[]> {
     if (noteIds.length === 0) return [];
-    return db
-      .select({
-        id: noteRef.id,
-        noteId: noteRef.noteId,
-        book: noteRef.book,
-        chapter: noteRef.chapter,
-        verse: noteRef.verse,
-        endChapter: noteRef.endChapter,
-        endVerse: noteRef.endVerse,
-        origin: noteRef.origin,
-        position: noteRef.position,
-      })
-      .from(noteRef)
-      .where(inArray(noteRef.noteId, noteIds))
-      .orderBy(asc(noteRef.position), asc(noteRef.createdAt));
+    return (
+      db
+        .select({
+          id: noteRef.id,
+          noteId: noteRef.noteId,
+          book: noteRef.book,
+          chapter: noteRef.chapter,
+          verse: noteRef.verse,
+          endChapter: noteRef.endChapter,
+          endVerse: noteRef.endVerse,
+          origin: noteRef.origin,
+          position: noteRef.position,
+          markKind: noteRef.markKind,
+          markId: noteRef.markId,
+          markTranslationId: sql<
+            string | null
+          >`coalesce(${highlight.translationId}, ${annotation.translationId})`,
+        })
+        .from(noteRef)
+        .innerJoin(note, eq(note.id, noteRef.noteId))
+        // A tagged mark's home (#216): only the note owner's, only live ones
+        .leftJoin(
+          highlight,
+          and(
+            eq(noteRef.markKind, 'highlight'),
+            eq(highlight.id, noteRef.markId),
+            eq(highlight.userId, note.userId),
+            isNull(highlight.deletedAt),
+          ),
+        )
+        .leftJoin(
+          annotation,
+          and(
+            eq(noteRef.markKind, 'annotation'),
+            eq(annotation.id, noteRef.markId),
+            eq(annotation.userId, note.userId),
+            isNull(annotation.deletedAt),
+          ),
+        )
+        .where(inArray(noteRef.noteId, noteIds))
+        .orderBy(asc(noteRef.position), asc(noteRef.createdAt))
+    );
   }
 
   async insertAnchor(noteId: string, anchor: Anchor): Promise<AnchorRow> {
@@ -284,7 +317,7 @@ export class DrizzleNoteStore implements NoteStore {
 }
 
 /** note_ref insert values for a body's refs, in text order. */
-function inlineRefValues(noteId: string, refs: ScriptureRef[]) {
+function inlineRefValues(noteId: string, refs: CitedRef[]) {
   return refs.map((r, position) => ({
     noteId,
     book: r.book,
@@ -294,5 +327,7 @@ function inlineRefValues(noteId: string, refs: ScriptureRef[]) {
     endVerse: r.endVerse ?? null,
     origin: 'inline',
     position,
+    markKind: r.mark?.kind ?? null,
+    markId: r.mark?.id ?? null,
   }));
 }
