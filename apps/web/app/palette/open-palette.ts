@@ -15,10 +15,26 @@ export function paletteOpener() {
   return opener;
 }
 
-export function openPalette() {
-  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+/** Keys (⌘K, `/`) and the desktop field: focus comes back to where it was. */
+export function openPalette(from?: HTMLElement | null) {
+  opener = from ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
   // Before focus leaves the text: what Compare translations would act on
   snapshotCompareTarget();
+  window.dispatchEvent(new Event(OPEN_PALETTE));
+}
+
+/**
+ * A tap on a Søg button — the header's, the phone chapter bar's (#242) —
+ * the one way in for both (#243, spec 7): the same search screen, keyboard
+ * up at once. iOS opens the keyboard only for a focus inside the tap
+ * itself, so the hidden proxy takes focus now and the palette's input
+ * takes over (type-ahead kept). The button, not the proxy, is where focus
+ * comes back on close (Safari doesn't focus a tapped button).
+ */
+export function openPaletteFromTap(button: HTMLElement) {
+  opener = button;
+  snapshotCompareTarget();
+  document.querySelector<HTMLInputElement>(`[${PALETTE_PROXY}]`)?.focus();
   window.dispatchEvent(new Event(OPEN_PALETTE));
 }
 

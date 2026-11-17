@@ -6,6 +6,7 @@ import {
   BookText,
   Check,
   ChevronRight,
+  CircleX,
   CornerDownLeft,
   Hash,
   Highlighter,
@@ -31,7 +32,7 @@ import { useColorName } from "~/lib/highlight-labels";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n, { setUiLanguage } from "~/lib/i18n";
 import { api } from "~/lib/query";
-import { readRecent } from "~/lib/recent-passages";
+import { clearRecent, readRecent, restoreRecent } from "~/lib/recent-passages";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
@@ -323,20 +324,120 @@ export function CommandPalette({
     if (open) nextFocus.current = "return";
   }, [open]);
 
-  // iOS doesn't shrink dvh for the keyboard: size the phone sheet to the visual viewport
-  const [vvh, setVvh] = useState<number | null>(null);
+  // Phone (#243, spec 6): the screen is opaque over the whole layout
+  // viewport — whatever iOS shows behind its keyboard, or after a pan, is
+  // the screen's own colour — and its column follows the visible area. One
+  // rAF per change, a transform (no re-layout per frame), only when moved.
+  const [column, setColumn] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    if (!open || !isMobile || !vv) return;
-    const update = () => setVvh(vv.height);
-    update();
+    const vv = window.visualViewport;
+    if (!open || !isMobile || !vv || !column) return;
+    let frame = 0;
+    let top = NaN;
+    let height = NaN;
+    const write = () => {
+      frame = 0;
+      if (vv.offsetTop !== top) column.style.setProperty("--vv-top", `${(top = vv.offsetTop)}px`);
+      if (vv.height !== height) column.style.setProperty("--vv-h", `${(height = vv.height)}px`);
+    };
+    const update = () => {
+      if (!frame) frame = requestAnimationFrame(write);
+    };
+    write();
     vv.addEventListener("resize", update);
     vv.addEventListener("scroll", update);
     return () => {
+      cancelAnimationFrame(frame);
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
     };
+  }, [open, isMobile, column]);
+
+  // Phone (spec 8): the open screen is a history entry, so Android's back
+  // and the iOS edge swipe close it (popstate) and nothing else. Every way
+  // out unwinds it (closeVia); a jump replaces it. Idempotent per open
+  // (StrictMode runs effects twice).
+  const entry = useRef<number | null>(null);
+  const entryOnTop = () => entry.current !== null && window.history.state?.palette === entry.current;
+  const closeNow = useRef(() => onOpenChange(false));
+  closeNow.current = () => onOpenChange(false);
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    if (!entryOnTop()) {
+      entry.current = Date.now();
+      window.history.pushState({ ...window.history.state, palette: entry.current }, "");
+    }
+    const onPop = () => {
+      if (entryOnTop()) return;
+      entry.current = null;
+      closeNow.current();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, [open, isMobile]);
+  useEffect(() => {
+    if (open) return;
+    if (entryOnTop()) window.history.back(); // closed some other way: unwind it
+    entry.current = null;
+  }, [open]);
+  /** Every close that isn't a jump: our entry on top → back (popstate
+   * closes); missing (deep link, entry lost) → close at once, so Cancel
+   * never leaves the site. */
+  function closeVia() {
+    if (entryOnTop()) window.history.back();
+    else onOpenChange(false);
+  }
+  /** A jump: closes, and the new page takes our entry's place. */
+  function leave(href: string) {
+    const replace = entryOnTop();
+    entry.current = null;
+    onOpenChange(false);
+    navigate(href, replace ? { replace } : undefined);
+  }
+
+  // Phone pan guard (spec 6): iOS pans the visual viewport while the
+  // keyboard is up; only the list may move, and only while it can scroll
+  // that way. A drag on the list (>10px) drops the keyboard.
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    let startY = 0;
+    let lastY = 0;
+    const onStart = (e: TouchEvent) => {
+      startY = lastY = e.touches[0]?.clientY ?? 0;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return; // pinch zoom stays free
+      const y = e.touches[0].clientY;
+      const dy = y - lastY;
+      lastY = y;
+      const target = e.target as Element | null;
+      if (target?.closest?.("input")) return;
+      const vp = viewportRef.current;
+      if (vp && target && vp.contains(target)) {
+        if (Math.abs(y - startY) > 10 && document.activeElement === inputRef.current) inputRef.current?.blur();
+        const canUp = vp.scrollTop > 0;
+        const canDown = vp.scrollTop + vp.clientHeight < vp.scrollHeight - 1;
+        if ((dy > 0 && canUp) || (dy < 0 && canDown) || dy === 0) return;
+      }
+      if (e.cancelable) e.preventDefault();
+    };
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchmove", onMove, { passive: false });
+    return () => {
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchmove", onMove);
+    };
+  }, [open, isMobile]);
+  // The hairline under the bar: only once the list has scrolled
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!open || !isMobile || !vp) return setScrolled(false);
+    const onScroll = () => setScrolled(vp.scrollTop > 0);
+    vp.addEventListener("scroll", onScroll, { passive: true });
+    return () => vp.removeEventListener("scroll", onScroll);
+  }, [open, isMobile, column]);
 
   const { notes } = useAllNotesQuery(open);
   const annotations = useAllAnnotationsQuery(open);
@@ -350,6 +451,8 @@ export function CommandPalette({
   const { name: colorNameOf, title: colorTitle, custom: colorLabel } = useColorName();
   const filter = useHighlightFilter();
   const [tipsOpen, setTipsOpen] = useState(false);
+  // "Ryd" (spec 4) re-reads the list
+  const [recentRev, setRecentRev] = useState(0);
 
   const items = useMemo(() => {
     if (!open) return [];
@@ -363,6 +466,7 @@ export function CommandPalette({
       actions,
       recent: readRecent(),
       here: { book: reader.book, chapter: reader.chapter },
+      phone: isMobile,
       translationId: reader.translationId,
       translationAbbr: (id) => reader.translations.find((tr) => tr.id === id)?.abbreviation ?? id,
       colorLabel,
@@ -385,11 +489,13 @@ export function CommandPalette({
     });
     // actions is rebuilt each render; its labels follow the state it reads
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, query, notes, annotations, highlights, tags, locale, reader, t, nameOf, colorLabel, actions.map((a) => a.label + a.checked).join()]);
+  }, [open, query, notes, annotations, highlights, tags, locale, reader, t, nameOf, colorLabel, isMobile, recentRev, actions.map((a) => a.label + a.checked).join()]);
 
   const selectable = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
-  // The first selectable row is highlighted while typing (Enter = top row)
-  useEffect(() => setActive(selectable[0] ?? -1), [query, open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The first selectable row is highlighted while typing (Enter = top row);
+  // on a phone none before typing (spec 4: a finger picks, not Enter)
+  const empty = !query.trim();
+  useEffect(() => setActive(isMobile && empty ? -1 : (selectable[0] ?? -1)), [query, open]); // eslint-disable-line react-hooks/exhaustive-deps
   // Enter typed ahead (open-palette.ts): go to the top row once it's there
   const [submitAhead, setSubmitAhead] = useState(false);
   useEffect(() => {
@@ -412,7 +518,7 @@ export function CommandPalette({
       const range = item.compare;
       nextFocus.current = "none";
       afterClose.current = () => openCompare({ range, returnTo: paletteOpener() });
-      onOpenChange(false);
+      closeVia();
       return;
     }
     if (item.filterColor) {
@@ -424,7 +530,7 @@ export function CommandPalette({
         action: { label: t("toast.undo"), onClick: () => setHighlightFilter(prev) },
       });
       nextFocus.current = "text";
-      onOpenChange(false);
+      closeVia();
       return;
     }
     if (item.action) {
@@ -436,15 +542,14 @@ export function CommandPalette({
       }
       if (a.id === "prev" || a.id === "next") {
         nextFocus.current = "text";
-        onOpenChange(false);
-        navigate((a.id === "prev" ? reader.prevHref : reader.nextHref)!);
+        leave((a.id === "prev" ? reader.prevHref : reader.nextHref)!);
       } else if (a.opensDialog) {
         nextFocus.current = "none";
         afterClose.current = a.run;
-        onOpenChange(false);
+        closeVia();
       } else {
         a.run();
-        onOpenChange(false);
+        closeVia();
       }
       return;
     }
@@ -457,13 +562,13 @@ export function CommandPalette({
       return;
     }
     nextFocus.current = "text";
-    onOpenChange(false);
-    navigate(item.href);
+    leave(item.href);
   }
 
   useEffect(() => {
     if (!submitAhead) return;
     const i = selectable[0];
+    if (isMobile && empty) return setSubmitAhead(false); // phone: Enter on nothing typed does nothing
     if (i === undefined) return; // results still coming
     setSubmitAhead(false);
     run(items[i]);
@@ -484,6 +589,7 @@ export function CommandPalette({
       e.preventDefault();
       move(-1);
     } else if (e.key === "Enter") {
+      if (e.nativeEvent.isComposing) return; // the IME's own Enter
       e.preventDefault();
       const item = items[active];
       if (item) run(item, e.metaKey || e.ctrlKey);
@@ -594,6 +700,122 @@ export function CommandPalette({
     );
   }
 
+  // "Ryd" (spec 4): forget the chapters read, undoable (≥6s)
+  function clearRecents() {
+    const was = clearRecent({ book: reader.book, chapter: reader.chapter });
+    setRecentRev((r) => r + 1);
+    inputRef.current?.focus();
+    toast(t("palette.recentCleared"), {
+      duration: 8000,
+      action: {
+        label: t("toast.undo"),
+        onClick: () => {
+          restoreRecent(was);
+          setRecentRev((r) => r + 1);
+        },
+      },
+    });
+  }
+
+  const input = (
+    <input
+      ref={inputRef}
+      role="combobox"
+      aria-expanded
+      aria-controls={listId}
+      aria-autocomplete="list"
+      aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+      aria-label={t("palette.title")}
+      placeholder={t("palette.placeholder")}
+      autoComplete="off"
+      autoCapitalize="off"
+      autoCorrect="off"
+      spellCheck={false}
+      // Phone: the keyboard's blue "Søg" key (spec 5); type=text, never
+      // type=search (WebKit's own cancel button, Esc-clears)
+      inputMode={isMobile ? "search" : undefined}
+      enterKeyHint={isMobile ? "search" : "go"}
+      value={query}
+      // Keys typed before it had focus (open-palette.ts) come in here;
+      // writing carries on at their end
+      onFocus={(e) => {
+        const ahead = takeTypeahead();
+        if (ahead.text) setQuery((q) => q + ahead.text);
+        else e.currentTarget.setSelectionRange(query.length, query.length);
+        if (ahead.enter) setSubmitAhead(true);
+      }}
+      onChange={(e) => {
+        setSubmitAhead(false); // typing on: no stale Enter
+        setQuery(e.target.value);
+      }}
+      onKeyDown={onKeyDown}
+      className={
+        isMobile
+          ? // A filled field: no underline; a 1px edge and, focused, a 2px ring (≥3:1)
+            "h-11 w-full min-w-0 rounded-[10px] bg-muted pr-11 pl-10 text-phone ring-1 ring-muted-foreground/80 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          : cn(
+              "h-12 min-w-0 flex-1 bg-transparent text-control placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone",
+              focusTitle,
+            )
+      }
+    />
+  );
+
+  // Phone, nothing typed: "Senest læst" heads the list with its "Ryd" — a
+  // button can't sit in the listbox, so its heading sits just above it
+  const recentAbove = isMobile && empty && groups[0]?.group === "recent";
+
+  const list = (
+    <ul id={listId} role="listbox" aria-label={t("palette.title")} className="px-1.5 pb-1.5">
+      {groups.map(({ group, rows }, g) => {
+        const heading = GROUP_LABEL[group];
+        if (!heading) return rows.map(({ item, i }) => row(item, i));
+        const hid = `${listId}-g-${group}`;
+        const Icon = GROUP_ICON[group];
+        return (
+          // A section: a rule above it (not the first), its heading in
+          // full ink with its icon, staying put while its rows scroll
+          <li key={`${group}-${g}`} role="presentation" className={cn(g > 0 && "mt-1.5 border-t border-border")}>
+            {!(recentAbove && g === 0) && (
+              <div
+                className={cn(
+                  "sticky top-0 z-10 -mx-1.5 flex items-center gap-2 px-4.5 pt-3 pb-1.5 text-meta font-semibold text-foreground",
+                  isMobile ? "bg-background" : "bg-popover",
+                )}
+                aria-hidden
+              >
+                {Icon && <Icon className="size-3.5 shrink-0 text-primary" strokeWidth={2.25} />}
+                <span id={hid}>{t(heading)}</span>
+                <span className="ml-auto font-normal text-muted-foreground tabular-nums">{rows.length}</span>
+              </div>
+            )}
+            <ul role="group" aria-labelledby={hid}>
+              {rows.map(({ item, i }) => row(item, i))}
+            </ul>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  // How to search: folded, and only before typing or when nothing's found
+  // (outside the listbox: a listbox holds only options)
+  const showTips = !query.trim() || count === 0;
+  const tipsList = tipsOpen && (
+    <dl id={`${listId}-tips`} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 px-1.5 pt-1 pb-2 text-meta">
+      {TIPS.map((k) => (
+        <div key={k} className="contents">
+          <dt className="font-mono text-foreground">{t(`palette.tip.${k}`)}</dt>
+          <dd className="text-muted-foreground">{t(`palette.tip.${k}Says`)}</dd>
+        </div>
+      ))}
+      <div className="contents pointer-coarse:hidden">
+        <dt className="font-mono text-foreground">↑ ↓ ↵</dt>
+        <dd className="text-muted-foreground">{t("palette.tip.keysSays", { mod: modKey() })}</dd>
+      </div>
+    </dl>
+  );
+
   return (
     <Dialog
       open={open}
@@ -602,6 +824,12 @@ export function CommandPalette({
         if (!next && details?.reason === "escape-key" && query) {
           details.cancel();
           setQuery("");
+          return;
+        }
+        // Phone: every close unwinds our history entry first (spec 8)
+        if (!next && isMobile) {
+          details?.cancel();
+          closeVia();
           return;
         }
         onOpenChange(next);
@@ -615,135 +843,159 @@ export function CommandPalette({
     >
       <DialogContent
         showCloseButton={false}
+        variant={isMobile ? "screen" : "card"}
         initialFocus={inputRef}
         finalFocus={() => {
           if (nextFocus.current === "none") return false;
           if (nextFocus.current === "text") return document.getElementById("chapter-text") ?? true;
           const opener = paletteOpener();
-          return opener?.isConnected ? opener : true;
+          if (opener?.isConnected) return opener;
+          // Phone: the Søg that opened it, else the text (spec 8)
+          return (isMobile && document.getElementById("chapter-text")) || true;
         }}
-        style={isMobile && vvh ? { height: vvh } : undefined}
-        className={cn(
-          "flex flex-col gap-0 overflow-hidden p-0",
-          isMobile
-            ? "inset-0 h-dvh max-w-none translate-x-0 translate-y-0 rounded-none"
-            : "top-[12dvh] max-h-[76dvh] translate-y-0 sm:max-w-xl",
-        )}
+        className={
+          isMobile ? undefined : cn("flex flex-col gap-0 overflow-hidden p-0", "top-[12dvh] max-h-[76dvh] translate-y-0 sm:max-w-xl")
+        }
       >
         <DialogTitle className="sr-only">{t("palette.title")}</DialogTitle>
-        {isMobile && (
-          <Button variant="outline" className="m-3 mb-0 h-11 justify-start" onClick={() => onOpenChange(false)}>
-            {t("palette.backTo", { ref: here })}
-          </Button>
-        )}
-        <div className="flex items-center gap-2 border-b border-border px-3">
-          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <input
-            ref={inputRef}
-            role="combobox"
-            aria-expanded
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
-            aria-label={t("palette.title")}
-            placeholder={t("palette.placeholder")}
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="go"
-            value={query}
-            // Keys typed before it had focus (open-palette.ts) come in here;
-            // writing carries on at their end
-            onFocus={(e) => {
-              const ahead = takeTypeahead();
-              if (ahead.text) setQuery((q) => q + ahead.text);
-              else e.currentTarget.setSelectionRange(query.length, query.length);
-              if (ahead.enter) setSubmitAhead(true);
-            }}
-            onChange={(e) => {
-              setSubmitAhead(false); // typing on: no stale Enter
-              setQuery(e.target.value);
-            }}
-            onKeyDown={onKeyDown}
-            className={cn(
-              "h-12 min-w-0 flex-1 bg-transparent text-control placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone",
-              focusTitle,
-            )}
-          />
-          {/* A worded way out on every screen (an iPad without keyboard too) */}
-          {!isMobile && (
-            <Button variant="outline" size="sm" className="shrink-0" onClick={() => onOpenChange(false)}>
-              <span className="pointer-coarse:hidden">{t("palette.close")}</span>
-              <span className="hidden pointer-coarse:inline">{t("palette.backTo", { ref: here })}</span>
-            </Button>
-          )}
-        </div>
-        <div role="status" className="sr-only">
-          {status}
-        </div>
-        <ScrollArea className="min-h-0 flex-1" viewportClassName={isMobile ? undefined : "max-h-[min(60dvh,28rem)]"}>
-          <ul id={listId} role="listbox" aria-label={t("palette.title")} className="px-1.5 pb-1.5">
-            {groups.map(({ group, rows }, g) => {
-              const heading = GROUP_LABEL[group];
-              if (!heading) return rows.map(({ item, i }) => row(item, i));
-              const hid = `${listId}-g-${group}`;
-              const Icon = GROUP_ICON[group];
-              return (
-                // A section: a rule above it (not the first), its heading in
-                // full ink with its icon, staying put while its rows scroll
-                <li key={`${group}-${g}`} role="presentation" className={cn(g > 0 && "mt-1.5 border-t border-border")}>
-                  <div
-                    className="sticky top-0 z-10 -mx-1.5 flex items-center gap-2 bg-popover px-4.5 pt-3 pb-1.5 text-meta font-semibold text-foreground"
-                    aria-hidden
-                  >
-                    {Icon && <Icon className="size-3.5 shrink-0 text-primary" strokeWidth={2.25} />}
-                    <span id={hid}>{t(heading)}</span>
-                    <span className="ml-auto font-normal text-muted-foreground tabular-nums">{rows.length}</span>
-                  </div>
-                  <ul role="group" aria-labelledby={hid}>
-                    {rows.map(({ item, i }) => row(item, i))}
-                  </ul>
-                </li>
-              );
-            })}
-          </ul>
-        </ScrollArea>
-        {/* Marked words quote Bible text: its copyright link (ToS §7.2) */}
-        {quotesShown && (
-          <ScriptureCredit className="border-t border-border px-4.5 py-2" onFollow={() => onOpenChange(false)} />
-        )}
-        {/* How to search: folded, and only before typing or when nothing's
-            found (outside the listbox: a listbox holds only options) */}
-        {(!query.trim() || count === 0) && (
-          <div className="border-t border-border px-1.5 py-1">
-            <button
-              type="button"
-              aria-expanded={tipsOpen}
-              aria-controls={`${listId}-tips`}
-              // A click keeps typing in the field (↑/↓ still work); Tab reaches it too
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setTipsOpen((o) => !o)}
-              className="flex min-h-8 items-center gap-1 rounded-md px-1.5 text-meta text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:min-h-11"
+        {isMobile ? (
+          // The column follows the visible area (keyboard up, iOS pan)
+          <div
+            ref={setColumn}
+            className="flex flex-col overflow-hidden"
+            style={{ height: "var(--vv-h, 100%)", transform: "translate3d(0, var(--vv-top, 0px), 0)" }}
+          >
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] transition-[border-color] duration-[120ms] motion-reduce:transition-none",
+                scrolled ? "border-border" : "border-transparent",
+              )}
             >
-              <ChevronRight className={cn("size-3.5 transition-transform motion-reduce:transition-none", tipsOpen && "rotate-90")} aria-hidden />
-              {t("palette.tips")}
-            </button>
-            {tipsOpen && (
-              <dl id={`${listId}-tips`} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 px-1.5 pt-1 pb-2 text-meta">
-                {TIPS.map((k) => (
-                  <div key={k} className="contents">
-                    <dt className="font-mono text-foreground">{t(`palette.tip.${k}`)}</dt>
-                    <dd className="text-muted-foreground">{t(`palette.tip.${k}Says`)}</dd>
-                  </div>
-                ))}
-                <div className="contents pointer-coarse:hidden">
-                  <dt className="font-mono text-foreground">↑ ↓ ↵</dt>
-                  <dd className="text-muted-foreground">{t("palette.tip.keysSays", { mod: modKey() })}</dd>
+              <div className="relative flex h-14 min-w-0 flex-1 items-center">
+                <Search className="pointer-events-none absolute left-3 size-[18px] text-muted-foreground" aria-hidden />
+                {input}
+                {query && (
+                  <button
+                    type="button"
+                    aria-label={t("palette.clearSearch")}
+                    // The keyboard stays up: focus never leaves the field
+                    onPointerDown={(e) => e.preventDefault()}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setQuery("");
+                      inputRef.current?.focus();
+                    }}
+                    className="absolute right-0 flex size-11 items-center justify-center rounded-[10px] text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <CircleX className="size-[18px]" aria-hidden />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                aria-label={t("palette.cancelTo", { ref: here })}
+                onClick={closeVia}
+                className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-phone font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                {t("palette.cancel")}
+              </button>
+            </div>
+            <div role="status" className="sr-only">
+              {status}
+            </div>
+            <ScrollArea
+              className="min-h-0 flex-1"
+              viewportRef={viewportRef}
+              viewportClassName="overscroll-contain"
+            >
+              {recentAbove && (
+                <div className="flex items-center gap-2 px-4.5 pt-3 pb-1.5 text-meta font-semibold text-foreground">
+                  <History className="size-3.5 shrink-0 text-primary" strokeWidth={2.25} aria-hidden />
+                  <span id={`${listId}-g-recent`} aria-hidden>
+                    {t(GROUP_LABEL.recent)}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t("palette.clearRecentName")}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={clearRecents}
+                    className="-my-3 -mr-2.5 ml-auto flex min-h-11 min-w-11 items-center justify-end rounded-md px-2.5 text-list font-normal text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    {t("palette.clearRecent")}
+                  </button>
                 </div>
-              </dl>
-            )}
+              )}
+              {list}
+              {/* Marked words quote Bible text: its copyright link (ToS §7.2) */}
+              {quotesShown && (
+                <ScriptureCredit
+                  className="px-4 pt-5 text-list"
+                  replace={entryOnTop()}
+                  onFollow={() => {
+                    entry.current = null;
+                    onOpenChange(false);
+                  }}
+                />
+              )}
+              {/* Søgetips: the last thing in the list, not a pinned footer */}
+              {showTips && (
+                <div className="px-2.5 pt-5 pb-4">
+                  <button
+                    type="button"
+                    aria-expanded={tipsOpen}
+                    aria-controls={`${listId}-tips`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setTipsOpen((o) => !o)}
+                    className="flex min-h-11 items-center gap-1 rounded-md px-1.5 text-list text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <ChevronRight className={cn("size-3.5 transition-transform motion-reduce:transition-none", tipsOpen && "rotate-90")} aria-hidden />
+                    {t("palette.tips")}
+                  </button>
+                  {tipsList}
+                </div>
+              )}
+            </ScrollArea>
           </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-b border-border px-3">
+              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              {input}
+              {/* A worded way out on every screen (an iPad without keyboard too) */}
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => onOpenChange(false)}>
+                <span className="pointer-coarse:hidden">{t("palette.close")}</span>
+                <span className="hidden pointer-coarse:inline">{t("palette.backTo", { ref: here })}</span>
+              </Button>
+            </div>
+            <div role="status" className="sr-only">
+              {status}
+            </div>
+            <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-[min(60dvh,28rem)]">
+              {list}
+            </ScrollArea>
+            {/* Marked words quote Bible text: its copyright link (ToS §7.2) */}
+            {quotesShown && (
+              <ScriptureCredit className="border-t border-border px-4.5 py-2" onFollow={() => onOpenChange(false)} />
+            )}
+            {showTips && (
+              <div className="border-t border-border px-1.5 py-1">
+                <button
+                  type="button"
+                  aria-expanded={tipsOpen}
+                  aria-controls={`${listId}-tips`}
+                  // A click keeps typing in the field (↑/↓ still work); Tab reaches it too
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setTipsOpen((o) => !o)}
+                  className="flex min-h-8 items-center gap-1 rounded-md px-1.5 text-meta text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:min-h-11"
+                >
+                  <ChevronRight className={cn("size-3.5 transition-transform motion-reduce:transition-none", tipsOpen && "rotate-90")} aria-hidden />
+                  {t("palette.tips")}
+                </button>
+                {tipsList}
+              </div>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>

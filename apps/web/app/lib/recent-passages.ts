@@ -40,6 +40,21 @@ export function pushRecent(p: RecentPassage): void {
   write([{ ...kept, ...p }, ...list.filter((r) => !same(r, p))].slice(0, MAX));
 }
 
+/** "Ryd" on the phone's search screen (#243): forget the chapters read,
+ * all but `keep` (the one you're on — never offered, the reader's own).
+ * Returns the list as it was, for the undo. */
+export function clearRecent(keep: RecentPassage | null): RecentPassage[] {
+  const was = readRecent();
+  write(keep ? was.filter((r) => same(r, keep)) : []);
+  return was;
+}
+
+/** Undo of `clearRecent`: the old list back, behind anything read since. */
+export function restoreRecent(was: RecentPassage[]): void {
+  const now = readRecent();
+  write([...now, ...was.filter((r) => !now.some((n) => same(n, r)))].slice(0, MAX));
+}
+
 /** The reader is on `page` (0-based) of a chapter in the list. */
 export function notePage(p: RecentPassage, page: number): void {
   const list = readRecent();

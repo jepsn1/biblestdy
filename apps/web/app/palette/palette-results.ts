@@ -99,6 +99,10 @@ export type PaletteContext = {
   actions: PaletteAction[];
   recent: RecentPassage[];
   here: RecentPassage;
+  /** The phone's search screen (#243): empty, where you've read comes
+   * first, then where to start (newcomers, or nothing read), then at most
+   * `LIMITS.phoneCommon` commands. Absent: the desktop launcher order. */
+  phone?: boolean;
   /** The reading translation: a note opens on its anchor in this one. */
   translationId: string;
   /** A translation's abbreviation ("KJV"), shown on other-version rows. */
@@ -131,7 +135,7 @@ export type PaletteContext = {
   };
 };
 
-export const LIMITS = { passages: 5, books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4, colorHits: 20 };
+export const LIMITS = { passages: 5, books: 6, actions: 6, notes: 5, annotations: 5, highlights: 5, topics: 5, recent: 5, common: 4, phoneCommon: 3, colorHits: 20 };
 
 /** Lowercase, accents folded (é → e), so matching ignores both. */
 export function fold(s: string): string {
@@ -303,7 +307,8 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     // A launcher: a few commands first, then where you were — "Continue"
     // first, each on the page last open (#142) — and, for a newcomer, good
     // places to start
-    const out: PaletteItem[] = ctx.actions.filter((a) => a.common).slice(0, LIMITS.common).map((a) => actionItem(a));
+    const common = ctx.actions.filter((a) => a.common).slice(0, ctx.phone ? LIMITS.phoneCommon : LIMITS.common).map((a) => actionItem(a));
+    const out: PaletteItem[] = ctx.phone ? [] : common;
     const offer = placesToOffer(ctx.recent, ctx.here, LIMITS.recent);
     const recentItem = (r: RecentPassage, label: string): PaletteItem => ({
       id: `recent:${r.book}/${r.chapter}`,
@@ -313,12 +318,14 @@ export function buildResults(input: string, ctx: PaletteContext): PaletteItem[] 
     });
     if (offer.continueAt) out.push(recentItem(offer.continueAt, ctx.labels.continueAt(refLabel(ctx, offer.continueAt), offer.continueAt.page)));
     for (const r of offer.recent) out.push(recentItem(r, refLabel(ctx, r)));
-    if (offer.start) {
+    // Phone: the top is never only commands (Sofie) — nothing read, start here
+    if (offer.start || (ctx.phone && !offer.continueAt)) {
       for (const s of START_PLACES) {
         if (s.book === ctx.here.book && s.chapter === ctx.here.chapter) continue;
         out.push({ id: `start:${s.book}/${s.chapter}`, group: "start", label: refLabel(ctx, s), detail: ctx.labels.startLine(s.line), href: chapterHref(s) });
       }
     }
+    if (ctx.phone) out.push(...common);
     return out;
   }
 

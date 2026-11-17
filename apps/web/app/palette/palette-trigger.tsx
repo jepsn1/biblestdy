@@ -1,10 +1,10 @@
 import { Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Hint, modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { opensPalette, useLiveShortcut } from "~/lib/shortcuts";
-import { openPalette as open, palette, PALETTE_PROXY } from "./open-palette";
+import { openPalette as open, openPaletteFromTap, palette, PALETTE_PROXY } from "./open-palette";
 
 /**
  * The nav's "Search or go to…" (replaces the jump box, #53). A worded
@@ -21,9 +21,6 @@ export function PaletteTrigger() {
   const live = useLiveShortcut();
   // Platform key resolved on the client (SSR markup never depends on it)
   const [mod, setMod] = useState("Ctrl+");
-  // iOS opens the keyboard only for a focus inside the tap itself: focus this
-  // proxy now, the palette's input takes over (keyboard stays up)
-  const proxy = useRef<HTMLInputElement>(null);
   useEffect(() => setMod(modKey()), []);
 
   useEffect(() => {
@@ -50,20 +47,26 @@ export function PaletteTrigger() {
           onPointerEnter={palette.preload}
           onPointerDown={palette.preload}
           onFocus={palette.preload}
-          onClick={() => {
-            proxy.current?.focus();
-            open();
-          }}
+          // Phone: the shared way in (#243) — the proxy keeps the iOS keyboard up
+          onClick={(e) => openPaletteFromTap(e.currentTarget)}
         >
           <Search aria-hidden />
           {t("nav.search")}
         </Button>
       </Hint>
+      {/* iOS opens the keyboard only for a focus inside the tap itself: a
+          Søg tap focuses this, the palette's input takes over (keyboard
+          stays up). Its keyboard is the palette's: the blue "Søg" key */}
       <input
-        ref={proxy}
         {...{ [PALETTE_PROXY]: "" }}
         aria-hidden
         tabIndex={-1}
+        inputMode="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         className="pointer-events-none fixed top-0 left-0 size-px text-phone opacity-0 @min-[48rem]/nav:hidden"
       />
       <button
@@ -73,7 +76,7 @@ export function PaletteTrigger() {
         // The palette is its own chunk (M8): start it on the way in
         onPointerEnter={palette.preload}
         onFocus={palette.preload}
-        onClick={open}
+        onClick={() => open()}
         className="ml-auto hidden h-7 max-w-72 min-w-40 grow basis-0 items-center gap-2 rounded-md border border-input bg-transparent px-2 text-list text-muted-foreground hover:bg-muted @min-[48rem]/nav:flex"
       >
         <Search className="size-3.5 shrink-0" aria-hidden />
