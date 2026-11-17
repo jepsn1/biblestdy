@@ -50,12 +50,12 @@ export function useHighlights(translationId: string, book: string, chapter: numb
 
   async function add(anchor: Anchor, color: HighlightColor) {
     try {
-      put(
-        await api<Highlight>("/api/highlights", {
-          method: "POST",
-          body: JSON.stringify({ ...anchor, color, quote: (text && anchorQuote(text, anchor)) || undefined }),
-        }),
-      );
+      const h = await api<Highlight>("/api/highlights", {
+        method: "POST",
+        body: JSON.stringify({ ...anchor, color, quote: (text && anchorQuote(text, anchor)) || undefined }),
+      });
+      put(h);
+      return h;
     } catch (e) {
       notifyError(e, { retry: () => add(anchor, color) });
     }
