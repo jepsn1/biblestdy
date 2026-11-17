@@ -121,11 +121,14 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
   /** A click: the caret right after the chip — where typing goes on once
    * the preview closes (#213 C6). */
   function caretAfter() {
-    editor.update(() => {
-      const node = $getNodeByKey(nodeKey);
-      if ($isScriptureRefNode(node)) node.selectNext(0, 0);
-    });
-    focusEditor(editor);
+    // Discrete: the preview saves this selection to put back on Esc
+    editor.update(
+      () => {
+        const node = $getNodeByKey(nodeKey);
+        if ($isScriptureRefNode(node)) node.selectNext(0, 0);
+      },
+      { discrete: true },
+    );
   }
 
   return (
