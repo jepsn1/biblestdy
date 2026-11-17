@@ -570,7 +570,8 @@ export function NotePanel({
     <aside ref={asideRef} className="relative flex h-full w-full flex-col bg-background">
       {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
-      <PanelHeader onClose={onClose} closeLabel={t("note.close")} className="pl-3">
+      {/* The peek (#215): its bar names the note and closes it */}
+      <PanelHeader onClose={onClose} closeLabel={t("note.close")} className={cn("pl-3", peek && "hidden")}>
         <input
           ref={titleRef}
           value={title}

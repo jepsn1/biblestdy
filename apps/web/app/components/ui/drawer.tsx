@@ -152,11 +152,8 @@ function DrawerContent({
           <DrawerPrimitive.Content
             data-slot="drawer-content"
             className={cn(
-              "flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain rounded-[inherit] transition-opacity duration-300 ease-[cubic-bezier(0.45,1.005,0,1.005)] select-text group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100 group-data-swiping/drawer-popup:select-none",
-              // Snap points (#215): the popup is full height, slid down to
-              // the snap — the content fits the part on screen (growing as
-              // it's dragged up), so its own scroller reaches its end
-              "group-data-snap-points/drawer-popup:pb-[max(0px,calc(var(--drawer-snap-point-offset,0px)_+_min(0px,var(--drawer-swipe-movement-y,0px))))]"
+              // Snap points (#215): fitted to the part on screen (app.css)
+              "flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain rounded-[inherit] transition-opacity duration-300 ease-[cubic-bezier(0.45,1.005,0,1.005)] select-text group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100 group-data-swiping/drawer-popup:select-none"
             )}
           >
             {children}

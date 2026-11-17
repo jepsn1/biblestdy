@@ -11,7 +11,7 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import { useFumsView } from "~/lib/fums";
 import { useTextSize, useViewportFits } from "~/lib/text-size";
 import { ignoreShortcut } from "~/lib/shortcuts";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, X } from "lucide-react";
 import { cn, focusRing } from "~/lib/utils";
 import {
   adjacentChapter,
@@ -1906,25 +1906,31 @@ export function PaginatedChapter({
                 </p>
               )}
               {openNote && notePeek && (
-                <button
-                  ref={peekRef}
-                  type="button"
-                  data-note-peek=""
-                  onClick={() => unfoldNote()}
-                  className={cn(
-                    "mx-3 mt-1 flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent",
-                    // The bar alone (a paged sheet): clear of the home bar
-                    !scrollMode && "mb-[max(env(safe-area-inset-bottom),0.75rem)]",
-                    focusRing,
+                <div className={cn("mx-3 mt-1 flex shrink-0 items-center gap-1", !scrollMode && "mb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
+                  <button
+                    ref={peekRef}
+                    type="button"
+                    data-note-peek=""
+                    onClick={() => unfoldNote()}
+                    className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent", focusRing)}
+                  >
+                    <ChevronUp aria-hidden className="size-4 shrink-0" />
+                    <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
+                    <span className="min-w-0 truncate text-muted-foreground">{openNote.title || t("note.untitled")}</span>
+                  </button>
+                  {/* Phones: the peeking note's own header steps aside for its
+                      references (#215) — the bar names it and closes it */}
+                  {scrollMode && (
+                    <button
+                      type="button"
+                      aria-label={t("note.close")}
+                      onClick={closeNote}
+                      className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground", focusRing)}
+                    >
+                      <X aria-hidden className="size-4" />
+                    </button>
                   )}
-                >
-                  <ChevronUp aria-hidden className="size-4 shrink-0" />
-                  <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
-                  {/* Phones: the title heads the peeking note just below */}
-                  <span className={cn("min-w-0 truncate text-muted-foreground", scrollMode && "sr-only")}>
-                    {openNote.title || t("note.untitled")}
-                  </span>
-                </button>
+                </div>
               )}
               {openNote && (
                 // Phones peek with the note's title and references (#215); a

@@ -1310,6 +1310,7 @@ export function ChapterText({
                           type="button"
                           data-ink-box
                           data-verse-marker={mk.notes.length}
+                          data-marker-verse={v.verse}
                           lang={i18n.language}
                           {...{ [NOTE_OPENER]: mk.notes[0].markId }}
                           aria-label={

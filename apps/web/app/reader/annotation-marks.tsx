@@ -532,9 +532,20 @@ export function AnnotationMarks({
       };
       const anchors: InkGeometry["anchors"] = {};
       for (const annotation of annotations) anchors[annotation.id] = measureAnchor(annotation);
-      // Phones: from the verse's first word, level with its marker (#215)
-      for (const mark of noteMarks)
-        anchors[`note:${mark.noteId}:${mark.id}`] = measureAnchor(compact ? { ...mark, startWord: 0 } : mark);
+      // Phones: from the verse's first word, level with its marker (#215) —
+      // at a large text size the marker can sit a line above it
+      const markerTop = (verse: number) => {
+        const el = compact ? (scopeRef?.current ?? flowEl).querySelector(`[data-marker-verse="${verse}"]`) : null;
+        return el ? (el.getBoundingClientRect().top - flowRect.top) / s + oy : null;
+      };
+      for (const mark of noteMarks) {
+        const segs = measureAnchor(compact ? { ...mark, startWord: 0 } : mark);
+        const top = markerTop(mark.startVerse);
+        const first = segs[0];
+        if (first && top !== null && top < first.box.y)
+          segs[0] = { ...first, box: { ...first.box, y: top, h: first.box.h + first.box.y - top } };
+        anchors[`note:${mark.noteId}:${mark.id}`] = segs;
+      }
       const next: InkGeometry = {
         region: { w: region.offsetWidth, h: region.offsetHeight },
         rail: { leftEnd: textLeft - RAIL_GAP_REM * rem, rightStart: textRight + RAIL_GAP_REM * rem, width: region.offsetWidth, rem },
