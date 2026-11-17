@@ -327,7 +327,7 @@ function RefPreview({
               <button
                 ref={readRef}
                 type="button"
-                className={cn(actionClass, "text-primary")}
+                className={cn(actionClass, "text-(--note-ink-text)")}
                 onClick={() => {
                   onClose(false);
                   onRead?.(scripture, scripture, elsewhere.id);
@@ -343,7 +343,7 @@ function RefPreview({
             <button
               ref={readRef}
               type="button"
-              className={cn(actionClass, "text-primary")}
+              className={cn(actionClass, "text-(--note-ink-text)")}
               onClick={() => {
                 onClose(false);
                 // Where this translation has it (BPH Mal 3,20, not Mal 4,2)

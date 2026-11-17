@@ -1112,13 +1112,17 @@ export function PaginatedChapter({
     t(scrollMode ? `reader.${dir}ChapterTo` : `reader.${dir}Into`, { ref: refLabel(target) });
   const pagedLabel = (dir: "prev" | "next", target: ChapterRef | null) =>
     target && target.book !== chapter.book ? crossName(dir, target) : t(`reader.${dir}`);
+  // A note with verses open (#213): [ / ] step its verses, so the phone's
+  // chapter buttons don't claim them
+  const keysStepRefs = !!openNote && (openNote.refs?.length ?? 0) + openNote.anchors.length > 0;
+  const chapterShortcut = (k: string) => (keysStepRefs ? "" : k);
   const prevButton: FootButton = {
     label: scrollMode && prevChapter ? refLabel(prevChapter) : pagedLabel("prev", prevTarget),
     name: prevTarget
       ? crossName("prev", prevTarget)
       : t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
-    hintKey: scrollMode ? "[" : "←",
-    keys: scrollMode ? "[" : "ArrowLeft PageUp",
+    hintKey: scrollMode ? chapterShortcut("[") : "←",
+    keys: scrollMode ? chapterShortcut("[") : "ArrowLeft PageUp",
     disabled: onFirstPage && !prevTarget,
     onClick: goPrev,
   };
@@ -1127,8 +1131,8 @@ export function PaginatedChapter({
     name: nextTarget
       ? crossName("next", nextTarget)
       : t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
-    hintKey: scrollMode ? "]" : "→",
-    keys: scrollMode ? "]" : "ArrowRight PageDown",
+    hintKey: scrollMode ? chapterShortcut("]") : "→",
+    keys: scrollMode ? chapterShortcut("]") : "ArrowRight PageDown",
     disabled: onLastPage && !nextTarget,
     onClick: goNext,
   };

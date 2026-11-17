@@ -16,7 +16,7 @@ import { turnStill } from "./turn-still";
 export type FootButton = {
   label: string;
   name: string;
-  /** Tooltip key ("←") + aria-keyshortcuts ("ArrowLeft PageUp"). */
+  /** Tooltip key ("←") + aria-keyshortcuts ("ArrowLeft PageUp"); "" = none. */
   hintKey: string;
   keys: string;
   /** Nothing that way (Genesis 1's first page, Revelation 22's last). */
@@ -389,7 +389,7 @@ function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "ne
         focusableWhenDisabled
         data-foot-end
         aria-label={button.name === button.label ? undefined : button.name}
-        aria-keyshortcuts={live(button.keys)}
+        aria-keyshortcuts={live(button.keys) || undefined}
         onPointerDown={(e) => {
           pressed.current = e.pointerType === "mouse" && e.button === 0 && !button.disabled;
           if (pressed.current) button.onClick();
