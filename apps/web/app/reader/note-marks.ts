@@ -150,3 +150,42 @@ export function verseNoteLabel(
     ? t("reader.verseLabelNotes", { n, notes: notes.join(", "), text: v.text })
     : t("reader.verseLabel", { n, text: v.text });
 }
+
+/** A phone verse's one marker (#215): the notes whose marks START at that
+ * verse, once each, in text order. One note shows its short title; two or
+ * more say "2 notes" and open a list. `id`/`text` key the in-flow ink (a
+ * marker that changes its words moves the text along: re-measure). */
+export type VerseMarker = {
+  id: string;
+  verse: number;
+  notes: { noteId: string; title: string; markId: string; startWord: number }[];
+  /** What it prints: the short title, or the count ("2 notes"). */
+  text: string;
+};
+
+/** A title cut to about `max` characters, at a word break when one is near
+ * ("The bronze serpent" → "The bronze…"). The full title is the marker's name. */
+export function shortTitle(title: string, max = 12): string {
+  const s = title.trim().replace(/\s+/g, " ");
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return `${(space >= max / 2 ? cut.slice(0, space) : cut).replace(/[\s,.;:–—-]+$/, "")}…`;
+}
+
+/** One marker per verse (#215), keyed by the verse a mark starts at. */
+export function verseMarkers(
+  marks: NoteMark[],
+  labels: { untitled: string; count: (n: number) => string },
+): Map<number, VerseMarker> {
+  const byVerse = new Map<number, NoteMark[]>();
+  for (const m of [...marks].sort((a, b) => a.startVerse - b.startVerse || a.startWord - b.startWord))
+    byVerse.set(m.startVerse, [...(byVerse.get(m.startVerse) ?? []), m]);
+  const out = new Map<number, VerseMarker>();
+  for (const [verse, list] of byVerse) {
+    const notes = [...new Map(list.map((m) => [m.noteId, { noteId: m.noteId, title: m.title, markId: m.id, startWord: m.startWord }])).values()];
+    const text = notes.length === 1 ? shortTitle(notes[0].title || labels.untitled) : labels.count(notes.length);
+    out.set(verse, { id: `${verse}:${notes.map((n) => n.noteId).join(",")}`, verse, notes, text });
+  }
+  return out;
+}

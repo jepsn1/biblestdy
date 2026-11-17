@@ -2,7 +2,7 @@ import type { Chapter, Note, NoteAnchor, NoteRef, Translation } from "@biblestdy
 import * as vz from "@biblestdy/shared/versification";
 import { describe, expect, it } from "vitest";
 import { makeLocalizer } from "./localizer";
-import { markReference, mergeRanges, noteMarksInChapter as marksWith, notesOnVerse, noteTouchesChapter, writtenElsewhere, type NoteMark } from "./note-marks";
+import { markReference, mergeRanges, noteMarksInChapter as marksWith, notesOnVerse, noteTouchesChapter, shortTitle, verseMarkers, writtenElsewhere, type NoteMark } from "./note-marks";
 
 const translations: Translation[] = ["BPH", "WEB", "NIV"].map((a) => ({ id: a, abbreviation: a, name: a, language: a === "BPH" ? "da" : "en" }));
 /** With the map loaded (the reader's steady state). */
@@ -207,5 +207,46 @@ describe("mergeRanges", () => {
       { start: 14, end: 16 },
       { start: 19, end: 20 },
     ]);
+  });
+});
+
+describe("phone markers: one per verse (#215)", () => {
+  const mk = (noteId: string, title: string, over: Partial<NoteAnchor> = {}): NoteMark => ({ ...anchor({ id: `${noteId}-m`, ...over }), noteId, title });
+  const labels = { untitled: "Untitled", count: (n: number) => `${n} notes` };
+
+  it("cuts a title to about 12 characters, at a word break when near", () => {
+    expect(shortTitle("Born again")).toBe("Born again");
+    expect(shortTitle("The bronze serpent")).toBe("The bronze…");
+    expect(shortTitle("Kærlighedsbudskabet")).toBe("Kærlighedsbu…");
+    expect(shortTitle("  God   so loved  ")).toBe("God so loved");
+    expect(shortTitle("Faith, hope and love")).toBe("Faith, hope…");
+  });
+
+  it("one note on a verse: its short title; several: the count, once per note", () => {
+    const m = verseMarkers(
+      [
+        mk("born", "Born again", { startVerse: 16, startWord: 0, endVerse: 16 }),
+        mk("loved", "God so loved", { startVerse: 16, startWord: 3, endVerse: 16 }),
+        { ...mk("loved", "God so loved", { startVerse: 16, startWord: 8, endVerse: 16 }), id: "loved-2" },
+        mk("serpent", "The bronze serpent", { startVerse: 14, startWord: 0, endVerse: 15 }),
+        mk("blank", "", { startVerse: 3, startWord: 0, endVerse: 3 }),
+      ],
+      labels,
+    );
+    expect([...m.keys()]).toEqual([3, 14, 16]);
+    expect(m.get(14)!.text).toBe("The bronze…");
+    expect(m.get(3)!.text).toBe("Untitled");
+    const v16 = m.get(16)!;
+    expect(v16.text).toBe("2 notes");
+    expect(v16.notes.map((n) => n.noteId)).toEqual(["born", "loved"]);
+    // Nothing on 15: a mark's marker sits at the verse it starts at
+    expect(m.has(15)).toBe(false);
+  });
+
+  it("keys the in-flow ink by its words: a rename re-measures", () => {
+    const a = verseMarkers([mk("n", "Short")], labels).get(14)!;
+    const b = verseMarkers([mk("n", "A longer name")], labels).get(14)!;
+    expect(a.id).toBe(b.id);
+    expect(a.text).not.toBe(b.text);
   });
 });

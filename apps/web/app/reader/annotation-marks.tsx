@@ -59,6 +59,8 @@ const EDGE = 64; // px kept clear at the pane edges (sheet-layout GUTTER, 60px: 
 const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
+/** Phones (#215): no margin — a note link's gutter bracket hugs the text. */
+const GUTTER_GAP = 4;
 
 /** Note labels (#63, #211): the margin rail sits at least this far from the
  * text column (rem: the bracket lanes and the connector live in it); a
@@ -148,12 +150,13 @@ function penPath(
   edge: number,
   seed: string,
   lane = 0,
+  gap = BRACKET_GAP,
 ) {
   if (shape === "contour") return contourPath(runs, seed);
   if (shape === "underline") return underlinePath(runs, seed);
   if (shape === "bracket")
     return bracketPath(
-      spineX(box, side, edge, lane),
+      spineX(box, side, edge, lane, gap),
       box.y + 2,
       box.y + box.h - 2,
       seed,
@@ -164,10 +167,10 @@ function penPath(
 
 /** A bracket's spine: BRACKET_GAP off the text column, a lane further out
  * per nested note link (#211). */
-const spineX = (box: Box, side: "left" | "right", edge: number, lane = 0) =>
+const spineX = (box: Box, side: "left" | "right", edge: number, lane = 0, gap = BRACKET_GAP) =>
   side === "left"
-    ? Math.min(box.x, edge) - BRACKET_GAP - lane * LANE_STEP
-    : Math.max(box.x + box.w, edge) + BRACKET_GAP + lane * LANE_STEP;
+    ? Math.min(box.x, edge) - gap - lane * LANE_STEP
+    : Math.max(box.x + box.w, edge) + gap + lane * LANE_STEP;
 
 /** Where the margin rail is (region-local px), measured with the anchors. */
 type RailEdges = { leftEnd: number; rightStart: number; width: number; rem: number };
@@ -311,6 +314,7 @@ export function AnnotationMarks({
   openNoteId = null,
   eraser = false,
   compact = false,
+  noteInkHidden = false,
   marginBoxes = true,
   railChips = true,
   onFocus,
@@ -359,8 +363,13 @@ export function AnnotationMarks({
   /** The eraser is the tool (#211): a bracket's strip says where to remove
    * the link instead — links are never erased on the page. */
   eraser?: boolean;
-  /** Phone view (#13, #44): single scroll column — brackets sit on the left. */
+  /** Phone view (#13, #44): single scroll column — brackets sit on the left.
+   * A note link's gutter bracket (#215): 1.5px, close to the text, from the
+   * line of its verse's marker. */
   compact?: boolean;
+  /** Phone, the note drawer full (#215): the gutter brackets step out — the
+   * open note's passage shows its wash above the drawer. */
+  noteInkHidden?: boolean;
   /** Handwriting boxes + arrows in the margin lanes. False when there are no
    * lanes (phones, narrow panes): ChapterText prints each annotation as a
    * line under its verse instead (#63) — circles/brackets stay here. */
@@ -523,7 +532,20 @@ export function AnnotationMarks({
       };
       const anchors: InkGeometry["anchors"] = {};
       for (const annotation of annotations) anchors[annotation.id] = measureAnchor(annotation);
-      for (const mark of noteMarks) anchors[`note:${mark.noteId}:${mark.id}`] = measureAnchor(mark);
+      // Phones: from the verse's first word, level with its marker (#215) —
+      // at a large text size the marker can sit a line above it
+      const markerTop = (verse: number) => {
+        const el = compact ? (scopeRef?.current ?? flowEl).querySelector(`[data-marker-verse="${verse}"]`) : null;
+        return el ? (el.getBoundingClientRect().top - flowRect.top) / s + oy : null;
+      };
+      for (const mark of noteMarks) {
+        const segs = measureAnchor(compact ? { ...mark, startWord: 0 } : mark);
+        const top = markerTop(mark.startVerse);
+        const first = segs[0];
+        if (first && top !== null && top < first.box.y)
+          segs[0] = { ...first, box: { ...first.box, y: top, h: first.box.h + first.box.y - top } };
+        anchors[`note:${mark.noteId}:${mark.id}`] = segs;
+      }
       const next: InkGeometry = {
         region: { w: region.offsetWidth, h: region.offsetHeight },
         rail: { leftEnd: textLeft - RAIL_GAP_REM * rem, rightStart: textRight + RAIL_GAP_REM * rem, width: region.offsetWidth, rem },
@@ -748,7 +770,7 @@ export function AnnotationMarks({
         )
       : null;
   const chipById = new Map(chips?.map((c) => [c.id, c]) ?? []);
-  const shownPens = pens;
+  const shownPens = noteInkHidden ? pens.filter((p) => !p.isNote) : pens;
   const marksByKey = new Map(noteMarks.map((m) => [markKey(m), m]));
   const chipH = CHIP_H_REM * (rail?.rem ?? 16);
   /** Hidden at once when a turn starts; fades back in on the new page. */
@@ -770,11 +792,11 @@ export function AnnotationMarks({
               return (
                 <path
                   key={p.key}
-                  d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId, p.lane)}
+                  d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId, p.lane, compact && p.isNote ? GUTTER_GAP : BRACKET_GAP)}
                   fill="none"
                   // Another note open: this one steps back by colour (#211)
                   stroke={state === "back" ? "var(--muted-foreground)" : NOTE_INK}
-                  strokeWidth={state === "lit" || state === "hover" ? 2.4 : state === "open" || active ? 2.2 : 1.7}
+                  strokeWidth={state === "lit" || state === "hover" ? 2.4 : state === "open" || active ? 2.2 : compact && p.isNote ? 1.5 : 1.7}
                   strokeOpacity={receded(p.markId, p.isNote) ? SPOT_FADE : undefined}
                   data-spot-dim={receded(p.markId, p.isNote) || undefined}
                   data-note-bracket={p.isNote ? (p.members ? "group" : state) : undefined}

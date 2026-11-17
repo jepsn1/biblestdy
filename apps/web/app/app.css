@@ -645,3 +645,14 @@
     color: black;
   }
 }
+
+/* A drawer with snap points (#215) is full height, slid down to its snap:
+   its content fits the part on screen (growing as it's dragged up, never
+   shrinking under a downward drag), so its own scroller reaches its end. */
+/* Resolved on the popup: base-ui registers its vars as non-inheriting. */
+[data-slot="drawer-popup"][data-snap-points] {
+  --drawer-snap-hidden: max(0px, calc(var(--drawer-snap-point-offset, 0px) + min(0px, var(--drawer-swipe-movement-y, 0px))));
+}
+[data-slot="drawer-popup"][data-snap-points] > [data-slot="drawer-content"] {
+  padding-bottom: var(--drawer-snap-hidden);
+}
