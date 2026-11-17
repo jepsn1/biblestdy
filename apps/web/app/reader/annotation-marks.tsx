@@ -11,6 +11,7 @@ import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import {
   bracketLanes,
+  gutterBrackets,
   columnOf,
   connectorPath,
   LANE_STEP,
@@ -19,6 +20,7 @@ import {
   pageOfColumn,
   sideOfSpan,
   placeRailChips,
+  type LaneGroup,
   type LaneSpan,
   type PagedFlow,
   type Rect,
@@ -626,7 +628,7 @@ export function AnnotationMarks({
     // Note links (#211): one bracket for every link, verse-level ones too.
     // Desktop: on its column's own side (a single column: the right), in
     // lanes; 3+ on overlapping lines fold into one group bracket. Phones:
-    // the left gutter, as before
+    // the left gutter, the same two lanes (#235: never on top of each other)
     const segKey = (markId: string, col: number) => `${markId}:${col}`;
     const noteSide = (g: Seg) => (compact ? "left" : g.colSide);
     const noteEdge = (g: Seg) => (noteSide(g) === "left" ? g.edgeL : g.edgeR);
@@ -642,22 +644,32 @@ export function AnnotationMarks({
         const k = `${g.col}:${noteSide(g)}`;
         byCol.set(k, [...(byCol.get(k) ?? []), { span: { id: segKey(markId, g.col), top: g.box.y, bottom: g.box.y + g.box.h }, seg: g }]);
       }
-    if (!compact)
-      for (const [k, list] of byCol) {
-        const spans = list.map((x) => x.span);
-        let laid = bracketLanes(spans);
-        // The open note's (or spotlit) links never fold: lay out again with
-        // them pinned only when one would — otherwise nothing moves
-        const pinned = (id: string) => pinnedMark(id.slice(0, id.lastIndexOf(":")));
-        if (laid.groups.some((gr) => gr.ids.some(pinned)))
-          laid = bracketLanes(spans.map((x) => ({ ...x, pinned: pinned(x.id) })));
+    const markOf = (id: string) => id.slice(0, id.lastIndexOf(":"));
+    for (const [k, list] of byCol) {
+      const [col, side] = k.split(":");
+      const addGroup = (gr: LaneGroup) => {
+        const group = { key: `group:${col}:${gr.ids.join(",")}`, ...gr, col: Number(col), side: side as "left" | "right" };
+        for (const id of gr.ids) groupOf.set(id, group);
+      };
+      if (compact) {
+        // Phones (#235): one bracket per verse, like its one marker
+        const laid = gutterBrackets(
+          list.map(({ span }) => ({ ...span, verse: marksById.get(markOf(span.id))!.startVerse, pinned: pinnedMark(markOf(span.id)) })),
+        );
         for (const [id, lane] of Object.entries(laid.lanes)) laneOf.set(id, lane);
-        const [col, side] = k.split(":");
-        for (const gr of laid.groups) {
-          const group = { key: `group:${col}:${gr.ids.join(",")}`, ...gr, col: Number(col), side: side as "left" | "right" };
-          for (const id of gr.ids) groupOf.set(id, group);
-        }
+        for (const gr of laid.groups) addGroup(gr);
+        continue;
       }
+      const spans = list.map((x) => x.span);
+      let laid = bracketLanes(spans);
+      // The open note's (or spotlit) links never fold: lay out again with
+      // them pinned only when one would — otherwise nothing moves
+      const pinned = (id: string) => pinnedMark(markOf(id));
+      if (laid.groups.some((gr) => gr.ids.some(pinned)))
+        laid = bracketLanes(spans.map((x) => ({ ...x, pinned: pinned(x.id) })));
+      for (const [id, lane] of Object.entries(laid.lanes)) laneOf.set(id, lane);
+      for (const gr of laid.groups) addGroup(gr);
+    }
     const drawnGroups = new Set<string>();
     for (const [markId, mark] of marksById) {
       const segs = geo.anchors[markId] ?? [];

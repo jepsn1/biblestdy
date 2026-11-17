@@ -257,6 +257,36 @@ export function bracketLanes(spans: LaneSpan[]): { lanes: Record<string, number>
   return { lanes, groups };
 }
 
+/**
+ * Phones' gutter (#235): one bracket per verse, as there is one marker per
+ * verse — the links starting on a verse share it (a group) unless pinned
+ * (the open note's or spotlit link keeps its own). Then the lanes, as
+ * bracketLanes (two side by side; a third folds). Same shape back, by the
+ * spans' own ids. Pure.
+ */
+export function gutterBrackets(spans: (LaneSpan & { verse: number })[]): { lanes: Record<string, number>; groups: LaneGroup[] } {
+  const units = new Map<string, LaneSpan & { ids: string[] }>();
+  for (const s of spans) {
+    const key = s.pinned ? `pin:${s.id}` : `verse:${s.verse}`;
+    const u = units.get(key);
+    if (u) {
+      u.top = Math.min(u.top, s.top);
+      u.bottom = Math.max(u.bottom, s.bottom);
+      u.ids.push(s.id);
+    } else units.set(key, { id: key, top: s.top, bottom: s.bottom, pinned: s.pinned, ids: [s.id] });
+  }
+  const laid = bracketLanes([...units.values()].map(({ id, top, bottom, pinned }) => ({ id, top, bottom, pinned })));
+  const lanes: Record<string, number> = {};
+  const groups: LaneGroup[] = [];
+  for (const [key, lane] of Object.entries(laid.lanes)) {
+    const u = units.get(key)!;
+    if (u.ids.length === 1) lanes[u.ids[0]] = lane;
+    else groups.push({ ids: u.ids, top: u.top, bottom: u.bottom, lane });
+  }
+  for (const g of laid.groups) groups.push({ ...g, ids: g.ids.flatMap((key) => units.get(key)!.ids) });
+  return { lanes, groups };
+}
+
 /** Does a label need its connector at rest (#211 C2)? Only when stacking
  * pushed it more than half a line from its bracket's top hook. */
 export function needsConnector(hookY: number, labelCenterY: number, lineH: number): boolean {
