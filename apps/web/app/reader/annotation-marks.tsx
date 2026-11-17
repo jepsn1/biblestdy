@@ -28,6 +28,7 @@ import {
 import { markReference, type NoteMark } from "./note-marks";
 import { GUTTER } from "./sheet-layout";
 import { linkedHint } from "./linked-hint";
+import { wordRects } from "./word-rects";
 import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { sameData, useMeasure, useSameData } from "./use-measure";
@@ -495,16 +496,16 @@ export function AnnotationMarks({
             const w = Number(el.dataset.word);
             if (v === a.startVerse && w < a.startWord) continue;
             if (v === a.endVerse && w > a.endWord) continue;
-            const vr = el.getBoundingClientRect();
-            if (vr.width === 0) continue;
-            const r = {
-              left: (vr.left - flowRect.left) / s + ox,
-              top: (vr.top - flowRect.top) / s + oy,
-              right: (vr.right - flowRect.left) / s + ox,
-              bottom: (vr.bottom - flowRect.top) / s + oy,
-            };
-            const n = columnOf(r, flow);
-            byPage.set(n, [...(byPage.get(n) ?? []), r]);
+            for (const vr of wordRects(el)) {
+              const r = {
+                left: (vr.left - flowRect.left) / s + ox,
+                top: (vr.top - flowRect.top) / s + oy,
+                right: (vr.right - flowRect.left) / s + ox,
+                bottom: (vr.bottom - flowRect.top) / s + oy,
+              };
+              const n = columnOf(r, flow);
+              byPage.set(n, [...(byPage.get(n) ?? []), r]);
+            }
           }
         }
         return [...byPage].sort((x, y) => x[0] - y[0]).map(([n, rects]) => {

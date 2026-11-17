@@ -208,14 +208,33 @@ const SHARE_GLYPH = "↗\u00a0";
 
 /** "☕ Buy me a coffee · ↗ Share": minor, non-intrusive links (API.Bible
  * non-commercial terms, lib/support.ts) — as quiet as the source link, on a
- * line of their own. They wrap as whole links (a narrow foot, large text). */
+ * line of their own. They wrap as whole links (a narrow foot, large text):
+ * then one under the other, and the "·" goes (#240) — never left dangling. */
 export function SupportLine({ phone = false, className }: { phone?: boolean; className?: string }) {
   const { t } = useTranslation();
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const line = lineRef.current;
+    const first = line?.querySelector("a");
+    const last = line?.querySelector("button");
+    if (!line || !first || !last) return;
+    // Measured side by side, separator shown, every time: hiding it can't
+    // flip the answer back
+    const fit = () => {
+      delete line.dataset.stacked;
+      if (last.offsetTop > first.offsetTop) line.dataset.stacked = "";
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(line);
+    ro.observe(first);
+    return () => ro.disconnect();
+  }, []);
   // Touch: a full target (phones always; a tablet's paged foot too)
   // A mouse: 24px tall at least (WCAG 2.5.8, #196)
   const target = phone ? "inline-flex min-h-11 items-center px-2" : "inline-flex min-h-6 items-center pointer-coarse:min-h-11";
   return (
-    <p className={cn(CREDIT, "col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center", className)}>
+    <p ref={lineRef} className={cn(CREDIT, "group col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center data-stacked:flex-col", className)}>
       <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap", target)}>
         {/* inline-block: the underline skips the glyph */}
         <span aria-hidden className="inline-block">
@@ -224,7 +243,9 @@ export function SupportLine({ phone = false, className }: { phone?: boolean; cla
         {t("support.coffee")}
         <span className="sr-only"> {t("copyright.newTab")}</span>
       </a>
-      <span aria-hidden>·</span>
+      <span aria-hidden className="group-data-stacked:hidden">
+        ·
+      </span>
       <ShareMenu name={t("share.friend")} className={cn(CREDIT_LINK, "cursor-pointer whitespace-nowrap", target)}>
         <span aria-hidden className="inline-block">
           {SHARE_GLYPH}
@@ -419,6 +440,7 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
   // (a press may be a scroll), keyboard keeps Enter/Space (detail 0)
   const pressed = useRef(false);
   const live = useLiveShortcut();
+  const bookRef = useCrampedName(bar, button.label);
   return (
     <Hint label={button.name} shortcut={button.hintKey} side="top">
       <Button
@@ -456,9 +478,11 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
         {dir === "prev" && <Icon aria-hidden data-icon="inline-start" />}
         {button.place ? (
           <span className="flex min-w-0">
-            <span className="min-w-0 truncate">{button.place.book}</span>
-            <span data-chapter-num="" className="shrink-0 tabular-nums">
+            <span ref={bookRef} className="min-w-0 truncate data-cramped:hidden">
+              {button.place.book}
               {"\u00a0"}
+            </span>
+            <span data-chapter-num="" className="shrink-0 tabular-nums">
               {button.place.chapter}
             </span>
           </span>
@@ -469,4 +493,29 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
       </Button>
     </Hint>
   );
+}
+
+/** The bar's book name, cut to under ~3 letters ("2 …" at 320px, 200%,
+ * #240): it goes, the chapter number stays — the button's accessible name
+ * still says the book. Measured shown, every time, so hiding it can't flip
+ * the answer back. */
+function useCrampedName(on: boolean, text: string) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const button = el?.closest("button");
+    const bar = button?.parentElement;
+    if (!on || !el || !button || !bar) return;
+    const fit = () => {
+      delete el.dataset.cramped;
+      const em = parseFloat(getComputedStyle(el).fontSize) || 16;
+      if (el.scrollWidth > el.clientWidth + 0.5 && el.clientWidth < 2.6 * em) el.dataset.cramped = "";
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(bar);
+    ro.observe(button);
+    return () => ro.disconnect();
+  }, [on, text]);
+  return ref;
 }

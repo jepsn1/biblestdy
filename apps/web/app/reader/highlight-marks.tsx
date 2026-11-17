@@ -3,6 +3,7 @@ import { useState, type RefObject } from "react";
 import { isShown, type HighlightFilter } from "~/lib/highlight-filter";
 import { HIGHLIGHT_BG } from "./highlight-colors";
 import { mergeRanges } from "./note-marks";
+import { wordRects } from "./word-rects";
 import { hoveredLinks, SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geometry";
 import { sameData, useMeasure } from "./use-measure";
@@ -129,15 +130,16 @@ export function HighlightMarks({
               if (runs.at(-1)!.length) runs.push([]);
               continue;
             }
-            const vr = el.getBoundingClientRect();
-            if (vr.width === 0) continue;
+            const rects = wordRects(el);
+            if (!rects.length) continue;
             lineH = parseFloat(getComputedStyle(el).lineHeight) || 36;
-            runs.at(-1)!.push({
-              left: (vr.left - flowRect.left) / s + ox,
-              top: (vr.top - flowRect.top) / s + oy,
-              right: (vr.right - flowRect.left) / s + ox,
-              bottom: (vr.bottom - flowRect.top) / s + oy,
-            });
+            for (const vr of rects)
+              runs.at(-1)!.push({
+                left: (vr.left - flowRect.left) / s + ox,
+                top: (vr.top - flowRect.top) / s + oy,
+                right: (vr.right - flowRect.left) / s + ox,
+                bottom: (vr.bottom - flowRect.top) / s + oy,
+              });
           }
         }
         runs.flatMap((words) => lineRuns(words)).forEach((line, i) => {
