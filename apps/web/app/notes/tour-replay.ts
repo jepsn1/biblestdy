@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import i18n from "~/lib/i18n";
 import "../locales/tour";
 import { replayTours } from "./tour-memory";

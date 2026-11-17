@@ -1,5 +1,5 @@
 import type { WordPos } from "@biblestdy/shared";
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import type { NoteAtWord } from "./word-click";
 
 type T = (key: string, o?: Record<string, unknown>) => string;

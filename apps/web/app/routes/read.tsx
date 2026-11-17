@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";

@@ -25,7 +25,7 @@ import { ErrorScreen } from "~/components/error-page";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { useViewportZoom, VIEWPORT_OPEN, VIEWPORT_PREPAINT } from "~/lib/viewport";
 import { usePrintLimit } from "~/lib/print-limit";
-import { Toaster } from "~/components/ui/sonner";
+import { Toaster } from "~/components/lazy-toaster";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
 

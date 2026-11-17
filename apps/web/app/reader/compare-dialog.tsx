@@ -5,7 +5,7 @@ import { useQueries } from "@tanstack/react-query";
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";

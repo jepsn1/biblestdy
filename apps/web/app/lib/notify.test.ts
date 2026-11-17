@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Action = { label: string; onClick: () => void };
 const calls: { kind: "toast" | "error"; message: string; action?: Action; duration?: number }[] = [];
-vi.mock("sonner", () => {
+vi.mock("./toast", () => {
   const toast = (message: string, opts?: { action?: Action; duration?: number }) =>
     calls.push({ kind: "toast", message, action: opts?.action, duration: opts?.duration });
   toast.error = (message: string, opts?: { action?: Action }) =>

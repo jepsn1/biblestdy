@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import { useLazyModule, whenIdle } from "~/lib/lazy-module";
 import type { ReaderActions } from "./command-palette";
 import { OPEN_PALETTE, palette, startTypeahead, takeTypeahead } from "./open-palette";
