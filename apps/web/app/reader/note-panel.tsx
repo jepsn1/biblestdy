@@ -27,7 +27,6 @@ import { useIsDark } from "~/lib/theme";
 import { useViewportFits } from "~/lib/text-size";
 import { PanelHeader } from "./panel-header";
 import { INSERT_REF, INSERT_VERSE, REMOVE_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
-import { removeLinksTidy } from "./ref-tidy";
 import type { ReferencesOverviewProps } from "./references-overview";
 import type { RefLocator } from "./ref-location";
 import { TagChips } from "./tag-chips";
@@ -505,12 +504,15 @@ export function NotePanel({
     const links = scriptureLinks(liveBody).filter((l) => l.href === href);
     if (!links.length) return;
     const before = liveBody;
-    setBody(removeLinksTidy(liveBody, links));
-    toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
-      duration: 6000,
-      position: "bottom-right",
-      className: "!w-auto !text-list",
-      action: { label: t("toast.undo"), onClick: () => setBody(before) },
+    // Its separators go too (#226); off the reader's first paint
+    void import("./ref-tidy").then(({ removeLinksTidy }) => {
+      setBody(removeLinksTidy(before, links));
+      toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
+        duration: 6000,
+        position: "bottom-right",
+        className: "!w-auto !text-list",
+        action: { label: t("toast.undo"), onClick: () => setBody(before) },
+      });
     });
   }
   // "+ Verse" in the overview: the toolbar button's dialog (verse-button),
