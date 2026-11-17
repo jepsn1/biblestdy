@@ -110,7 +110,10 @@ export function ChapterSpill({
   // Refs and other translations' anchors through the versification map
   // (#163), a lazy chunk: those marks wait for it
   const localize = useLocalizer(translationId, needsMap(notesApi.notes, translationId));
-  const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize);
+  const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize, {
+    highlights: highlightsApi.highlights,
+    annotations: annotationsApi.annotations,
+  });
   const [selection, setSelection] = useState<Anchor | null>(null);
   const onSelectionChange = useCallback((a: Anchor | null) => setSelection(a), []);
   const [rovingVerse, setRovingVerse] = useState<number | null>(null);

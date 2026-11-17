@@ -310,8 +310,14 @@ const da: typeof en = {
     typeaheadBook: "{{book}}. Enter fuldfører navnet.",
     typeaheadOnPage: "I dette kapitel",
     typeaheadAll: "Alle vers",
-    typeaheadMark: "{{ref}}, {{kind}}, i dette kapitel. Enter indsætter henvisningen.",
+    typeaheadMark: "{{ref}}, {{kind}}, i dette kapitel. Enter knytter noten til markeringen.",
     markHighlight: "Fremhævning ({{color}})",
+    /** A reference tagged with a mark (#216) that can't follow it: said, never silent (Ruth) */
+    markRemoved: "Markering fjernet",
+    markedIn: "Markeret i {{abbr}}",
+    refChipMark: "{{ref}}, bibelvers, {{state}}",
+    refMarkRemoved: "Markeringen er væk, så henvisningen gælder hele verset.",
+    refMarkElsewhere: "Markeret i {{abbr}} – her gælder henvisningen hele verset.",
   },
   connections: {
     title: "Noter",

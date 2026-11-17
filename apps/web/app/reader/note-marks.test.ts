@@ -59,6 +59,34 @@ const note = (over: Partial<Note> = {}): Note => ({
   ...over,
 });
 
+describe("noteMarksInChapter: a ref tagged with a mark (#216)", () => {
+  const hlId = "0b7c1d2e-3f40-4a5b-8c6d-7e8f9a0b1c2d";
+  const gold = { id: hlId, translationId: "WEB", book: "JHN", chapter: 3, startVerse: 16, startWord: 2, endVerse: 16, endWord: 4 };
+  const tagged = note({ refs: [ref({ mark: { kind: "highlight", id: hlId, translationId: "WEB" } })] });
+  const map = (ch: Chapter) => makeLocalizer(vz, translations, ch.translationId);
+
+  it("follows the mark's own words while it is on this chapter", () => {
+    const [m] = marksWith([tagged], web, map(web), { highlights: [gold], annotations: [] });
+    expect(m).toMatchObject({ id: "r1", noteId: "n1", startVerse: 16, startWord: 2, endVerse: 16, endWord: 4 });
+    expect(m.verseLevel).toBeUndefined();
+    // …and its words as they are now (an undo, a resize)
+    const [moved] = marksWith([tagged], web, map(web), { highlights: [{ ...gold, startWord: 0 }], annotations: [] });
+    expect(moved.startWord).toBe(0);
+    // A pen mark of the same id is another mark
+    expect(marksWith([tagged], web, map(web), { highlights: [], annotations: [gold] })[0].verseLevel).toBe(true);
+  });
+
+  it("erased, or read in another translation: the whole verse, as a plain ref", () => {
+    expect(marksWith([tagged], web, map(web), { highlights: [], annotations: [] })[0]).toMatchObject({ startVerse: 16, startWord: 0, verseLevel: true });
+    // The marks of BPH's John 3 never hold WEB's highlight
+    expect(marksWith([tagged], bph, map(bph), { highlights: [gold], annotations: [] })[0]).toMatchObject({ translationId: "BPH", startVerse: 16, verseLevel: true });
+  });
+
+  it("an old note (no mark) is unchanged", () => {
+    expect(marksWith([note({ refs: [ref()] })], web, map(web), { highlights: [gold], annotations: [] })[0].verseLevel).toBe(true);
+  });
+});
+
 describe("noteMarksInChapter (#159)", () => {
   it("keeps word-precise marks on the home translation", () => {
     const marks = noteMarksInChapter([note({ anchors: [anchor()] })], web);

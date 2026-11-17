@@ -269,8 +269,14 @@ export default {
     typeaheadBook: "{{book}}. Enter completes the name.",
     typeaheadOnPage: "In this chapter",
     typeaheadAll: "All verses",
-    typeaheadMark: "{{ref}}, {{kind}}, in this chapter. Enter inserts the reference.",
+    typeaheadMark: "{{ref}}, {{kind}}, in this chapter. Enter links the note to this mark.",
     markHighlight: "Highlight ({{color}})",
+    /** A reference tagged with a mark (#216) that can't follow it: said, never silent (Ruth) */
+    markRemoved: "Mark removed",
+    markedIn: "Marked in {{abbr}}",
+    refChipMark: "{{ref}}, scripture reference, {{state}}",
+    refMarkRemoved: "The mark is gone, so this links the whole verse.",
+    refMarkElsewhere: "Marked in {{abbr}}; here it links the whole verse.",
   },
   connections: {
     title: "Notes",

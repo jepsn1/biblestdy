@@ -7,7 +7,7 @@ import {
   realmPlugin,
   type NodeRef,
 } from "@mdxeditor/editor";
-import { parseScriptureHref, type ScriptureRef } from "@biblestdy/shared";
+import { formatMarkTitle, parseMarkTitle, parseScriptureHref, type MarkLink, type ScriptureRef } from "@biblestdy/shared";
 import {
   $createNodeSelection,
   $createRangeSelection,
@@ -43,34 +43,44 @@ import { RefTypeahead } from "./ref-typeahead";
  * sanitizeUrl turns `bible:` into about:blank. The href is the truth; the
  * link text is kept byte for byte (it is only a fallback label: the chip
  * names the reference in the UI language).
+ *
+ * Tagged with a mark (#216): the link's title names it,
+ * `[Joh 3,16](bible:JHN.3.16 "mark:hl:<uuid>")` — never the href, so
+ * anything that doesn't know titles (an older tab, a saved body) still
+ * reads the verse; it only drops the tag.
  */
 
-export type SerializedScriptureRefNode = Spread<{ href: string; text: string }, SerializedLexicalNode>;
+/** v1 had no mark; v2 adds it (null = a plain reference). */
+export type SerializedScriptureRefNode = Spread<{ href: string; text: string; mark?: MarkLink | null }, SerializedLexicalNode>;
 
 export class ScriptureRefNode extends DecoratorNode<ReactNode> {
   __href: string;
   __text: string;
+  __mark: MarkLink | null;
 
   static getType(): string {
     return "scripture-ref";
   }
 
   static clone(node: ScriptureRefNode): ScriptureRefNode {
-    return new ScriptureRefNode(node.__href, node.__text, node.__key);
+    return new ScriptureRefNode(node.__href, node.__text, node.__mark, node.__key);
   }
 
   static importJSON(json: SerializedScriptureRefNode): ScriptureRefNode {
-    return $createScriptureRefNode(json.href, json.text);
+    // A v1 node (no mark), or a mark that isn't one: a plain reference
+    const mark = json.mark ? parseMarkTitle(formatMarkTitle(json.mark)) : null;
+    return $createScriptureRefNode(json.href, json.text, mark);
   }
 
-  constructor(href = "", text = "", key?: NodeKey) {
+  constructor(href = "", text = "", mark: MarkLink | null = null, key?: NodeKey) {
     super(key);
     this.__href = href;
     this.__text = text;
+    this.__mark = mark;
   }
 
   exportJSON(): SerializedScriptureRefNode {
-    return { ...super.exportJSON(), type: ScriptureRefNode.getType(), version: 1, href: this.__href, text: this.__text };
+    return { ...super.exportJSON(), type: ScriptureRefNode.getType(), version: 2, href: this.__href, text: this.__text, mark: this.__mark };
   }
 
   createDOM(): HTMLElement {
@@ -112,13 +122,18 @@ export class ScriptureRefNode extends DecoratorNode<ReactNode> {
     return parseScriptureHref(this.getHref());
   }
 
+  /** The mark it was tagged with (#216); null = a plain reference. */
+  getMark(): MarkLink | null {
+    return this.getLatest().__mark;
+  }
+
   decorate(editor: LexicalEditor): ReactNode {
-    return <ScriptureChip editor={editor} nodeKey={this.__key} href={this.__href} text={this.__text} />;
+    return <ScriptureChip editor={editor} nodeKey={this.__key} href={this.__href} text={this.__text} mark={this.__mark} />;
   }
 }
 
-export function $createScriptureRefNode(href: string, text: string): ScriptureRefNode {
-  return new ScriptureRefNode(href, text);
+export function $createScriptureRefNode(href: string, text: string, mark: MarkLink | null = null): ScriptureRefNode {
+  return new ScriptureRefNode(href, text, mark);
 }
 
 export function $isScriptureRefNode(node: LexicalNode | null | undefined): node is ScriptureRefNode {
@@ -128,7 +143,7 @@ export function $isScriptureRefNode(node: LexicalNode | null | undefined): node 
 /** MDXEditor's visitor types (mdast's own types aren't a dependency here). */
 type ImportVisitor = typeof addImportVisitor$ extends NodeRef<infer T> ? Exclude<T, unknown[]> : never;
 type ExportVisitor = typeof addExportVisitor$ extends NodeRef<infer T> ? Exclude<T, unknown[]> : never;
-type MdNode = { type: string; value?: unknown; url?: string; children?: MdNode[] };
+type MdNode = { type: string; value?: unknown; url?: string; title?: string | null; children?: MdNode[] };
 
 /** The plain text of an mdast subtree (a link's label). */
 function textOf(node: MdNode): string {
@@ -142,20 +157,22 @@ export const MdastScriptureRefVisitor: ImportVisitor = {
   testNode: (node) => node.type === "link" && parseScriptureHref((node as MdNode).url ?? "") !== null,
   visitNode({ mdastNode, lexicalParent }) {
     const link = mdastNode as MdNode;
-    if ($isElementNode(lexicalParent)) lexicalParent.append($createScriptureRefNode(link.url ?? "", textOf(link)));
+    if ($isElementNode(lexicalParent))
+      lexicalParent.append($createScriptureRefNode(link.url ?? "", textOf(link), parseMarkTitle(link.title)));
   },
   priority: 100,
 };
 
-/** Chip → `[text](href)`, as it came in. */
+/** Chip → `[text](href)`, as it came in; a tagged one `[text](href "mark:…")`. */
 export const LexicalScriptureRefVisitor: ExportVisitor = {
   testLexicalNode: $isScriptureRefNode,
   visitLexicalNode({ lexicalNode, mdastParent, actions }) {
     const chip = lexicalNode as ScriptureRefNode;
+    const mark = chip.getMark();
     actions.appendToParent(mdastParent, {
       type: "link",
       url: chip.getHref(),
-      title: null,
+      title: mark ? formatMarkTitle(mark) : null,
       children: [{ type: "text", value: chip.getTextContent() }],
     } as never);
   },
@@ -181,11 +198,12 @@ const WORDISH = /^[\p{L}\p{N}]/u;
 
 /**
  * Inserts a chip at the current selection (replacing selected text), or at
- * the end of the note with none; the caret lands after it. Put before a
+ * the end of the note with none; the caret lands after it. `mark`: picked
+ * from one of the page's marks (#216). Put before a
  * word, a space separates them. Call inside editor.update.
  */
-export function $insertScriptureRef(href: string, text: string): ScriptureRefNode {
-  const chip = $createScriptureRefNode(href, text);
+export function $insertScriptureRef(href: string, text: string, mark: MarkLink | null = null): ScriptureRefNode {
+  const chip = $createScriptureRefNode(href, text, mark);
   let sel = $getSelection();
   if (!$isRangeSelection(sel)) {
     $getRoot().selectEnd();

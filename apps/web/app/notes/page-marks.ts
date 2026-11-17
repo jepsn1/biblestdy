@@ -7,6 +7,7 @@ import {
   type Chapter,
   type Highlight,
   type HighlightColor,
+  type MarkLink,
   type ScriptureRef,
 } from "@biblestdy/shared";
 import { chipLabel } from "~/lib/reference-label";
@@ -34,7 +35,15 @@ export type PageMark = {
   snippet: string;
   /** One passage marked several ways (highlighted and underlined): one row. */
   kinds: MarkKind[];
+  /** The mark a pick tags the chip with (#216): the row's first kind's
+   * (highlights first), so its swatch is what it links. */
+  mark: MarkLink;
 };
+
+/** How a highlight or pen mark is marked. */
+export function markKindOf(m: Highlight | Annotation): MarkKind {
+  return "color" in m ? { type: "highlight", color: m.color } : { type: "pen", mark: m.mark ?? null, text: !!m.text?.trim() };
+}
 
 type Marked = Pick<Highlight, "startVerse" | "startWord" | "endVerse" | "endWord" | "book" | "chapter" | "quote">;
 
@@ -72,14 +81,14 @@ export function pageMarks(
   canonical: (local: ScriptureRef) => ScriptureRef | null = (r) => r,
   snippetWords = 8,
 ): PageMark[] {
-  const all: { m: Marked; kind: MarkKind }[] = [
-    ...highlights.map((h) => ({ m: h, kind: { type: "highlight", color: h.color } as MarkKind })),
-    ...annotations.map((a) => ({ m: a, kind: { type: "pen", mark: a.mark ?? null, text: !!a.text?.trim() } as MarkKind })),
+  const all: { m: Marked; kind: MarkKind; link: MarkLink }[] = [
+    ...highlights.map((h) => ({ m: h, kind: markKindOf(h), link: { kind: "highlight", id: h.id } as MarkLink })),
+    ...annotations.map((a) => ({ m: a, kind: markKindOf(a), link: { kind: "annotation", id: a.id } as MarkLink })),
   ];
   all.sort((a, b) => a.m.startVerse - b.m.startVerse || a.m.startWord - b.m.startWord || a.m.endVerse - b.m.endVerse || a.m.endWord - b.m.endWord);
   const out: PageMark[] = [];
   const byHref = new Map<string, PageMark>();
-  for (const { m, kind } of all) {
+  for (const { m, kind, link } of all) {
     const local: ScriptureRef = { book: m.book, chapter: m.chapter, verse: m.startVerse };
     if (m.endVerse > m.startVerse) local.endVerse = m.endVerse;
     const ref = canonical(local);
@@ -87,11 +96,13 @@ export function pageMarks(
     if (!ref || !href) continue;
     const seen = byHref.get(href);
     if (seen) {
+      // Its first highlight, else its first pen mark
+      if (seen.mark.kind === "annotation" && link.kind === "highlight") seen.mark = link;
       if (!seen.kinds.some((k) => sameKind(k, kind))) seen.kinds.push(kind);
       if (!seen.snippet) seen.snippet = shorten(markedWords(m, chapter), snippetWords);
       continue;
     }
-    const row: PageMark = { ref, href, local, snippet: shorten(markedWords(m, chapter), snippetWords), kinds: [kind] };
+    const row: PageMark = { ref, href, local, snippet: shorten(markedWords(m, chapter), snippetWords), kinds: [kind], mark: link };
     byHref.set(href, row);
     out.push(row);
   }

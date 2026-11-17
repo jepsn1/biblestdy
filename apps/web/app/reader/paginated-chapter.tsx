@@ -336,7 +336,9 @@ export function PaginatedChapter({
   // Refs and other translations' anchors through the versification map
   // (#163), a lazy chunk: those marks wait for it
   const localize = useLocalizer(chapter.translationId, needsMap(notesApi.notes, chapter.translationId));
-  const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize);
+  // A ref tagged with a mark follows it (#216): all highlights, the colour
+  // key's faded ones too
+  const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize, { highlights: allHighlights, annotations: annotationsApi.annotations });
   /** Stored (canonical) numbers here, once the map is in (null meanwhile). */
   const localLookup = useMemo(
     () => (localize ? (r: ScriptureRef) => localize.local(r)?.ref ?? null : null),
