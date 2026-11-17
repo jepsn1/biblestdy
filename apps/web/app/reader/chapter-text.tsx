@@ -34,6 +34,7 @@ import {
 import type { NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import { noteMarkId, spotlitWords } from "./spotlight";
+import { inAnchor, opensDrawer, type HeldGesture } from "./held-selection";
 import { isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
 import { NOTE_OPENER } from "./note-panel";
 import { noteEditor } from "./note-editor-loader";
@@ -191,8 +192,8 @@ export function ChapterText({
   /** "Select words to highlight…" under the heading until first use (#63). */
   firstUseHint?: boolean;
   onDismissHint?: () => void;
-  /** Phone (#13): native selection is disabled — tapping a word selects it,
-   * the menu opens immediately, and two drag handles stretch the span. Note
+  /** Phone (#13): native selection is disabled — tapping a word selects it
+   * with two drag handles to stretch the span; the menu waits (#206). Note
    * marks show as a small marker after the verse number (#63). */
   mobile?: boolean;
   /** Only these verses: chapters run on across pages — the end of one page
@@ -212,6 +213,8 @@ export function ChapterText({
   // Tap-selection (mobile): a = the end fixed at tap, b = the dragged end.
   // Either handle may drag either end; buildAnchor normalizes the order.
   const [touchSel, setTouchSel] = useState<{ a: WordPos; b: WordPos } | null>(null);
+  /** Phone (#206): the tap-selection is held — handles up, no menu yet. */
+  const [held, setHeld] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const draftRef = useRef<HTMLTextAreaElement>(null);
@@ -255,6 +258,36 @@ export function ChapterText({
     [touchSel, chapter.translationId, chapter.book, chapter.chapter],
   );
   useEffect(() => onSelectionChange(selAnchor), [selAnchor, onSelectionChange]);
+  const holding = !!mobile && held && !!touchSel && !menu;
+  // Any other way the selection goes or its menu comes ends the hold
+  useEffect(() => {
+    if (held && (!touchSel || menu)) setHeld(false);
+  }, [held, touchSel, menu]);
+  /** A gesture on the held selection: its menu, if that gesture opens it
+   * (held-selection.ts decides which do). */
+  function heldGesture(g: HeldGesture) {
+    if (holding && selAnchor && opensDrawer(g)) setMenu({ kind: "selection", anchor: selAnchor });
+  }
+  // A tap elsewhere or a scroll drops the held selection; nothing opens.
+  // Capture: element scrolls don't bubble, and a click is read before its
+  // own handler (a tap on another word re-selects there, in onWordClick)
+  useEffect(() => {
+    if (!holding) return;
+    const drop = () => setTouchSel(null);
+    const onClick = (e: MouseEvent) => {
+      const el = e.target as Element | null;
+      if (el?.closest?.(`[${SELECTION_UI_ATTR}]`)) return;
+      const word = el?.closest?.("[data-word]");
+      if (word && rootRef.current?.contains(word)) return;
+      drop();
+    };
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("scroll", drop, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("scroll", drop, { capture: true });
+    };
+  }, [holding]);
   // What the palette's / translation sheet's Compare acts on (#167)
   const compareKey = `${chapter.translationId}/${chapter.book}.${chapter.chapter}`;
   useEffect(() => {
@@ -802,6 +835,12 @@ export function ChapterText({
       } else applyTool(activeTool, buildAnchor(passage, pos, pos));
       return;
     }
+    if (holding && selAnchor && inAnchor(selAnchor, pos)) {
+      event.stopPropagation();
+      heldGesture("tap-selection");
+      return;
+    }
+    if (holding) setTouchSel(null); // a tap anywhere else lets it go
     if (markId?.startsWith("note:")) {
       event.stopPropagation();
       onOpenNote(markId.split(":")[1], { verse: pos.verse, word: pos.word }); // "note:<noteId>:<anchorId>" — open the note panel
@@ -830,10 +869,13 @@ export function ChapterText({
       closeMenu();
       return;
     }
-    // Tap-select: one word selected, menu up immediately, handles stretch it
+    // Tap-select (#206): one word selected, handles stretch it, the menu
+    // waits — it would cover the words being adjusted
     event.stopPropagation();
+    nextMenu.current = null;
+    setMenu(null);
     setTouchSel({ a: pos, b: pos });
-    setMenu({ kind: "selection", anchor: buildAnchor(passage, pos, pos) });
+    setHeld(true);
   }
 
   /** Drag one end of the tap-selection: the word under the pointer becomes
@@ -1210,7 +1252,7 @@ export function ChapterText({
           drag stretches the span, the menu follows the end word */}
       {mobile &&
         handleRects &&
-        menu?.kind === "selection" &&
+        (menu?.kind === "selection" || holding) &&
         createPortal(
           <>
             {(["start", "end"] as const).map((which) => {
@@ -1233,9 +1275,10 @@ export function ChapterText({
                     if (e.currentTarget.hasPointerCapture(e.pointerId))
                       dragHandle(which, e.clientX, e.clientY);
                   }}
+                  onPointerUp={() => heldGesture("handle-release")}
                 >
-                  {/* Fat invisible hit area, small visible lollipop */}
-                  <div className="flex h-9 w-9 items-start justify-center">
+                  {/* Fat invisible hit area (44px), small visible lollipop */}
+                  <div className="flex size-11 items-start justify-center">
                     <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary/30 shadow-sm" />
                   </div>
                 </div>
