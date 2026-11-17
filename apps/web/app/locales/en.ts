@@ -142,8 +142,11 @@ export default {
     annotateHint: "A short handwritten thought beside the text",
     createNote: "New note",
     createNoteHint: "A longer note that opens beside the text",
-    noteLink: "Link to a note…",
+    noteLink: "Add to note…",
     noteLinkHint: "Link an existing note to this passage",
+    /** A word several notes link (#212) */
+    notesLabel: "Notes on these words",
+    showAnnotation: "Show the margin note",
     copy: "Copy",
     copyHint: "Copies the text with its reference (also ⌘C / Ctrl+C)",
     compare: "Compare translations",
@@ -162,7 +165,6 @@ export default {
       rose: "rose",
       purple: "purple",
     },
-    addNote: "Add note",
     selectionLabel: "Selection actions",
     /** Phone pill under a tap-selection (#206) */
     pillHighlight: "Highlight",
@@ -733,6 +735,9 @@ export default {
     loadFailed: "Couldn\u2019t open this. Check your connection and try again.",
   },
   toast: {
+    /** The eraser over a note link alone (#212): links are removed in the note */
+    eraseLinked: "Linked to the note “{{title}}” — remove the link there",
+    eraseLinkedMany: "Linked to {{count}} notes — remove the links there",
     undo: "Undo",
     retry: "Retry",
     noteDeleted: "Note deleted",

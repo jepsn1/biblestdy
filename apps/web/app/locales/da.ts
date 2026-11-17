@@ -183,8 +183,11 @@ const da: typeof en = {
     annotateHint: "En kort håndskrevet tanke i margenen",
     createNote: "Ny note",
     createNoteHint: "En længere note der åbner ved siden af teksten",
-    noteLink: "Knyt til en note…",
+    noteLink: "Tilføj til en note…",
     noteLinkHint: "Knyt en eksisterende note til dette bibelvers",
+    /** A word several notes link (#212) */
+    notesLabel: "Noter til ordene",
+    showAnnotation: "Vis annoteringen",
     copy: "Kopiér",
     copyHint: "Kopierer teksten med henvisning (også ⌘C / Ctrl+C)",
     compare: "Sammenlign oversættelser",
@@ -203,7 +206,6 @@ const da: typeof en = {
       rose: "rosa",
       purple: "lilla",
     },
-    addNote: "Tilføj note",
     selectionLabel: "Handlinger for markeringen",
     /** Phone pill under a tap-selection (#206) */
     pillHighlight: "Fremhæv",
@@ -771,6 +773,9 @@ const da: typeof en = {
     loadFailed: "Det kunne ikke åbnes. Tjek forbindelsen, og prøv igen.",
   },
   toast: {
+    /** The eraser over a note link alone (#212): links are removed in the note */
+    eraseLinked: "Knyttet til noten »{{title}}« — fjern det i noten",
+    eraseLinkedMany: "Knyttet til {{count}} noter — fjern det i noterne",
     undo: "Fortryd",
     retry: "Prøv igen",
     noteDeleted: "Note slettet",

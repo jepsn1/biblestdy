@@ -37,6 +37,8 @@ import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
 import { DragRefTag, SelectionPill } from "./selection-pill";
 import { notifyUndo } from "~/lib/notify";
+import { toast } from "sonner";
+import { anchorOf, eraseClick, notesAtWord, notesInStroke, wordClick, type NoteAtWord } from "./word-click";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { TAP_MAX_MS, isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
 import { NOTE_OPENER } from "./note-panel";
@@ -64,12 +66,15 @@ function isColor(value: unknown): value is HighlightColor {
 type MenuState =
   /** A fresh word selection (drag on desktop, tap + handles on phones). */
   | { kind: "selection"; anchor: Anchor }
-  /** An existing highlight, opened from the word at `at`. */
-  | { kind: "highlight"; highlight: Highlight; at: WordPos }
+  /** An existing highlight, opened from the word at `at`; `notes`: linked
+   * there too — an "Open note: X" row each, on top (#212). */
+  | { kind: "highlight"; highlight: Highlight; at: WordPos; notes: NoteAtWord[] }
   /** Writing an annotation for the selection (`editId`: text for an existing plain mark). */
   | { kind: "compose"; anchor: Anchor; editId?: string }
   /** A plain pen mark (no text), opened from the word at `at`. */
-  | { kind: "mark"; annotation: Annotation; at: WordPos }
+  | { kind: "mark"; annotation: Annotation; at: WordPos; notes: NoteAtWord[] }
+  /** Words several notes link (or a written margin note's, linked): pick one (#212). */
+  | { kind: "notes"; notes: NoteAtWord[]; annotation?: Annotation; at: WordPos; words: Anchor }
   /** Picking an existing note to anchor to the selection too. */
   | { kind: "attach"; anchor: Anchor }
   /** Compare translations is open for it (#167): no menu, but the
@@ -254,6 +259,20 @@ export function ChapterText({
         .map((m) => ({ ...m, value: { id: `note:${m.noteId}:${m.id}` } })),
     ].sort((a, b) => spanSize(a) - spanSize(b)),
   );
+
+  // Click layers (#212): the reader's own ink apart from the note links, so
+  // a link never hides the mark under it (or over it)
+  const inkCoverage = new Map<string, Annotation>();
+  coverInto(
+    inkCoverage,
+    chapter.verses,
+    [...annotations].sort((a, b) => spanSize(a) - spanSize(b)).map((a) => ({ ...a, value: a })),
+  );
+  const layersAt = (pos: WordPos) => ({
+    annotation: inkCoverage.get(`${pos.verse}:${pos.word}`) ?? null,
+    highlight: hlCoverage.get(`${pos.verse}:${pos.word}`) ?? null,
+    notes: notesAtWord(noteMarks, pos),
+  });
 
   // The selection as an anchor (normalized: either end may pass the other)
   const selAnchor = useMemo(
@@ -484,7 +503,8 @@ export function ChapterText({
     for (let w = 0; w < count; w++) {
       const hit = hlCoverage.get(`${cursor}:${w}`);
       if (hit) {
-        setMenu({ kind: "highlight", highlight: hit, at: { verse: cursor, word: w } });
+        const at = { verse: cursor, word: w };
+        setMenu({ kind: "highlight", highlight: hit, at, notes: notesAtWord(noteMarks, at) });
         return;
       }
     }
@@ -679,9 +699,18 @@ export function ChapterText({
       getBoundingClientRect: () => {
         const m = menuRef.current;
         if (!m) return DOMRect.fromRect(EMPTY_RECT);
-        const anchor = m.kind === "highlight" ? m.highlight : m.kind === "mark" ? m.annotation : m.anchor;
+        const anchor =
+          m.kind === "highlight"
+            ? m.highlight
+            : m.kind === "mark"
+              ? m.annotation
+              : m.kind === "notes"
+                ? m.words
+                : m.anchor;
         const at =
-          m.kind === "highlight" || m.kind === "mark" ? m.at : { verse: anchor.endVerse, word: anchor.endWord };
+          m.kind === "highlight" || m.kind === "mark" || m.kind === "notes"
+            ? m.at
+            : { verse: anchor.endVerse, word: anchor.endWord };
         const el = wordEl(at.verse, at.word);
         if (!el) return DOMRect.fromRect(EMPTY_RECT);
         const line = lineOf(anchorRects(anchor), plain(el.getBoundingClientRect()));
@@ -802,8 +831,11 @@ export function ChapterText({
     } else if (t.kind === "note") onAddNote(anchor);
     else if (t.kind === "erase") {
       // Highlights and annotations the stroke touches (notes are never erased)
-      for (const h of highlights) if (overlaps(h)) onRemoveHighlight(h.id);
-      for (const a of annotations) if (overlaps(a)) onRemoveAnnotation(a.id);
+      const hs = highlights.filter(overlaps);
+      const as = annotations.filter(overlaps);
+      for (const h of hs) onRemoveHighlight(h.id);
+      for (const a of as) onRemoveAnnotation(a.id);
+      if (hs.length + as.length === 0) linkedHint(notesInStroke(noteMarks, anchor), { verse: anchor.startVerse, word: anchor.startWord });
     }
   }
 
@@ -880,15 +912,33 @@ export function ChapterText({
     if (pos) onWordClick(event, pos, virtual);
   }
 
+  /** The eraser over a link alone (#212): links are never erased here —
+   * say which note holds it, with the way there. */
+  function linkedHint(notes: NoteAtWord[], at: WordPos) {
+    if (notes.length === 0) return;
+    const first = notes[0];
+    toast(
+      notes.length === 1
+        ? t("toast.eraseLinked", { title: first.title || t("note.untitled") })
+        : t("toast.eraseLinkedMany", { count: notes.length }),
+      {
+        id: "erase-linked", // repeated strokes update one toast
+        action: { label: t("note.open"), onClick: () => onOpenNote(first.noteId, { verse: at.verse, word: at.word }) },
+      },
+    );
+  }
+
   function onWordClick(event: React.MouseEvent, pos: WordPos, virtual = false) {
-    const markId = annotationCoverage.get(`${pos.verse}:${pos.word}`)?.id;
-    const hit = hlCoverage.get(`${pos.verse}:${pos.word}`);
+    const layers = layersAt(pos);
     if (activeTool) {
       // A click is a one-word stroke; the eraser takes what's under it
       event.stopPropagation();
+      const hit = layers.highlight;
       if (activeTool.kind === "erase") {
-        if (markId && !markId.startsWith("note:")) onRemoveAnnotation(markId);
-        else if (hit) onRemoveHighlight(hit.id);
+        const erase = eraseClick(layers);
+        if (erase.kind === "annotation") onRemoveAnnotation(erase.annotation.id);
+        else if (erase.kind === "highlight") onRemoveHighlight(erase.highlight.id);
+        else if (erase.kind === "hint") linkedHint(erase.notes, pos);
       } else if (activeTool.kind === "highlight" && hit) {
         if (hit.color !== activeTool.color) onRecolorHighlight(hit.id, activeTool.color);
       } else applyTool(activeTool, buildAnchor(passage, pos, pos));
@@ -901,28 +951,38 @@ export function ChapterText({
       return;
     }
     if (holding) setTouchSel(null); // a tap anywhere else lets it go
-    if (markId?.startsWith("note:")) {
+    // The click map (C3): the reader's ink owns the word, with its notes as
+    // rows; a link alone opens its note. Phones keep a whole-verse link's
+    // words for tap-select — the verse's marker opens that note.
+    const click = wordClick(layers, { verseLinksOpen: !mobile });
+    if (click.kind === "openNote") {
       event.stopPropagation();
-      onOpenNote(markId.split(":")[1], { verse: pos.verse, word: pos.word }); // "note:<noteId>:<anchorId>" — open the note panel
+      onOpenNote(click.noteId, { verse: pos.verse, word: pos.word });
       return;
     }
-    const plain = markId ? annotations.find((a) => a.id === markId && !a.text) : undefined;
-    if (plain) {
+    if (click.kind === "markMenu") {
       // A plain pen mark: its own small menu (style, add text, remove)
       event.stopPropagation();
       setTouchSel(null);
-      setMenu({ kind: "mark", annotation: plain, at: pos });
+      setMenu({ kind: "mark", annotation: click.annotation, at: pos, notes: click.notes });
       return;
     }
-    if (markId) {
-      event.stopPropagation();
-      onFocusAnnotation(markId); // highlight the matching placed annotation
-      return;
-    }
-    if (hit) {
+    if (click.kind === "notes") {
       event.stopPropagation();
       setTouchSel(null);
-      setMenu({ kind: "highlight", highlight: hit, at: pos });
+      const words = click.annotation ?? buildAnchor(passage, pos, pos);
+      setMenu({ kind: "notes", notes: click.notes, annotation: click.annotation, at: pos, words });
+      return;
+    }
+    if (click.kind === "focusAnnotation") {
+      event.stopPropagation();
+      onFocusAnnotation(click.annotation.id); // highlight the matching placed annotation
+      return;
+    }
+    if (click.kind === "highlightMenu") {
+      event.stopPropagation();
+      setTouchSel(null);
+      setMenu({ kind: "highlight", highlight: click.highlight, at: pos, notes: click.notes });
       return;
     }
     if (!mobile) {
@@ -988,6 +1048,45 @@ export function ChapterText({
       else onAddAnnotation(menu.anchor, text);
     }
     closeMenu(keyboard);
+  }
+
+  /** "Open note: X" rows (#212): the notes linked at the clicked word, on
+   * top of a mark's menu. */
+  function noteRows(notes: NoteAtWord[], at: WordPos, separated = true) {
+    if (notes.length === 0) return null;
+    return (
+      <>
+        {notes.map((n) => (
+          <ActionMenuItem
+            key={n.noteId}
+            icon={<FileText aria-hidden style={{ color: NOTE_INK_TEXT }} />}
+            onSelect={() => onOpenNote(n.noteId, { verse: at.verse, word: at.word })}
+          >
+            <span className="min-w-0 flex-1 truncate">{t("reader.openNoteNamed", { title: n.title || t("note.untitled") })}</span>
+          </ActionMenuItem>
+        ))}
+        {separated && <ActionMenuSeparator />}
+      </>
+    );
+  }
+
+  /** "Add to note…": these words linked to one of the reader's notes — from
+   * a selection, a highlight or a pen mark (#212). */
+  function addToNote(words: Anchor) {
+    if (allNotes.length === 0) return null;
+    return (
+      <ActionMenuItem
+        hint={t("menu.noteLinkHint")}
+        icon={<Link2 aria-hidden />}
+        onSelect={() => {
+          const attach = { kind: "attach" as const, anchor: anchorOf(words) };
+          nextMenu.current = attach;
+          setMenu(attach);
+        }}
+      >
+        {t("menu.noteLink")}
+      </ActionMenuItem>
+    );
   }
 
   // Inline ink (#63): annotation lines print after their END verse; note
@@ -1400,7 +1499,13 @@ export function ChapterText({
       <ActionMenu
         // A fresh menu per view: focus lands on the new list
         key={menu?.kind === "attach" ? "attach" : "actions"}
-        open={menu?.kind === "selection" || menu?.kind === "highlight" || menu?.kind === "attach" || menu?.kind === "mark"}
+        open={
+          menu?.kind === "selection" ||
+          menu?.kind === "highlight" ||
+          menu?.kind === "attach" ||
+          menu?.kind === "mark" ||
+          menu?.kind === "notes"
+        }
         onOpenChange={(open, keyboard) => !open && closeMenu(keyboard)}
         anchor={virtualAnchor}
         mobile={mobile}
@@ -1409,6 +1514,8 @@ export function ChapterText({
             ? "menu.highlightLabel"
             : menu?.kind === "mark"
               ? "marks.label"
+              : menu?.kind === "notes"
+              ? "menu.notesLabel"
               : menu?.kind === "attach"
               ? "menu.noteLink"
               : "menu.selectionLabel",
@@ -1458,19 +1565,7 @@ export function ChapterText({
             <ActionMenuItem hint={t("menu.createNoteHint")} icon={<FileText aria-hidden />} shortcut="n" onSelect={() => onAddNote(menu.anchor)}>
               {t("menu.createNote")}
             </ActionMenuItem>
-            {allNotes.length > 0 && (
-              <ActionMenuItem
-                hint={t("menu.noteLinkHint")}
-                icon={<Link2 aria-hidden />}
-                onSelect={() => {
-                  const attach = { kind: "attach" as const, anchor: menu.anchor };
-                  nextMenu.current = attach;
-                  setMenu(attach);
-                }}
-              >
-                {t("menu.noteLink")}
-              </ActionMenuItem>
-            )}
+            {addToNote(menu.anchor)}
             {!mobile && (
               <>
                 <ActionMenuSeparator />
@@ -1479,8 +1574,22 @@ export function ChapterText({
             )}
           </>
         )}
+        {menu?.kind === "notes" && (
+          <>
+            {noteRows(menu.notes, menu.at, false)}
+            {menu.annotation && (
+              <>
+                <ActionMenuSeparator />
+                <ActionMenuItem icon={<PenLine aria-hidden />} onSelect={() => onFocusAnnotation(menu.annotation!.id)}>
+                  {t("menu.showAnnotation")}
+                </ActionMenuItem>
+              </>
+            )}
+          </>
+        )}
         {menu?.kind === "mark" && (
           <>
+            {noteRows(menu.notes, menu.at)}
             <ActionMenuMarks
               value={menu.annotation.mark ?? null}
               onPick={(mark) => onMarkAnnotation?.(menu.annotation.id, mark)}
@@ -1498,6 +1607,7 @@ export function ChapterText({
             >
               {t("marks.addText")}
             </ActionMenuItem>
+            {addToNote(menu.annotation)}
             {copyGroup(menu.annotation)}
             <ActionMenuSeparator />
             <ActionMenuItem destructive icon={<Eraser aria-hidden />} onSelect={() => onRemoveAnnotation(menu.annotation.id)}>
@@ -1507,6 +1617,7 @@ export function ChapterText({
         )}
         {menu?.kind === "highlight" && (
           <>
+            {noteRows(menu.notes, menu.at)}
             <ActionMenuColors
               value={menu.highlight.color}
               preferred={defaultColor}
@@ -1521,9 +1632,10 @@ export function ChapterText({
                 <ActionMenuSeparator />
               </>
             )}
-            <ActionMenuItem hint={t("menu.createNoteHint")} shortcut="n" onSelect={() => onAddNote(menu.highlight)}>
-              {t("menu.addNote")}
+            <ActionMenuItem hint={t("menu.createNoteHint")} icon={<FileText aria-hidden />} shortcut="n" onSelect={() => onAddNote(anchorOf(menu.highlight))}>
+              {t("menu.createNote")}
             </ActionMenuItem>
+            {addToNote(menu.highlight)}
             {!mobile && copyGroup(menu.highlight, false)}
             <ActionMenuSeparator />
             <ActionMenuItem destructive onSelect={() => onRemoveHighlight(menu.highlight.id)}>
