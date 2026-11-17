@@ -112,8 +112,11 @@ export const spotStartSelector = (p: SpotPlace) => `[data-verse="${p.start}"][da
  * still there, never hidden. */
 export const SPOT_FADE = 0.35;
 
-/** Page turns keep the spotlight (#190): the foot's ‹ › buttons. */
-const KEEPS_SPOTLIGHT = "[data-foot-end]";
+/** Page turns keep the spotlight (#190): the foot's ‹ › buttons. A
+ * references-overview row decides itself (#210): a second click ends it,
+ * another row replaces it — ending it first would re-render the row before
+ * its own click, and the toggle would turn it straight back on. */
+const KEEPS_SPOTLIGHT = "[data-foot-end], [data-spot-row]";
 /** Something above the page that Escape closes first (menu, dialog). */
 const ESCAPE_OWNER = "[role='menu'][data-open], [role='dialog'][data-open], [role='alertdialog'][data-open], [aria-modal='true']";
 
@@ -146,7 +149,11 @@ export function useSpotlightEnd(active: boolean, end: () => void) {
   useEffect(() => {
     if (!active) return;
     const on = (e: Event) => {
-      if (endsSpotlight(e as KeyboardEvent, document)) endRef.current();
+      if (!endsSpotlight(e as KeyboardEvent, document)) return;
+      endRef.current();
+      // One Escape, one step (#210): the spotlight ends, the note it came
+      // from stays open (its panel skips a handled Escape)
+      if (e.type === "keydown") e.preventDefault();
     };
     document.addEventListener("click", on, true);
     // Capture: read before a menu's own Escape closes it

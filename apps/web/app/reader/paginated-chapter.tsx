@@ -854,7 +854,7 @@ export function PaginatedChapter({
     );
   }
   const spotExit = spotLabel
-    ? { label: t("reader.spotShowing", { ref: spotLabel }), showAll: t("reader.spotShowAll"), onEnd: endSpot }
+    ? { label: t("reader.spotShowing", { ref: spotLabel }), short: spotLabel, showAll: t("reader.spotShowAll"), onEnd: endSpot }
     : null;
 
   // Mirror the page into the URL (replace, no history spam) and lastRead

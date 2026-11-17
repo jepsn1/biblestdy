@@ -126,6 +126,7 @@ describe("spotlight styling", () => {
 
 describe("endsSpotlight (#190: no timer)", () => {
   const el = (keeps: boolean) => ({ closest: (s: string) => (keeps && s.includes("data-foot-end") ? {} : null) });
+  const rowEl = { closest: (s: string) => (s.includes("data-spot-row") ? {} : null) };
   const doc = (open: boolean) => ({ querySelector: () => (open ? ({} as Element) : null) });
   it("any click ends it, the text included", () => {
     expect(endsSpotlight({ type: "click", target: el(false) as unknown as Element }, doc(false))).toBe(true);
@@ -133,6 +134,9 @@ describe("endsSpotlight (#190: no timer)", () => {
   });
   it("a page turn keeps it", () => {
     expect(endsSpotlight({ type: "click", target: el(true) as unknown as Element }, doc(false))).toBe(false);
+  });
+  it("an overview row decides itself (toggle or replace, #210)", () => {
+    expect(endsSpotlight({ type: "click", target: rowEl as unknown as Element }, doc(false))).toBe(false);
   });
   it("Escape ends it, unless a menu or dialog takes the Escape first", () => {
     expect(endsSpotlight({ type: "keydown", key: "Escape", target: null }, doc(false))).toBe(true);

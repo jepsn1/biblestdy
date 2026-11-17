@@ -405,6 +405,7 @@ export function ReferencesOverview({
         <button
           type="button"
           data-row={row.key}
+          data-spot-row=""
           aria-pressed={pressed}
           onClick={read}
           className={cn("flex h-13 min-w-0 flex-1 flex-col justify-center rounded px-1.5 text-left", focusRing)}
@@ -427,6 +428,7 @@ export function ReferencesOverview({
         <button
           type="button"
           data-row={row.key}
+          data-spot-row=""
           title={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}
