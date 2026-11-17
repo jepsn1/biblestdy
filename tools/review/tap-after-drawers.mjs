@@ -40,6 +40,9 @@ for (const ua of (process.env.UAS ?? "ios,android").split(",")) {
   const centre = (s) => p.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, s);
   /** A fingertip tap: down, ~80ms, up — on a word already in view and settled. */
   async function tapWord(v, w, { settle = true } = {}) {
+    // The text can be re-rendering a moment after a drawer closes (marks
+    // refetch): wait for the word to be there before scrolling it in (#235)
+    await p.waitForSelector(word(v, w), { state: "attached", timeout: 10000 });
     await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), word(v, w));
     if (settle) await p.waitForTimeout(400);
     const at = await centre(word(v, w));

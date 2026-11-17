@@ -961,6 +961,17 @@ export function PaginatedChapter({
   const spotExit = spotLabel
     ? { label: t("reader.spotShowing", { ref: spotLabel }), short: spotLabel, showAll: t("reader.spotShowAll"), onEnd: endSpot }
     : null;
+  const showAll = (size = "min-h-11") => spotExit && (
+    <button
+      type="button"
+      data-spot-exit=""
+      data-spot-own=""
+      onClick={spotExit.onEnd}
+      className={cn("-mx-1 inline-flex shrink-0 items-center rounded-sm px-1 font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2", size, focusRing)}
+    >
+      {spotExit.showAll}
+    </button>
+  );
   /** The note drawer's snaps (#215): [peek, full]. */
   const notePeekPoint = peekPoint(scrollMode, !!spotExit);
   const noteSnaps = useMemo(() => [notePeekPoint, NOTE_FULL], [notePeekPoint]);
@@ -1908,39 +1919,64 @@ export function PaginatedChapter({
             modal={!notePeek}
             disablePointerDismissal={notePeek}
           >
-            <DrawerContent aria-label={openNote?.title || t("note.untitled")}>
+            <DrawerContent
+              aria-label={openNote?.title || t("note.untitled")}
+              // One surface (#235): the peek's bar on the note's own background
+              className="bg-background [--drawer-bleed-background:var(--color-background)]"
+              // Full: no blur on the strip above — its passage wash shows (#235)
+              overlayClassName="supports-backdrop-filter:backdrop-blur-none"
+            >
               {/* The spotlight's exit line (#210): above the bar, which
-                  stays where the thumb found it */}
-              {openNote && notePeek && spotExit && (
+                  stays where the thumb found it. Phones (#235): one row
+                  with the bar instead, so large text keeps the room */}
+              {openNote && notePeek && spotExit && !scrollMode && (
                 <p data-spot-line="" className="mx-3 mt-1 flex min-h-11 min-w-0 items-center gap-1 px-3 text-control text-muted-foreground">
                   <span aria-hidden className="min-w-0 truncate">
                     {spotExit.label}
                   </span>
                   <span aria-hidden>·</span>
-                  <button
-                    type="button"
-                    data-spot-exit=""
-                    data-spot-own=""
-                    onClick={spotExit.onEnd}
-                    className={cn("-mx-1 inline-flex min-h-11 shrink-0 items-center rounded-sm px-1 font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2", focusRing)}
-                  >
-                    {spotExit.showAll}
-                  </button>
+                  {showAll()}
                 </p>
               )}
               {openNote && notePeek && (
-                <div className={cn("mx-3 mt-1 flex shrink-0 items-center gap-1", !scrollMode && "mb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
-                  <button
-                    ref={peekRef}
-                    type="button"
-                    data-note-peek=""
-                    onClick={() => unfoldNote()}
-                    className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent", focusRing)}
-                  >
-                    <ChevronUp aria-hidden className="size-4 shrink-0" />
-                    <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
-                    <span className="min-w-0 truncate text-muted-foreground">{openNote.title || t("note.untitled")}</span>
-                  </button>
+                <div className={cn("mt-1 flex shrink-0 items-center gap-1", scrollMode ? "mx-2" : "mx-3 mb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
+                  {scrollMode && spotExit ? (
+                    <>
+                      {/* "‹ Note · John 3:3 · Show all · ×" */}
+                      <button
+                        ref={peekRef}
+                        type="button"
+                        data-note-peek=""
+                        aria-label={`${t("note.backToNote")}: ${openNote.title || t("note.untitled")}`}
+                        onClick={() => unfoldNote()}
+                        className={cn("flex min-h-11 shrink-0 items-center gap-1 rounded-md px-1.5 py-2 text-left font-medium hover:bg-accent", focusRing)}
+                      >
+                        <ChevronUp aria-hidden className="size-4 shrink-0" />
+                        {t("note.backToNoteShort")}
+                      </button>
+                      {/* Large text: "Show all" wraps under the passage's name */}
+                      <p data-spot-line="" className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-2 py-0.5 text-control leading-tight text-muted-foreground">
+                        <span aria-hidden className="min-w-0 max-w-full truncate">
+                          {spotExit.short}
+                        </span>
+                        <span className="sr-only">{spotExit.label}</span>
+                        {/* Wrapped, a 44px target (not 2.75rem): the row stays one bar tall */}
+                        {showAll("min-h-[44px]")}
+                      </p>
+                    </>
+                  ) : (
+                    <button
+                      ref={peekRef}
+                      type="button"
+                      data-note-peek=""
+                      onClick={() => unfoldNote()}
+                      className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent", focusRing)}
+                    >
+                      <ChevronUp aria-hidden className="size-4 shrink-0" />
+                      <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
+                      <span className="min-w-0 truncate text-muted-foreground">{openNote.title || t("note.untitled")}</span>
+                    </button>
+                  )}
                   {/* Phones: the peeking note's own header steps aside for its
                       references (#215) — the bar names it and closes it */}
                   {scrollMode && (

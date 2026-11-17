@@ -248,6 +248,8 @@ const da: typeof en = {
     shownInText: "{{ref}} er valgt i noten",
     /** Phone (#195): the note drawer, folded down while its reference is shown in the text */
     backToNote: "Tilbage til noten",
+    /** Phone (#235): "Back to note" short, in one row with the spotlight's exit */
+    backToNoteShort: "Noten",
     showText: "Vis tekst",
     notInShort: "Findes ikke i {{abbr}}",
     removeReference: "Fjern dette bibelvers",

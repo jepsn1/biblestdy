@@ -207,6 +207,8 @@ export default {
     shownInText: "{{ref}} selected in the note",
     /** Phone (#195): the note drawer, folded down while its reference is shown in the text */
     backToNote: "Back to note",
+    /** Phone (#235): "Back to note" short, in one row with the spotlight's exit */
+    backToNoteShort: "Note",
     showText: "Show text",
     notInShort: "Not in {{abbr}}",
     removeReference: "Remove this passage",

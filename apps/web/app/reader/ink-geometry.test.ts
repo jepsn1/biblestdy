@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bracketLanes,
+  gutterBrackets,
   connectorPath,
   needsConnector,
   clampToColumn,
@@ -236,5 +237,31 @@ describe("connector (#211)", () => {
   });
   it("is a straight elbow: across, down, across", () => {
     expect(connectorPath({ x: 10, y: 20 }, { x: 30, y: 50 })).toBe("M 10.0 20.0 H 20.0 V 50.0 H 30.0");
+  });
+});
+
+describe("gutterBrackets (#235, phones)", () => {
+  const s = (id: string, verse: number, top: number, bottom: number, pinned = false) => ({ id, verse, top, bottom, pinned });
+  it("one bracket per verse: links on the same verse share it", () => {
+    expect(gutterBrackets([s("a", 16, 0, 30), s("b", 16, 0, 90)])).toEqual({ lanes: {}, groups: [{ ids: ["a", "b"], top: 0, bottom: 90, lane: 0 }] });
+  });
+  it("a lone link keeps its own bracket", () => {
+    expect(gutterBrackets([s("a", 3, 0, 30), s("b", 5, 60, 90)])).toEqual({ lanes: { a: 0, b: 0 }, groups: [] });
+  });
+  it("neighbouring verses sharing a line take two lanes, never stack", () => {
+    const { lanes, groups } = gutterBrackets([s("serpent", 14, 0, 120), s("loved", 16, 90, 150), s("ref", 16, 90, 200)]);
+    expect(groups).toEqual([{ ids: ["loved", "ref"], top: 90, bottom: 200, lane: 0 }]);
+    expect(lanes).toEqual({ serpent: 1 });
+  });
+  it("the open note's link keeps its own bracket on a shared verse", () => {
+    const { lanes, groups } = gutterBrackets([s("open", 16, 0, 30, true), s("other", 16, 0, 90)]);
+    expect(lanes).toEqual({ open: 0, other: 1 });
+    expect(groups).toEqual([]);
+  });
+  it("three verses on overlapping lines fold into one", () => {
+    const { lanes, groups } = gutterBrackets([s("a", 1, 0, 60), s("b", 2, 30, 90), s("c", 3, 40, 70)]);
+    expect(lanes).toEqual({});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].ids.sort()).toEqual(["a", "b", "c"]);
   });
 });
