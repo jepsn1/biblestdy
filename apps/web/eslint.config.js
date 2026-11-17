@@ -86,7 +86,17 @@ export default tseslint.config(
       "biblestdy/no-faded-text": "error",
       "biblestdy/no-faded-ring": "error",
       "biblestdy/type-scale": "error",
+      // #228: Sonner loads after first paint — toast via ~/lib/toast
+      "no-restricted-imports": [
+        "error",
+        { paths: [{ name: "sonner", message: "Import { toast } from \"~/lib/toast\" — Sonner stays off the reader's first paint (#228)." }] },
+      ],
     },
+  },
+  {
+    // The one place Sonner is imported: the lazily loaded Toaster
+    files: ["app/components/ui/sonner.tsx"],
+    rules: { "no-restricted-imports": "off" },
   },
   {
     // The contrast test asserts on example class strings.
