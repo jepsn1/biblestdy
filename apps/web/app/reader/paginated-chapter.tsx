@@ -719,6 +719,7 @@ export function PaginatedChapter({
     const vars = { count: found.count, page: found.page + 1 };
     return {
       label: t("reader.moreOnPage", vars),
+      short: t("note.tagPage", vars),
       name: t("reader.moreOnPageName", vars),
       back: found.back,
       onTurn: () => goToPage(found.page),
