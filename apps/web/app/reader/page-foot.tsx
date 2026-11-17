@@ -22,6 +22,9 @@ export type FootButton = {
   /** Nothing that way (Genesis 1's first page, Revelation 22's last). */
   disabled: boolean;
   onClick: () => void;
+  /** A chapter it names ("Apostlenes Gerninger 3"): a narrow button cuts
+   * the book's name short, never the number ("Apostlenes Gern… 3"). */
+  place?: { book: string; chapter: string };
 };
 
 /**
@@ -35,9 +38,8 @@ export type FootButton = {
  * accessible name says where it crosses to), so the buttons never change
  * shape. They stay mounted (disabled, still focusable) so nothing shifts
  * and focus stays put while turning pages with Enter.
- * Phones (scroll mode) end the chapter with the same foot, stepping
- * chapters with larger targets. Paged, it is chrome: it stays put while the
- * page turns (turn-still.ts); a phone's foot ends the text and scrolls with it.
+ * Phones (scroll mode) step chapters from the ChapterBar instead. It is
+ * chrome: it stays put while the page turns (turn-still.ts).
  * Narrow (large text, a narrow window): the buttons keep their words and
  * the centre gives way, never over them — each line keeps its last part
  * (the page count, the copyright) and drops the parts before it that no
@@ -48,9 +50,8 @@ export type FootButton = {
  * line of its own (folio / credit / support), centred and as quiet as the
  * credit — never on the credit line, so it never pushes the credit or source.
  * The foot always holds that line (the text column, flex-1 above it, gives
- * the room; the page count is measured with it). Phones (no credit line; the
- * room is free at the chapter's end): the same line under the buttons, full
- * touch targets.
+ * the room; the page count is measured with it). Phones end the chapter with
+ * the same line (SupportLine), full touch targets.
  */
 export function PageFoot({
   label,
@@ -60,7 +61,6 @@ export function PageFoot({
   source,
   prev,
   next,
-  phone,
   spot,
   more,
   className,
@@ -88,7 +88,6 @@ export function PageFoot({
   source?: { label: string; href: string; more: string };
   prev: FootButton;
   next: FootButton;
-  phone: boolean;
   className?: string;
 }) {
   const credits = credit ?? [];
@@ -109,15 +108,17 @@ export function PageFoot({
   return (
     <nav
       ref={fit.navRef}
-      {...(phone ? {} : turnStill("foot"))}
+      {...turnStill("foot")}
       aria-label={label}
       // Equal side tracks keep the folio centred under the text
       className={cn(
-        "relative grid w-full grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-x-2 font-sans",
+        // @container: an end is at most 45% of the foot (cqw), its book
+        // name cut short past that, never pushing out of the text block
+        "@container relative grid w-full grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-x-2 font-sans",
         className,
       )}
     >
-      <FootEnd button={prev} dir="prev" phone={phone} />
+      <FootEnd button={prev} dir="prev" />
       <div className="min-w-0 text-center">
         {spot ? (
           <p data-spot-line="" className={cn(FOLIO, "flex min-w-0 items-baseline justify-center")}>
@@ -145,7 +146,7 @@ export function PageFoot({
         ) : more && moreText ? (
           <p className={cn(FOLIO, "flex min-w-0 items-baseline justify-center")}>
             {kept > 0 && (
-              <span aria-hidden={!phone} className="truncate">
+              <span aria-hidden className="truncate">
                 <Parts parts={position.slice(-kept)} />
                 {SEP}
               </span>
@@ -167,7 +168,7 @@ export function PageFoot({
           </p>
         ) : position.length > 0 && (
           <p
-            aria-hidden={!phone}
+            aria-hidden
             // The folio is set in the reading face (Paper: serif, Clean: sans)
             className={cn(FOLIO, "truncate")}
           >
@@ -176,9 +177,9 @@ export function PageFoot({
         )}
         {!fit.creditWide && creditLine}
       </div>
-      <FootEnd button={next} dir="next" phone={phone} />
+      <FootEnd button={next} dir="next" />
       {fit.creditWide && creditLine}
-      <SupportLine phone={phone} />
+      <SupportLine />
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
         {[folio, measured].map((parts, row) => (
@@ -208,13 +209,13 @@ const SHARE_GLYPH = "↗\u00a0";
 /** "☕ Buy me a coffee · ↗ Share": minor, non-intrusive links (API.Bible
  * non-commercial terms, lib/support.ts) — as quiet as the source link, on a
  * line of their own. They wrap as whole links (a narrow foot, large text). */
-function SupportLine({ phone }: { phone: boolean }) {
+export function SupportLine({ phone = false, className }: { phone?: boolean; className?: string }) {
   const { t } = useTranslation();
   // Touch: a full target (phones always; a tablet's paged foot too)
   // A mouse: 24px tall at least (WCAG 2.5.8, #196)
   const target = phone ? "inline-flex min-h-11 items-center px-2" : "inline-flex min-h-6 items-center pointer-coarse:min-h-11";
   return (
-    <p className={cn(CREDIT, "col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center", phone && "mt-2")}>
+    <p className={cn(CREDIT, "col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center", className)}>
       <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap", target)}>
         {/* inline-block: the underline skips the glyph */}
         <span aria-hidden className="inline-block">
@@ -373,7 +374,46 @@ function Parts({ parts, wrapLong = false }: { parts: string[]; wrapLong?: boolea
   ));
 }
 
-function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "next"; phone: boolean }) {
+/**
+ * Phones (scroll mode, #238): Previous / Next chapter leave the text for a
+ * bar of their own at the bottom of the screen, like an app's tab bar —
+ * always in reach while reading, never scrolling or sliding with the text
+ * (it sits below the scroll pane, outside the chapter sheet). Each button
+ * takes up to half the bar; a long book name gives way with an ellipsis,
+ * the chapter number never does. Out of the way while a note's drawer is
+ * open (its peek and bar take the bottom of the screen): unseen and inert,
+ * yet still holding its room, so the text doesn't jump.
+ */
+export function ChapterBar({
+  label,
+  prev,
+  next,
+  hidden,
+}: {
+  /** Landmark name. */
+  label: string;
+  prev: FootButton;
+  next: FootButton;
+  hidden: boolean;
+}) {
+  return (
+    <nav
+      aria-label={label}
+      data-chapter-bar=""
+      inert={hidden}
+      className={cn(
+        // px, not rem: large text keeps its room for the names
+        "flex shrink-0 items-center justify-between gap-[8px] border-t border-border bg-background px-[6px] pt-[2px] pb-[max(env(safe-area-inset-bottom),2px)] font-sans",
+        hidden && "invisible",
+      )}
+    >
+      <FootEnd button={prev} dir="prev" bar />
+      <FootEnd button={next} dir="next" bar />
+    </nav>
+  );
+}
+
+function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev" | "next"; bar?: boolean }) {
   const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
   // Mouse turns on press, like a page under the finger; touch keeps click
   // (a press may be a scroll), keyboard keeps Enter/Space (detail 0)
@@ -405,14 +445,26 @@ function FootEnd({ button, dir, phone }: { button: FootButton; dir: "prev" | "ne
           // -mx-2: chevron and word line up with the text's edge; the hover
           // wash spills into the content padding, never into a margin lane
           "gap-1 px-2 text-control text-foreground has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
-          phone ? "min-h-11" : "h-9",
-          dir === "prev" ? "-ml-2 justify-self-start" : "-mr-2 justify-self-end",
+          // The bar: half of it at most, the name cut short inside
+          // 44px (not 2.75rem): large text keeps the bar one slim row
+          bar ? "h-auto min-h-[44px] min-w-0 max-w-[calc(50%-4px)] py-1" : "h-9 min-w-0 max-w-[45cqw]",
+          !bar && (dir === "prev" ? "-ml-2 justify-self-start" : "-mr-2 justify-self-end"),
           "aria-disabled:pointer-events-none aria-disabled:opacity-40",
           focusRing,
         )}
       >
         {dir === "prev" && <Icon aria-hidden data-icon="inline-start" />}
-        {button.label}
+        {button.place ? (
+          <span className="flex min-w-0">
+            <span className="min-w-0 truncate">{button.place.book}</span>
+            <span data-chapter-num="" className="shrink-0 tabular-nums">
+              {"\u00a0"}
+              {button.place.chapter}
+            </span>
+          </span>
+        ) : (
+          button.label
+        )}
         {dir === "next" && <Icon aria-hidden data-icon="inline-end" />}
       </Button>
     </Hint>

@@ -8,7 +8,7 @@ import { stillLayerName, TURN_STILL } from "./turn-still";
  * source, as a tree, so chrome can't drift back into a sliding element.
  * Chrome = these components; the page = the text column and its word ink.
  */
-const CHROME = ["ChapterStrip", "PageFoot", "MarksLoadError", "ToolPalette", "ToolStatus", "ColourKey"];
+const CHROME = ["ChapterStrip", "PageFoot", "ChapterBar", "MarksLoadError", "ToolPalette", "ToolStatus", "ColourKey"];
 /** Chrome that names itself a still layer (its own root element). */
 const SELF_STILL: Record<string, { file: string; name: string }> = {
   ChapterStrip: { file: "./chapter-strip.tsx", name: "strip" },
@@ -73,6 +73,15 @@ describe("page turns move only the page", () => {
       const still = self ? self.name : [el, ...ancestors(el, sheet!)].map(stillOf).find(Boolean);
       expect(still, `${tag(el)} slides with the sheet`).toBeTruthy();
     }
+  });
+
+  it("the phone's chapter bar is outside every sheet: a crossing never slides it (#238)", () => {
+    const bars = all.filter((el) => tag(el) === "ChapterBar");
+    expect(bars.length).toBe(1);
+    const sheets = ancestors(bars[0]!, reader).filter((el) => attr(el, "data-chapter-sheet"));
+    expect(sheets).toEqual([]);
+    // Nor inside the phone's scroll pane: it never scrolls away
+    expect(ancestors(bars[0]!, reader).map(tag)).not.toContain("ScrollArea");
   });
 
   it("self-still chrome names itself on its root element", () => {

@@ -92,7 +92,7 @@ export default {
     prev: "Previous",
     next: "Next",
     pagesNav: "Pages",
-    chaptersNav: "Chapters",
+    chapterBar: "Previous and next chapter",
     stripLabel: "Chapters of {{book}}",
     stripChapter: "Chapter {{n}}",
     stripAlsoHere: "Chapter {{n}}, also on this page",
