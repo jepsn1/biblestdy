@@ -2,7 +2,7 @@ import { formatScriptureHref, parseScriptureHref } from "@biblestdy/shared";
 import { rootEditor$, useCellValue } from "@mdxeditor/editor";
 import { $getNodeByKey, $getRoot, $getSelection, $isElementNode, $isRangeSelection, type BaseSelection, type LexicalNode, type NodeKey } from "lexical";
 import { useEffect } from "react";
-import { INSERT_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
+import { INSERT_REF, REMOVE_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
 import { focusEditor, mergeRegister } from "./lexical-util";
 import { $insertScriptureRef, $isScriptureRefNode, $restoreSelection, $selectChip } from "./scripture-ref-node";
 import { endsSpotlight } from "./spotlight";
@@ -26,12 +26,25 @@ function $firstChip(href: string): NodeKey | null {
   return walk($getRoot());
 }
 
+/** Every chip citing `href`. */
+function $chips(href: string): LexicalNode[] {
+  const out: LexicalNode[] = [];
+  const walk = (node: LexicalNode) => {
+    if ($isScriptureRefNode(node)) {
+      if (canonical(node.getHref()) === href) out.push(node);
+    } else if ($isElementNode(node)) for (const c of node.getChildren()) walk(c);
+  };
+  walk($getRoot());
+  return out;
+}
+
 /**
  * The references overview's hands in the editor (#161): "Show in text"
  * selects the reference's first chip, scrolls it into view and tints it
  * until the next click or Escape (#190)
  * (focus moves there, in the editor); "Insert in text" puts a chip where the
- * caret last was. Listens on the note panel's <aside>, so a second editor
+ * caret last was; its × on a text reference (#214) takes every chip of it
+ * out (one step, so the removal toast's Undo puts them all back). Listens on the note panel's <aside>, so a second editor
  * elsewhere never answers.
  */
 export function RefBridge() {
@@ -82,9 +95,17 @@ export function RefBridge() {
         $insertScriptureRef(detail.href, detail.text);
       });
     };
+    const onRemove = (e: Event) => {
+      const detail = (e as CustomEvent<RefEventDetail>).detail;
+      detail.done = true;
+      editor.update(() => {
+        for (const chip of $chips(detail.href)) chip.remove();
+      });
+    };
     const unlisten = () => {
       aside?.removeEventListener(SHOW_REF, onShow);
       aside?.removeEventListener(INSERT_REF, onInsert);
+      aside?.removeEventListener(REMOVE_REF, onRemove);
       aside = null;
     };
     return mergeRegister(
@@ -99,6 +120,7 @@ export function RefBridge() {
         aside = root?.closest("aside") ?? null;
         aside?.addEventListener(SHOW_REF, onShow);
         aside?.addEventListener(INSERT_REF, onInsert);
+        aside?.addEventListener(REMOVE_REF, onRemove);
       }),
       unlisten,
       unlight,

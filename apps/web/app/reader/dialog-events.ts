@@ -85,4 +85,7 @@ export function openCompare(request: CompareRequest = {}) {
  * editor sets `done` — still false, the plain-text stand-in has the note. */
 export const SHOW_REF = "biblestdy:show-ref";
 export const INSERT_REF = "biblestdy:insert-ref";
+/** REMOVE_REF takes every chip of `href` out of the text (#214, the
+ * overview's ×); the removal toast (ref-removal.tsx) offers Undo. */
+export const REMOVE_REF = "biblestdy:remove-ref";
 export type RefEventDetail = { href: string; text: string; done: boolean };

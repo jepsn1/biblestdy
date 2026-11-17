@@ -5,9 +5,10 @@ import type { PageMark } from "../notes/page-marks";
 import { HIGHLIGHT_SWATCH, NOTE_INK } from "./highlight-colors";
 
 /**
- * One page mark as a suggestion row (#191): how it's marked (a swatch or
- * the pen's stroke, beside its name in words), the chip it becomes, the
- * marked words. The `@` menu's option and the "+ Verse" dialog's button.
+ * One mark in the open chapter as a suggestion row (#191): how it's marked
+ * (a swatch or the pen's stroke, beside its name in words), the chip it
+ * becomes — a plain verse reference, said as such: "Joh 3,16 · Fremhævning
+ * (guld)" under "I dette kapitel" (#214) — and the marked words. The `@` menu's option and the "+ Verse" dialog's button.
  */
 export function MarkRow({ mark, locale, kind, active = false }: { mark: PageMark; locale: BookLocale; kind: string; active?: boolean }) {
   const first = mark.kinds[0];
@@ -24,7 +25,7 @@ export function MarkRow({ mark, locale, kind, active = false }: { mark: PageMark
           </svg>
         )}
         <span className="font-sans font-medium whitespace-nowrap">{chipLabel(mark.ref, locale)}</span>
-        <span className={cn("min-w-0 truncate font-sans text-meta", muted)}>{kind}</span>
+        <span className={cn("min-w-0 truncate font-sans text-meta", muted)}>· {kind}</span>
       </span>
       {mark.snippet && <span className={cn("min-w-0 truncate pl-5 font-serif text-list", muted)}>{mark.snippet}</span>}
     </span>

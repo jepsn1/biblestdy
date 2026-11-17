@@ -26,8 +26,9 @@ import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } fro
 import { useIsDark } from "~/lib/theme";
 import { useViewportFits } from "~/lib/text-size";
 import { PanelHeader } from "./panel-header";
-import { INSERT_REF, INSERT_VERSE, SHOW_REF, type RefEventDetail } from "./dialog-events";
+import { INSERT_REF, INSERT_VERSE, REMOVE_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
 import type { ReferencesOverviewProps } from "./references-overview";
+import type { RefLocator } from "./ref-location";
 import { TagChips } from "./tag-chips";
 import { noteEditor, referencesOverview } from "./note-editor-loader";
 import { VERSE_FOCUS } from "./keyboard-selection";
@@ -178,6 +179,7 @@ export function NotePanel({
   onOpenInNotes,
   page = false,
   place,
+  locator,
   mobile = false,
 }: {
   note: Note;
@@ -201,6 +203,9 @@ export function NotePanel({
   page?: boolean;
   /** The chapter open beside it (reader): its marks lead the `@` menu (#191). */
   place?: PagePlace;
+  /** The reader beside it: where each reference sits (the overview's
+   * location tags, #214). */
+  locator?: RefLocator;
   /** Drawer build (#13): stacked layout, touch targets, slim toolbar —
    * feature parity with the desktop split, not a squeezed clone of it. */
   mobile?: boolean;
@@ -490,6 +495,25 @@ export function NotePanel({
   function insertInText(ref: ScriptureRef) {
     if (!sendRef(INSERT_REF, ref)) insertPlain(ref);
   }
+  /** The overview's × on a text reference (#214): its chips leave the
+   * text (the editor's removal toast offers Undo); in the plain-text
+   * stand-in its links go, with an Undo of their own. */
+  function removeRef(ref: ScriptureRef) {
+    if (sendRef(REMOVE_REF, ref)) return;
+    const href = formatScriptureHref(ref);
+    const links = scriptureLinks(liveBody).filter((l) => l.href === href);
+    if (!links.length) return;
+    const before = liveBody;
+    let next = liveBody;
+    for (const l of [...links].reverse()) next = next.slice(0, l.start) + next.slice(l.end);
+    setBody(next);
+    toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
+      duration: 6000,
+      position: "bottom-right",
+      className: "!w-auto !text-list",
+      action: { label: t("toast.undo"), onClick: () => setBody(before) },
+    });
+  }
   // "+ Verse" in the overview: the toolbar button's dialog (verse-button),
   // or — editor not here yet — the same picker, into the stand-in
   const [picking, setPicking] = useState(false);
@@ -623,6 +647,8 @@ export function NotePanel({
             onAddVerse={addVerse}
             onShowInText={showInText}
             onInsertInText={insertInText}
+            onRemoveRef={removeRef}
+            locator={locator}
             collapsed={mobile && writing && !peek}
             onExpand={() => setPeek(true)}
             onNaturalHeight={mobile ? undefined : onNaturalHeight}

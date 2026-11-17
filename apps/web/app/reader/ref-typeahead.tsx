@@ -36,7 +36,7 @@ import { useMarkKind, usePageMarks } from "./use-page-marks";
 /** A row: a passage marked on the page (#191), or a typed match. */
 type Option = { kind: "mark"; mark: PageMark } | VerseOption;
 
-/** A group's visible name ("On this page", "All verses"). */
+/** A group's visible name ("In this chapter", "All verses"). */
 const groupHead = "px-2 pt-1 pb-0.5 font-sans text-meta font-medium text-muted-foreground";
 
 /** The `@` being typed: where it sits and what follows it. */

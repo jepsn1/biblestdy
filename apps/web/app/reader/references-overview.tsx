@@ -26,6 +26,7 @@ import { canonicalRef, localRef } from "@biblestdy/shared/versification";
 import { makeLocalizer } from "./localizer";
 import type { ReadRef } from "./ref-context";
 import { ScriptureCredit } from "./scripture-credit";
+import { refTag, type RefLocator } from "./ref-location";
 import { noteMarkId, refSpot } from "./spotlight";
 
 /** A note's reader selection as a chip label ("Joh 3,14–15"). */
@@ -50,11 +51,15 @@ const SNIPPET_MAX = 90;
  * selections in Bible order — two subheads only when both kinds exist. Each
  * row: the label, a snippet cut on a word, and the translation it quotes
  * (whole-verse refs: the one being read; selections: their own). Rows have
- * fixed heights, so snippets arriving never move anything. Click reads
- * there; "Show in text" selects the chip, "Insert in text" puts a
- * selection into the text; × (selections only) removes with Undo.
+ * fixed heights, so snippets arriving never move anything. Click shows it
+ * in the Bible ("Vis i Bibelen", + the translation when the row quotes
+ * another); "Find i noten" selects the chip, "Tilføj i noten" puts a
+ * selection into the text; × removes either kind with Undo (a text
+ * reference: its chips leave the text). Actions show at rest (#214).
  * Text refs are canonical numbers, shown where the reading translation has
- * them (#163): "Mal 4,5 · i BPH 3,23".
+ * them (#163), a bridge or renumbering said: "Joh 3,16 … = BPH 3,15–16".
+ * Beside the reader each row says where it is: "denne side", "s. 3",
+ * "Rom 8" (ref-location.ts).
  */
 export type ReferencesOverviewProps = Parameters<typeof ReferencesOverview>[0];
 
@@ -69,6 +74,8 @@ export function ReferencesOverview({
   onAddVerse,
   onShowInText,
   onInsertInText,
+  onRemoveRef,
+  locator,
   collapsed = false,
   onExpand,
   onNaturalHeight,
@@ -91,6 +98,11 @@ export function ReferencesOverview({
   onShowInText: (ref: ScriptureRef) => boolean;
   /** A selection as a canonical (English-numbered) ref, for its href. */
   onInsertInText: (ref: ScriptureRef) => void;
+  /** × on a text reference: its chips out of the text (Undo: the editor's
+   * removal toast). */
+  onRemoveRef?: (ref: ScriptureRef) => void;
+  /** The reader beside it: the rows' location tags. */
+  locator?: RefLocator;
   /** Phone, while writing: one line ("Verses (4)"), tap to open. */
   collapsed?: boolean;
   onExpand?: () => void;
@@ -162,6 +174,17 @@ export function ReferencesOverview({
     setFocusNext(null);
   }, [focusNext, rows]);
   const focusAfter = (key: string | null) => setFocusNext({ key });
+  /** The row focus goes to once `key`'s row is gone. */
+  const neighbour = (key: string) => {
+    const at = rows.findIndex((r) => r.key === key);
+    return (rows[at + 1] ?? rows[at - 1])?.key ?? null;
+  };
+  function removeText(row: OverviewRow & { kind: "text" }) {
+    if (!onRemoveRef) return;
+    const next = neighbour(row.key);
+    onRemoveRef(row.ref);
+    focusAfter(next);
+  }
   async function remove(a: NoteAnchor) {
     const at = marked.findIndex((r) => r.anchor.id === a.id);
     const next = marked[at + 1] ?? marked[at - 1] ?? text.at(-1);
@@ -287,12 +310,16 @@ export function ReferencesOverview({
     const tinted = mobile ? "group-active:text-accent-foreground" : "group-hover:text-accent-foreground";
     const muted = on ? "text-accent-foreground" : cn("text-muted-foreground", tinted);
     const gold = on ? "text-accent-foreground" : cn("text-primary", tinted);
+    // The reference itself in the note's ink: one relation, one colour (#214)
+    const blue = on ? "text-accent-foreground" : cn("text-(--note-ink-text)", tinted);
+    // Where it is (its chapter in the reading translation's numbers)
+    let spotKey: string | null;
+    let at: { book: string; chapter: number } | null = null;
 
     const actionClass = cn(
       "rounded-sm px-1 text-meta font-medium whitespace-nowrap hover:underline",
       gold,
       mobile ? "min-h-11" : "min-h-6 pointer-coarse:min-h-11",
-      !mobile && "invisible group-focus-within:visible group-hover:visible pointer-coarse:visible",
       focusRing,
     );
 
@@ -303,6 +330,8 @@ export function ReferencesOverview({
       // undefined: not known yet; null: no counterpart here (Neh 7:68 in BPH)
       const local = loc ? loc.local(r) : undefined;
       read = () => onReadRef?.(r, local?.ref ?? r, undefined, true);
+      spotKey = refSpot(note.id, r);
+      if (local) at = local.ref;
       pressed = on;
       if (pressed) readName = t("note.deselect");
       const got = local === null ? "notInTranslation" : local && chapter !== undefined ? refSnippet(local.ref, chapter, SNIPPET_MAX) : null;
@@ -318,11 +347,12 @@ export function ReferencesOverview({
         if (got) snippet = got.text;
         const sep = locale === "da" ? "," : ":";
         // Numbered differently here, or a bridge: say where ("i BPH 3,23")
-        const at = got?.at;
-        const verses = at && (at.printedEnd > at.printedStart ? `${at.printedStart}–${at.printedEnd}` : `${at.printedStart}`);
+        const printed = got?.at;
+        const verses = printed && (printed.printedEnd > printed.printedStart ? `${printed.printedStart}–${printed.printedEnd}` : `${printed.printedStart}`);
+        // "Joh 3,16 … = BPH 3,15–16": the reader's translation prints it so
         source =
-          at && local && (at.bridged || local.renumbered)
-            ? t("note.refIn", { abbr: readingAbbr, ref: `${local.ref.chapter}${sep}${verses}` })
+          printed && local && (printed.bridged || local.renumbered)
+            ? t("note.bridgeNote", { abbr: readingAbbr, ref: `${local.ref.chapter}${sep}${verses}` })
             : readingAbbr;
       }
       action = (
@@ -344,6 +374,13 @@ export function ReferencesOverview({
       pressed = on;
       if (pressed) readName = t("note.deselect");
       read = () => onShowAnchor(a);
+      spotKey = noteMarkId({ noteId: note.id, id: a.id });
+      at =
+        a.translationId === readingId
+          ? { book: a.book, chapter: a.chapter }
+          : (loc?.fromTranslation({ book: a.book, chapter: a.chapter, verse: a.startVerse }, a.translationId)?.ref ?? null);
+      // Quoted in another translation, shown in the reader's: say which
+      if (!pressed && readingAbbr && a.translationId !== readingId) readName = t("note.readPassageIn", { abbr: readingAbbr });
       if (chapter) snippet = anchorSnippet(chapter, a, SNIPPET_MAX);
       const home = abbrOf(a.translationId);
       // Written in another translation: say so (#159's "Skrevet i WEB")
@@ -373,17 +410,16 @@ export function ReferencesOverview({
       </button>
     );
     const x =
-      row.kind === "marked" ? (
+      row.kind === "marked" || onRemoveRef ? (
         <button
           type="button"
           aria-label={t("note.removeReferenceNamed", { ref: full })}
           title={t("note.removeReference")}
-          onClick={() => void remove(row.anchor)}
+          onClick={() => (row.kind === "marked" ? void remove(row.anchor) : removeText(row))}
           className={cn(
             "inline-flex items-center justify-center rounded hover:text-destructive",
             on ? "text-accent-foreground" : "text-muted-foreground",
             mobile ? "size-11" : "size-6 pointer-coarse:size-11",
-            !mobile && "invisible group-focus-within:visible group-hover:visible pointer-coarse:visible",
             focusRing,
           )}
         >
@@ -393,11 +429,44 @@ export function ReferencesOverview({
         <span />
       );
 
-    const labelEl = <span className={cn("font-sans text-list font-medium whitespace-nowrap tabular-nums", gold)}>{label}</span>;
+    // "denne side" / "s. 3" / "Rom 8" (spoken whole: "på side 3")
+    const tag = refTag(locator, spotKey, at);
+    const tagText =
+      tag?.kind === "thisPage"
+        ? t("note.tagThisPage")
+        : tag?.kind === "page"
+          ? t("note.tagPage", { page: tag.page })
+          : tag?.kind === "chapter"
+            ? chipLabel({ book: tag.book, chapter: tag.chapter }, locale)
+            : "";
+    const tagName =
+      tag?.kind === "thisPage"
+        ? t("note.tagThisPageName")
+        : tag?.kind === "page"
+          ? t("note.tagPageName", { page: tag.page })
+          : tag?.kind === "chapter"
+            ? t("note.tagChapterName", { ref: referenceLabel({ book: tag.book, chapter: tag.chapter }, nameOf, locale) })
+            : "";
+    const tagEl = tagText && (
+      <span data-ref-tag="" className="whitespace-nowrap">
+        <span aria-hidden>
+          {source ? " · " : ""}
+          {tagText}
+        </span>
+        <span className="sr-only">, {tagName}</span>
+      </span>
+    );
+
+    const labelEl = <span className={cn("font-sans text-list font-medium whitespace-nowrap tabular-nums", blue)}>{label}</span>;
     // Quoted scripture: roman, never italic (Mads)
     const face = plain ? "font-sans" : "font-serif";
     const snippetEl = <span className={cn("min-w-0 truncate text-list", muted, face)}>{snippet}</span>;
-    const sourceEl = <span className={cn("font-sans text-meta whitespace-nowrap", muted)}>{source}</span>;
+    const sourceEl = (
+      <span className={cn("font-sans text-meta whitespace-nowrap", muted)}>
+        {source}
+        {tagEl}
+      </span>
+    );
 
     return stacked ? (
       // Phone, or a narrow pane (large text): two lines (label · translation / snippet), fixed height
@@ -412,7 +481,12 @@ export function ReferencesOverview({
         >
           <span className="flex min-w-0 items-baseline gap-1.5">
             {labelEl}
-            {source && <span className={cn("truncate font-sans text-meta", muted)}>· {source}</span>}
+            {(source || tagEl) && (
+              <span className={cn("truncate font-sans text-meta", muted)}>
+                · {source}
+                {tagEl}
+              </span>
+            )}
           </span>
           <span className={cn("block h-5 min-w-0 truncate text-list", muted, face)}>{snippet}</span>
           <span className="sr-only">. {readName}</span>
@@ -432,7 +506,7 @@ export function ReferencesOverview({
           title={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}
-          className={cn("col-span-3 grid h-8 grid-cols-subgrid items-baseline rounded px-1.5 text-left pointer-coarse:h-11", focusRing)}
+          className={cn("col-span-3 grid h-8 grid-cols-subgrid content-center items-baseline rounded px-1.5 text-left pointer-coarse:h-11", focusRing)}
         >
           {/* Named by what it shows (label, words, translation), then what
               it does */}
