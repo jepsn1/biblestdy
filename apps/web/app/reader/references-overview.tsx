@@ -506,7 +506,7 @@ export function ReferencesOverview({
           title={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}
-          className={cn("col-span-3 grid h-8 grid-cols-subgrid items-baseline rounded px-1.5 text-left pointer-coarse:h-11", focusRing)}
+          className={cn("col-span-3 grid h-8 grid-cols-subgrid content-center items-baseline rounded px-1.5 text-left pointer-coarse:h-11", focusRing)}
         >
           {/* Named by what it shows (label, words, translation), then what
               it does */}
