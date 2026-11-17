@@ -112,7 +112,9 @@ export function PageFoot({
       aria-label={label}
       // Equal side tracks keep the folio centred under the text
       className={cn(
-        "relative grid w-full grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-x-2 font-sans",
+        // @container: an end is at most 45% of the foot (cqw), its book
+        // name cut short past that, never pushing out of the text block
+        "@container relative grid w-full grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-x-2 font-sans",
         className,
       )}
     >
@@ -443,7 +445,7 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
           // wash spills into the content padding, never into a margin lane
           "gap-1 px-2 text-control text-foreground has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
           // The bar: half of it at most, the name cut short inside
-          bar ? "min-h-11 min-w-0 max-w-[calc(50%-0.25rem)]" : "h-9",
+          bar ? "min-h-11 min-w-0 max-w-[calc(50%-0.25rem)]" : "h-9 min-w-0 max-w-[45cqw]",
           !bar && (dir === "prev" ? "-ml-2 justify-self-start" : "-mr-2 justify-self-end"),
           "aria-disabled:pointer-events-none aria-disabled:opacity-40",
           focusRing,

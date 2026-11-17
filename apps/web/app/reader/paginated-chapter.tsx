@@ -1134,7 +1134,12 @@ export function PaginatedChapter({
   /** "John 4" — localized book names where the UI has them (#52). */
   const refLabel = (r: ChapterRef) =>
     `${nameOf(r.book)} ${r.chapter}`;
-  const placeOf = (r: ChapterRef) => ({ book: nameOf(r.book), chapter: String(r.chapter) });
+  /** A label that ends on a chapter ("Næste: Apostlenes Gerninger 1"): its
+   * words before the number may be cut short on a narrow button (#238). */
+  const placeIn = (label: string, r: ChapterRef | null) => {
+    const num = r ? ` ${r.chapter}` : "";
+    return r && label.endsWith(num) ? { book: label.slice(0, -num.length), chapter: String(r.chapter) } : undefined;
+  };
   const onFirstPage = scrollMode || page === 0;
   const onLastPage = scrollMode || page >= pageCount - 1;
   /** At a boundary the control says where it goes; inside, it's a page turn. */
@@ -1195,8 +1200,10 @@ export function PaginatedChapter({
   // chapter buttons don't claim them
   const keysStepRefs = !!openNote && (openNote.refs?.length ?? 0) + openNote.anchors.length > 0;
   const chapterShortcut = (k: string) => (keysStepRefs ? "" : k);
+  const prevLabel = scrollMode && prevChapter ? refLabel(prevChapter) : pagedLabel("prev", prevTarget);
+  const nextLabel = scrollMode && nextChapter ? refLabel(nextChapter) : pagedLabel("next", nextTarget);
   const prevButton: FootButton = {
-    label: scrollMode && prevChapter ? refLabel(prevChapter) : pagedLabel("prev", prevTarget),
+    label: prevLabel,
     name: prevTarget
       ? crossName("prev", prevTarget)
       : t(scrollMode ? "reader.prevChapter" : "reader.prevPage"),
@@ -1204,10 +1211,10 @@ export function PaginatedChapter({
     keys: scrollMode ? chapterShortcut("[") : "ArrowLeft PageUp",
     disabled: onFirstPage && !prevTarget,
     onClick: goPrev,
-    place: scrollMode && prevChapter ? placeOf(prevChapter) : undefined,
+    place: placeIn(prevLabel, scrollMode ? prevChapter : prevTarget),
   };
   const nextButton: FootButton = {
-    label: scrollMode && nextChapter ? refLabel(nextChapter) : pagedLabel("next", nextTarget),
+    label: nextLabel,
     name: nextTarget
       ? crossName("next", nextTarget)
       : t(scrollMode ? "reader.nextChapter" : "reader.nextPage"),
@@ -1215,7 +1222,7 @@ export function PaginatedChapter({
     keys: scrollMode ? chapterShortcut("]") : "ArrowRight PageDown",
     disabled: onLastPage && !nextTarget,
     onClick: goNext,
-    place: scrollMode && nextChapter ? placeOf(nextChapter) : undefined,
+    place: placeIn(nextLabel, scrollMode ? nextChapter : nextTarget),
   };
 
   /** Desktop: jump to a page (Home/End). */

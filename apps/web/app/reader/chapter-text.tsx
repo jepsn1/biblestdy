@@ -1184,7 +1184,9 @@ export function ChapterText({
           names the place. Screen readers still get "John 3" as the heading —
           UI words, voiced in the UI's language (as is the hint below). */}
       {chapter.chapter === 1 && opening ? (
-        <Heading data-chapter-heading lang={i18n.language} className="mb-6 font-serif text-display font-medium tracking-tight">
+        // A long name at large text on a phone ("Dommerbogen", #238)
+        // hyphenates (else breaks), never pushes the page sideways
+        <Heading data-chapter-heading lang={i18n.language} className="mb-6 font-serif text-display font-medium tracking-tight hyphens-auto [overflow-wrap:break-word]">
           <span aria-hidden>{bookName}</span>
           <span className="sr-only">{heading}</span>
         </Heading>
