@@ -3,7 +3,7 @@ import type { Anchor, Chapter, Note, NoteAnchor, ScriptureRef, Translation } fro
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ChevronUp, Plus, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { noteView } from "~/lib/fums";

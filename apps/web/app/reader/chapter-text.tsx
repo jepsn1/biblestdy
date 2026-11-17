@@ -37,7 +37,7 @@ import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
 import { DragRefTag, SelectionPill } from "./selection-pill";
 import { notifyUndo } from "~/lib/notify";
-import { toast } from "sonner";
+import { toast } from "~/lib/toast";
 import { linkedHint as showLinkedHint } from "./linked-hint";
 import { anchorOf, eraseClick, notesAtWord, notesInStroke, wordClick, type NoteAtWord } from "./word-click";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
