@@ -49,6 +49,9 @@ const LIT_ROW = "shadow-[inset_0_0_0_1.5px_var(--note-ink)]";
 
 /** Snippets are cut here; the cell truncates too (narrow panels). */
 const SNIPPET_MAX = 90;
+/** Below this pane width (rem: 150–200% text on a phone, a slim pane at
+ * 200%), a row's actions step under its words (#235). */
+const TIGHT_REM = 22;
 
 /**
  * A note's references overview (#161; owner: "a clear view of all
@@ -237,25 +240,29 @@ export function ReferencesOverview({
   }, [collapsed, empty]);
 
   // A pane too narrow for one line per row (large text, a slim panel):
-  // the phone's two lines. Width in rem, so 200% text gets there too
+  // the phone's two lines. Narrower still (150–200% text, #235): the
+  // actions step under the words. Width in rem, so 200% text gets there too
   const [narrow, setNarrow] = useState(false);
+  const [tight, setTight] = useState(false);
   useLayoutEffect(() => {
     const section = sectionRef.current;
-    if (!section || mobile) return;
+    if (!section) return;
     const ro = new ResizeObserver(() => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      setNarrow(section.clientWidth / rem < 36);
+      const w = section.clientWidth / rem;
+      setNarrow(w < 36);
+      setTight(w < TIGHT_REM);
     });
     ro.observe(section);
     return () => ro.disconnect();
-  }, [mobile]);
+  }, []);
   const stacked = mobile || narrow;
 
   // Said to a screen reader when "Show in text" has moved focus to a chip
   const [said, setSaid] = useState("");
 
   const heading = (
-    <h3 className="eyebrow">
+    <h3 className="eyebrow min-w-0 whitespace-nowrap">
       {t("note.references")}
       {rows.length > 0 && <span className="tabular-nums"> · {rows.length}</span>}
     </h3>
@@ -265,17 +272,20 @@ export function ReferencesOverview({
       type="button"
       data-add-verse=""
       aria-label={t("note.insertVerseTitle")}
+      title={!inline && tight ? t("note.insertVerseTitle") : undefined}
       onClick={onAddVerse}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-sm font-sans text-muted-foreground hover:text-foreground",
         inline ? "-mx-0.5 px-0.5 align-baseline font-medium text-primary hover:text-primary hover:underline" : "h-7 px-1.5 text-meta",
         !inline && (mobile ? "h-11" : "pointer-coarse:h-11"),
+        // Tight (#235): icon alone, so the heading keeps its one line
+        !inline && tight && "w-11 shrink-0 justify-center",
         inline && (mobile ? "min-h-11" : "pointer-coarse:min-h-11"),
         focusRing,
       )}
     >
       <Plus className={inline ? "size-3" : "size-3.5"} aria-hidden />
-      {t("note.verseButton")}
+      {(inline || !tight) && t("note.verseButton")}
     </button>
   );
 
@@ -379,7 +389,8 @@ export function ReferencesOverview({
     const actionClass = cn(
       "rounded-sm px-1 text-meta font-medium whitespace-nowrap hover:underline",
       gold,
-      mobile ? "min-h-11" : "min-h-6 pointer-coarse:min-h-11",
+      // Tight (#235): on their own line, 44px — 2.75rem would be 88px at 200%
+      tight ? "inline-flex min-h-[44px] items-center" : mobile ? "min-h-11" : "min-h-6 pointer-coarse:min-h-11",
       focusRing,
     );
 
@@ -488,7 +499,7 @@ export function ReferencesOverview({
           className={cn(
             "inline-flex items-center justify-center rounded hover:text-destructive",
             on ? "text-accent-foreground" : "text-muted-foreground",
-            mobile ? "size-11" : "size-6 pointer-coarse:size-11",
+            tight ? "size-[44px]" : mobile ? "size-11" : "size-6 pointer-coarse:size-11",
             focusRing,
           )}
         >
@@ -536,6 +547,40 @@ export function ReferencesOverview({
         {tagEl}
       </span>
     );
+
+    // Tight (#235): actions under the words — 44px targets, the words get
+    // the row's width (the passage, then two lines of its text)
+    if (tight)
+      return (
+        <li key={row.key} data-ref-lit={lit || undefined} data-row-tight="" className={cn("group flex flex-col rounded", pressed ? "bg-accent" : mobile ? "active:bg-accent" : "hover:bg-accent", lit && LIT_ROW)}>
+          <button
+            type="button"
+            data-row={row.key}
+            data-spot-own=""
+            aria-pressed={pressed}
+            onClick={read}
+            {...hoverProps}
+            className={cn("flex min-h-11 min-w-0 flex-col justify-center rounded px-1.5 pt-1.5 text-left", focusRing)}
+          >
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              {labelEl}
+              {(source || tagEl) && (
+                <span className={cn("min-w-0 truncate font-sans text-meta", muted)}>
+                  · {source}
+                  {tagEl}
+                </span>
+              )}
+            </span>
+            {snippet && <span className={cn("line-clamp-2 min-w-0 text-list", muted, face)}>{snippet}</span>}
+            <span className="sr-only">. {readName}</span>
+          </button>
+          <span className="flex items-center justify-end gap-1 pr-0.5">
+            {showText}
+            {!capped && action}
+            {x}
+          </span>
+        </li>
+      );
 
     return stacked ? (
       // Phone, or a narrow pane (large text): two lines (label · translation / snippet), fixed height
