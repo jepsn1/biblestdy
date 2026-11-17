@@ -184,3 +184,88 @@ export function inFlowInkKey(
     [...groups].flatMap((g) => g.map((x) => `${x.id}:${x.text?.length ?? 0}`)).join(",");
   return `${ids(markers)}|${ids(lines)}|${editingId ?? ""}`;
 }
+
+/** A note link's bracket in one text column, waiting for its lane (#211):
+ * its lines' top/bottom. `pinned`: the open note's or the spotlit link —
+ * never folded into a group, nearest the text first. */
+export type LaneSpan = { id: string; top: number; bottom: number; pinned?: boolean };
+/** Three or more links on overlapping lines (#211): one bracket over them
+ * all, one "3 notes" label. */
+export type LaneGroup = { ids: string[]; top: number; bottom: number; lane: number };
+
+/** Nested brackets step this far outward per lane. */
+export const LANE_STEP = 5;
+/** At most this many brackets side by side; more fold into a group. */
+export const MAX_LANES = 2;
+
+const overlaps = (a: { top: number; bottom: number }, b: { top: number; bottom: number }) =>
+  a.top < b.bottom - 1 && b.top < a.bottom - 1;
+
+/**
+ * Lanes for the note brackets of one text column (#211): overlapping
+ * brackets nest outward, the shortest nearest the text, at most MAX_LANES
+ * deep. Where they'd need a third lane, the unpinned links that overlap
+ * there (and whatever overlaps them in turn) fold into one group bracket,
+ * in the lane the pinned ones leave free. Pure.
+ */
+export function bracketLanes(spans: LaneSpan[]): { lanes: Record<string, number>; groups: LaneGroup[] } {
+  const len = (s: LaneSpan) => s.bottom - s.top;
+  const order = [...spans].sort(
+    (a, b) => Number(!!b.pinned) - Number(!!a.pinned) || len(a) - len(b) || a.top - b.top,
+  );
+  const lanes: Record<string, number> = {};
+  const crowded = new Set<string>();
+  for (const s of order) {
+    const taken = new Set(order.filter((o) => o.id in lanes && overlaps(o, s)).map((o) => lanes[o.id]));
+    let lane = 0;
+    while (taken.has(lane)) lane++;
+    if (lane >= MAX_LANES && !s.pinned) crowded.add(s.id);
+    else lanes[s.id] = lane;
+  }
+  if (!crowded.size) return { lanes, groups: [] };
+  // Fold: every unpinned link connected (by overlap) to a crowded one
+  const free = order.filter((s) => !s.pinned);
+  const seen = new Set<string>();
+  const groups: LaneGroup[] = [];
+  for (const start of free) {
+    if (!crowded.has(start.id) || seen.has(start.id)) continue;
+    const members: LaneSpan[] = [];
+    const queue = [start];
+    seen.add(start.id);
+    while (queue.length) {
+      const s = queue.pop()!;
+      members.push(s);
+      for (const o of free)
+        if (!seen.has(o.id) && overlaps(o, s)) {
+          seen.add(o.id);
+          queue.push(o);
+        }
+    }
+    for (const m of members) delete lanes[m.id];
+    const top = Math.min(...members.map((m) => m.top));
+    const bottom = Math.max(...members.map((m) => m.bottom));
+    const box = { top, bottom };
+    const taken = new Set(spans.filter((p) => p.pinned && overlaps(p, box)).map((p) => lanes[p.id]));
+    let lane = 0;
+    while (taken.has(lane) && lane < MAX_LANES - 1) lane++;
+    // In the caller's (text) order
+    const ids = new Set(members.map((m) => m.id));
+    groups.push({ ids: spans.filter((x) => ids.has(x.id)).map((x) => x.id), top, bottom, lane });
+  }
+  return { lanes, groups };
+}
+
+/** Does a label need its connector at rest (#211 C2)? Only when stacking
+ * pushed it more than half a line from its bracket's top hook. */
+export function needsConnector(hookY: number, labelCenterY: number, lineH: number): boolean {
+  return Math.abs(labelCenterY - hookY) > lineH / 2;
+}
+
+/** The connector (#211): a typeset straight elbow from a bracket's top hook
+ * out to its label's near edge — across, down (or up), across. Never
+ * hand-drawn: hand-drawn is the reader's own ink. */
+export function connectorPath(hook: { x: number; y: number }, label: { x: number; y: number }): string {
+  const mid = (hook.x + label.x) / 2;
+  const f = (n: number) => n.toFixed(1);
+  return `M ${f(hook.x)} ${f(hook.y)} H ${f(mid)} V ${f(label.y)} H ${f(label.x)}`;
+}
