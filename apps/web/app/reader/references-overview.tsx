@@ -24,7 +24,9 @@ import {
 } from "../notes/note-list";
 import { canonicalRef, localRef } from "@biblestdy/shared/versification";
 import { makeLocalizer } from "./localizer";
+import type { ReadRef } from "./ref-context";
 import { ScriptureCredit } from "./scripture-credit";
+import { noteMarkId, refSpot } from "./spotlight";
 
 /** A note's reader selection as a chip label ("Joh 3,14–15"). */
 const anchorChip = (a: Anchor, locale: "da" | "en") =>
@@ -59,7 +61,7 @@ export type ReferencesOverviewProps = Parameters<typeof ReferencesOverview>[0];
 export function ReferencesOverview({
   note,
   body,
-  selectedAnchorId,
+  spot,
   onShowAnchor,
   onReadRef,
   onDetach,
@@ -75,9 +77,10 @@ export function ReferencesOverview({
   note: Note;
   /** The live body (ahead of the save). */
   body: string;
-  selectedAnchorId: string | null;
+  /** The spotlit reference's id (spotlight.ts): its row is pressed. */
+  spot: string | null;
   onShowAnchor: (anchor: NoteAnchor) => void;
-  onReadRef?: (ref: ScriptureRef, translationId?: string) => void;
+  onReadRef?: ReadRef;
   /** Resolves to the updated note, or null when it failed (said by a toast). */
   onDetach: (id: string, anchorId: string) => Promise<unknown> | void;
   /** Undo of a removal: the same selection back. */
@@ -278,7 +281,9 @@ export function ReferencesOverview({
     let pressed: boolean | undefined;
     // The row's tint (pressed, hovered, tapped): gold and grey fall short
     // of 4.5:1 on it (#196)
-    const on = row.kind !== "text" && row.anchor.id === selectedAnchorId;
+    const on =
+      spot !== null &&
+      spot === (row.kind === "text" ? refSpot(note.id, row.ref) : noteMarkId({ noteId: note.id, id: row.anchor.id }));
     const tinted = mobile ? "group-active:text-accent-foreground" : "group-hover:text-accent-foreground";
     const muted = on ? "text-accent-foreground" : cn("text-muted-foreground", tinted);
     const gold = on ? "text-accent-foreground" : cn("text-primary", tinted);
@@ -297,7 +302,9 @@ export function ReferencesOverview({
       full = referenceLabel(r, nameOf, locale);
       // undefined: not known yet; null: no counterpart here (Neh 7:68 in BPH)
       const local = loc ? loc.local(r) : undefined;
-      read = () => onReadRef?.(local?.ref ?? r);
+      read = () => onReadRef?.(r, local?.ref ?? r, undefined, true);
+      pressed = on;
+      if (pressed) readName = t("note.deselect");
       const got = local === null ? "notInTranslation" : local && chapter !== undefined ? refSnippet(local.ref, chapter, SNIPPET_MAX) : null;
       if (got === "notInTranslation") {
         snippet = t("note.notInShort", { abbr: readingAbbr });
@@ -305,7 +312,7 @@ export function ReferencesOverview({
         if (web) {
           source = t("note.readIn", { abbr: web.abbreviation });
           readName = source;
-          read = () => onReadRef?.(r, web.id);
+          read = () => onReadRef?.(r, r, web.id);
         }
       } else {
         if (got) snippet = got.text;
@@ -398,6 +405,7 @@ export function ReferencesOverview({
         <button
           type="button"
           data-row={row.key}
+          data-spot-own=""
           aria-pressed={pressed}
           onClick={read}
           className={cn("flex h-13 min-w-0 flex-1 flex-col justify-center rounded px-1.5 text-left", focusRing)}
@@ -420,6 +428,7 @@ export function ReferencesOverview({
         <button
           type="button"
           data-row={row.key}
+          data-spot-own=""
           title={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}

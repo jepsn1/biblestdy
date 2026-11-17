@@ -25,11 +25,16 @@ export type EditorKit = {
  * the `@` menu. */
 export type PagePlace = { translationId: string; book: string; chapter: number };
 
+/** Shows a text reference in the Bible (#210): `ref` its stored
+ * (canonical) numbers — the spotlight's key —, `at` where the reading
+ * translation has it, `translationId` to read it in another ("Read in
+ * WEB"); `toggle`: a second press ends the spotlight (overview rows). */
+export type ReadRef = (ref: ScriptureRef, at: ScriptureRef, translationId?: string, toggle?: boolean) => void;
+
 /** What a note's chips can do outside the editor (#160). */
 export type RefContextValue = {
-  /** "Read here": opens the reference in the reader (in `translationId`
-   * when given — "Read in WEB"). */
-  onRead?: (ref: ScriptureRef, translationId?: string) => void;
+  /** "Show in Bible": the reference spotlit in the reader. */
+  onRead?: ReadRef;
   /** Phone build: 44px targets, the verse picker as a drawer. */
   mobile: boolean;
   kit: EditorKit;

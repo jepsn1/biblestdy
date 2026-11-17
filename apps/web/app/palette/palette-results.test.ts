@@ -224,7 +224,7 @@ describe("palette results", () => {
   it("a note on several passages shows and opens the one that matched", () => {
     const multi: Note = { id: "m", title: "Adoption", body: "", anchors: [anchor("ROM", 8, 15), anchor("GAL", 4, 5)], refs: [], updatedAt: T };
     const row = buildResults("gal 4", ctx({ notes: [multi] })).find((r) => r.id === "note:m");
-    expect(row).toMatchObject({ href: "/read/GAL/4?note=m", detail: "Galatians 4:5 · +1 more" });
+    expect(row).toMatchObject({ href: `/read/GAL/4?note=m&mark=${encodeURIComponent(`note:m:${multi.anchors[1].id}`)}`, detail: "Galatians 4:5 · +1 more" });
   });
 
   it("a book-name query still finds a topic of that name", () => {

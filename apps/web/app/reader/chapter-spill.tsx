@@ -7,6 +7,7 @@ import { revealColor, setHighlightFilter, type HighlightFilter } from "~/lib/hig
 import { AnnotationMarks } from "./annotation-marks";
 import { ChapterText } from "./chapter-text";
 import { HighlightMarks } from "./highlight-marks";
+import { SPOT_ELSEWHERE } from "./spotlight";
 import type { ReaderTool } from "./tool-palette";
 import { useAnnotations } from "./use-annotations";
 import { useHighlights } from "./use-highlights";
@@ -53,7 +54,7 @@ export function ChapterSpill({
   shown,
   allNotes,
   activeAnnotationId,
-  selectedMarkId,
+  spotOn,
   onFocusAnnotation,
   onOpenNote,
   onRunOn,
@@ -85,7 +86,8 @@ export function ChapterSpill({
   shown: HighlightFilter;
   allNotes: Note[];
   activeAnnotationId: string | null;
-  selectedMarkId: string | null;
+  /** A reference is spotlit (in the chapter above): all of this steps back. */
+  spotOn: boolean;
   onFocusAnnotation: (id: string | null) => void;
   onOpenNote: (id: string) => void;
   /** What fits, once measured (null: nothing runs on). */
@@ -202,7 +204,7 @@ export function ChapterSpill({
         noteMarks={noteMarks}
         allNotes={allNotes}
         activeAnnotationId={activeAnnotationId}
-        selectedMarkId={selectedMarkId}
+        spot={spotOn ? SPOT_ELSEWHERE : null}
         onAddHighlight={add}
         onRecolorHighlight={recolor}
         onRemoveHighlight={highlightsApi.remove}
@@ -230,7 +232,7 @@ export function ChapterSpill({
             flowRef={flowRef}
             scopeRef={boxRef}
             layoutKey={`${layoutKey}:${span.to}`}
-            hidden={selectedMarkId != null}
+            spot={spotOn ? SPOT_ELSEWHERE : null}
           />,
           washHost,
         )}
@@ -250,7 +252,7 @@ export function ChapterSpill({
             contentRef={contentBoxRef}
             layoutKey={`${layoutKey}:${span.to}`}
             activeAnnotationId={activeAnnotationId}
-            selectedMarkId={selectedMarkId}
+            spot={spotOn ? SPOT_ELSEWHERE : null}
             onFocus={onFocusAnnotation}
             onEdit={annotationsApi.edit}
             onRemove={annotationsApi.remove}

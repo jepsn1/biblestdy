@@ -161,6 +161,9 @@
   --note-ink-text: oklch(0.38 0.18 264);
   --note-ink-text-active: oklch(0.3 0.2 264);
   --note-ink-wash: oklch(0.5 0.15 255 / 8%);
+  /* A spotlit reference's whole verses (#210): the note's ink, as a wash
+     behind the words (never under a highlight) */
+  --link-wash-strong: oklch(0.5 0.15 255 / 16%);
   /* Marker: translucent highlighter over dark text */
   --hl-gold: oklch(0.89 0.17 95 / 55%);
   --hl-amber: oklch(0.82 0.16 65 / 50%);
@@ -205,6 +208,7 @@
   --note-ink-text: oklch(0.76 0.13 255);
   --note-ink-text-active: oklch(0.86 0.1 255);
   --note-ink-wash: oklch(0.72 0.1 245 / 10%);
+  --link-wash-strong: oklch(0.72 0.1 245 / 19%);
   --hl-gold: oklch(0.83 0.1 85 / 28%);
   --hl-amber: oklch(0.76 0.13 60 / 28%);
   --hl-green: oklch(0.72 0.12 150 / 26%);
@@ -249,6 +253,7 @@
   --chart-4: oklch(0.75 0.01 286);
   --chart-5: oklch(0.85 0.006 286);
   --selection: oklch(0.62 0.12 255 / 22%);
+  --link-wash-strong: oklch(0.5 0.15 255 / 14%);
 }
 
 .dark.style-clean,
@@ -279,20 +284,42 @@
   --chart-4: oklch(0.4 0.01 286);
   --chart-5: oklch(0.3 0.006 286);
   --selection: oklch(0.7 0.11 250 / 30%);
+  --link-wash-strong: oklch(0.72 0.1 245 / 22%);
 }
 
-/* Reference spotlight: other ink is hidden (in-component); the words step
-   down to the muted ink so the active view state is legible, the selected
-   span stays in full ink. A colour, not opacity: muted ink still reads at
-   4.5:1 (an opacity dim took body text to ~3.5:1) */
+/* Reference spotlight (#210, one look for every path): the words outside
+   the reference's whole verses step down to the muted ink, its verses stay
+   in full ink over --link-wash-strong (HighlightMarks); the reader's own
+   marks outside fade, never hide (in-component). A colour, not opacity:
+   muted ink still reads at 4.5:1 (an opacity dim took body text to ~3.5:1).
+   Reduced motion: at once */
 [data-spotlight] :is([data-chapter-heading], [data-word], [data-section]) {
   color: var(--muted-foreground);
   transition: color 200ms ease;
 }
-/* Per word (not the mark's wrapper span): words of the reference that
-   another mark also covers stay lit */
+/* Per word (not the mark's wrapper span): words another mark also covers
+   stay lit */
 [data-spotlight] [data-word][data-spotlit] {
   color: var(--foreground);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-spotlight] :is([data-chapter-heading], [data-word], [data-section]) {
+    transition: none;
+  }
+}
+/* The spotlight never prints: full ink, no wash, nothing faded */
+@media print {
+  [data-spotlight] :is([data-chapter-heading], [data-word], [data-section]) {
+    color: inherit !important;
+  }
+  [data-wash^="spot"],
+  [data-spot-line] {
+    display: none !important;
+  }
+  [data-spot-dim] {
+    fill-opacity: 1 !important;
+    stroke-opacity: 1 !important;
+  }
 }
 
 /* Toasts (Sonner): our focus ring, not its own 40% black (WCAG 1.4.11);

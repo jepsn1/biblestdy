@@ -61,8 +61,13 @@ export function PageFoot({
   prev,
   next,
   phone,
+  spot,
   className,
 }: {
+  /** The reference spotlight's exit line (#210), in the folio's place while
+   * it lasts: "Viser Joh 3,14–15 · Vis alt". Its announcement is the
+   * reader's own live region. */
+  spot?: { label: string; short: string; showAll: string; onEnd: () => void } | null;
   /** Landmark name: "Pages" / "Chapters". */
   label: string;
   /** Folio (paged: visual only, the live region announces turns): parts
@@ -84,7 +89,7 @@ export function PageFoot({
   const credits = credit ?? [];
   // The source rides on the last part (measured with it): never dropped
   const measured = source && credits.length > 0 ? [...credits.slice(0, -1), `${credits.at(-1)}\u00a0·\u00a0${source.label}`] : credits;
-  const fit = useFit(position, measured);
+  const fit = useFit(position, measured, spot ? [spot.label, spot.short, spot.showAll] : []);
   const creditLine = credits.length > 0 && (
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
@@ -104,7 +109,30 @@ export function PageFoot({
     >
       <FootEnd button={prev} dir="prev" phone={phone} />
       <div className="min-w-0 text-center">
-        {position.length > 0 && (
+        {spot ? (
+          <p data-spot-line="" className={cn(FOLIO, "flex min-w-0 items-baseline justify-center")}>
+            {/* "Viser Joh 3,14–15", or just the place where that won't fit */}
+            <span aria-hidden className="truncate">
+              {fit.spotFull ? spot.label : spot.short}
+            </span>
+            <span aria-hidden className="shrink-0 whitespace-pre">
+              {SEP}
+            </span>
+            <button
+              type="button"
+              data-spot-exit=""
+              data-spot-own=""
+              onClick={spot.onEnd}
+              className={cn(
+                CREDIT_LINK,
+                // 44px to hit (an invisible ring), the line's own size
+                "relative shrink-0 text-foreground before:absolute before:-inset-x-1.5 before:-inset-y-2.5 before:content-['']",
+              )}
+            >
+              {spot.showAll}
+            </button>
+          </p>
+        ) : position.length > 0 && (
           <p
             aria-hidden={!phone}
             // The folio is set in the reading face (Paper: serif, Clean: sans)
@@ -128,6 +156,11 @@ export function PageFoot({
             ))}
           </div>
         ))}
+        {spot && (
+          <div className={FOLIO}>
+            <span>{`${spot.label}${SEP}${spot.showAll}`}</span>
+          </div>
+        )}
       </div>
     </nav>
   );
@@ -174,11 +207,11 @@ function SupportLine({ phone }: { phone: boolean }) {
  * the folio keeps the parts that fit there; the credit stays under it while
  * it fits whole, else takes the foot's full width on a line of its own.
  */
-function useFit(position: string[], credit: string[]) {
+function useFit(position: string[], credit: string[], spot: string[]) {
   const navRef = useRef<HTMLElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false });
-  const key = JSON.stringify([position, credit]);
+  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false, spotFull: true });
+  const key = JSON.stringify([position, credit, spot]);
   useLayoutEffect(() => {
     const nav = navRef.current;
     const ruler = rulerRef.current;
@@ -193,7 +226,7 @@ function useFit(position: string[], credit: string[]) {
       const gap = parseFloat(getComputedStyle(nav).columnGap) || 0;
       const full = nav.clientWidth;
       const centre = full - 2 * Math.max(outer(ends[0]), outer(ends[1])) - 2 * gap;
-      const [folio = [], credits = []] = [...ruler.children].map((row) =>
+      const [folio = [], credits = [], spotLine = []] = [...ruler.children].map((row) =>
         [...row.children].map((el) => el.getBoundingClientRect().width),
       );
       const creditWide = lineWidth(credits) > centre + 0.5;
@@ -202,9 +235,12 @@ function useFit(position: string[], credit: string[]) {
         position: partsThatFit(folio, centre),
         credit: partsThatFit(credits, room),
         creditWide,
+        spotFull: (spotLine[0] ?? 0) <= centre + 0.5,
       };
       setFit((f) =>
-        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide ? f : next,
+        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide && f.spotFull === next.spotFull
+          ? f
+          : next,
       );
     };
     measure();

@@ -22,12 +22,11 @@ import {
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
-import type { ScriptureRef } from "@biblestdy/shared";
 import { useEffect, useMemo, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { editorIcon } from "./editor-icons";
 import { editorTranslation } from "./editor-strings";
-import { ScriptureRefContext, type EditorKit, type PagePlace } from "./ref-context";
+import { ScriptureRefContext, type EditorKit, type PagePlace, type ReadRef } from "./ref-context";
 import { scriptureRefPlugin } from "./scripture-ref-node";
 import { VerseButton } from "./verse-button";
 
@@ -58,8 +57,8 @@ export function NoteEditor({
   placeholder: string;
   dark: boolean;
   mobile: boolean;
-  /** A chip's "Read here" (in another translation for "Read in WEB"). */
-  onReadRef?: (ref: ScriptureRef, translationId?: string) => void;
+  /** A chip's "Show in Bible" (in another translation for "Read in WEB"). */
+  onReadRef?: ReadRef;
   /** Dialogs, popovers, tooltips — from the panel (see EditorKit). */
   kit: EditorKit;
   /** The chapter open in the reader beside the note (#191). */

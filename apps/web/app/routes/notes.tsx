@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Note, NoteAnchor, Tag } from "@biblestdy/shared";
+import { formatScriptureHref, type Note, type NoteAnchor, type Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -294,11 +294,12 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           onDetach={actions.detach}
           onAttach={actions.attach}
           onShowAnchor={(a) => readAnchor(open, a)}
-          onReadRef={(r, translationId) => {
+          onReadRef={(r, at, translationId) => {
             if (translationId) localStorage.setItem("translationId", translationId);
-            navigate(readHref(r, open.id));
+            // The reader's spotlight, as from the note beside the text (#210)
+            navigate(readHref(at, open.id, formatScriptureHref(r) ?? undefined));
           }}
-          selectedAnchorId={null}
+          spot={null}
           onClose={() => navigate(hrefOf())}
         />
         </div>

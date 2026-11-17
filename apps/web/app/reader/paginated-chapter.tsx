@@ -50,7 +50,8 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { useLocalizer } from "./localizer";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
-import { markStartSelector, noteMarkId, useSpotlightEnd } from "./spotlight";
+import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, useSpotlightEnd } from "./spotlight";
+import { chipLabel } from "~/lib/reference-label";
 import { pageSpan, placeSelector, reflowPage, type Place } from "./reading-place";
 import { useHighlights } from "./use-highlights";
 import { ColourKey } from "./colour-key";
@@ -236,8 +237,10 @@ export function PaginatedChapter({
   /** Inside the content box, sliding with the text: circles/brackets. */
   const [penHost, setPenHost] = useState<HTMLDivElement | null>(null);
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
-  // The reference selected in the note panel — only its mark stays drawn
-  const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
+  /** The spotlit reference (#210), whatever path asked for it: a note's
+   * selection ("note:<note>:<anchor>") or text reference ("ref:<note>:<href>",
+   * by canonical href) — see spotlight.ts. */
+  const [spotId, setSpotId] = useState<string | null>(null);
   /** Phone (#195): the note drawer folded down to a bar, so the reference
    * it just spotlit in the text shows. The note stays mounted (nothing is
    * lost); the bar's tap brings it back up. */
@@ -309,6 +312,13 @@ export function PaginatedChapter({
   // (#163), a lazy chunk: those marks wait for it
   const localize = useLocalizer(chapter.translationId, needsMap(notesApi.notes, chapter.translationId));
   const noteMarks = noteMarksInChapter(notesApi.notes, chapter, localize);
+  /** Stored (canonical) numbers here, once the map is in (null meanwhile). */
+  const localLookup = useMemo(
+    () => (localize ? (r: ScriptureRef) => localize.local(r)?.ref ?? null : null),
+    [localize],
+  );
+  /** Where the spotlit reference lands in this chapter (#210); null = none here. */
+  const spotPlace = resolveSpot(spotId, noteMarks, chapter, localLookup);
   // ?note=<id> keeps the panel open across chapter navigation (references
   // table jumps); ?mark=<mark id> flips to the linked span and flashes it.
   const openNoteId = sideView !== null && sideView !== "connections" ? sideView : null;
@@ -579,12 +589,12 @@ export function PaginatedChapter({
     if (created) setOpenNoteId(created.id);
   }
 
-  /** Bring a note mark into view and select it — every other mark hides
-   * until deselected. Desktop flips to its page (transform cancels out of
-   * both rects, so the page math works from any current page); phones scroll
-   * it to the upper third of the pane. */
-  function jumpToMark(markId: string) {
-    const el = markEl(markId);
+  /** Bring a reference into view and spotlight it (#210) — one look for
+   * every path. Desktop flips to its page (transform cancels out of both
+   * rects, so the page math works from any current page); phones scroll it
+   * to the upper third of the pane. */
+  function jumpToSpot(spot: string) {
+    const el = spotEl(spot);
     const target = el ? pageOf(el, stride) : null;
     if (scrollMode && el) scrollToEl(el, "smooth");
     else if (target !== null) {
@@ -594,7 +604,7 @@ export function PaginatedChapter({
       setPage(Math.max(0, Math.min(target, pageCount - 1)));
     }
     setFlash(null); // another reference replaces the verse spotlight
-    setSelectedMarkId(markId);
+    setSpotId(spot);
     // Phones: the note drawer would cover the spotlit words — fold it down
     if (sideInDrawer) {
       foldedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -602,11 +612,12 @@ export function PaginatedChapter({
     }
   }
 
-  /** A note reference's first word, in this chapter's own text (a page can
-   * carry the next chapter too — verse numbers repeat). */
-  function markEl(markId: string): Element | null {
-    const sel = markStartSelector(noteMarks, markId);
-    return sel ? ((mainRef.current ?? regionRef.current)?.querySelector(sel) ?? null) : null;
+  /** A reference's first word, in this chapter's own text (a page can
+   * carry the next chapter too — verse numbers repeat). Null until it can
+   * be placed (notes or the versification map still loading). */
+  function spotEl(spot: string): Element | null {
+    const place = resolveSpot(spot, noteMarks, chapter, localLookup);
+    return place ? ((mainRef.current ?? regionRef.current)?.querySelector(spotStartSelector(place)) ?? null) : null;
   }
 
   /** Desktop page holding an element (transform cancels out of both rects,
@@ -628,14 +639,14 @@ export function PaginatedChapter({
   const verseEl = (verse: number) =>
     mainRef.current?.querySelector(`[data-verse="${verse}"][data-word]`) ?? null;
 
-  /** References-table click: select the reference (click again to deselect).
-   * Same chapter jumps in place, another chapter navigates with the note kept
-   * open and the mark selected on arrival. */
+  /** References-table click on a selection: spotlight it (click again to
+   * end). Same chapter jumps in place, another chapter navigates with the
+   * note kept open and the same spotlight on arrival. */
   function showAnchor(a: NoteAnchor) {
     if (!openNoteId) return;
-    const markId = `note:${openNoteId}:${a.id}`;
-    if (selectedMarkId === markId) {
-      setSelectedMarkId(null);
+    const markId = noteMarkId({ noteId: openNoteId, id: a.id });
+    if (spotId === markId) {
+      setSpotId(null);
       return;
     }
     // Another translation's anchor here is drawn at verse level (#159), at
@@ -648,31 +659,42 @@ export function PaginatedChapter({
       : (localize?.fromTranslation({ book: a.book, chapter: a.chapter, verse: a.startVerse }, a.translationId)?.ref.chapter ?? a.chapter);
     // A mark in the verses the page before carried (#flow): open the
     // chapter whole, where it is
-    if (here && (flowFrom === null || (mark?.startVerse ?? a.startVerse) >= flowFrom)) jumpToMark(markId);
-    else navigate(`/read/${a.book}/${there}?note=${openNoteId}&mark=${markId}`);
+    if (here && (flowFrom === null || (mark?.startVerse ?? a.startVerse) >= flowFrom)) jumpToSpot(markId);
+    else navigate(`/read/${a.book}/${there}?note=${openNoteId}&mark=${encodeURIComponent(markId)}`);
   }
 
-  /** An inline reference's "Read here" (#160): its verses flash; the note
-   * stays open beside the text (a phone's note drawer would cover them, so
-   * it closes there). "Read in WEB" switches translation on the way. */
-  function readRef(ref: ScriptureRef, translationId?: string) {
-    if (translationId) localStorage.setItem("translationId", translationId);
-    if (!sideInDrawer) {
-      navigate(readHref(ref, openNoteId ?? undefined));
-      return;
+  /** A text reference (#210): its row in the overview (`toggle`: a second
+   * click ends it) or a chip's "Show in Bible" — the same spotlight as a
+   * selection's, keyed by its canonical href. `at`: where the reading
+   * translation has it; "Read in WEB" switches translation on the way. On
+   * a phone the drawer folds to its bar, never closes. */
+  function readRef(ref: ScriptureRef, at: ScriptureRef, translationId?: string, toggle = false) {
+    const spot = openNoteId ? refSpot(openNoteId, ref) : null;
+    if (translationId) {
+      localStorage.setItem("translationId", translationId);
+    } else if (spot) {
+      if (toggle && spotId === spot) {
+        setSpotId(null);
+        return;
+      }
+      const place = resolveSpot(spot, noteMarks, chapter, localLookup);
+      if (place && (flowFrom === null || place.start >= flowFrom)) {
+        jumpToSpot(spot);
+        return;
+      }
     }
-    // The drawer holds the page's scroll while it's open: jump once it's gone
-    setOpenNoteId(null);
-    window.setTimeout(() => navigate(readHref(ref)), 500);
+    navigate(readHref(at, openNoteId ?? undefined, spot ? spotParam(spot) : undefined));
   }
 
-  // Consume ?mark once the chapter's marks are rendered and measured.
+  // Consume ?mark once the chapter's marks are rendered and measured: a
+  // selection's id, or a text reference's href (with ?note)
   const wantedMark = searchParams.get("mark");
   useEffect(() => {
     if (!wantedMark || (!scrollMode && stride === 0)) return;
-    const el = markEl(wantedMark);
-    if (!el) return; // notes still loading — retried when marks land
-    jumpToMark(wantedMark);
+    const spot = spotFromParam(wantedMark, wantedNote);
+    const el = spot && spotEl(spot);
+    if (!spot || !el) return; // notes or the map still loading — retried when they land
+    jumpToSpot(spot);
     setSearchParams(
       (params) => {
         params.delete("mark");
@@ -681,7 +703,7 @@ export function PaginatedChapter({
       { replace: true, state: flowState },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wantedMark, stride, scrollMode, noteMarks.length]);
+  }, [wantedMark, stride, scrollMode, noteMarks.length, localize]);
 
 
   function closeConnections() {
@@ -691,7 +713,7 @@ export function PaginatedChapter({
 
   function closeNote() {
     setOpenNoteId(null);
-    setSelectedMarkId(null);
+    setSpotId(null);
     if (searchParams.has("note")) {
       setSearchParams(
         (params) => {
@@ -718,7 +740,7 @@ export function PaginatedChapter({
     placePage.current = null;
     // The reference spotlight ends with its chapter (#190)
     setFlash(null);
-    setSelectedMarkId(null);
+    setSpotId(null);
     // Phones: a new chapter starts at the top
     if (scrollMode) viewportOf()?.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -770,8 +792,12 @@ export function PaginatedChapter({
     const target = range && targetVerses(chapter.verses.map((v) => v.verse), range);
     if (!target) return;
     wantedVerse.current = target.start;
-    setFlash(target); // the jumped-to verses stay lit (#190)
-    setSelectedMarkId(null); // replaces a reference's spotlight
+    // The jumped-to verses stay lit (#190) — a plain go-to-verse only: a
+    // note's reference (?mark) lands here too, then gets the spotlight
+    if (!searchParams.has("mark")) {
+      setFlash(target);
+      setSpotId(null); // replaces a reference's spotlight
+    }
     setVerseTick((t) => t + 1);
     if (scrollMode) {
       const el = verseEl(target.start);
@@ -802,10 +828,34 @@ export function PaginatedChapter({
 
   // The reference spotlight stays until the next click or tap (not a page
   // turn), Escape, chapter change or another reference (#190) — no timer
-  useSpotlightEnd(flash !== null || selectedMarkId !== null, () => {
+  useSpotlightEnd(flash !== null || spotId !== null, () => {
     setFlash(null);
-    setSelectedMarkId(null);
+    setSpotId(null);
   });
+  /** The spotlit verses as the UI writes them ("Joh 3,14–15"). */
+  const spotLabel =
+    spotPlace &&
+    chipLabel(
+      {
+        book: chapter.book,
+        chapter: chapter.chapter,
+        verse: spotPlace.start,
+        ...(spotPlace.end > spotPlace.start && { endVerse: spotPlace.end }),
+      },
+      bookLocale(i18n.language),
+    );
+  /** "Vis alt" (#210): the spotlight ends; focus, which was on the line,
+   * goes to the text (phones: the folded note's bar). */
+  function endSpot() {
+    setFlash(null);
+    setSpotId(null);
+    requestAnimationFrame(() =>
+      (sideInDrawer && notePeek ? peekRef.current : focusText())?.focus({ preventScroll: true }),
+    );
+  }
+  const spotExit = spotLabel
+    ? { label: t("reader.spotShowing", { ref: spotLabel }), short: spotLabel, showAll: t("reader.spotShowAll"), onEnd: endSpot }
+    : null;
 
   // Mirror the page into the URL (replace, no history spam) and lastRead
   useEffect(() => {
@@ -1319,7 +1369,7 @@ export function PaginatedChapter({
       noteMarks={noteMarks}
       allNotes={allNotes}
       activeAnnotationId={activeAnnotationId}
-      selectedMarkId={selectedMarkId}
+      spot={spotPlace}
       flash={flash}
       mobile={scrollMode}
       onAddHighlight={add}
@@ -1374,10 +1424,7 @@ export function PaginatedChapter({
             flowRef={contentRef}
             scopeRef={mainRef}
             layoutKey={layoutKey}
-            hidden={
-              selectedMarkId != null &&
-              noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId)
-            }
+            spot={spotPlace}
           />
         </div>
       </div>
@@ -1406,7 +1453,7 @@ export function PaginatedChapter({
         contentRef={contentBoxRef}
         layoutKey={layoutKey}
         activeAnnotationId={activeAnnotationId}
-        selectedMarkId={selectedMarkId}
+        spot={spotPlace}
         onFocus={setActiveAnnotationId}
         onEdit={annotationsApi.edit}
         onRemove={annotationsApi.remove}
@@ -1542,7 +1589,7 @@ export function PaginatedChapter({
                                   shown={highlightFilter}
                                   allNotes={allNotes}
                                   activeAnnotationId={activeAnnotationId}
-                                  selectedMarkId={selectedMarkId}
+                                  spotOn={spotPlace !== null}
                                   onFocusAnnotation={setActiveAnnotationId}
                                   onOpenNote={setOpenNoteId}
                                   onRunOn={reportRunOn[i]}
@@ -1582,6 +1629,8 @@ export function PaginatedChapter({
                     prev={prevButton}
                     next={nextButton}
                     phone={false}
+                    // With the note in a drawer, the line sits on its folded bar
+                    spot={sideInDrawer ? null : spotExit}
                     className="chapter-foot mt-sheet-air shrink-0"
                   />
                   {wordInk}
@@ -1633,6 +1682,10 @@ export function PaginatedChapter({
           {t("reader.announce", { ref: rangeLabel, page: page + 1, count: pageCount })}
         </p>
       )}
+      {/* The spotlight says what it shows, and the way out (#210) */}
+      <p role="status" className="sr-only">
+        {spotLabel ? t("reader.spotAnnounce", { ref: spotLabel }) : ""}
+      </p>
       </ResizablePanel>
 
       {/* An open note takes the side slot; closing it brings connections back.
@@ -1670,7 +1723,7 @@ export function PaginatedChapter({
               onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
               onShowAnchor={showAnchor}
               onReadRef={readRef}
-              selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
+              spot={spotId}
               place={chapter}
               onClose={closeNote}
             />
@@ -1716,6 +1769,25 @@ export function PaginatedChapter({
               aria-label={openNote?.title || t("note.untitled")}
               style={{ "--drawer-height": notePeek ? "auto" : "92dvh" } as React.CSSProperties}
             >
+              {/* The spotlight's exit line (#210): above the bar, which
+                  stays where the thumb found it */}
+              {openNote && notePeek && spotExit && (
+                <p data-spot-line="" className="mx-3 mt-1 flex min-h-11 min-w-0 items-center gap-1 px-3 text-control text-muted-foreground">
+                  <span aria-hidden className="min-w-0 truncate">
+                    {spotExit.label}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <button
+                    type="button"
+                    data-spot-exit=""
+                    data-spot-own=""
+                    onClick={spotExit.onEnd}
+                    className={cn("-mx-1 inline-flex min-h-11 shrink-0 items-center rounded-sm px-1 font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2", focusRing)}
+                  >
+                    {spotExit.showAll}
+                  </button>
+                </p>
+              )}
               {openNote && notePeek && (
                 <button
                   ref={peekRef}
@@ -1744,7 +1816,7 @@ export function PaginatedChapter({
                   onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
                   onShowAnchor={showAnchor}
                   onReadRef={readRef}
-                  selectedAnchorId={selectedMarkId?.split(":")[2] ?? null}
+                  spot={spotId}
                   place={chapter}
                   onClose={closeNote}
                   mobile
