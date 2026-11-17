@@ -438,14 +438,16 @@ export function ChapterBar({
   hidden: boolean;
 }) {
   const { t } = useTranslation();
+  const barRef = useCrampedWords(`${prev.chapter}/${next.chapter}`);
   return (
     <nav
+      ref={barRef}
       aria-label={label}
       data-chapter-bar=""
       inert={hidden}
       className={cn(
         // px, not rem: large text keeps the bar's room for the words
-        "grid shrink-0 grid-cols-3 gap-[4px] border-t border-border bg-background px-[4px] pt-[4px] pb-[max(env(safe-area-inset-bottom),4px)] font-sans",
+        "group grid shrink-0 grid-cols-3 gap-[4px] border-t border-border bg-background px-[4px] pt-[4px] pb-[max(env(safe-area-inset-bottom),4px)] font-sans",
         hidden && "invisible",
       )}
     >
@@ -477,7 +479,7 @@ export function ChapterBar({
 /** A third of the bar, all of it the target: 52px tall (px: large text
  * keeps the bar one row), the wash fills it. */
 const BAR_BUTTON = cn(
-  "h-auto min-h-[52px] w-full min-w-0 gap-1 px-[6px] py-1 text-control text-foreground",
+  "h-auto min-h-[52px] w-full min-w-0 gap-[2px] px-[4px] py-0 text-control text-foreground",
   "aria-disabled:pointer-events-none aria-disabled:opacity-40",
   focusRing,
 );
@@ -486,7 +488,6 @@ function BarEnd({ button, dir }: { button: BarButton; dir: "prev" | "next" }) {
   const { t } = useTranslation();
   const live = useLiveShortcut();
   const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
-  const wordRef = useCrampedWord(String(button.chapter ?? ""));
   return (
     <Hint label={button.tip} shortcut={button.hintKey} side="top">
       <Button
@@ -503,41 +504,55 @@ function BarEnd({ button, dir }: { button: BarButton; dir: "prev" | "next" }) {
         className={cn(BAR_BUTTON, dir === "prev" ? "justify-start" : "justify-end")}
       >
         {dir === "prev" && <Icon aria-hidden />}
-        <span className="flex min-w-0 whitespace-nowrap">
-          <span ref={wordRef} className="min-w-0 overflow-hidden data-cramped:hidden">
-            {t("reader.barChapter")}
-            {"\u00a0"}
-          </span>
-          {button.chapter !== null && (
+        {/* Nothing that way (Genesis 1, Revelation 22): the faint chevron */}
+        {button.chapter !== null && (
+          <span className="flex min-w-0 whitespace-nowrap">
+            <span data-chapter-word="" className="min-w-0 overflow-hidden group-data-cramped:hidden">
+              {t("reader.barChapter")}
+              {"\u00a0"}
+            </span>
             <span data-chapter-num="" className="shrink-0 tabular-nums">
               {button.chapter}
             </span>
-          )}
-        </span>
+          </span>
+        )}
         {dir === "next" && <Icon aria-hidden />}
       </Button>
     </Hint>
   );
 }
 
-/** "Kapitel" where it fits whole beside the number, else it goes (the
- * accessible name still says it). Measured shown, every time, so hiding it
- * can't flip the answer back. */
-function useCrampedWord(key: string) {
-  const ref = useRef<HTMLSpanElement>(null);
+/** "Kapitel" where it fits whole beside the number in both ends, else
+ * it goes from both (the accessible names still say it): "‹ 20 · 21 ›",
+ * never "‹ 20 · Kapitel 1 ›". Measured shown, every time, so hiding it
+ * can't flip the answer back; a text-size change leaves the thirds as wide,
+ * so the numbers are watched too. */
+function useCrampedWords(key: string) {
+  const ref = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
-    const el = ref.current;
-    const button = el?.closest("button");
-    if (!el || !button) return;
+    const bar = ref.current;
+    if (!bar) return;
     const fit = () => {
-      delete el.dataset.cramped;
-      if (el.scrollWidth > el.clientWidth + 0.5) el.dataset.cramped = "";
+      delete bar.dataset.cramped;
+      const words = [...bar.querySelectorAll<HTMLElement>("[data-chapter-word]")];
+      if (words.some((w) => w.scrollWidth > w.clientWidth + 0.5)) bar.dataset.cramped = "";
     };
     fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(button);
+    // Now and again once the frame has settled (a resize and a text-size
+    // change can land in one frame)
+    let frame = 0;
+    const ro = new ResizeObserver(() => {
+      fit();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    });
+    ro.observe(bar);
+    bar.querySelectorAll("[data-chapter-num]").forEach((el) => ro.observe(el));
     void document.fonts?.ready.then(fit);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, [key]);
   return ref;
 }
