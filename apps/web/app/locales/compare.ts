@@ -32,6 +32,10 @@ const en = {
   jump: "Continue in {{abbr}}",
   jumpWhere: ", {{name}}, {{ref}}",
   close: "Close",
+  // Phone steps (#218): pick, then compare
+  choose: "Choose translations",
+  go: "Compare",
+  change: "Change translations",
   verse: "verse {{n}}",
   verses: "verses {{from}} to {{to}}",
 };
@@ -62,6 +66,9 @@ const da: typeof en = {
   jump: "Læs videre i {{abbr}}",
   jumpWhere: ", {{name}}, {{ref}}",
   close: "Luk",
+  choose: "Vælg oversættelser",
+  go: "Sammenlign",
+  change: "Skift oversættelser",
   verse: "vers {{n}}",
   verses: "vers {{from}} til {{to}}",
 };

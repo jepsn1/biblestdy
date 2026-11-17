@@ -65,3 +65,12 @@ export function togglePick(picks: readonly string[], id: string, on: boolean, ot
   } else set.delete(id);
   return others.filter((x) => set.has(x));
 }
+
+/** Phone steps (#218): pick translations, then compare them. */
+export type CompareStep = "pick" | "compare";
+
+/** Picks remembered on this device → straight to the passages; first open
+ * (nothing stored, or none still offered) → the picker. */
+export function firstStep(raw: string | null, others: readonly string[], cap: number): CompareStep {
+  return (parsePicks(raw, others, cap)?.length ?? 0) > 0 ? "compare" : "pick";
+}
