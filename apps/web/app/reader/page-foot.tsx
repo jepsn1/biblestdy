@@ -402,7 +402,7 @@ export function ChapterBar({
       data-chapter-bar=""
       inert={hidden}
       className={cn(
-        "flex shrink-0 items-center justify-between gap-2 border-t border-border bg-background px-2 pt-0.5 pb-[max(env(safe-area-inset-bottom),0.125rem)] font-sans",
+        "flex shrink-0 items-center justify-between gap-2 border-t border-border bg-background px-2 pt-0.5 pb-[max(env(safe-area-inset-bottom),2px)] font-sans",
         hidden && "invisible",
       )}
     >
@@ -445,7 +445,8 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
           // wash spills into the content padding, never into a margin lane
           "gap-1 px-2 text-control text-foreground has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
           // The bar: half of it at most, the name cut short inside
-          bar ? "min-h-11 min-w-0 max-w-[calc(50%-0.25rem)]" : "h-9 min-w-0 max-w-[45cqw]",
+          // 44px (not 2.75rem): large text keeps the bar one slim row
+          bar ? "h-auto min-h-[44px] min-w-0 max-w-[calc(50%-0.25rem)] py-1" : "h-9 min-w-0 max-w-[45cqw]",
           !bar && (dir === "prev" ? "-ml-2 justify-self-start" : "-mr-2 justify-self-end"),
           "aria-disabled:pointer-events-none aria-disabled:opacity-40",
           focusRing,
