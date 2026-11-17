@@ -41,7 +41,7 @@ import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, stripFits, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { MarksLoadError, useMarksLoad } from "./marks-load-error";
-import { ChapterBar, CreditParts, PageFoot, SupportLine, type FootButton } from "./page-foot";
+import { ChapterBar, CreditParts, PageFoot, SupportLine, type BarButton, type FootButton } from "./page-foot";
 import { API_BIBLE_URL } from "~/lib/app-info";
 import { ChapterStrip } from "./chapter-strip";
 import { notePage } from "~/lib/recent-passages";
@@ -1191,7 +1191,7 @@ export function PaginatedChapter({
   // Running foot ends: just "‹ Previous" / "Next ›" — crossing into the
   // next chapter is one more page turn (the accessible name says where it
   // lands). Leaving the BOOK is news (#147): "Next: John 1" in words, its
-  // name the same. Phones: always chapters, named ("‹ John 2" · "John 4 ›").
+  // name the same. Phones: the ChapterBar's "‹ Kapitel 2" · "Kapitel 4 ›".
   const crossName = (dir: "prev" | "next", target: ChapterRef) =>
     t(scrollMode ? `reader.${dir}ChapterTo` : `reader.${dir}Into`, { ref: refLabel(target) });
   const pagedLabel = (dir: "prev" | "next", target: ChapterRef | null) =>
@@ -1200,8 +1200,8 @@ export function PaginatedChapter({
   // chapter buttons don't claim them
   const keysStepRefs = !!openNote && (openNote.refs?.length ?? 0) + openNote.anchors.length > 0;
   const chapterShortcut = (k: string) => (keysStepRefs ? "" : k);
-  const prevLabel = scrollMode && prevChapter ? refLabel(prevChapter) : pagedLabel("prev", prevTarget);
-  const nextLabel = scrollMode && nextChapter ? refLabel(nextChapter) : pagedLabel("next", nextTarget);
+  const prevLabel = pagedLabel("prev", prevTarget);
+  const nextLabel = pagedLabel("next", nextTarget);
   const prevButton: FootButton = {
     label: prevLabel,
     name: prevTarget
@@ -1211,7 +1211,7 @@ export function PaginatedChapter({
     keys: scrollMode ? chapterShortcut("[") : "ArrowLeft PageUp",
     disabled: onFirstPage && !prevTarget,
     onClick: goPrev,
-    place: placeIn(prevLabel, scrollMode ? prevChapter : prevTarget),
+    place: placeIn(prevLabel, prevTarget),
   };
   const nextButton: FootButton = {
     label: nextLabel,
@@ -1222,8 +1222,19 @@ export function PaginatedChapter({
     keys: scrollMode ? chapterShortcut("]") : "ArrowRight PageDown",
     disabled: onLastPage && !nextTarget,
     onClick: goNext,
-    place: placeIn(nextLabel, scrollMode ? nextChapter : nextTarget),
+    place: placeIn(nextLabel, nextTarget),
   };
+
+  /** Phones' chapter bar (#242): "‹ Kapitel 2" — the book only in the name. */
+  const barButton = (dir: "prev" | "next", button: FootButton, target: ChapterRef | null): BarButton => ({
+    chapter: target?.chapter ?? null,
+    name: target ? t(dir === "prev" ? "reader.barPrev" : "reader.barNext", { n: target.chapter, ref: refLabel(target) }) : button.name,
+    tip: button.name,
+    hintKey: button.hintKey,
+    keys: button.keys,
+    disabled: button.disabled,
+    onClick: button.onClick,
+  });
 
   /** Desktop: jump to a page (Home/End). */
   function goToPage(target: number) {
@@ -1825,7 +1836,14 @@ export function PaginatedChapter({
       </div>
       {/* Phones: always in reach, under the text — never in the sheet,
           so a chapter crossing never slides it (#238) */}
-      {scrollMode && <ChapterBar label={t("reader.chapterBar")} prev={prevButton} next={nextButton} hidden={noteDrawer} />}
+      {scrollMode && (
+        <ChapterBar
+          label={t("reader.chapterBar")}
+          prev={barButton("prev", prevButton, prevChapter)}
+          next={barButton("next", nextButton, nextChapter)}
+          hidden={noteDrawer}
+        />
+      )}
 
       {!scrollMode && (
         <p aria-live="polite" className="sr-only">
