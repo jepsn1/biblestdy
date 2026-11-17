@@ -58,6 +58,7 @@ import {
   verseSel,
 } from "./keyboard-selection";
 import type { Place } from "./reading-place";
+import { wordEnds, wordRects } from "./word-rects";
 
 function isColor(value: unknown): value is HighlightColor {
   return (HIGHLIGHT_COLORS as readonly unknown[]).includes(value);
@@ -406,19 +407,18 @@ export function ChapterText({
 
   // Handle positions, measured from the boundary words (fixed/viewport coords
   // — getBoundingClientRect sees through the sheet's scale transform)
-  const [handleRects, setHandleRects] = useState<{ start: DOMRect; end: DOMRect } | null>(null);
+  const [handleRects, setHandleRects] = useState<{ start: Rect; end: Rect } | null>(null);
   useLayoutEffect(() => {
     if (!selAnchor || !mobile || !rootRef.current) {
       setHandleRects(null);
       return;
     }
-    const startEl = wordEl(selAnchor.startVerse, selAnchor.startWord);
-    const endEl = wordEl(selAnchor.endVerse, selAnchor.endWord);
-    if (startEl && endEl)
-      setHandleRects({
-        start: startEl.getBoundingClientRect(),
-        end: endEl.getBoundingClientRect(),
-      });
+    // A word over two lines (#240): the start handle at its first piece, the end at its last
+    const start = wordEl(selAnchor.startVerse, selAnchor.startWord);
+    const end = wordEl(selAnchor.endVerse, selAnchor.endWord);
+    const first = start && wordEnds(start)?.first;
+    const last = end && wordEnds(end)?.last;
+    if (first && last) setHandleRects({ start: first, end: last });
   }, [selAnchor, mobile, scrolled]);
 
   // Whole touched verses stay lit (#210): never a muted tail inside one
@@ -683,8 +683,7 @@ export function ChapterText({
       for (const el of els) {
         const w = Number(el.dataset.word);
         if ((v === a.startVerse && w < a.startWord) || (v === a.endVerse && w > a.endWord)) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width > 0) out.push(plain(r));
+        out.push(...wordRects(el));
       }
     }
     return out;
@@ -714,7 +713,7 @@ export function ChapterText({
             : { verse: anchor.endVerse, word: anchor.endWord };
         const el = wordEl(at.verse, at.word);
         if (!el) return DOMRect.fromRect(EMPTY_RECT);
-        const line = lineOf(anchorRects(anchor), plain(el.getBoundingClientRect()));
+        const line = lineOf(anchorRects(anchor), wordEnds(el)?.last ?? plain(el.getBoundingClientRect()));
         return new DOMRect(line.left, line.top, line.right - line.left, line.bottom - line.top);
       },
     }),
@@ -1176,8 +1175,13 @@ export function ChapterText({
       data-spotlight={spotlight || undefined}
       lang={language}
       // Native selection is off for everyone — selections are word-snapped by
-      // construction (drag wash on desktop, tap + handles on phones)
-      className="select-none [-webkit-touch-callout:none]"
+      // construction (drag wash on desktop, tap + handles on phones).
+      // A word longer than the line ("unrighteousness," at 200% on a 320px
+      // phone, #240) never pushes the column sideways: a narrow column
+      // (the phone pane's @container) hyphenates in the text's own
+      // language, and a word still too long breaks. Poetry's indents
+      // halve there too. The ink measures a split word piece by piece.
+      className="select-none [overflow-wrap:break-word] [-webkit-touch-callout:none] [--q-hang:2em] [--q-step:1em] @max-[14rem]:hyphens-auto @max-[14rem]:[hyphenate-limit-chars:7_3_3] @max-[14rem]:[--q-hang:1em] @max-[14rem]:[--q-step:0.5em]"
     >
       {/* Like a printed Bible: the book's name only where the book begins,
           and each chapter opens on its big numeral (below) — the top bar
@@ -1246,7 +1250,7 @@ export function ChapterText({
                   // Clears the drop numeral: a one-line prose opening (BPH
                   // Job 3) leaves it overhanging, and the hanging indent
                   // would slide the next verse number under it.
-                  { paddingLeft: `${block.level + 2}em`, textIndent: "-2em", clear: "left" }
+                  { paddingLeft: `calc(${block.level} * var(--q-step) + var(--q-hang))`, textIndent: "calc(-1 * var(--q-hang))", clear: "left" }
                 : block.kind === "paragraph" && !block.opening
                   ? { textIndent: "1em" }
                   : undefined

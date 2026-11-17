@@ -208,14 +208,33 @@ const SHARE_GLYPH = "↗\u00a0";
 
 /** "☕ Buy me a coffee · ↗ Share": minor, non-intrusive links (API.Bible
  * non-commercial terms, lib/support.ts) — as quiet as the source link, on a
- * line of their own. They wrap as whole links (a narrow foot, large text). */
+ * line of their own. They wrap as whole links (a narrow foot, large text):
+ * then one under the other, and the "·" goes (#240) — never left dangling. */
 export function SupportLine({ phone = false, className }: { phone?: boolean; className?: string }) {
   const { t } = useTranslation();
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const line = lineRef.current;
+    const first = line?.querySelector("a");
+    const last = line?.querySelector("button");
+    if (!line || !first || !last) return;
+    // Measured side by side, separator shown, every time: hiding it can't
+    // flip the answer back
+    const fit = () => {
+      delete line.dataset.stacked;
+      if (last.offsetTop > first.offsetTop) line.dataset.stacked = "";
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(line);
+    ro.observe(first);
+    return () => ro.disconnect();
+  }, []);
   // Touch: a full target (phones always; a tablet's paged foot too)
   // A mouse: 24px tall at least (WCAG 2.5.8, #196)
   const target = phone ? "inline-flex min-h-11 items-center px-2" : "inline-flex min-h-6 items-center pointer-coarse:min-h-11";
   return (
-    <p className={cn(CREDIT, "col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center", className)}>
+    <p ref={lineRef} className={cn(CREDIT, "group col-span-3 flex flex-wrap items-center justify-center gap-x-1 text-center data-stacked:flex-col", className)}>
       <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className={cn(CREDIT_LINK, "whitespace-nowrap", target)}>
         {/* inline-block: the underline skips the glyph */}
         <span aria-hidden className="inline-block">
@@ -224,7 +243,9 @@ export function SupportLine({ phone = false, className }: { phone?: boolean; cla
         {t("support.coffee")}
         <span className="sr-only"> {t("copyright.newTab")}</span>
       </a>
-      <span aria-hidden>·</span>
+      <span aria-hidden className="group-data-stacked:hidden">
+        ·
+      </span>
       <ShareMenu name={t("share.friend")} className={cn(CREDIT_LINK, "cursor-pointer whitespace-nowrap", target)}>
         <span aria-hidden className="inline-block">
           {SHARE_GLYPH}

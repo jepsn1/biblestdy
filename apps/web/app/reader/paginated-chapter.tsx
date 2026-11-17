@@ -1646,7 +1646,9 @@ export function PaginatedChapter({
                   ref={contentRef}
                   id={CHAPTER_TEXT_ID}
                   tabIndex={-1}
-                  className="mx-auto max-w-[65ch] touch-manipulation text-left font-serif text-reading leading-[1.6] text-foreground outline-none"
+                  // @container: how narrow the column is, in rem (text size
+                  // included), sets the text's hyphenation (#240)
+                  className="@container mx-auto max-w-[65ch] touch-manipulation text-left font-serif text-reading leading-[1.6] text-foreground outline-none"
                 >
                   {chapterText}
                   {chapterEnd}
@@ -1945,7 +1947,11 @@ export function PaginatedChapter({
                 </p>
               )}
               {openNote && notePeek && (
-                <div className={cn("mt-1 flex shrink-0 items-center gap-1", scrollMode ? "mx-2" : "mx-3 mb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
+                // A narrow bar (320px at large text, #240): the long label
+                // gives way to the short one, and the spot line takes a row
+                // of its own under it — nothing runs into the ×
+                <div className={cn("@container mt-1 shrink-0", scrollMode ? "mx-2" : "mx-3 mb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
+                <div className="flex items-center gap-1 @max-[12rem]:flex-wrap">
                   {scrollMode && spotExit ? (
                     <>
                       {/* "‹ Note · John 3:3 · Show all · ×" */}
@@ -1961,7 +1967,7 @@ export function PaginatedChapter({
                         {t("note.backToNoteShort")}
                       </button>
                       {/* Large text: "Show all" wraps under the passage's name */}
-                      <p data-spot-line="" className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-2 py-0.5 text-control leading-tight text-muted-foreground">
+                      <p data-spot-line="" className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-2 py-0.5 text-control leading-tight text-muted-foreground @max-[12rem]:order-last @max-[12rem]:basis-full @max-[12rem]:px-1.5">
                         <span aria-hidden className="min-w-0 max-w-full truncate">
                           {spotExit.short}
                         </span>
@@ -1979,7 +1985,8 @@ export function PaginatedChapter({
                       className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent", focusRing)}
                     >
                       <ChevronUp aria-hidden className="size-4 shrink-0" />
-                      <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
+                      <span className="shrink-0 font-medium @max-[12rem]:hidden">{t("note.backToNote")}</span>
+                      <span className="hidden shrink-0 font-medium @max-[12rem]:inline">{t("note.backToNoteShort")}</span>
                       <span className="min-w-0 truncate text-muted-foreground">{openNote.title || t("note.untitled")}</span>
                     </button>
                   )}
@@ -1990,11 +1997,12 @@ export function PaginatedChapter({
                       type="button"
                       aria-label={t("note.close")}
                       onClick={closeNote}
-                      className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground", focusRing)}
+                      className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground @max-[12rem]:ml-auto", focusRing)}
                     >
                       <X aria-hidden className="size-4" />
                     </button>
                   )}
+                </div>
                 </div>
               )}
               {openNote && (
