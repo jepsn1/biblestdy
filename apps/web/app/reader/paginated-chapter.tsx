@@ -50,7 +50,7 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { useLocalizer } from "./localizer";
 import { stepRef } from "./dialog-events";
 import { needsMap, noteMarksInChapter } from "./note-marks";
-import { NOTE_FULL, passageInset, peekPoint } from "./note-drawer";
+import { NOTE_FULL, passageInset, peekPoint, returnsTo } from "./note-drawer";
 import { useAllNotesQuery, useNotes } from "./use-notes";
 import { moreRefs, type RefLocator } from "./ref-location";
 import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, usePageHover, useSpotlightEnd } from "./spotlight";
@@ -383,9 +383,21 @@ export function PaginatedChapter({
     setPassageAt(null);
     const root = mainRef.current ?? regionRef.current;
     const el = root?.querySelector(placeSelector(passageAt)) ?? root?.querySelector(`[data-verse="${passageAt.verse}"][data-word]`);
-    if (el) requestAnimationFrame(() => scrollToEl(el, "smooth", true));
+    if (!el) return;
+    requestAnimationFrame(() => {
+      const from = viewportOf()?.scrollTop ?? null;
+      const to = scrollToEl(el, "smooth", true);
+      // Kept from the first opening: a note opened from another note's peek
+      // still returns to where the reader was
+      if (from !== null && to !== null) noteReturn.current = { from: noteReturn.current?.from ?? from, to };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passageAt]);
+  /** Phones (#230 → #215, #203's rule): where the reader was before a note
+   * scrolled its passage up (`from`), and where it scrolled to (`to`, a
+   * spotlight moves it on). Closing the note goes back — unless the reader
+   * scrolled meanwhile. */
+  const noteReturn = useRef<{ from: number; to: number } | null>(null);
   // ?note=<id> (cross-chapter reference jump) claims the slot on arrival
   const wantedNote = searchParams.get("note");
   useEffect(() => {
@@ -640,7 +652,10 @@ export function PaginatedChapter({
   function jumpToSpot(spot: string) {
     const el = spotEl(spot);
     const target = el ? pageOf(el, stride) : null;
-    if (scrollMode && el) scrollToEl(el, "smooth", !!openNoteId);
+    if (scrollMode && el) {
+      const to = scrollToEl(el, "smooth", !!openNoteId);
+      if (noteReturn.current && to !== null) noteReturn.current.to = to;
+    }
     else if (target !== null) {
       wantedPage.current = null;
       wantedVerse.current = null;
@@ -670,12 +685,14 @@ export function PaginatedChapter({
   /** Phones: scroll an element to the upper third of the pane — near its
    * top when the note peeks over the lower part (`peek`, #215). Not
    * scrollIntoView: it would also scroll the locked body. */
-  function scrollToEl(el: Element, behavior: ScrollBehavior, peek = notePeek && !!openNoteId) {
+  function scrollToEl(el: Element, behavior: ScrollBehavior, peek = notePeek && !!openNoteId): number | null {
     const vp = viewportOf();
-    if (!vp) return;
+    if (!vp) return null;
     const top = el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    vp.scrollTo({ top: Math.max(0, top - passageInset(vp.clientHeight, peek, rem)), behavior });
+    const to = Math.min(Math.max(0, top - passageInset(vp.clientHeight, peek, rem)), vp.scrollHeight - vp.clientHeight);
+    vp.scrollTo({ top: to, behavior });
+    return to;
   }
 
   /** First word of a stored verse. */
@@ -796,6 +813,10 @@ export function PaginatedChapter({
   function closeNote() {
     setOpenNoteId(null);
     setSpotId(null);
+    const back = noteReturn.current;
+    noteReturn.current = null;
+    const vp = scrollMode ? viewportOf() : null;
+    if (back && vp && returnsTo(vp.scrollTop, back)) vp.scrollTo({ top: back.from, behavior: "smooth" });
     if (searchParams.has("note")) {
       setSearchParams(
         (params) => {

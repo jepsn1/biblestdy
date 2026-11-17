@@ -27,3 +27,10 @@ export function peekPoint(scrollMode: boolean, exitLine: boolean): NoteSnap {
 export function passageInset(paneHeight: number, peek: boolean, rem: number): number {
   return peek ? Math.min(paneHeight / 3, 3 * rem) : paneHeight / 3;
 }
+
+/** Closing a note goes back to where the reader was (#203's rule, phones)
+ * only if the text is still where the note put it: the reader didn't scroll
+ * meanwhile (a pixel or two of rounding aside). */
+export function returnsTo(scrollTop: number, back: { from: number; to: number }): boolean {
+  return Math.abs(scrollTop - back.to) <= 2 && Math.abs(back.from - back.to) > 2;
+}

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { NOTE_PEEK, passageInset, peekPoint } from "./note-drawer";
+import { NOTE_PEEK, passageInset, peekPoint, returnsTo } from "./note-drawer";
 
 describe("phone note drawer snaps (#215)", () => {
   it("peeks at 45% on a phone; a paged sheet keeps just the bar", () => {
@@ -13,6 +13,17 @@ describe("phone note drawer snaps (#215)", () => {
     expect(passageInset(780, false, 16)).toBe(260);
     expect(passageInset(780, true, 16)).toBe(48);
     expect(passageInset(100, true, 16)).toBeCloseTo(33.3, 1);
+  });
+});
+
+describe("closing returns to the reader's place (#203 rule, phones)", () => {
+  it("only when the text is still where the note scrolled it", () => {
+    expect(returnsTo(900, { from: 200, to: 900 })).toBe(true);
+    expect(returnsTo(901.5, { from: 200, to: 900 })).toBe(true);
+    // The reader scrolled meanwhile: stay
+    expect(returnsTo(1300, { from: 200, to: 900 })).toBe(false);
+    // Nothing moved on opening: nothing to undo
+    expect(returnsTo(200, { from: 200, to: 200 })).toBe(false);
   });
 });
 
