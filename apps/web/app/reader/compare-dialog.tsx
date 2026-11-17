@@ -3,14 +3,13 @@ import { bookName, translationInfo } from "@biblestdy/shared";
 import { mapRange, sourceRange, unionRange } from "@biblestdy/shared/versification";
 import { useQueries } from "@tanstack/react-query";
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { useIsMobile } from "~/hooks/use-mobile";
 import { bookLocale } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 // Its own words come with this chunk (bundle budget)
@@ -65,6 +64,24 @@ function ownLabel(ref: ScriptureRef): string {
   const locale = bookLocale(i18n.language);
   return labelOf(ref, (id) => bookName(id, locale), locale);
 }
+
+/** A media query, read while rendering (no first frame with the wrong
+ * layout, and no fetch before the phone steps apply). */
+function useMedia(query: string): boolean {
+  return useSyncExternalStore(
+    (on) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", on);
+      return () => mql.removeEventListener("change", on);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}
+/** use-mobile's breakpoint: a drawer below it. */
+const PHONE = "(max-width: 767px)";
+/** A phone on its side: the dialog, but too short for picker + passages. */
+const SHORT = "(max-height: 600px)";
 
 const keyOf = (id: string, c: ChapterRef) => `${id}/${c.book}.${c.chapter}`;
 
@@ -160,7 +177,8 @@ export function CompareDialog({
   const { chapterQuery, retryWhenLimited, notifyCopyFailed, notifyCopyLimit, groupTranslations, translationTitle, formatWait, useTextSize, Drawer, DrawerContent, DrawerTitle } = kit;
   labelOf = kit.referenceLabel;
   const ui = i18n.language.startsWith("da") ? "da" : "en";
-  const isMobile = useIsMobile();
+  const isMobile = useMedia(PHONE);
+  const short = useMedia(SHORT);
   const textSize = useTextSize();
   const ids = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -185,7 +203,7 @@ export function CompareDialog({
   // Phones (#218): two steps, so the passages get the height. Remembered
   // picks open on the passages; first open on the picker. Set while
   // rendering the open, so the drawer never shows the wrong step first.
-  const stepped = isMobile;
+  const stepped = isMobile || short;
   const [step, setStep] = useState<CompareStep>(() => firstStep(readPicks(), otherIds, cap));
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -486,15 +504,16 @@ export function CompareDialog({
       <X className="size-5" aria-hidden />
     </Button>
   );
+  const Title = isMobile ? DrawerTitle : DialogTitle;
   const titleClass = cn("font-serif text-title leading-tight font-semibold text-foreground", focusTitle);
   const pickStep = (
     <>
       <header className="flex shrink-0 items-start gap-2 border-b border-border py-2 pr-2 pl-4">
         <div className="min-w-0 flex-1 pt-1.5">
           <p className="eyebrow">{title}</p>
-          <DrawerTitle ref={titleRef} tabIndex={-1} className={titleClass}>
+          <Title ref={titleRef} tabIndex={-1} className={titleClass}>
             {t("compare.choose")}
-          </DrawerTitle>
+          </Title>
         </div>
         {closeX}
       </header>
@@ -554,7 +573,8 @@ export function CompareDialog({
     <>
       <header className="shrink-0 border-b border-border px-2 pt-1 pb-2">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" className="h-11 gap-1 px-2" onClick={() => goTo("pick")}>
+          {/* Wraps at 200% so Copy all and Close stay on screen */}
+          <Button variant="ghost" className="h-auto min-h-11 min-w-0 shrink gap-1 px-2 text-left whitespace-normal" onClick={() => goTo("pick")}>
             <ChevronLeft className="size-5" aria-hidden />
             {t("compare.change")}
           </Button>
@@ -574,11 +594,11 @@ export function CompareDialog({
           {closeX}
         </div>
         <div className="px-2">
-          <DrawerTitle ref={titleRef} tabIndex={-1} className={titleClass}>
+          <Title ref={titleRef} tabIndex={-1} className={titleClass}>
             {/* The step, said with the passage it shows */}
             <span className="sr-only">{t("compare.title")}, </span>
             {title}
-          </DrawerTitle>
+          </Title>
           {base?.partial && <p className="mt-0.5 text-meta text-muted-foreground">{t("compare.wholeVerses")}</p>}
           {ref && widenedBy && (
             <p className="mt-0.5 text-meta text-muted-foreground">
@@ -646,9 +666,19 @@ export function CompareDialog({
         showCloseButton={false}
         initialFocus={titleRef}
         finalFocus={final}
-        className="top-[8dvh] flex h-[min(84dvh,56rem)] w-[min(40rem,calc(100vw-2rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        className={cn(
+          "top-[8dvh] flex h-[min(84dvh,56rem)] w-[min(40rem,calc(100vw-2rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-none",
+          short && "top-2 h-[calc(100dvh-1rem)]",
+        )}
       >
-        {content}
+        {stepped ? (
+          <>
+            {step === "pick" ? pickStep : compareStep}
+            {live}
+          </>
+        ) : (
+          content
+        )}
       </DialogContent>
     </Dialog>
   );
