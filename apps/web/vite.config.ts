@@ -1,12 +1,50 @@
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import fs from "node:fs";
+import path from "node:path";
+import { defineConfig, type Plugin } from "vite";
+import { localePreloadScript } from "./app/lib/locale-preload";
 import { VitePWA } from "vite-plugin-pwa";
+
+/** #209: index.html starts the Danish strings' download before the app's JS
+ * runs (most readers are Danish). The client build names the hashed chunk;
+ * after React Router writes the SPA shell, its <head> gets the inline script
+ * from lib/locale-preload. Fails the build if the chunk can't be found. */
+function localePreload(): Plugin {
+  let href: string | undefined;
+  let outDir: string | undefined;
+  return {
+    name: "biblestdy:locale-preload",
+    apply: "build",
+    generateBundle(_, bundle) {
+      if (this.environment.name !== "client") return;
+      const chunk = Object.values(bundle).find(
+        (c) => c.type === "chunk" && c.facadeModuleId?.replaceAll("\\", "/").endsWith("/app/locales/da.ts"),
+      );
+      if (chunk?.type === "chunk" && chunk.imports.length === 0) {
+        href = this.environment.config.base + chunk.fileName;
+        outDir = path.resolve(this.environment.config.root, this.environment.config.build.outDir);
+      }
+    },
+    buildApp: {
+      order: "post", // after React Router's buildApp has written index.html
+      async handler() {
+        if (!href || !outDir) throw new Error("locale-preload: no self-contained Danish chunk (app/locales/da.ts) in the client build");
+        const file = path.join(outDir, "index.html");
+        const html = fs.readFileSync(file, "utf8");
+        const anchor = '<meta charSet="utf-8"/>';
+        if (!html.includes(anchor)) throw new Error(`locale-preload: ${anchor} not in index.html`);
+        fs.writeFileSync(file, html.replace(anchor, `${anchor}<script>${localePreloadScript(href)}</script>`));
+      },
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     tailwindcss(),
     reactRouter(),
+    localePreload(),
     // Installable PWA (#13). NO offline per PRD: the service worker precaches
     // nothing and has no runtime caching — it exists only for installability.
     VitePWA({

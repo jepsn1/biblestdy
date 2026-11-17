@@ -1,6 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "../locales/en";
+import { pickUiLanguage } from "./locale-preload";
 
 /** UI locale (issue #12) — independent of the Scripture translation. Sticky
  * per device; first visit follows the browser. Adding a locale = a new file
@@ -10,20 +11,18 @@ import en from "../locales/en";
  * the first-paint bundle; every other locale is its own lazy chunk (#209,
  * bundle budget). The active one loads before hydration (entry.client awaits
  * `i18nReady`) and on a switch before the language flips — no frame ever
- * renders with the wrong or missing strings. */
+ * renders with the wrong or missing strings. A Danish device starts that
+ * chunk's download from index.html already (lib/locale-preload). */
 export type UiLanguage = "en" | "da";
 
 const LOADERS: Record<Exclude<UiLanguage, "en">, () => Promise<{ default: typeof en }>> = {
   da: () => import("../locales/da"),
 };
 
-const stored =
-  typeof localStorage !== "undefined" ? localStorage.getItem("uiLanguage") : null;
-const browserDefault =
-  typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("da")
-    ? "da"
-    : "en";
-const initial: UiLanguage = stored === "da" || stored === "en" ? stored : browserDefault;
+const initial: UiLanguage = pickUiLanguage(
+  typeof localStorage !== "undefined" ? localStorage.getItem("uiLanguage") : null,
+  typeof navigator !== "undefined" ? navigator.language : undefined,
+);
 
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en } },
