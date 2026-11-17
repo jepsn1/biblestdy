@@ -1,3 +1,4 @@
+import { Ellipsis, FileText, Highlighter, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn, focusRing } from "~/lib/utils";
@@ -6,11 +7,15 @@ import { PILL_ABOVE, PILL_EDGE, pillPlace } from "./held-selection";
 type Rect = { left: number; right: number; top: number; bottom: number };
 
 const surface = "fixed z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-sm";
-const button = cn("inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-list font-medium hover:bg-accent", focusRing);
+const button = cn(
+  "inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-list font-medium hover:bg-accent [&_svg]:size-4 [&_svg]:shrink-0",
+  focusRing,
+);
 
 /**
- * The phone's tap-selection pill (#206): Highlight · Note · More · Close,
- * under the selection (above it when there's no room). Never takes focus,
+ * The phone's tap-selection pill (#206): Highlight · Note · More, each an
+ * icon + word, then a divider and an icon-only × Close (#217) — set apart
+ * so it never reads as a fourth action. Under the selection (above it when there's no room). Never takes focus,
  * never covers the selected words; a tap on its surface outside the
  * buttons lets the selection go. Fades in with a 4px rise (none with
  * reduced motion); remounted each time it shows.
@@ -71,19 +76,38 @@ export function SelectionPill({
           {range}
         </p>
       )}
-      <div className="flex flex-wrap">
-        <button type="button" className={button} onClick={onHighlight}>
-          <span aria-hidden className="size-2 rounded-full ring-1 ring-foreground/20" style={{ background: color }} />
-          {t("menu.pillHighlight")}
-        </button>
-        <button type="button" className={button} onClick={onNote}>
-          {t("menu.pillNote")}
-        </button>
-        <button type="button" aria-haspopup="menu" className={button} onClick={onMore}>
-          {t("menu.pillMore")}
-        </button>
-        <button type="button" className={button} onClick={onClose}>
-          {t("menu.pillClose")}
+      <div className="flex items-start">
+        {/* At large text the actions wrap; Close stays top-right */}
+        <div className="flex min-w-0 flex-wrap">
+          <button type="button" className={button} onClick={onHighlight}>
+            {/* The pen with the colour it will use as a dot on its tip */}
+            <span aria-hidden className="relative inline-flex">
+              <Highlighter />
+              <span
+                className="absolute -right-0.5 -bottom-0.5 size-2 rounded-full ring-1 ring-foreground/30"
+                style={{ background: color }}
+              />
+            </span>
+            {t("menu.pillHighlight")}
+          </button>
+          <button type="button" className={button} onClick={onNote}>
+            <FileText aria-hidden />
+            {t("menu.pillNote")}
+          </button>
+          <button type="button" aria-haspopup="menu" className={button} onClick={onMore}>
+            <Ellipsis aria-hidden />
+            {t("menu.pillMore")}
+          </button>
+        </div>
+        <span aria-hidden className="mx-0.5 my-2 w-px self-stretch bg-border" />
+        <button
+          type="button"
+          aria-label={t("menu.pillClose")}
+          title={t("menu.pillClose")}
+          className={cn(button, "w-11 shrink-0 justify-center px-0 text-muted-foreground hover:text-foreground [&_svg]:size-5")}
+          onClick={onClose}
+        >
+          <X aria-hidden />
         </button>
       </div>
     </div>
