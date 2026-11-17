@@ -62,8 +62,13 @@ export function PageFoot({
   next,
   phone,
   spot,
+  more,
   className,
 }: {
+  /** The open note's references on another page (#226): "1 more on p. 2 →"
+   * after the folio, a button that turns there. The spotlight's exit line
+   * outranks it (it takes the folio's place). */
+  more?: { label: string; name: string; back: boolean; onTurn: () => void } | null;
   /** The reference spotlight's exit line (#210), in the folio's place while
    * it lasts: "Viser Joh 3,14–15 · Vis alt". Its announcement is the
    * reader's own live region. */
@@ -89,7 +94,11 @@ export function PageFoot({
   const credits = credit ?? [];
   // The source rides on the last part (measured with it): never dropped
   const measured = source && credits.length > 0 ? [...credits.slice(0, -1), `${credits.at(-1)}\u00a0·\u00a0${source.label}`] : credits;
-  const fit = useFit(position, measured, spot ? [spot.label, spot.short, spot.showAll] : []);
+  const moreText = more && (more.back ? `\u2190\u00a0${more.label}` : `${more.label}\u00a0\u2192`);
+  // Kept last on the folio: the parts before it give way first
+  const folio = moreText ? [...position, moreText] : position;
+  const fit = useFit(folio, measured, spot ? [spot.label, spot.short, spot.showAll] : []);
+  const kept = moreText ? Math.max(0, fit.position - 1) : fit.position;
   const creditLine = credits.length > 0 && (
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
@@ -132,6 +141,28 @@ export function PageFoot({
               {spot.showAll}
             </button>
           </p>
+        ) : more && moreText ? (
+          <p className={cn(FOLIO, "flex min-w-0 items-baseline justify-center")}>
+            {kept > 0 && (
+              <span aria-hidden={!phone} className="truncate">
+                <Parts parts={position.slice(-kept)} />
+                {SEP}
+              </span>
+            )}
+            <button
+              type="button"
+              data-more-refs=""
+              aria-label={more.name}
+              onClick={more.onTurn}
+              className={cn(
+                CREDIT_LINK,
+                // 44px to hit (an invisible ring), the line's own size
+                "relative shrink-0 whitespace-nowrap text-(--note-ink-text) before:absolute before:-inset-x-1.5 before:-inset-y-2.5 before:content-['']",
+              )}
+            >
+              {moreText}
+            </button>
+          </p>
         ) : position.length > 0 && (
           <p
             aria-hidden={!phone}
@@ -148,7 +179,7 @@ export function PageFoot({
       <SupportLine phone={phone} />
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
-        {[position, measured].map((parts, row) => (
+        {[folio, measured].map((parts, row) => (
           <div key={row} className={row === 0 ? FOLIO : CREDIT}>
             <span>{SEP}</span>
             {parts.map((part, i) => (

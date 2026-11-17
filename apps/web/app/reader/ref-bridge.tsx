@@ -1,9 +1,20 @@
 import { formatScriptureHref, parseScriptureHref } from "@biblestdy/shared";
 import { rootEditor$, useCellValue } from "@mdxeditor/editor";
-import { $getNodeByKey, $getRoot, $getSelection, $isElementNode, $isRangeSelection, type BaseSelection, type LexicalNode, type NodeKey } from "lexical";
+import {
+  $getNodeByKey,
+  $getRoot,
+  $getSelection,
+  $isElementNode,
+  $isRangeSelection,
+  HISTORY_PUSH_TAG,
+  type BaseSelection,
+  type LexicalNode,
+  type NodeKey,
+} from "lexical";
 import { useEffect } from "react";
 import { INSERT_REF, REMOVE_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
 import { focusEditor, mergeRegister } from "./lexical-util";
+import { $removeChipTidy } from "./ref-tidy-lexical";
 import { $insertScriptureRef, $isScriptureRefNode, $restoreSelection, $selectChip } from "./scripture-ref-node";
 import { endsSpotlight } from "./spotlight";
 
@@ -98,9 +109,13 @@ export function RefBridge() {
     const onRemove = (e: Event) => {
       const detail = (e as CustomEvent<RefEventDetail>).detail;
       detail.done = true;
-      editor.update(() => {
-        for (const chip of $chips(detail.href)) chip.remove();
-      });
+      // Its separators go with it (#226), in the same edit
+      editor.update(
+        () => {
+          for (const chip of $chips(detail.href)) $removeChipTidy(chip);
+        },
+        { tag: HISTORY_PUSH_TAG },
+      );
     };
     const unlisten = () => {
       aside?.removeEventListener(SHOW_REF, onShow);

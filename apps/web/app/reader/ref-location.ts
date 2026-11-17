@@ -31,3 +31,18 @@ export function refTag(locator: RefLocator | undefined, spot: string | null, at:
   if (page === undefined || page === null || locator.page === null) return null;
   return page === locator.page ? { kind: "thisPage" } : { kind: "page", page: page + 1 };
 }
+
+/** The foot's "1 more on p. 2 →" (#226): the open note's references on
+ * another page of the chapter. `page`: the next page after this one that
+ * has some (or, past the last, the first page back), 0-based; `count`: how
+ * many land there; `back`: it lies behind this page. */
+export type MoreRefs = { page: number; count: number; back: boolean };
+
+/** From the pages the open note's references land on (null: not placed). */
+export function moreRefs(pages: (number | null)[], current: number): MoreRefs | null {
+  const placed = pages.filter((p): p is number => p !== null && p !== current);
+  if (placed.length === 0) return null;
+  const ahead = placed.filter((p) => p > current);
+  const page = ahead.length > 0 ? Math.min(...ahead) : Math.min(...placed);
+  return { page, count: placed.filter((p) => p === page).length, back: page < current };
+}

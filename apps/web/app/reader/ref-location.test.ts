@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { refTag, type RefLocator } from "./ref-location";
+import { moreRefs, refTag, type RefLocator } from "./ref-location";
 
 const locator = (page: number | null, pages: Record<string, number | null>): RefLocator => ({
   book: "JHN",
@@ -26,5 +26,19 @@ describe("refTag (#214)", () => {
   });
   it("still names another chapter on a phone", () => {
     expect(refTag(locator(null, {}), "x", { book: "ROM", chapter: 8 })).toEqual({ kind: "chapter", book: "ROM", chapter: 8 });
+  });
+});
+
+describe("moreRefs (#226)", () => {
+  it("names the next page ahead with references, and how many land there", () => {
+    expect(moreRefs([0, 1, 1, 3], 0)).toEqual({ page: 1, count: 2, back: false });
+    expect(moreRefs([0, 1, 3], 1)).toEqual({ page: 3, count: 1, back: false });
+  });
+  it("past the last, points back to the first", () => {
+    expect(moreRefs([0, 0, 2, 3], 3)).toEqual({ page: 0, count: 2, back: true });
+  });
+  it("says nothing when every reference is on this page or unplaced", () => {
+    expect(moreRefs([], 0)).toBeNull();
+    expect(moreRefs([2, 2, null], 2)).toBeNull();
   });
 });

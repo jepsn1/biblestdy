@@ -50,7 +50,7 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { useLocalizer } from "./localizer";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { useAllNotesQuery, useNotes } from "./use-notes";
-import type { RefLocator } from "./ref-location";
+import { moreRefs, type RefLocator } from "./ref-location";
 import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, useSpotlightEnd } from "./spotlight";
 import { chipLabel } from "~/lib/reference-label";
 import { pageSpan, placeSelector, reflowPage, type Place } from "./reading-place";
@@ -702,6 +702,28 @@ export function PaginatedChapter({
       return (el && pageOf(el, stride)) ?? undefined;
     },
   };
+
+  /** The foot's "1 more on p. 2 →" (#226): the open note's marks on other
+   * pages of this chapter (read at render, like the tags above). */
+  const more = (() => {
+    if (scrollMode || !openNoteId || !stride) return null;
+    const root = mainRef.current ?? regionRef.current;
+    const pages = noteMarks
+      .filter((m) => m.noteId === openNoteId && (flowFrom === null || m.startVerse >= flowFrom))
+      .map((m) => {
+        const el = root?.querySelector(`[data-verse="${m.startVerse}"][data-word="${m.verseLevel ? 0 : m.startWord}"]`);
+        return el ? pageOf(el, stride) : null;
+      });
+    const found = moreRefs(pages, page);
+    if (!found || found.page >= pageCount) return null;
+    const vars = { count: found.count, page: found.page + 1 };
+    return {
+      label: t("reader.moreOnPage", vars),
+      name: t("reader.moreOnPageName", vars),
+      back: found.back,
+      onTurn: () => goToPage(found.page),
+    };
+  })();
 
   // Consume ?mark once the chapter's marks are rendered and measured: a
   // selection's id, or a text reference's href (with ?note)
@@ -1651,6 +1673,7 @@ export function PaginatedChapter({
                     phone={false}
                     // With the note in a drawer, the line sits on its folded bar
                     spot={sideInDrawer ? null : spotExit}
+                    more={more}
                     className="chapter-foot mt-sheet-air shrink-0"
                   />
                   {wordInk}

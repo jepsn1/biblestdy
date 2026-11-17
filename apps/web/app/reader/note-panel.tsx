@@ -27,6 +27,7 @@ import { useIsDark } from "~/lib/theme";
 import { useViewportFits } from "~/lib/text-size";
 import { PanelHeader } from "./panel-header";
 import { INSERT_REF, INSERT_VERSE, REMOVE_REF, SHOW_REF, type RefEventDetail } from "./dialog-events";
+import { removeLinksTidy } from "./ref-tidy";
 import type { ReferencesOverviewProps } from "./references-overview";
 import type { RefLocator } from "./ref-location";
 import { TagChips } from "./tag-chips";
@@ -504,9 +505,7 @@ export function NotePanel({
     const links = scriptureLinks(liveBody).filter((l) => l.href === href);
     if (!links.length) return;
     const before = liveBody;
-    let next = liveBody;
-    for (const l of [...links].reverse()) next = next.slice(0, l.start) + next.slice(l.end);
-    setBody(next);
+    setBody(removeLinksTidy(liveBody, links));
     toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
       duration: 6000,
       position: "bottom-right",
