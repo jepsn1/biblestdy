@@ -42,6 +42,9 @@ function Keys({ keys }: { keys: string[][] }) {
   );
 }
 
+/** Alt as the keyboard prints it (⌥ on a Mac). */
+const altKey = () => (modKey() === "⌘" ? "⌥" : "Alt");
+
 function save(on: boolean) {
   saveSingleKeys(on).catch((e: unknown) => notifyError(e, { retry: () => save(on) }));
 }
@@ -123,6 +126,15 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         { keys: [["1–5"]], label: t("shortcuts.penStyle") },
         { keys: [["Shift", "N"]], label: t("tools.note") },
         { keys: [["Shift", "E"]], label: t("tools.erase") },
+      ],
+    },
+    {
+      // #213: a note's verses, from the note and the reader
+      title: t("shortcuts.inNote"),
+      rows: [
+        { keys: [["Enter"]], label: t("shortcuts.chipPreview") },
+        { keys: [[altKey(), "Enter"]], label: t("shortcuts.chipSpotlight") },
+        { keys: [["["], ["]"]], label: t("shortcuts.refStep") },
       ],
     },
     {

@@ -46,3 +46,12 @@ export function moreRefs(pages: (number | null)[], current: number): MoreRefs | 
   const page = ahead.length > 0 ? Math.min(...ahead) : Math.min(...placed);
   return { page, count: placed.filter((p) => p === page).length, back: page < current };
 }
+
+/** The index `]`/`[` lands on among `count` references (#213): from the
+ * spotlit one (`current`, -1 = none: `]` the first, `[` the last), round
+ * the ends. */
+export function stepIndex(count: number, current: number, dir: 1 | -1): number {
+  if (count === 0) return -1;
+  if (current < 0) return dir === 1 ? 0 : count - 1;
+  return (current + dir + count) % count;
+}

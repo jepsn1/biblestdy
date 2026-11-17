@@ -89,3 +89,15 @@ export const INSERT_REF = "biblestdy:insert-ref";
  * overview's ×); the removal toast (ref-removal.tsx) offers Undo. */
 export const REMOVE_REF = "biblestdy:remove-ref";
 export type RefEventDetail = { href: string; text: string; done: boolean };
+
+/** `]` / `[` with a note open (#213): the reader's key handler (lib/
+ * shortcuts.ts rules) asks the note's references overview to spotlight
+ * its next / previous verse; `done` stays false with none (the key turns
+ * the chapter then). */
+export const STEP_REF = "biblestdy:step-ref";
+export type StepRefDetail = { dir: 1 | -1; done: boolean };
+export function stepRef(dir: 1 | -1): boolean {
+  const detail: StepRefDetail = { dir, done: false };
+  window.dispatchEvent(new CustomEvent(STEP_REF, { detail }));
+  return detail.done;
+}

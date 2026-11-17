@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Anchor, Chapter, Note, NoteAnchor, ScriptureRef, Translation } from "@biblestdy/shared";
+import { formatScriptureHref, type Anchor, type Chapter, type Note, type NoteAnchor, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ChevronUp, Plus, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -26,8 +26,9 @@ import { canonicalRef, localRef } from "@biblestdy/shared/versification";
 import { makeLocalizer } from "./localizer";
 import type { ReadRef } from "./ref-context";
 import { ScriptureCredit } from "./scripture-credit";
-import { refTag, type RefLocator } from "./ref-location";
-import { noteMarkId, refSpot } from "./spotlight";
+import { refTag, stepIndex, type RefLocator } from "./ref-location";
+import { STEP_REF, type StepRefDetail } from "./dialog-events";
+import { hoverRef, noteMarkId, refSpot, useRefHover } from "./spotlight";
 
 /** A note's reader selection as a chip label ("Joh 3,14–15"). */
 const anchorChip = (a: Anchor, locale: "da" | "en") =>
@@ -40,6 +41,10 @@ const anchorRef = (a: Anchor): ScriptureRef => ({
   verse: a.startVerse,
   ...(a.endVerse !== a.startVerse && { endVerse: a.endVerse }),
 });
+
+/** A row whose link the reader hovers on the page (#213): outlined in the
+ * note's ink, like its chip — never by colour alone (the ring is a shape). */
+const LIT_ROW = "shadow-[inset_0_0_0_1.5px_var(--note-ink)]";
 
 /** Snippets are cut here; the cell truncates too (narrow panels). */
 const SNIPPET_MAX = 90;
@@ -267,6 +272,41 @@ export function ReferencesOverview({
     </button>
   );
 
+  // `]` / `[` beside the reader (#213): the next / previous reference in
+  // the list's order, spotlit (another chapter: there). Text references
+  // this translation lacks are skipped — they'd switch translation
+  const step = (dir: 1 | -1): boolean => {
+    const stops = rows.filter((r) => r.kind === "marked" || !loc || loc.local(r.ref) !== null);
+    const spotOf = (r: OverviewRow) => (r.kind === "text" ? refSpot(note.id, r.ref) : noteMarkId({ noteId: note.id, id: r.anchor.id }));
+    const at = stops.findIndex((r) => spot !== null && spotOf(r) === spot);
+    const next = stops[stepIndex(stops.length, at, dir)];
+    if (!next) return false;
+    if (next === stops[at]) return true; // one reference, already lit
+    if (next.kind === "text") onReadRef?.(next.ref, loc?.local(next.ref)?.ref ?? next.ref);
+    else onShowAnchor(next.anchor);
+    return true;
+  };
+  const stepRef = useRef(step);
+  useEffect(() => {
+    stepRef.current = step;
+  });
+  const beside = !!locator;
+  useEffect(() => {
+    if (!beside) return;
+    const on = (e: Event) => {
+      const detail = (e as CustomEvent<StepRefDetail>).detail;
+      if (stepRef.current(detail.dir)) detail.done = true;
+    };
+    window.addEventListener(STEP_REF, on);
+    return () => window.removeEventListener(STEP_REF, on);
+  }, [beside]);
+
+  // Chip ↔ page (#213): a row's hover or focus lights its link on the
+  // page; the page's hover on the open note's link marks its row
+  const hovered = useRefHover();
+  const pageHover = hovered?.from === "page" ? hovered.keys : null;
+  useEffect(() => () => hoverRef(null), []);
+
   if (collapsed)
     return (
       <button
@@ -312,6 +352,17 @@ export function ReferencesOverview({
     const gold = on ? "text-accent-foreground" : cn("text-primary", tinted);
     // The reference itself in the note's ink: one relation, one colour (#214)
     const blue = on ? "text-accent-foreground" : cn("text-(--note-ink-text)", tinted);
+    // Its key on the page (hoverRef, spotlight.ts)
+    const hoverKey = row.kind === "text" ? formatScriptureHref(row.ref) : noteMarkId({ noteId: note.id, id: row.anchor.id });
+    const lit = !on && !!hoverKey && !!pageHover?.includes(hoverKey);
+    const hoverProps = hoverKey
+      ? {
+          onPointerEnter: () => hoverRef({ from: "note", keys: [hoverKey] }),
+          onPointerLeave: () => hoverRef(null),
+          onFocus: () => hoverRef({ from: "note", keys: [hoverKey] }),
+          onBlur: () => hoverRef(null),
+        }
+      : {};
     // Where it is (its chapter in the reading translation's numbers)
     let spotKey: string | null;
     let at: { book: string; chapter: number } | null = null;
@@ -470,13 +521,14 @@ export function ReferencesOverview({
 
     return stacked ? (
       // Phone, or a narrow pane (large text): two lines (label · translation / snippet), fixed height
-      <li key={row.key} className={cn("group flex items-center gap-1 rounded", pressed ? "bg-accent" : mobile ? "active:bg-accent" : "hover:bg-accent")}>
+      <li key={row.key} data-ref-lit={lit || undefined} className={cn("group flex items-center gap-1 rounded", pressed ? "bg-accent" : mobile ? "active:bg-accent" : "hover:bg-accent", lit && LIT_ROW)}>
         <button
           type="button"
           data-row={row.key}
           data-spot-own=""
           aria-pressed={pressed}
           onClick={read}
+          {...hoverProps}
           className={cn("flex h-13 min-w-0 flex-1 flex-col justify-center rounded px-1.5 text-left", focusRing)}
         >
           <span className="flex min-w-0 items-baseline gap-1.5">
@@ -498,7 +550,7 @@ export function ReferencesOverview({
     ) : (
       // Desktop: one line in the list's columns (label | snippet |
       // translation | action | ×), so snippets line up
-      <li key={row.key} className={cn("group col-span-full grid grid-cols-subgrid items-center rounded", pressed ? "bg-accent" : "hover:bg-accent")}>
+      <li key={row.key} data-ref-lit={lit || undefined} className={cn("group col-span-full grid grid-cols-subgrid items-center rounded", pressed ? "bg-accent" : "hover:bg-accent", lit && LIT_ROW)}>
         <button
           type="button"
           data-row={row.key}
@@ -506,6 +558,7 @@ export function ReferencesOverview({
           title={`${full}: ${readName}`}
           aria-pressed={pressed}
           onClick={read}
+          {...hoverProps}
           className={cn("col-span-3 grid h-8 grid-cols-subgrid content-center items-baseline rounded px-1.5 text-left pointer-coarse:h-11", focusRing)}
         >
           {/* Named by what it shows (label, words, translation), then what

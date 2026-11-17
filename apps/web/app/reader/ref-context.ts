@@ -3,6 +3,7 @@ import { createContext, type ComponentType } from "react";
 import type { Hint, modKey } from "~/components/hint";
 import type { Popover, PopoverContent } from "~/components/ui/popover";
 import type { ScrollArea } from "~/components/ui/scroll-area";
+import type { spotlightsChip } from "~/lib/shortcuts";
 import type { VersePickerProps } from "./verse-picker";
 
 /**
@@ -19,6 +20,9 @@ export type EditorKit = {
   Hint: typeof Hint;
   modKey: typeof modKey;
   ScrollArea: typeof ScrollArea;
+  /** Alt+Enter on a chip (#213) — lib/shortcuts.ts, handed over: the
+   * editor chunk importing it re-splits the first-paint chunks. */
+  spotlightsChip: typeof spotlightsChip;
 };
 
 /** The chapter open in the reader beside the note (#191): its marks lead
