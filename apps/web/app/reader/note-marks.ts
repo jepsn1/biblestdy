@@ -125,3 +125,28 @@ export function notesOnVerse(marks: NoteMark[], verse: number, untitled: string)
     .map((m) => m.title || untitled);
   return [...new Set(titles)];
 }
+
+/** Verse ranges merged where they overlap or touch. */
+export function mergeRanges(ranges: { start: number; end: number }[]): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (const r of [...ranges].sort((a, b) => a.start - b.start)) {
+    const last = out.at(-1);
+    if (last && r.start <= last.end + 1) last.end = Math.max(last.end, r.end);
+    else out.push({ ...r });
+  }
+  return out;
+}
+
+/** A verse number's screen-reader name (#211): "Verse 16, note: Born
+ * again, God so loved, select: …" — a linked verse says so. */
+export function verseNoteLabel(
+  t: (key: string, o: Record<string, unknown>) => string,
+  marks: NoteMark[],
+  v: { verse: number; label?: string; text: string },
+): string {
+  const n = v.label ?? v.verse;
+  const notes = notesOnVerse(marks, v.verse, t("note.untitled", {}));
+  return notes.length
+    ? t("reader.verseLabelNotes", { n, notes: notes.join(", "), text: v.text })
+    : t("reader.verseLabel", { n, text: v.text });
+}

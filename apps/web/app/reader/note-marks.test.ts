@@ -2,7 +2,7 @@ import type { Chapter, Note, NoteAnchor, NoteRef, Translation } from "@biblestdy
 import * as vz from "@biblestdy/shared/versification";
 import { describe, expect, it } from "vitest";
 import { makeLocalizer } from "./localizer";
-import { markReference, noteMarksInChapter as marksWith, notesOnVerse, noteTouchesChapter, writtenElsewhere, type NoteMark } from "./note-marks";
+import { markReference, mergeRanges, noteMarksInChapter as marksWith, notesOnVerse, noteTouchesChapter, writtenElsewhere, type NoteMark } from "./note-marks";
 
 const translations: Translation[] = ["BPH", "WEB", "NIV"].map((a) => ({ id: a, abbreviation: a, name: a, language: a === "BPH" ? "da" : "en" }));
 /** With the map loaded (the reader's steady state). */
@@ -197,5 +197,15 @@ describe("naming a link (#211)", () => {
     const marks = [m("b", "Born again", 16, 16, 4), m("a", "Serpent", 14, 16), m("c", "", 16, 16), m("b2", "Born again", 16, 16)];
     expect(notesOnVerse(marks, 16, "Untitled")).toEqual(["Serpent", "Untitled", "Born again"]);
     expect(notesOnVerse(marks, 13, "Untitled")).toEqual([]);
+  });
+});
+
+describe("mergeRanges", () => {
+  it("merges overlapping and touching verse ranges", () => {
+    expect(mergeRanges([{ start: 16, end: 16 }, { start: 3, end: 3 }, { start: 14, end: 15 }, { start: 19, end: 20 }])).toEqual([
+      { start: 3, end: 3 },
+      { start: 14, end: 16 },
+      { start: 19, end: 20 },
+    ]);
   });
 });

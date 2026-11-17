@@ -2,6 +2,7 @@ import type { Anchor, Highlight } from "@biblestdy/shared";
 import { useState, type RefObject } from "react";
 import { isShown, type HighlightFilter } from "~/lib/highlight-filter";
 import { HIGHLIGHT_BG } from "./highlight-colors";
+import { mergeRanges } from "./note-marks";
 import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geometry";
 import { sameData, useMeasure } from "./use-measure";
@@ -31,6 +32,7 @@ export function HighlightMarks({
   scopeRef,
   layoutKey,
   spot = null,
+  open = [],
   shown = null,
 }: {
   highlights: Highlight[];
@@ -50,6 +52,10 @@ export function HighlightMarks({
    * wash (not under a highlight: blue over gold turns muddy); highlights
    * inside stay at full strength, those outside fade — never hidden. */
   spot?: SpotRange | null;
+  /** The open note's links (#211): their whole verses get the soft link
+   * wash (again never under a highlight); nothing else changes. The
+   * spotlight outranks it: ignored while one is on. */
+  open?: { start: number; end: number }[];
   /** The colour key's filter (null = all): other colours paint faint. */
   shown?: HighlightFilter;
 }) {
@@ -135,28 +141,33 @@ export function HighlightMarks({
       // Faint (filtered-out) ones first: a shown colour always reads on top
       const faint = (hl: Highlight) => !isShown(shown, hl.color);
       const sorted = [...highlights].sort((a, b) => Number(faint(b)) - Number(faint(a)) || size(b) - size(a));
-      // The spotlit verses' wash, first (behind everything), skipping words
-      // a highlight carries
-      if (spot && spot.end >= spot.start) {
-        const under = (v: number, w: number) =>
-          sorted.some(
-            (hl) =>
-              (v > hl.startVerse || (v === hl.startVerse && w >= hl.startWord)) &&
-              (v < hl.endVerse || (v === hl.endVerse && w <= hl.endWord)),
-          );
-        paint(
-          { translationId: "", book: "", chapter: 0, startVerse: spot.start, startWord: 0, endVerse: spot.end, endWord: Number.MAX_SAFE_INTEGER },
-          "spot",
-          "var(--link-wash-strong)",
-          { skip: under },
+      // The spotlit (or the open note's) verses' wash, first (behind
+      // everything), skipping words a highlight carries
+      const under = (v: number, w: number) =>
+        sorted.some(
+          (hl) =>
+            (v > hl.startVerse || (v === hl.startVerse && w >= hl.startWord)) &&
+            (v < hl.endVerse || (v === hl.endVerse && w <= hl.endWord)),
         );
-      }
+      const verses = (start: number, end: number): Anchor => ({
+        translationId: "",
+        book: "",
+        chapter: 0,
+        startVerse: start,
+        startWord: 0,
+        endVerse: end,
+        endWord: Number.MAX_SAFE_INTEGER,
+      });
+      if (spot && spot.end >= spot.start) paint(verses(spot.start, spot.end), "spot", "var(--link-wash-strong)", { skip: under });
+      else if (!spot)
+        // Overlapping links: each verse washed once
+        mergeRanges(open).forEach((r, i) => paint(verses(r.start, r.end), `open${i}`, "var(--link-wash)", { skip: under }));
       for (const hl of sorted)
         paint(hl, hl.id, HIGHLIGHT_BG[hl.color], { faint: faint(hl), dim: !!spot && !touchesSpot(spot, hl) });
       if (selection) paint(selection, "selection", "var(--selection)");
       setRects((prev) => (sameData(prev, out) ? prev : out));
     },
-    [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown, spot?.start, spot?.end],
+    [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown, spot?.start, spot?.end, JSON.stringify(open)],
   );
 
   return (
@@ -182,3 +193,4 @@ export function HighlightMarks({
     </svg>
   );
 }
+

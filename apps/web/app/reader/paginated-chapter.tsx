@@ -1442,6 +1442,7 @@ export function PaginatedChapter({
             scopeRef={mainRef}
             layoutKey={layoutKey}
             spot={spotPlace}
+            open={noteMarks.filter((m) => m.noteId === openNoteId).map((m) => ({ start: m.startVerse, end: m.endVerse }))}
           />
         </div>
       </div>
@@ -1471,6 +1472,7 @@ export function PaginatedChapter({
         layoutKey={layoutKey}
         activeAnnotationId={activeAnnotationId}
         spot={spotPlace}
+        openNoteId={openNoteId}
         onFocus={setActiveAnnotationId}
         onEdit={annotationsApi.edit}
         onRemove={annotationsApi.remove}

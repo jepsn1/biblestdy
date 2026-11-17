@@ -31,7 +31,7 @@ import {
   SELECTION_UI_ATTR,
   type VirtualAnchor,
 } from "./selection-menu";
-import type { NoteMark } from "./note-marks";
+import { verseNoteLabel, type NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
@@ -1122,7 +1122,7 @@ export function ChapterText({
     [VERSE_FOCUS]: v.verse,
     role: "button",
     "aria-haspopup": "menu" as const,
-    "aria-label": t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text }),
+    "aria-label": verseNoteLabel(t, noteMarks, v),
     title: t("reader.selectVerse", { n: v.label ?? v.verse }),
     tabIndex: v.verse === tabVerse ? 0 : -1,
     onClick: verseClick(v),
