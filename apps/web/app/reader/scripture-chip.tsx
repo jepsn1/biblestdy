@@ -1,4 +1,4 @@
-import { formatScriptureHref, parseScriptureHref, resolveInChapter, type Chapter, type ScriptureRef, type Translation } from "@biblestdy/shared";
+import { formatScriptureHref, parseScriptureHref, resolveInChapter, type Chapter, type MarkLink, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import { localRef } from "@biblestdy/shared/versification";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
@@ -16,6 +16,8 @@ import { ScriptureRefContext } from "./ref-context";
 import { chipOpensOnClick } from "./chip-click";
 import { hoverRef, spotParam, useRefHover, useRefSpot } from "./spotlight";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
+import { MarkGlyph } from "./mark-row";
+import { useMarkStateWords, useRefMarkState, type RefMarkState } from "./ref-mark";
 
 /** Asks a chip to open its preview (Enter on a selected chip), or (#213,
  * Alt+Enter) to show it in the Bible straight away. */
@@ -39,8 +41,25 @@ const translationsQuery = {
  * selected chip opens it too, Alt+Enter spotlights it in the Bible at once.
  * Hover — or selecting it — lights its link on the page; the page's hover
  * on that link outlines it here (hoverRef, spotlight.ts).
+ *
+ * Tagged with a mark (#216): a small glyph before the label — the
+ * highlight's swatch or the pen's stroke as the mark is now; a broken ring
+ * when it can't follow (erased, another translation), said in its name and
+ * the preview.
  */
-export function ScriptureChip({ editor, nodeKey, href, text }: { editor: LexicalEditor; nodeKey: NodeKey; href: string; text: string }) {
+export function ScriptureChip({
+  editor,
+  nodeKey,
+  href,
+  text,
+  mark = null,
+}: {
+  editor: LexicalEditor;
+  nodeKey: NodeKey;
+  href: string;
+  text: string;
+  mark?: MarkLink | null;
+}) {
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
   const nameOf = useBookName();
@@ -54,9 +73,13 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
-  const { kit, onRead } = useContext(ScriptureRefContext);
+  const { kit, onRead, page, noteRefs } = useContext(ScriptureRefContext);
   const queryClient = useQueryClient();
   const translationId = useReadingTranslationId();
+  const markStateOf = useRefMarkState(page, noteRefs, translationId);
+  const markState = mark && ref ? markStateOf(ref, mark) : null;
+  const markWords = useMarkStateWords();
+  const stateWords = markState ? markWords(markState) : "";
   const hovered = useRefHover();
   const spot = useRefSpot();
   const outlined = !!canonical && hovered?.from === "page" && hovered.keys.includes(canonical);
@@ -180,14 +203,26 @@ export function ScriptureChip({ editor, nodeKey, href, text }: { editor: Lexical
           "data-selected:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--note-ink)_45%,transparent),0_0_0_1px_var(--background),0_0_0_3px_var(--ring)]",
         )}
       >
+        {markState &&
+          (markState.state === "live" ? (
+            <MarkGlyph kind={markState.kind} className="mr-[0.3em] inline-block size-[0.7em] align-[-0.05em]" />
+          ) : (
+            // Can't follow: a broken ring (never mistaken for the pen's circle)
+            <svg aria-hidden viewBox="0 0 12 12" className="mr-[0.3em] inline-block size-[0.7em] align-[-0.05em]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2.4 2.2">
+              <circle cx="6" cy="6" r="4.6" />
+            </svg>
+          ))}
         <span aria-hidden>{label}</span>
-        <span className="sr-only">{t("note.refChipName", { ref: full })}</span>
+        <span className="sr-only">
+          {stateWords ? t("note.refChipMark", { ref: full, state: stateWords }) : t("note.refChipName", { ref: full })}
+        </span>
       </span>
       {open && ref && (
         <RefPreview
           anchor={chipRef}
           scripture={ref}
           label={label}
+          markState={markState}
           onClose={close}
           onRemove={() => {
             setOpen(false);
@@ -218,12 +253,15 @@ function RefPreview({
   anchor,
   scripture,
   label,
+  markState,
   onClose,
   onRemove,
 }: {
   anchor: React.RefObject<HTMLSpanElement | null>;
   scripture: ScriptureRef;
   label: string;
+  /** Tagged with a mark (#216): its state, said when it can't follow. */
+  markState: RefMarkState | null;
   onClose: (restore: boolean) => void;
   onRemove: () => void;
 }) {
@@ -297,6 +335,7 @@ function RefPreview({
             </span>
           )}
         </p>
+        {markState && <MarkStateLine state={markState} />}
         {notHere ? (
           <p className="text-list text-muted-foreground">
             {t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}
@@ -361,4 +400,25 @@ function RefPreview({
       </PopoverContent>
     </Popover>
   );
+}
+
+/** The preview's line about the mark: what it is, or why the whole verse. */
+function MarkStateLine({ state }: { state: RefMarkState }) {
+  const { t } = useTranslation();
+  const words = useMarkStateWords();
+  const translations = useQuery(translationsQuery).data;
+  if (state.state === "live")
+    return (
+      <p className="flex items-center gap-1.5 font-sans text-meta text-muted-foreground">
+        <MarkGlyph kind={state.kind} />
+        {words(state)}
+      </p>
+    );
+  const text =
+    state.state === "removed"
+      ? t("note.refMarkRemoved")
+      : state.state === "elsewhere"
+        ? t("note.refMarkElsewhere", { abbr: translations?.find((tr) => tr.id === state.translationId)?.abbreviation ?? state.translationId })
+        : "";
+  return text ? <p className="font-sans text-meta text-muted-foreground">{text}</p> : null;
 }

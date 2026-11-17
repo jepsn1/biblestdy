@@ -1,5 +1,5 @@
 import type { Reference } from './reference.js'
-import type { ScriptureRef } from './scripture-href.js'
+import type { MarkLink, ScriptureRef } from './scripture-href.js'
 
 /**
  * How an annotation attaches to Scripture: a word-span within ONE translation.
@@ -140,6 +140,14 @@ export interface NoteRef extends ScriptureRef {
   origin: NoteRefOrigin
   /** Order among the note's inline refs (first mention = 0); null = none. */
   position: number | null
+  /** The mark it was tagged with (#216), as the server last saw it. */
+  mark?: NoteRefMark
+}
+
+/** A ref's mark, server side: the translation the mark lives in, or null
+ * when it is gone (erased, or not the note owner's). */
+export interface NoteRefMark extends MarkLink {
+  translationId: string | null
 }
 
 /** A note: standalone markdown document referencing zero or more spans —

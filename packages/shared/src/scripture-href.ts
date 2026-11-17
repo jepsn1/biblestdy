@@ -80,9 +80,43 @@ export function sameScriptureRef(a: Reference, b: Reference): boolean {
   return ha !== null && ha === formatScriptureHref(b)
 }
 
+/**
+ * A reference tagged with one of the reader's marks (#216): the link's
+ * title, never its href — `[Joh 3,16](bible:JHN.3.16 "mark:hl:<uuid>")`.
+ * The href stays plain grammar, so anything that ignores titles (older
+ * tabs, saved bodies, other clients) still reads the verse. A highlight is
+ * `hl`, a pen mark (annotation) `pen`. The mark lives in one translation;
+ * the verses resolve in any.
+ */
+export type MarkLinkKind = 'highlight' | 'annotation'
+export interface MarkLink {
+  kind: MarkLinkKind
+  id: string
+}
+
+const MARK_TITLE = /^mark:(hl|pen):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+const KIND_TAG: Record<MarkLinkKind, string> = { highlight: 'hl', annotation: 'pen' }
+
+/** The mark a link's title names; null for no title or any other title. */
+export function parseMarkTitle(title: string | null | undefined): MarkLink | null {
+  const m = title ? MARK_TITLE.exec(title.trim()) : null
+  if (!m) return null
+  return { kind: m[1].toLowerCase() === 'hl' ? 'highlight' : 'annotation', id: m[2].toLowerCase() }
+}
+
+/** A mark as a link title (`mark:hl:<uuid>`). */
+export function formatMarkTitle(mark: MarkLink): string {
+  return `mark:${KIND_TAG[mark.kind]}:${mark.id}`
+}
+
+/** A reference a body cites, with the mark it was tagged with, if any. */
+export type CitedRef = ScriptureRef & { mark?: MarkLink }
+
 /** One `[text](bible:…)` link in a markdown body. */
 export interface ScriptureLink {
   ref: ScriptureRef
+  /** The mark named by the link's title (#216); absent = a plain ref. */
+  mark?: MarkLink
   /** The canonical href (may differ in spelling from the source). */
   href: string
   /** The link text as written, markdown escapes removed — a fallback label. */
@@ -94,7 +128,7 @@ export interface ScriptureLink {
 
 // [text](bible:…) — text may hold escaped brackets; the href may be wrapped
 // in <…> and followed by a "title". Malformed hrefs are skipped below.
-const LINK = /\[((?:\\.|[^\]\\])*)\]\(\s*<?(bible:[^\s)>]*)>?(?:\s+"[^"]*")?\s*\)/g
+const LINK = /\[((?:\\.|[^\]\\])*)\]\(\s*<?(bible:[^\s)>]*)>?(?:\s+"([^"]*)")?\s*\)/g
 
 /** Code spans and fenced blocks, blanked (same length) so links shown as
  * code are not references. */
@@ -124,36 +158,44 @@ export function scriptureLinks(body: string): ScriptureLink[] {
     if (m.index > 0 && scan[m.index - 1] === '\\') continue
     const ref = parseScriptureHref(m[2])
     if (!ref) continue
+    const mark = parseMarkTitle(m[3])
     out.push({
       ref,
       href: formatScriptureHref(ref)!,
       text: m[1].replace(/\\(.)/g, '$1'),
       start: m.index,
       end: m.index + m[0].length,
+      ...(mark && { mark }),
     })
   }
   return out
 }
 
 /** The distinct references a body cites, in order of first mention — what
- * the server stores as a note's inline note_ref rows (position = index). */
-export function refsInMarkdown(body: string): ScriptureRef[] {
-  const seen = new Set<string>()
-  const refs: ScriptureRef[] = []
+ * the server stores as a note's inline note_ref rows (position = index).
+ * One per href (the spotlight's key); its mark is the first one any link
+ * to that href names (#216). */
+export function refsInMarkdown(body: string): CitedRef[] {
+  const byHref = new Map<string, CitedRef>()
   for (const link of scriptureLinks(body)) {
-    if (seen.has(link.href)) continue
-    seen.add(link.href)
-    refs.push(link.ref)
+    const seen = byHref.get(link.href)
+    if (seen) {
+      if (!seen.mark && link.mark) seen.mark = link.mark
+      continue
+    }
+    byHref.set(link.href, link.mark ? { ...link.ref, mark: link.mark } : { ...link.ref })
   }
-  return refs
+  return [...byHref.values()]
 }
 
-/** The markdown of a link to a reference: `[label](bible:…)`. The label is
- * escaped; null when the reference can't be an href. */
-export function scriptureLinkMarkdown(ref: Reference, label: string): string | null {
+/** The markdown of a link to a reference: `[label](bible:…)`, with the
+ * mark as its title when tagged (#216). The label is escaped; null when the
+ * reference can't be an href. */
+export function scriptureLinkMarkdown(ref: Reference, label: string, mark?: MarkLink | null): string | null {
   const href = formatScriptureHref(ref)
   if (!href) return null
-  return `[${label.replace(/([\\[\]])/g, '\\$1')}](${href})`
+  const title = mark ? ` "${formatMarkTitle(mark)}"` : ''
+  return `[${label.replace(/([\\[\]])/g, '\\$1')}](${href}${title})`
 }
 
 /** The last chapter a reference touches. */

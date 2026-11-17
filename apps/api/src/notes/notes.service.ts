@@ -191,6 +191,14 @@ function toNoteRef(r: RefRow): NoteRef {
     // The column only ever holds a NoteRefOrigin (written by the stores)
     origin: r.origin as NoteRefOrigin,
     position: r.position,
+    ...(r.markId &&
+      (r.markKind === 'highlight' || r.markKind === 'annotation') && {
+        mark: {
+          kind: r.markKind,
+          id: r.markId,
+          translationId: r.markTranslationId,
+        },
+      }),
   };
 }
 

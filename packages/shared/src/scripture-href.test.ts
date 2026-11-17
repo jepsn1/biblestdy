@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { formatReference, parseReference } from './reference.js'
 import {
+  formatMarkTitle,
   formatScriptureHref,
+  parseMarkTitle,
   parseScriptureHref,
   refTouchesChapter,
   refsInMarkdown,
@@ -147,5 +149,38 @@ describe('refsInMarkdown', () => {
   it('is empty for a body with no references', () => {
     expect(refsInMarkdown('')).toEqual([])
     expect(refsInMarkdown('Just [a link](https://x.y) and John 3:16 typed.')).toEqual([])
+  })
+})
+
+describe('mark-tagged references (#216)', () => {
+  const id = '0b7c1d2e-3f40-4a5b-8c6d-7e8f9a0b1c2d'
+  it('reads the mark from the title, never the href', () => {
+    const body = `[Joh 3,16](bible:JHN.3.16 "mark:hl:${id}") [Sl 23](bible:PSA.23 "mark:pen:${id.toUpperCase()}")`
+    const links = scriptureLinks(body)
+    expect(links.map((l) => l.mark)).toEqual([
+      { kind: 'highlight', id },
+      { kind: 'annotation', id },
+    ])
+    expect(links[0].href).toBe('bible:JHN.3.16')
+  })
+  it('ignores other titles and malformed marks; old bodies have none', () => {
+    for (const title of ['t', 'mark:hl:nope', `mark:ink:${id}`, `x mark:hl:${id}`])
+      expect(scriptureLinks(`[a](bible:JHN.3.16 "${title}")`)[0].mark).toBeUndefined()
+    expect(refsInMarkdown('[Joh 3,16](bible:JHN.3.16)')).toEqual([{ book: 'JHN', chapter: 3, verse: 16 }])
+  })
+  it('refsInMarkdown: one per href, the first mark named for it', () => {
+    const body = `[a](bible:JHN.3.16) [b](bible:JHN.3.16 "mark:hl:${id}") [c](bible:PSA.23)`
+    expect(refsInMarkdown(body)).toEqual([
+      { book: 'JHN', chapter: 3, verse: 16, mark: { kind: 'highlight', id } },
+      { book: 'PSA', chapter: 23 },
+    ])
+  })
+  it('round-trips the title through scriptureLinkMarkdown', () => {
+    const mark = { kind: 'annotation' as const, id }
+    expect(parseMarkTitle(formatMarkTitle(mark))).toEqual(mark)
+    const md = scriptureLinkMarkdown({ book: 'JHN', chapter: 3, verse: 16 }, 'Joh 3,16', mark)!
+    expect(md).toBe(`[Joh 3,16](bible:JHN.3.16 "mark:pen:${id}")`)
+    expect(scriptureLinks(md)[0]).toMatchObject({ href: 'bible:JHN.3.16', mark })
+    expect(parseMarkTitle(null)).toBeNull()
   })
 })

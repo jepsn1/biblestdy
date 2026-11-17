@@ -1,4 +1,5 @@
 import {
+  type Anchor,
   refTouchesChapter,
   resolveInChapter,
   words,
@@ -21,8 +22,16 @@ import type { Localizer } from "./localizer";
  * ink"): one link, one look, whichever way it was made. Verse-level marks go through
  * the versification map (#163: English Mal 4:5 marks BPH Mal 3,23), so
  * they wait for it (`localize` null) rather than land on a wrong verse.
+ *
+ * A ref tagged with one of the reader's marks (#216) is a live link: while
+ * that mark is on this chapter (its translation), it marks the mark's own
+ * words, as they are now; erased, or read in another translation, it falls
+ * back to the verse (the references overview says why).
  * Pure; tested in note-marks.test.ts.
  */
+
+/** The reader's marks on this chapter, by id — what a tagged ref follows. */
+export type LiveMarks = { highlights: readonly (Anchor & { id: string })[]; annotations: readonly (Anchor & { id: string })[] };
 
 /** One drawn mark of a note in the current chapter. `verseLevel`: a whole
  * verse unit (another translation's anchor, or an inline ref) — bracketed
@@ -67,16 +76,27 @@ export function writtenElsewhere(note: Note, translationId: string, book: string
  * → the "14–15" unit) to whole verses. A verse unit gets at most one mark
  * per note, and none where the note already marks words starting there.
  */
-export function noteMarksInChapter(notes: Note[], chapter: Chapter, localize: Localizer | null): NoteMark[] {
+export function noteMarksInChapter(notes: Note[], chapter: Chapter, localize: Localizer | null, live?: LiveMarks): NoteMark[] {
   const { translationId, book } = chapter;
   const c = chapter.chapter;
   const wordCount = new Map(chapter.verses.map((v) => [v.verse, words(v.text).length]));
+  const here = (m: Anchor) => m.translationId === translationId && m.book === book && m.chapter === c;
+  const byId = new Map<string, Anchor>();
+  for (const h of live?.highlights ?? []) if (here(h)) byId.set(`highlight:${h.id}`, h);
+  for (const a of live?.annotations ?? []) if (here(a)) byId.set(`annotation:${a.id}`, a);
   return notes.flatMap((n) => {
     // Untitled notes go by their first line, as everywhere else
     const title = noteTitle(n, "");
-    const home: NoteMark[] = n.anchors
-      .filter((a) => a.translationId === translationId && a.book === book && a.chapter === c)
-      .map((a) => ({ ...a, noteId: n.id, title }));
+    const home: NoteMark[] = n.anchors.filter(here).map((a) => ({ ...a, noteId: n.id, title }));
+    // Tagged refs whose mark is here: the mark's words, word-precise
+    const followed = new Set<string>();
+    for (const r of n.refs ?? []) {
+      const m = r.mark && byId.get(`${r.mark.kind}:${r.mark.id}`);
+      if (!m) continue;
+      followed.add(r.id);
+      const { startVerse, startWord, endVerse, endWord } = m;
+      home.push({ id: r.id, noteId: n.id, title, translationId, book, chapter: c, startVerse, startWord, endVerse, endWord });
+    }
     const taken = new Set(home.map((m) => m.startVerse));
     const verseLevel: NoteMark[] = [];
     const place = (id: string, ref: ScriptureRef | null) => {
@@ -102,7 +122,7 @@ export function noteMarksInChapter(notes: Note[], chapter: Chapter, localize: Lo
       for (const a of n.anchors)
         if (a.translationId !== translationId && a.book === book)
           place(a.id, localize.fromTranslation(anchorRef(a), a.translationId)?.ref ?? null);
-      for (const r of n.refs ?? []) if (r.book === book) place(r.id, localize.local(r)?.ref ?? null);
+      for (const r of n.refs ?? []) if (r.book === book && !followed.has(r.id)) place(r.id, localize.local(r)?.ref ?? null);
     }
     return [...home, ...verseLevel];
   });

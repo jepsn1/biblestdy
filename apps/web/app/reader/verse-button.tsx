@@ -1,4 +1,4 @@
-import { formatScriptureHref, type ScriptureRef } from "@biblestdy/shared";
+import { formatScriptureHref, type MarkLink, type ScriptureRef } from "@biblestdy/shared";
 import { rootEditor$, useCellValue } from "@mdxeditor/editor";
 import { COMMAND_PRIORITY_HIGH, KEY_DOWN_COMMAND, type BaseSelection } from "lexical";
 import { Plus } from "lucide-react";
@@ -77,7 +77,7 @@ export function VerseButton() {
   }, []);
 
   /** Back to the note: the caret where it was, or after the new chip. */
-  function close(ref?: ScriptureRef) {
+  function close(ref?: ScriptureRef, mark?: MarkLink) {
     setOpen(false);
     if (!editor) return;
     const sel = saved.current;
@@ -86,7 +86,7 @@ export function VerseButton() {
       focusEditor(editor, () => {
         $restoreSelection(sel);
         const href = ref && formatScriptureHref(ref);
-        if (ref && href) $insertScriptureRef(href, chipLabel(ref, locale).replace(/\u00a0/g, " "));
+        if (ref && href) $insertScriptureRef(href, chipLabel(ref, locale).replace(/\u00a0/g, " "), mark ?? null);
       }),
     );
   }

@@ -621,6 +621,7 @@ export function NotePanel({
             onReadRef={onReadRef}
             kit={EDITOR_KIT}
             page={place}
+            noteRefs={note.refs}
             placeholder={t("note.bodyPlaceholder")}
             dark={dark}
             mobile={mobile}
@@ -656,6 +657,7 @@ export function NotePanel({
             onInsertInText={insertInText}
             onRemoveRef={removeRef}
             locator={locator}
+            page={place}
             collapsed={mobile && writing && !refsOpen && !peek}
             onExpand={() => setRefsOpen(true)}
             onNaturalHeight={mobile ? undefined : onNaturalHeight}

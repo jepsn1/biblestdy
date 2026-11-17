@@ -35,6 +35,7 @@ export {
   type Note,
   type NoteAnchor,
   type NoteRef,
+  type NoteRefMark,
   type NoteRefOrigin,
   type NewNote,
 } from './anchor.js'
@@ -64,10 +65,15 @@ export {
   scriptureLinks,
   refsInMarkdown,
   scriptureLinkMarkdown,
+  parseMarkTitle,
+  formatMarkTitle,
   refEndChapter,
   refTouchesChapter,
   type ScriptureRef,
   type ScriptureLink,
+  type CitedRef,
+  type MarkLink,
+  type MarkLinkKind,
 } from './scripture-href.js'
 export {
   targetVerses,

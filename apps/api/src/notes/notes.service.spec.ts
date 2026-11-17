@@ -396,3 +396,54 @@ describe('listForChapter maps versification (#163)', () => {
     expect(await ids(svc, 'XYZ', 'MAL', 4)).toEqual([note.id]);
   });
 });
+
+describe('mark-tagged refs (note_ref.mark_kind/mark_id, #216)', () => {
+  const hl = '0b7c1d2e-3f40-4a5b-8c6d-7e8f9a0b1c2d';
+  const pen = '1b7c1d2e-3f40-4a5b-8c6d-7e8f9a0b1c2d';
+  const body = `[Joh 3,16](bible:JHN.3.16 "mark:hl:${hl}") [Joh 3,3](bible:JHN.3.3 "mark:pen:${pen}") [Sl 23](bible:PSA.23)`;
+
+  it('stores the mark from the title; the server says where it lives', async () => {
+    const store = new InMemoryNoteStore();
+    const svc = new NotesService(store);
+    store.setMark(hl, 'u1', 'WEB');
+    store.setMark(pen, 'u1', 'BPH');
+    const note = await svc.create('u1', { body });
+    expect(note.refs.map((r) => [formatScriptureHref(r), r.mark])).toEqual([
+      ['bible:JHN.3.16', { kind: 'highlight', id: hl, translationId: 'WEB' }],
+      ['bible:JHN.3.3', { kind: 'annotation', id: pen, translationId: 'BPH' }],
+      ['bible:PSA.23', undefined],
+    ]);
+    // Listed for the chapter in another translation: the ref is still there
+    const [listed] = await svc.listForChapter('u1', 'BPH', 'JHN', 3);
+    expect(listed.refs[0].mark?.translationId).toBe('WEB');
+  });
+
+  it("an erased mark, or another user's, keeps the ref with translationId null", async () => {
+    const store = new InMemoryNoteStore();
+    const svc = new NotesService(store);
+    store.setMark(hl, 'u2', 'WEB');
+    const note = await svc.create('u1', { body });
+    expect(note.refs[0].mark).toEqual({
+      kind: 'highlight',
+      id: hl,
+      translationId: null,
+    });
+    store.setMark(hl, 'u1', 'WEB');
+    const [again] = await svc.listAll('u1');
+    expect(again.refs[0].mark?.translationId).toBe('WEB');
+    store.setMark(hl, 'u1', null);
+    const [gone] = await svc.listAll('u1');
+    expect(gone.refs[0].mark?.translationId).toBeNull();
+    expect(formatScriptureHref(gone.refs[0])).toBe('bible:JHN.3.16');
+  });
+
+  it('removing the title on the next save drops the mark', async () => {
+    const svc = make();
+    const note = await svc.create('u1', { body });
+    const saved = await svc.update('u1', note.id, {
+      body: '[Joh 3,16](bible:JHN.3.16)',
+    });
+    expect(saved?.refs).toHaveLength(1);
+    expect(saved?.refs[0].mark).toBeUndefined();
+  });
+});

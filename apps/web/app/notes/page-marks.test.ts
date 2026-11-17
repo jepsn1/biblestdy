@@ -61,6 +61,12 @@ describe("pageMarks", () => {
       ]),
     );
   });
+  it("each row tags one mark: its first highlight, else its first pen mark (#216)", () => {
+    const [both] = pageMarks([hl("h", 16, 0, 16, 3)], [pen("p", 16, 16, "circle")], chapter);
+    expect(both.mark).toEqual({ kind: "highlight", id: "h" });
+    const [penOnly] = pageMarks([], [pen("p", 17, 17, "underline")], chapter);
+    expect(penOnly.mark).toEqual({ kind: "annotation", id: "p" });
+  });
   it("maps the translation's numbering to canonical; no counterpart, no row", () => {
     const marks = pageMarks([hl("a", 16, 0, 16, 1), hl("b", 17, 0, 17, 1)], [], chapter, (r) =>
       r.verse === 17 ? null : { ...r, chapter: 4, verse: 2 },

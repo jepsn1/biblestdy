@@ -1,4 +1,4 @@
-import { parseScriptureHref } from "@biblestdy/shared";
+import { parseScriptureHref, type MarkLink } from "@biblestdy/shared";
 import { rootEditor$, useCellValue } from "@mdxeditor/editor";
 import {
   $getNodeByKey,
@@ -19,7 +19,7 @@ import { chipLabel } from "~/lib/reference-label";
 import { $createScriptureRefNode, $isScriptureRefNode } from "./scripture-ref-node";
 
 /** Where a chip sat, to put it back. */
-type Place = { href: string; text: string; prevKey: NodeKey | null; parentKey: NodeKey | null; index: number };
+type Place = { href: string; text: string; mark: MarkLink | null; prevKey: NodeKey | null; parentKey: NodeKey | null; index: number };
 
 /** Every chip in a state, by href, with where its first one sits. */
 function chipsIn(state: EditorState): Map<string, Place> {
@@ -32,6 +32,7 @@ function chipsIn(state: EditorState): Map<string, Place> {
           out.set(href, {
             href,
             text: node.getTextContent(),
+            mark: node.getMark(),
             prevKey: node.getPreviousSibling()?.getKey() ?? null,
             parentKey: node.getParent()?.getKey() ?? null,
             index: node.getIndexWithinParent(),
@@ -45,7 +46,7 @@ function chipsIn(state: EditorState): Map<string, Place> {
 
 /** Puts a removed chip back where it was, as near as the text allows. */
 function $putBack(p: Place) {
-  const chip = $createScriptureRefNode(p.href, p.text);
+  const chip = $createScriptureRefNode(p.href, p.text, p.mark);
   const prev = p.prevKey ? $getNodeByKey(p.prevKey) : null;
   const parent = p.parentKey ? $getNodeByKey(p.parentKey) : null;
   if (prev?.isAttached()) prev.insertAfter(chip);

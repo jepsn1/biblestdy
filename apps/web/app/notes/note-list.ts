@@ -7,6 +7,7 @@ import {
   wordRangeInVerse,
   words,
   type Anchor,
+  type CitedRef,
   type BookLocale,
   type Chapter,
   type Note,
@@ -63,7 +64,8 @@ function placeOf(r: ScriptureRef): Pick<Anchor, "book" | "chapter" | "startVerse
 
 /** One row of a note's references overview (#161). */
 export type OverviewRow =
-  | { kind: "text"; key: string; ref: ScriptureRef }
+  /** `ref.mark`: tagged with one of the reader's marks (#216). */
+  | { kind: "text"; key: string; ref: CitedRef }
   | { kind: "marked"; key: string; anchor: NoteAnchor };
 
 /**

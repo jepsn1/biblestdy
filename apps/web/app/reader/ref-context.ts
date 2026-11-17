@@ -1,4 +1,4 @@
-import type { ScriptureRef } from "@biblestdy/shared";
+import type { NoteRef, ScriptureRef } from "@biblestdy/shared";
 import { createContext, type ComponentType } from "react";
 import type { Hint, modKey } from "~/components/hint";
 import type { Popover, PopoverContent } from "~/components/ui/popover";
@@ -44,6 +44,8 @@ export type RefContextValue = {
   kit: EditorKit;
   /** Absent off the reader (the Notes page): no page marks. */
   page?: PagePlace;
+  /** The note's refs as last saved: where a tagged chip's mark lives (#216). */
+  noteRefs?: readonly NoteRef[];
 };
 
 export const ScriptureRefContext = createContext<RefContextValue>(null as unknown as RefContextValue);

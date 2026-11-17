@@ -24,7 +24,8 @@ import {
 } from "../notes/note-list";
 import { canonicalRef, localRef } from "@biblestdy/shared/versification";
 import { makeLocalizer } from "./localizer";
-import type { ReadRef } from "./ref-context";
+import type { PagePlace, ReadRef } from "./ref-context";
+import { useMarkStateWords, useRefMarkState } from "./ref-mark";
 import { ScriptureCredit } from "./scripture-credit";
 import { refTag, stepIndex, type RefLocator } from "./ref-location";
 import { STEP_REF, type StepRefDetail } from "./dialog-events";
@@ -85,6 +86,7 @@ export function ReferencesOverview({
   onExpand,
   onNaturalHeight,
   mobile = false,
+  page,
 }: {
   note: Note;
   /** The live body (ahead of the save). */
@@ -115,6 +117,8 @@ export function ReferencesOverview({
    * empty line), for the pane to hug. */
   onNaturalHeight?: (px: number) => void;
   mobile?: boolean;
+  /** The chapter open beside it: a tagged ref's mark is looked up there (#216). */
+  page?: PagePlace;
 }) {
   const { t, i18n } = useTranslation();
   const nameOf = useBookName();
@@ -137,6 +141,9 @@ export function ReferencesOverview({
     [translations.data, readingId],
   );
   const localize: LocalizeRef = (r) => loc?.local(r)?.ref ?? null;
+  // A ref tagged with a mark (#216): live, or why not ("Mark removed")
+  const markStateOf = useRefMarkState(page, note.refs, readingId);
+  const markWords = useMarkStateWords();
 
   const rows = useMemo(() => overviewRows(body, note.anchors), [body, note.anchors]);
   const [asked, setAsked] = useState<ReadonlySet<string>>(() => new Set());
@@ -338,6 +345,8 @@ export function ReferencesOverview({
     // A note about the text, not its words: UI font
     let plain = false;
     let source = "";
+    /** The source says why a tagged ref can't follow its mark (#216). */
+    let markLine = false;
     let read: () => void;
     let readName = t("note.readPassage");
     let action: ReactNode = null;
@@ -405,6 +414,15 @@ export function ReferencesOverview({
           printed && local && (printed.bridged || local.renumbered)
             ? t("note.bridgeNote", { abbr: readingAbbr, ref: `${local.ref.chapter}${sep}${verses}` })
             : readingAbbr;
+      }
+      // Tagged with a mark: its kind as it is now, or — never silently
+      // (Ruth) — why it shows the whole verse instead
+      const state = r.mark ? markStateOf(r, r.mark) : null;
+      const said = state ? markWords(state) : "";
+      if (said) {
+        markLine = state?.state === "removed" || state?.state === "elsewhere";
+        // The reason alone (it fits a phone's line); live: "WEB · Fremhævning (guld)"
+        source = markLine || !source ? said : `${source} · ${said}`;
       }
       action = (
         <button
@@ -513,7 +531,7 @@ export function ReferencesOverview({
     const face = plain ? "font-sans" : "font-serif";
     const snippetEl = <span className={cn("min-w-0 truncate text-list", muted, face)}>{snippet}</span>;
     const sourceEl = (
-      <span className={cn("font-sans text-meta whitespace-nowrap", muted)}>
+      <span data-mark-fallback={markLine || undefined} className={cn("font-sans text-meta whitespace-nowrap", muted)}>
         {source}
         {tagEl}
       </span>
@@ -534,7 +552,7 @@ export function ReferencesOverview({
           <span className="flex min-w-0 items-baseline gap-1.5">
             {labelEl}
             {(source || tagEl) && (
-              <span className={cn("truncate font-sans text-meta", muted)}>
+              <span data-mark-fallback={markLine || undefined} className={cn("truncate font-sans text-meta", muted)}>
                 · {source}
                 {tagEl}
               </span>

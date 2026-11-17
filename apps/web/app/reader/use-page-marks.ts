@@ -31,16 +31,21 @@ export function usePageMarks(): PageMark[] {
 const EMPTY_H: Highlight[] = [];
 const EMPTY_A: Annotation[] = [];
 
-/** How a mark is marked, in words: "Highlight (gold)", "Underline, with text". */
-export function useMarkKind() {
+/** One way of marking, in words: "Highlight (gold)", "Underline, with text". */
+export function useKindName() {
   const { t } = useTranslation();
   const { name } = useColorName();
-  const one = useCallback(
+  return useCallback(
     (k: MarkKind) =>
       k.type === "highlight"
         ? t("note.markHighlight", { color: name(k.color) })
         : `${t(k.mark ? `marks.${k.mark}` : "marks.label")}${k.text ? `, ${t("marks.text").toLocaleLowerCase()}` : ""}`,
     [t, name],
   );
+}
+
+/** How a page mark is marked, in words (every kind it has). */
+export function useMarkKind() {
+  const one = useKindName();
   return useCallback((m: PageMark) => m.kinds.map(one).join(" · "), [one]);
 }

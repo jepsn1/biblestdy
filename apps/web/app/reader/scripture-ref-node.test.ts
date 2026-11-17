@@ -1,6 +1,6 @@
 import * as MDX from "@mdxeditor/editor";
 import { linkPlugin, markdown$, Realm, rootEditor$ } from "@mdxeditor/editor";
-import { $getRoot, $isParagraphNode, type LexicalEditor } from "lexical";
+import { $getRoot, $isParagraphNode, type EditorState, type LexicalEditor } from "lexical";
 import { describe, expect, it } from "vitest";
 import {
   $insertScriptureRef,
@@ -99,6 +99,58 @@ describe("ScriptureRefNode: markdown round-trip", () => {
     expect(JSON.stringify(json)).toContain('"href":"bible:JHN.3.16"');
     expect(found).toEqual([]);
     expect(again.read(() => $getRoot().getTextContent())).toBe("Joh 3,16");
+  });
+});
+
+describe("a chip tagged with a mark (#216)", () => {
+  const id = "0b7c1d2e-3f40-4a5b-8c6d-7e8f9a0b1c2d";
+  const marks = (editor: LexicalEditor) => marksIn(editor.getEditorState());
+  const marksIn = (state: EditorState) =>
+    state.read(() => {
+      const out: unknown[] = [];
+      for (const block of $getRoot().getChildren())
+        if ($isParagraphNode(block)) for (const n of block.getChildren()) if ($isScriptureRefNode(n)) out.push(n.getMark());
+      return out;
+    });
+
+  it("reads the mark from the title and writes it back byte for byte", async () => {
+    const body = `Loved: [Joh 3,16](bible:JHN.3.16 "mark:hl:${id}") and [Joh 3,3](bible:JHN.3.3 "mark:pen:${id}").`;
+    const { editor, markdown } = editorWith(body);
+    await settle();
+    expect(marks(editor)).toEqual([
+      { kind: "highlight", id },
+      { kind: "annotation", id },
+    ]);
+    expect(markdown().trim()).toBe(body);
+  });
+
+  it("an old body (no title) stays a plain chip; other titles are dropped, the verse kept", async () => {
+    const { editor, markdown } = editorWith('[Joh 3,16](bible:JHN.3.16) [Sl 23](bible:PSA.23 "x")');
+    await settle();
+    expect(marks(editor)).toEqual([null, null]);
+    expect(markdown().trim()).toBe("[Joh 3,16](bible:JHN.3.16) [Sl 23](bible:PSA.23)");
+  });
+
+  it("$insertScriptureRef tags it", async () => {
+    const { editor, markdown } = editorWith("See");
+    await settle();
+    editor.update(() => {
+      $restoreSelection(null);
+      $insertScriptureRef("bible:JHN.3.16", "Joh 3,16", { kind: "highlight", id });
+    });
+    await settle();
+    expect(markdown().trim()).toBe(`See[Joh 3,16](bible:JHN.3.16 "mark:hl:${id}")`);
+  });
+
+  it("JSON v2 carries the mark; a v1 node (no mark) still imports", async () => {
+    const { editor } = editorWith(`[Joh 3,16](bible:JHN.3.16 "mark:hl:${id}")`);
+    await settle();
+    const json = editor.getEditorState().toJSON();
+    const chip = JSON.stringify(json).match(/\{[^{}]*"type":"scripture-ref"[^{}]*\{[^{}]*\}[^{}]*\}/)?.[0];
+    expect(chip && JSON.parse(chip)).toMatchObject({ version: 2, href: "bible:JHN.3.16", mark: { kind: "highlight", id } });
+    expect(marksIn(editor.parseEditorState(json))).toEqual([{ kind: "highlight", id }]);
+    const v1 = editor.parseEditorState(JSON.stringify(json).replace(chip!, JSON.stringify({ ...JSON.parse(chip!), version: 1, mark: undefined })));
+    expect(marksIn(v1)).toEqual([null]);
   });
 });
 

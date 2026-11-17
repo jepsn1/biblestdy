@@ -158,7 +158,12 @@ export function RefTypeahead() {
       if (o.kind === "book") range.insertText(`${o.name} `);
       else {
         const ref = o.kind === "mark" ? o.mark.ref : o.ref;
-        $insertScriptureRef(o.kind === "mark" ? o.mark.href : o.href, chipLabel(ref, locale).replace(/ /g, " "));
+        // A mark picked: the chip is tagged with it (#216), a live link
+        $insertScriptureRef(
+          o.kind === "mark" ? o.mark.href : o.href,
+          chipLabel(ref, locale).replace(/ /g, " "),
+          o.kind === "mark" ? o.mark.mark : null,
+        );
       }
     });
   }

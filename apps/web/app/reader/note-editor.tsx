@@ -22,6 +22,7 @@ import {
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
+import type { NoteRef } from "@biblestdy/shared";
 import { useEffect, useMemo, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { editorIcon } from "./editor-icons";
@@ -48,6 +49,7 @@ export function NoteEditor({
   onReadRef,
   kit,
   page,
+  noteRefs,
 }: {
   editorRef: Ref<MDXEditorMethods>;
   markdown: string;
@@ -63,6 +65,8 @@ export function NoteEditor({
   kit: EditorKit;
   /** The chapter open in the reader beside the note (#191). */
   page?: PagePlace;
+  /** The note's saved refs: where tagged chips' marks live (#216). */
+  noteRefs?: readonly NoteRef[];
 }) {
   const { i18n } = useTranslation();
   const translation = useMemo(() => editorTranslation(i18n.language), [i18n.language]);
@@ -75,8 +79,9 @@ export function NoteEditor({
       mobile,
       kit,
       page: pageTid && pageBook && pageCh ? { translationId: pageTid, book: pageBook, chapter: pageCh } : undefined,
+      noteRefs,
     }),
-    [onReadRef, mobile, kit, pageTid, pageBook, pageCh],
+    [onReadRef, mobile, kit, pageTid, pageBook, pageCh, noteRefs],
   );
   useEffect(() => {
     onReady?.();

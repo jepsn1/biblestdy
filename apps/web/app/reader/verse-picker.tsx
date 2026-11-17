@@ -1,4 +1,4 @@
-import type { ScriptureRef } from "@biblestdy/shared";
+import type { MarkLink, ScriptureRef } from "@biblestdy/shared";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
@@ -14,7 +14,8 @@ export type VersePickerProps = {
   open: boolean;
   mobile: boolean;
   /** Closed: with the reference picked, or none (Esc, ×, outside). */
-  onClose: (ref?: ScriptureRef) => void;
+  /** `mark`: a page mark picked (#216) — the chip is tagged with it. */
+  onClose: (ref?: ScriptureRef, mark?: MarkLink) => void;
   /** The open chapter's marks (#191), listed under the field. */
   marks?: PageMark[];
   /** A mark's kind in words. */
@@ -35,9 +36,9 @@ export function VersePicker({ open, mobile, onClose, marks = [], describe = () =
   const headId = useId();
   const [text, setText] = useState("");
   /** Next time it opens empty, as the field does. */
-  const close = (ref?: ScriptureRef) => {
+  const close = (ref?: ScriptureRef, mark?: MarkLink) => {
     setText("");
-    onClose(ref);
+    onClose(ref, mark);
   };
   const shown = filterMarks(marks, text, locale, describe);
   const buttons = () => [...(listRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
@@ -63,7 +64,7 @@ export function VersePicker({ open, mobile, onClose, marks = [], describe = () =
             <li key={m.href}>
               <button
                 type="button"
-                onClick={() => close(m.ref)}
+                onClick={() => close(m.ref, m.mark)}
                 className={cn(
                   "flex min-h-11 w-full items-center rounded-md px-2 py-1.5 text-list hover:bg-accent/60",
                   !mobile && "pointer-fine:min-h-9",
