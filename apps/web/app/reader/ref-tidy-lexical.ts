@@ -11,11 +11,14 @@ const plain = (n: LexicalNode | null): n is TextNode => $isTextNode(n) && n.isSi
 export function $removeChipTidy(chip: LexicalNode) {
   const prev = chip.getPreviousSibling();
   const next = chip.getNextSibling();
-  // A line break is the line's edge, like the paragraph's
-  const side = (n: LexicalNode | null) => (plain(n) ? n.getTextContent() : n && !$isLineBreakNode(n) ? NOT_TEXT : "");
-  const before = side(prev);
-  const after = side(next);
-  const cut = tidyAround(before, after);
+  // A line break is the line's edge, like the paragraph's; past the
+  // neighbouring text, another chip reads as a word ("See [x], [y].")
+  const word = (n: LexicalNode | null) => (n && !$isLineBreakNode(n) ? NOT_TEXT : "");
+  const before = plain(prev) ? prev.getTextContent() : "";
+  const after = plain(next) ? next.getTextContent() : "";
+  const lead = plain(prev) ? word(prev.getPreviousSibling()) : word(prev);
+  const tail = plain(next) ? word(next.getNextSibling()) : word(next);
+  const cut = tidyAround(lead + before, after + tail);
   chip.remove();
   if (plain(prev) && cut.before > 0) {
     if (cut.before >= before.length) prev.remove();

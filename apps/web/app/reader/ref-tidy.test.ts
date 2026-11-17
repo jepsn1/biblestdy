@@ -31,6 +31,10 @@ describe("tidyAround (#226)", () => {
     expect(without("The serpent ([x]) points")).toBe("The serpent points");
     expect(without("The serpent ([x]).")).toBe("The serpent.");
   });
+  it("reads a chip beside it as a word", () => {
+    expect(tidyAround("See ", `, ${NOT_TEXT}`)).toEqual({ before: 0, after: 2 });
+    expect(tidyAround(`${NOT_TEXT}, `, ".")).toEqual({ before: 2, after: 0 });
+  });
   it("only ever cuts what touches the chip", () => {
     expect(without("A,B[x]C")).toBe("A,BC");
     expect(tidyAround(`a ${NOT_TEXT}`, ", b")).toEqual({ before: 0, after: 0 });
