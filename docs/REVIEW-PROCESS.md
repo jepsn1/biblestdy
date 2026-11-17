@@ -25,6 +25,7 @@ Reviewers never browse on their own: one pack, same evidence for everyone.
 2. Seed realistic study data: `tools/review/seed.sh cookies.txt` (WEB John 3: highlights, a margin annotation, a note, a tag). Dev Resend key is live: only `delivered@resend.dev`.
 3. Screenshots + accessibility scan: `tools/review/ui-shots.mjs` (Playwright + axe-core) — every screen and overlay, desktop/tablet/phone, Paper/Clean, light/dark, en/da, keyboard focus, 200% zoom equivalent. Add shots for the feature under review. Run from a scratch dir with `npm i playwright axe-core`:
    `BASE=http://localhost:5173 COOKIES=cookies.txt OUT=<dir> node tools/review/ui-shots.mjs`
+   Phone tap checks: `tools/review/tap-after-drawers.mjs` (every drawer opened/closed N times, then tap-select; iOS + Android UA). Phone taps on words: scroll the word in, wait ~400ms, then tap — `locator.tap()` on an off-screen word scrolls and touches in the same ms, which the tap rule (#195) refuses as a fling-stop (#230).
 4. Open 2–3 shots yourself before handing out the pack (catch broken captures).
 5. Add a short inventory to the prompt when relevant (e.g. which shadcn components exist).
 6. Afterwards: delete the seeded data (keep the test user).
