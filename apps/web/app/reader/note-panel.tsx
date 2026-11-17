@@ -182,6 +182,7 @@ export function NotePanel({
   place,
   locator,
   mobile = false,
+  peek = false,
 }: {
   note: Note;
   /** Resolves when the server saved; rejects on failure (save state). */
@@ -210,6 +211,9 @@ export function NotePanel({
   /** Drawer build (#13): stacked layout, touch targets, slim toolbar —
    * feature parity with the desktop split, not a squeezed clone of it. */
   mobile?: boolean;
+  /** Phone drawer at its peek (#215): the title and the references only —
+   * the text above it is the reader's. The editor stays mounted, hidden. */
+  peek?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
@@ -527,7 +531,7 @@ export function NotePanel({
   // Phone: while writing, the overview is one line; a tap opens it, typing
   // folds it again (Freja, Kasper)
   const [writing, setWriting] = useState(false);
-  const [peek, setPeek] = useState(false);
+  const [refsOpen, setRefsOpen] = useState(false);
   // A short screen in rem (large text, #196): writing, the tags row steps
   // aside too, so the note and its `@` menu get the room
   const roomy = useViewportFits(roomyFits, true, "height");
@@ -600,7 +604,7 @@ export function NotePanel({
       </PanelHeader>
 
       {/* Tags group study across the graph (issue #10) — chips open topic pages */}
-      <div className={cn("border-b border-border px-3 py-1.5", folded && "hidden")}>
+      <div className={cn("border-b border-border px-3 py-1.5", (folded || peek) && "hidden")}>
         <NoteTagsRow noteId={note.id} />
       </div>
 
@@ -651,8 +655,8 @@ export function NotePanel({
             onInsertInText={insertInText}
             onRemoveRef={removeRef}
             locator={locator}
-            collapsed={mobile && writing && !peek}
-            onExpand={() => setPeek(true)}
+            collapsed={mobile && writing && !refsOpen && !peek}
+            onExpand={() => setRefsOpen(true)}
             onNaturalHeight={mobile ? undefined : onNaturalHeight}
             mobile={mobile}
           />
@@ -664,18 +668,23 @@ export function NotePanel({
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
             <div
               data-tour="note-editor"
-              className="flex min-h-0 flex-1 flex-col"
+              className={cn("flex min-h-0 flex-1 flex-col", peek && "hidden")}
               onFocus={() => setWriting(true)}
               onBlur={(e) => {
                 if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
                 setWriting(false);
-                setPeek(false);
+                setRefsOpen(false);
               }}
-              onKeyDown={() => setPeek(false)}
+              onKeyDown={() => setRefsOpen(false)}
             >
               {editor}
             </div>
-            <div data-tour="note-refs" className="flex max-h-[40%] shrink-0 flex-col border-t border-border">{references}</div>
+            <div
+              data-tour="note-refs"
+              className={cn("flex shrink-0 flex-col border-t border-border", peek ? "min-h-0 flex-1" : "max-h-[40%]")}
+            >
+              {references}
+            </div>
           </div>
         ) : (
           <ResizablePanelGroup
@@ -717,7 +726,7 @@ export function NotePanel({
         />
       )}
 
-      <footer className="flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-meta text-muted-foreground">
+      <footer className={cn("flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-meta text-muted-foreground", peek && "hidden")}>
         {/* No confirm: the delete toast offers Undo (#64) */}
         <Button
           variant="ghost"

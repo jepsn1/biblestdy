@@ -50,6 +50,7 @@ import { PEN_STYLES, TOOL_KEYS, ToolPalette, ToolStatus, type PenStyle, type Rea
 import { useLocalizer } from "./localizer";
 import { stepRef } from "./dialog-events";
 import { needsMap, noteMarksInChapter } from "./note-marks";
+import { NOTE_FULL, passageInset, peekPoint } from "./note-drawer";
 import { useAllNotesQuery, useNotes } from "./use-notes";
 import { moreRefs, type RefLocator } from "./ref-location";
 import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, usePageHover, useSpotlightEnd } from "./spotlight";
@@ -243,20 +244,36 @@ export function PaginatedChapter({
    * selection ("note:<note>:<anchor>") or text reference ("ref:<note>:<href>",
    * by canonical href) — see spotlight.ts. */
   const [spotId, setSpotId] = useState<string | null>(null);
-  /** Phone (#195): the note drawer folded down to a bar, so the reference
-   * it just spotlit in the text shows. The note stays mounted (nothing is
-   * lost); the bar's tap brings it back up. */
+  /** The note drawer's peek (#195, #215, note-drawer.ts): phones 45% —
+   * the passage above it, the note's title and references below; a paged
+   * sheet, the bar alone. The note stays mounted (nothing is lost); "Back
+   * to note" (or a drag) brings it up full. */
   const [notePeek, setNotePeek] = useState(false);
   const peekRef = useRef<HTMLButtonElement>(null);
-  // Folding hides the row that had focus: focus goes to the bar (one tap,
-  // or Enter, back to the note); unfolding hands it back to that row
+  /** What had focus when the note peeked: kept in view, or (hidden by the
+   * peek: the bar, or the editor's preview) focus goes to "Back to note";
+   * going full hands it back. */
   const foldedFrom = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (notePeek) peekRef.current?.focus({ preventScroll: true });
-  }, [notePeek]);
-  function unfoldNote() {
+  function peekNote() {
+    foldedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setNotePeek(true);
+    // After the peek's layout: the row tapped stays in view, else the bar
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = foldedFrom.current;
+        const popup = peekRef.current?.closest("[data-slot=drawer-popup]");
+        if (el && popup?.contains(el) && el.getClientRects().length > 0) el.scrollIntoView({ block: "nearest" });
+        else if (popup?.contains(document.activeElement) || document.activeElement === document.body)
+          peekRef.current?.focus({ preventScroll: true });
+      }),
+    );
+  }
+  /** Full again ("Back to note", or dragged up): never a spotlight under
+   * the full drawer — it ends (#215). */
+  function unfoldNote(refocus = true) {
     setNotePeek(false);
-    requestAnimationFrame(() => foldedFrom.current?.focus({ preventScroll: true }));
+    setSpotId(null);
+    if (refocus) requestAnimationFrame(() => foldedFrom.current?.focus({ preventScroll: true }));
   }
 
   const {
@@ -345,7 +362,24 @@ export function PaginatedChapter({
       if (wantedPage.current === "last") wantedPage.current = null;
     }
     setOpenNoteId(id);
+    // Phones (#215, #203): the note peeks, its passage scrolls up above it
+    if (at && scrollMode) {
+      foldedFrom.current = null;
+      setNotePeek(true);
+      setPassageAt({ ...at });
+    }
   };
+  /** Phones: the passage a note was just opened at, scrolled into view
+   * above its peek once the drawer is up (the pane has its room then). */
+  const [passageAt, setPassageAt] = useState<Place | null>(null);
+  useEffect(() => {
+    if (!passageAt) return;
+    setPassageAt(null);
+    const root = mainRef.current ?? regionRef.current;
+    const el = root?.querySelector(placeSelector(passageAt)) ?? root?.querySelector(`[data-verse="${passageAt.verse}"][data-word]`);
+    if (el) requestAnimationFrame(() => scrollToEl(el, "smooth", true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passageAt]);
   // ?note=<id> (cross-chapter reference jump) claims the slot on arrival
   const wantedNote = searchParams.get("note");
   useEffect(() => {
@@ -600,7 +634,7 @@ export function PaginatedChapter({
   function jumpToSpot(spot: string) {
     const el = spotEl(spot);
     const target = el ? pageOf(el, stride) : null;
-    if (scrollMode && el) scrollToEl(el, "smooth");
+    if (scrollMode && el) scrollToEl(el, "smooth", !!openNoteId);
     else if (target !== null) {
       wantedPage.current = null;
       wantedVerse.current = null;
@@ -609,11 +643,8 @@ export function PaginatedChapter({
     }
     setFlash(null); // another reference replaces the verse spotlight
     setSpotId(spot);
-    // Phones: the note drawer would cover the spotlit words — fold it down
-    if (sideInDrawer) {
-      foldedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setNotePeek(true);
-    }
+    // Phones: the note drawer would cover the spotlit words — it peeks
+    if (sideInDrawer) peekNote();
   }
 
   /** A reference's first word, in this chapter's own text (a page can
@@ -630,13 +661,15 @@ export function PaginatedChapter({
     return pageReader(contentRef.current, pageStride)?.(el) ?? null;
   }
 
-  /** Phones: scroll an element to the upper third of the pane. Not
+  /** Phones: scroll an element to the upper third of the pane — near its
+   * top when the note peeks over the lower part (`peek`, #215). Not
    * scrollIntoView: it would also scroll the locked body. */
-  function scrollToEl(el: Element, behavior: ScrollBehavior) {
+  function scrollToEl(el: Element, behavior: ScrollBehavior, peek = notePeek && !!openNoteId) {
     const vp = viewportOf();
     if (!vp) return;
     const top = el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
-    vp.scrollTo({ top: Math.max(0, top - vp.clientHeight / 3), behavior });
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    vp.scrollTo({ top: Math.max(0, top - passageInset(vp.clientHeight, peek, rem)), behavior });
   }
 
   /** First word of a stored verse. */
@@ -899,6 +932,11 @@ export function PaginatedChapter({
   const spotExit = spotLabel
     ? { label: t("reader.spotShowing", { ref: spotLabel }), short: spotLabel, showAll: t("reader.spotShowAll"), onEnd: endSpot }
     : null;
+  /** The note drawer's snaps (#215): [peek, full]. */
+  const notePeekPoint = peekPoint(scrollMode, !!spotExit);
+  const noteSnaps = useMemo(() => [notePeekPoint, NOTE_FULL], [notePeekPoint]);
+  /** Phones: the note's drawer is open, peek or full. */
+  const noteDrawer = sideInDrawer && scrollMode && !!openNote;
 
   // Mirror the page into the URL (replace, no history spam) and lastRead
   useEffect(() => {
@@ -1498,6 +1536,8 @@ export function PaginatedChapter({
         penHost={penHost}
         marginHidden={turning || sliding}
         compact={scrollMode}
+        // The drawer full: its passage above shows the note-open wash alone
+        noteInkHidden={noteDrawer && !notePeek}
         marginBoxes={marginBoxes}
         railChips={!scrollMode}
         regionRef={regionRef}
@@ -1538,7 +1578,13 @@ export function PaginatedChapter({
              layers share the region's box, so they scroll with the text. */
           <ScrollArea ref={scrollRef} data-chapter-sheet className="h-full">
             <div ref={regionRef} className="relative isolate">
-              <div ref={contentBoxRef} className="relative px-4 pt-8 pb-16">
+              <div
+                ref={contentBoxRef}
+                className="relative px-4 pt-8 pb-16"
+                // An open note's peek covers the lower 45%: the chapter's
+                // last verses can still scroll up above it (#215)
+                style={noteDrawer ? { paddingBottom: "calc(45dvh + 4rem)" } : undefined}
+              >
                 {/* Phones: the foot is at the chapter's end — say it up top */}
                 <MarksLoadError
                   failed={marksFailed}
@@ -1817,15 +1863,23 @@ export function PaginatedChapter({
             open={!!openNote}
             onOpenChange={(open) => !open && closeNote()}
             showSwipeHandle
-            // Folded (#195): the text is the reader's again — scroll it, tap
-            // it (ends the spotlight, #190), the bar stays
+            // [peek, full] (#215): opening from the text and any spotlight
+            // peek; a drag or "Back to note" goes full (ending a spotlight)
+            snapPoints={noteSnaps}
+            // A drag goes one step (full → peek → closed), however fast
+            snapToSequentialPoints
+            snapPoint={notePeek ? notePeekPoint : NOTE_FULL}
+            onSnapPointChange={(point) => {
+              if (point === NOTE_FULL) {
+                if (notePeek) unfoldNote(false);
+              } else if (point !== null && !notePeek) peekNote();
+            }}
+            // The peek (#195): the text is the reader's again — scroll it, tap
+            // it (ends the spotlight, #190), no overlay, focus not trapped
             modal={!notePeek}
             disablePointerDismissal={notePeek}
           >
-            <DrawerContent
-              aria-label={openNote?.title || t("note.untitled")}
-              style={{ "--drawer-height": notePeek ? "auto" : "92dvh" } as React.CSSProperties}
-            >
+            <DrawerContent aria-label={openNote?.title || t("note.untitled")}>
               {/* The spotlight's exit line (#210): above the bar, which
                   stays where the thumb found it */}
               {openNote && notePeek && spotExit && (
@@ -1849,19 +1903,27 @@ export function PaginatedChapter({
                 <button
                   ref={peekRef}
                   type="button"
-                  onClick={unfoldNote}
+                  data-note-peek=""
+                  onClick={() => unfoldNote()}
                   className={cn(
-                    "mx-3 mt-1 mb-[max(env(safe-area-inset-bottom),0.75rem)] flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent",
+                    "mx-3 mt-1 flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-accent",
+                    // The bar alone (a paged sheet): clear of the home bar
+                    !scrollMode && "mb-[max(env(safe-area-inset-bottom),0.75rem)]",
                     focusRing,
                   )}
                 >
                   <ChevronUp aria-hidden className="size-4 shrink-0" />
                   <span className="shrink-0 font-medium">{t("note.backToNote")}</span>
-                  <span className="min-w-0 truncate text-muted-foreground">{openNote.title || t("note.untitled")}</span>
+                  {/* Phones: the title heads the peeking note just below */}
+                  <span className={cn("min-w-0 truncate text-muted-foreground", scrollMode && "sr-only")}>
+                    {openNote.title || t("note.untitled")}
+                  </span>
                 </button>
               )}
               {openNote && (
-                <div className={cn("flex min-h-0 flex-1 flex-col", notePeek && "hidden")}>
+                // Phones peek with the note's title and references (#215); a
+                // paged sheet's peek is the bar alone
+                <div className={cn("flex min-h-0 flex-1 flex-col", notePeek && !scrollMode && "hidden")}>
                 <NotePanel
                   // One panel per note: no text carries over to the next
                   key={openNote.id}
@@ -1878,6 +1940,7 @@ export function PaginatedChapter({
                   locator={refLocator}
                   onClose={closeNote}
                   mobile
+                  peek={notePeek}
                 />
                 </div>
               )}

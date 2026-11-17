@@ -31,7 +31,7 @@ import {
   SELECTION_UI_ATTR,
   type VirtualAnchor,
 } from "./selection-menu";
-import { verseNoteLabel, type NoteMark } from "./note-marks";
+import { verseMarkers, verseNoteLabel, type NoteMark, type VerseMarker } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
@@ -1086,9 +1086,14 @@ export function ChapterText({
   if (inlineAnnotations)
     for (const a of [...annotations].filter((x) => x.text).sort((x, y) => x.startVerse - y.startVerse || x.startWord - y.startWord))
       linesByVerse.set(a.endVerse, [...(linesByVerse.get(a.endVerse) ?? []), a]);
-  const markersByVerse = new Map<number, NoteMark[]>();
+  // One marker per verse (#215): its note's short title, or "2 notes" → a list
+  const markersByVerse = new Map<number, VerseMarker[]>();
   if (mobile)
-    for (const m of noteMarks) markersByVerse.set(m.startVerse, [...(markersByVerse.get(m.startVerse) ?? []), m]);
+    for (const [verse, mk] of verseMarkers(noteMarks, {
+      untitled: t("note.untitled"),
+      count: (count) => t("reader.notesCount", { count }),
+    }))
+      markersByVerse.set(verse, [mk]);
   // They push the words along without resizing a box: re-measure the ink
   useReflow(inFlowInkKey(markersByVerse.values(), linesByVerse.values(), editingId));
   const laid = layoutChapter(chapter);
@@ -1294,30 +1299,52 @@ export function ChapterText({
                       ))
                     ))}
                   {piece.showNumber &&
-                    markersByVerse.get(v.verse)?.map((m) => (
-                      // Phone note marker: never over the text — it IS text-flow
-                      <button
-                        key={m.id}
-                        type="button"
-                        data-ink-box
-                        lang={i18n.language}
-                        {...{ [NOTE_OPENER]: m.id }}
-                        aria-label={t("reader.openNoteNamed", { title: m.title || t("note.untitled") })}
-                        title={m.title || t("note.untitled")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenNote(m.noteId, { verse: m.startVerse, word: m.startWord });
-                        }}
-                        className={cn(
-                          // 24px to see, 44px to touch (an invisible ring round it)
-                          "relative -my-1 mr-1 inline-flex size-6 items-center justify-center rounded-full align-middle before:absolute before:-inset-2.5 before:content-[''] hover:bg-accent",
-                          focusRing,
-                        )}
-                        style={{ color: NOTE_INK_TEXT }}
-                      >
-                        <FileText className="size-3" />
-                      </button>
-                    ))}
+                    markersByVerse.get(v.verse)?.map((mk) => {
+                      // Phone note marker (#215): never over the text — it IS
+                      // text-flow. One note: open it; several: pick from a list
+                      const one = mk.notes.length === 1 ? mk.notes[0] : null;
+                      const at = { verse: v.verse, word: one?.startWord ?? 0 };
+                      return (
+                        <button
+                          key={mk.id}
+                          type="button"
+                          data-ink-box
+                          data-verse-marker={mk.notes.length}
+                          lang={i18n.language}
+                          {...{ [NOTE_OPENER]: mk.notes[0].markId }}
+                          aria-label={
+                            one
+                              ? t("reader.openNoteNamed", { title: one.title || t("note.untitled") })
+                              : t("reader.notesGroupLabel", { count: mk.notes.length, passage: anchorReferenceLabel(buildAnchor(passage, at, at), locale) })
+                          }
+                          aria-haspopup={one ? undefined : "menu"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (one) {
+                              onOpenNote(one.noteId, { verse: at.verse, word: at.word });
+                              return;
+                            }
+                            setTouchSel(null);
+                            setMenu({
+                              kind: "notes",
+                              notes: mk.notes.map((n) => ({ noteId: n.noteId, title: n.title })),
+                              at,
+                              words: buildAnchor(passage, at, at),
+                            });
+                          }}
+                          className={cn(
+                            // 24px to see, 44px to touch (an invisible ring
+                            // round it); the label a quiet tab, as in the margin
+                            "relative -my-1 mr-1 inline-flex h-6 max-w-full items-center gap-1 rounded-full border px-1.5 align-middle font-sans text-[max(0.75rem,0.6em)] leading-none font-medium whitespace-nowrap before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:bg-accent",
+                            focusRing,
+                          )}
+                          style={{ color: NOTE_INK_TEXT, borderColor: "color-mix(in oklab, var(--note-ink) 45%, transparent)" }}
+                        >
+                          <FileText aria-hidden className="size-3 shrink-0" />
+                          <span className="min-w-0 truncate">{mk.text}</span>
+                        </button>
+                      );
+                    })}
                   {groupByAnnotation(v.verse, piece.words, annotationCoverage).map((seg, si) => {
                     const active = seg.annotation && seg.annotation.id === activeAnnotationId;
                     const wordSpans = seg.words.map(({ i, text, cut }) => {
