@@ -101,9 +101,11 @@ export function ActionMenu({
         >
           <DrawerContent {...{ [SELECTION_UI_ATTR]: "" }} finalFocus={false}>
             <DrawerTitle className="sr-only">{label}</DrawerTitle>
-            {/* Large text can outgrow the drawer: it scrolls, and a fade at
-                the bottom says there's more below */}
-            <ScrollArea className={OVERFLOW_FADE} viewportClassName="max-h-[calc(100dvh-7rem)]">
+            {/* At most half the screen (#217), so the selection stays in
+                sight: the rest scrolls — every option one swipe away, no
+                nested "more" — and a fade at the bottom says there's more.
+                1rem = the swipe handle + border */}
+            <ScrollArea className={OVERFLOW_FADE} viewportClassName={MENU_DRAWER_MAX_H}>
               <div className="flex flex-col px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
                 {children}
               </div>
@@ -139,6 +141,9 @@ export function ActionMenu({
     </MenuCtx.Provider>
   );
 }
+
+/** The phone menu drawer's scroller: the whole drawer stays ≤ 50dvh. */
+const MENU_DRAWER_MAX_H = "max-h-[calc(50dvh-1rem)]";
 
 /** A bottom fade while a scroll area has more below (Base UI sets
  * data-overflow-y-end until it's scrolled to the end). */
