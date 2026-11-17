@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  bracketLanes,
+  connectorPath,
+  needsConnector,
   clampToColumn,
   collisions,
   columnOf,
@@ -86,6 +89,19 @@ describe("placeRailChips", () => {
     expect(a).toEqual({ id: "a", side: "left", x: 40, y: 88, width: 160 });
     expect(a.x + a.width).toBeLessThanOrEqual(rail.leftEnd);
     expect(b).toEqual({ id: "b", side: "right", x: 900, y: 288, width: 160 });
+  });
+
+  it("keeps left chips clear of the tool palette's column, the right side its own edge (#211)", () => {
+    const [a, b] = placeRailChips(
+      [
+        { id: "a", side: "left", centerY: 100 },
+        { id: "b", side: "right", centerY: 100 },
+      ],
+      { ...rail, leftEdge: 120 },
+    )!;
+    expect(a.x).toBe(120);
+    expect(a.width).toBe(80);
+    expect(b.width).toBe(160);
   });
 
   it("stacks chips on nearby lines instead of overlapping", () => {
@@ -179,5 +195,46 @@ describe("paged flow: a mark's column, page and side (#164)", () => {
     // Spread: left column left, right column right
     expect(sideOfSpan(24, 416, 472)).toBe("left");
     expect(sideOfSpan(472, 864, 472)).toBe("right");
+  });
+});
+
+describe("bracketLanes (#211)", () => {
+  const s = (id: string, top: number, bottom: number, pinned = false) => ({ id, top, bottom, pinned });
+  it("gives lone brackets lane 0", () => {
+    expect(bracketLanes([s("a", 0, 30), s("b", 60, 90)])).toEqual({ lanes: { a: 0, b: 0 }, groups: [] });
+  });
+  it("nests two overlapping brackets, the shortest nearest the text", () => {
+    const { lanes, groups } = bracketLanes([s("long", 0, 120), s("short", 30, 60)]);
+    expect(lanes).toEqual({ short: 0, long: 1 });
+    expect(groups).toEqual([]);
+  });
+  it("lines that only touch don't overlap", () => {
+    expect(bracketLanes([s("a", 0, 30), s("b", 30, 60)]).lanes).toEqual({ a: 0, b: 0 });
+  });
+  it("folds three on overlapping lines into one group", () => {
+    const { lanes, groups } = bracketLanes([s("a", 0, 30), s("b", 0, 30), s("c", 0, 60)]);
+    expect(lanes).toEqual({});
+    expect(groups).toEqual([{ ids: ["a", "b", "c"], top: 0, bottom: 60, lane: 0 }]);
+  });
+  it("keeps a pinned link out of the group, nearest the text", () => {
+    const { lanes, groups } = bracketLanes([s("a", 0, 30), s("b", 0, 30), s("c", 0, 60, true), s("d", 0, 30)]);
+    expect(lanes).toEqual({ c: 0 });
+    expect(groups).toEqual([{ ids: ["a", "b", "d"], top: 0, bottom: 30, lane: 1 }]);
+  });
+  it("two pinned + others: group still within the lanes", () => {
+    const { lanes, groups } = bracketLanes([s("p", 0, 30, true), s("q", 0, 30, true), s("a", 0, 30)]);
+    expect(lanes).toEqual({ p: 0, q: 1 });
+    expect(groups[0].ids).toEqual(["a"]);
+    expect(groups[0].lane).toBe(1);
+  });
+});
+
+describe("connector (#211)", () => {
+  it("only when the label sits over half a line from its hook", () => {
+    expect(needsConnector(100, 110, 28)).toBe(false);
+    expect(needsConnector(100, 115, 28)).toBe(true);
+  });
+  it("is a straight elbow: across, down, across", () => {
+    expect(connectorPath({ x: 10, y: 20 }, { x: 30, y: 50 })).toBe("M 10.0 20.0 H 20.0 V 50.0 H 30.0");
   });
 });

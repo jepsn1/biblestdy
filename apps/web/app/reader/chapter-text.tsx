@@ -31,13 +31,14 @@ import {
   SELECTION_UI_ATTR,
   type VirtualAnchor,
 } from "./selection-menu";
-import type { NoteMark } from "./note-marks";
+import { verseNoteLabel, type NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
 import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
 import { DragRefTag, SelectionPill } from "./selection-pill";
 import { notifyUndo } from "~/lib/notify";
 import { toast } from "sonner";
+import { linkedHint as showLinkedHint } from "./linked-hint";
 import { anchorOf, eraseClick, notesAtWord, notesInStroke, wordClick, type NoteAtWord } from "./word-click";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { TAP_MAX_MS, isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
@@ -915,17 +916,7 @@ export function ChapterText({
   /** The eraser over a link alone (#212): links are never erased here —
    * say which note holds it, with the way there. */
   function linkedHint(notes: NoteAtWord[], at: WordPos) {
-    if (notes.length === 0) return;
-    const first = notes[0];
-    toast(
-      notes.length === 1
-        ? t("toast.eraseLinked", { title: first.title || t("note.untitled") })
-        : t("toast.eraseLinkedMany", { count: notes.length }),
-      {
-        id: "erase-linked", // repeated strokes update one toast
-        action: { label: t("note.open"), onClick: () => onOpenNote(first.noteId, { verse: at.verse, word: at.word }) },
-      },
-    );
+    showLinkedHint(t, notes, at, onOpenNote);
   }
 
   function onWordClick(event: React.MouseEvent, pos: WordPos, virtual = false) {
@@ -1122,7 +1113,7 @@ export function ChapterText({
     [VERSE_FOCUS]: v.verse,
     role: "button",
     "aria-haspopup": "menu" as const,
-    "aria-label": t("reader.verseLabel", { n: v.label ?? v.verse, text: v.text }),
+    "aria-label": verseNoteLabel(t, noteMarks, v),
     title: t("reader.selectVerse", { n: v.label ?? v.verse }),
     tabIndex: v.verse === tabVerse ? 0 : -1,
     onClick: verseClick(v),

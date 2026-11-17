@@ -5,6 +5,7 @@ import {
   type Chapter,
   type Note,
   type NoteAnchor,
+  type Reference,
   type ScriptureRef,
 } from "@biblestdy/shared";
 import { noteTitle } from "../notes/note-list";
@@ -15,15 +16,17 @@ import type { Localizer } from "./localizer";
  * translation: word-precise on its home translation (the words it was made
  * on), and at verse level everywhere else — an anchor from another
  * translation, or an inline `bible:` ref, marks the whole verse (or bridge)
- * it lands on, never mapped word for word. Verse-level marks go through
+ * it lands on, never mapped word for word. Every link draws the same
+ * bracket and label (#211, which dropped #159's "verse-level carries no
+ * ink"): one link, one look, whichever way it was made. Verse-level marks go through
  * the versification map (#163: English Mal 4:5 marks BPH Mal 3,23), so
  * they wait for it (`localize` null) rather than land on a wrong verse.
  * Pure; tested in note-marks.test.ts.
  */
 
 /** One drawn mark of a note in the current chapter. `verseLevel`: a whole
- * verse unit (another translation's anchor, or an inline ref) — its chip
- * sits by the verse, its words carry no ink and open nothing. */
+ * verse unit (another translation's anchor, or an inline ref) — bracketed
+ * whole, like any link; its words open nothing of their own. */
 export type NoteMark = NoteAnchor & { noteId: string; title: string; verseLevel?: boolean };
 
 /** An anchor's verses as a translation-agnostic reference. */
@@ -103,4 +106,47 @@ export function noteMarksInChapter(notes: Note[], chapter: Chapter, localize: Lo
     }
     return [...home, ...verseLevel];
   });
+}
+
+/** The verses a mark covers, as a reference to name it by (#211: "Note
+ * 'The bronze serpent', John 3:14–15"). */
+export function markReference(m: { book: string; chapter: number; startVerse: number; endVerse: number }): Reference {
+  const ref: Reference = { book: m.book, chapter: m.chapter, verse: m.startVerse };
+  if (m.endVerse !== m.startVerse) ref.endVerse = m.endVerse;
+  return ref;
+}
+
+/** The titles of the notes linked to a verse, in text order, once each —
+ * what its verse number says to a screen reader (#211). */
+export function notesOnVerse(marks: NoteMark[], verse: number, untitled: string): string[] {
+  const titles = marks
+    .filter((m) => m.startVerse <= verse && m.endVerse >= verse)
+    .sort((a, b) => a.startVerse - b.startVerse || a.startWord - b.startWord)
+    .map((m) => m.title || untitled);
+  return [...new Set(titles)];
+}
+
+/** Verse ranges merged where they overlap or touch. */
+export function mergeRanges(ranges: { start: number; end: number }[]): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (const r of [...ranges].sort((a, b) => a.start - b.start)) {
+    const last = out.at(-1);
+    if (last && r.start <= last.end + 1) last.end = Math.max(last.end, r.end);
+    else out.push({ ...r });
+  }
+  return out;
+}
+
+/** A verse number's screen-reader name (#211): "Verse 16, note: Born
+ * again, God so loved, select: …" — a linked verse says so. */
+export function verseNoteLabel(
+  t: (key: string, o: Record<string, unknown>) => string,
+  marks: NoteMark[],
+  v: { verse: number; label?: string; text: string },
+): string {
+  const n = v.label ?? v.verse;
+  const notes = notesOnVerse(marks, v.verse, t("note.untitled", {}));
+  return notes.length
+    ? t("reader.verseLabelNotes", { n, notes: notes.join(", "), text: v.text })
+    : t("reader.verseLabel", { n, text: v.text });
 }

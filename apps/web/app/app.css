@@ -161,8 +161,10 @@
   --note-ink-text: oklch(0.38 0.18 264);
   --note-ink-text-active: oklch(0.3 0.2 264);
   --note-ink-wash: oklch(0.5 0.15 255 / 8%);
-  /* A spotlit reference's whole verses (#210): the note's ink, as a wash
-     behind the words (never under a highlight) */
+  /* The open note's links' whole verses (#211, soft) and a spotlit
+     reference's (#210, ~1.6×): the note's ink, as a wash behind the words
+     (never under a highlight) */
+  --link-wash: oklch(0.5 0.15 255 / 10%);
   --link-wash-strong: oklch(0.5 0.15 255 / 16%);
   /* Marker: translucent highlighter over dark text */
   --hl-gold: oklch(0.89 0.17 95 / 55%);
@@ -208,6 +210,7 @@
   --note-ink-text: oklch(0.76 0.13 255);
   --note-ink-text-active: oklch(0.86 0.1 255);
   --note-ink-wash: oklch(0.72 0.1 245 / 10%);
+  --link-wash: oklch(0.72 0.1 245 / 12%);
   --link-wash-strong: oklch(0.72 0.1 245 / 19%);
   --hl-gold: oklch(0.83 0.1 85 / 28%);
   --hl-amber: oklch(0.76 0.13 60 / 28%);
@@ -253,6 +256,7 @@
   --chart-4: oklch(0.75 0.01 286);
   --chart-5: oklch(0.85 0.006 286);
   --selection: oklch(0.62 0.12 255 / 22%);
+  --link-wash: oklch(0.5 0.15 255 / 9%);
   --link-wash-strong: oklch(0.5 0.15 255 / 14%);
 }
 
@@ -284,6 +288,7 @@
   --chart-4: oklch(0.4 0.01 286);
   --chart-5: oklch(0.3 0.006 286);
   --selection: oklch(0.7 0.11 250 / 30%);
+  --link-wash: oklch(0.72 0.1 245 / 14%);
   --link-wash-strong: oklch(0.72 0.1 245 / 22%);
 }
 
@@ -313,12 +318,19 @@
     color: inherit !important;
   }
   [data-wash^="spot"],
+  [data-wash^="open"],
+  [data-connector],
   [data-spot-line] {
     display: none !important;
   }
   [data-spot-dim] {
     fill-opacity: 1 !important;
     stroke-opacity: 1 !important;
+  }
+  /* Note brackets (#211): one quiet hairline, whatever the state */
+  [data-note-bracket] {
+    stroke: rgb(0 0 0 / 60%) !important;
+    stroke-width: 0.75pt !important;
   }
 }
 

@@ -1,13 +1,31 @@
 import { useTranslation } from "react-i18next";
 import type { Annotation, AnnotationMark } from "@biblestdy/shared";
-import { FileText } from "lucide-react";
+import { FileText, Files } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { bookLocale, useBookName } from "~/lib/book-name";
+import { referenceLabel } from "~/lib/reference-label";
 import { cn, focusRing } from "~/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
-import { columnOf, lineRuns, pageOfColumn, sideOfSpan, placeRailChips, type PagedFlow, type Rect } from "./ink-geometry";
-import type { NoteMark } from "./note-marks";
+import {
+  bracketLanes,
+  columnOf,
+  connectorPath,
+  LANE_STEP,
+  lineRuns,
+  needsConnector,
+  pageOfColumn,
+  sideOfSpan,
+  placeRailChips,
+  type LaneSpan,
+  type PagedFlow,
+  type Rect,
+} from "./ink-geometry";
+import { markReference, type NoteMark } from "./note-marks";
+import { GUTTER } from "./sheet-layout";
+import { linkedHint } from "./linked-hint";
 import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { sameData, useMeasure, useSameData } from "./use-measure";
@@ -42,13 +60,15 @@ const ARROW_MIN_DIST = 40; // box closer than this to the circle: no arrow
 
 const BRACKET_GAP = 10; // bracket spine sits this far left of the span's lines
 
-/** Note chips (#63): the margin rail sits at least this far from the text
- * column; chips are one 24px target tall. */
-const RAIL_GAP = 24;
-const CHIP_H = 24;
+/** Note labels (#63, #211): the margin rail sits at least this far from the
+ * text column (rem: the bracket lanes and the connector live in it); a
+ * label is one 24px target tall at 100% and scales with the text size. */
+const RAIL_GAP_REM = 1.5;
+const CHIP_H_REM = 1.5;
+const CHIP_GAP_REM = 0.25;
 const CHIP_MAX_REM = 10;
-/** Narrower than this, a chip shows its icon only. */
-const CHIP_LABEL_MIN = 56;
+/** Narrower than this, a label shows its icon only (#211). */
+const CHIP_LABEL_MIN_REM = 7.5;
 
 type Box = { x: number; y: number; w: number; h: number };
 /** lines: distinct text lines the span covers — 1 = circle it, 2+ = bracket */
@@ -75,12 +95,18 @@ type Placement = {
  * beside it that opens the document panel. One tab per anchor — a multi-anchor
  * note draws a mark at each of its spans in this chapter. */
 type NoteTab = {
-  mark: NoteMark;
-  box: Box;
-  lines: number;
+  /** The label's own id: the mark's, or a group's ("group:<col>:<ids>"). */
+  id: string;
+  /** The link it names — or, for a group (#211), every link folded in. */
+  marks: NoteMark[];
+  group: boolean;
   colSide: "left" | "right";
-  /** Vertical center of the mark's first visible line — its chip sits level. */
+  /** Vertical center of the bracket's first line — the label sits level. */
   firstLineY: number;
+  /** The first line's height: the connector rule's half a line. */
+  lineH: number;
+  /** The bracket's top hook (pane space): where a connector starts. */
+  hook: { x: number; y: number };
 };
 
 /** A circle/bracket on the words, in the content box's page-independent
@@ -91,6 +117,12 @@ type Pen = {
   /** Annotation id, or the note mark's "note:<noteId>:<anchorId>". */
   markId: string;
   isNote: boolean;
+  /** A note link's lane (#211): this many LANE_STEPs out from the text. */
+  lane?: number;
+  /** A group bracket's links (#211): the marks folded into it. */
+  members?: NoteMark[];
+  /** The page its words are on (note links: the bracket's hit strip). */
+  page?: number;
   box: Box;
   lines: number;
   /** The marked words' line runs (content-box space): contour + underline. */
@@ -115,12 +147,13 @@ function penPath(
   side: "left" | "right",
   edge: number,
   seed: string,
+  lane = 0,
 ) {
   if (shape === "contour") return contourPath(runs, seed);
   if (shape === "underline") return underlinePath(runs, seed);
   if (shape === "bracket")
     return bracketPath(
-      side === "left" ? Math.min(box.x, edge) - BRACKET_GAP : Math.max(box.x + box.w, edge) + BRACKET_GAP,
+      spineX(box, side, edge, lane),
       box.y + 2,
       box.y + box.h - 2,
       seed,
@@ -128,6 +161,13 @@ function penPath(
     );
   return lines > 1 ? roundedScribblePath(box.x, box.y, box.w, box.h, seed) : scribblePath(box.x, box.y, box.w, box.h, seed);
 }
+
+/** A bracket's spine: BRACKET_GAP off the text column, a lane further out
+ * per nested note link (#211). */
+const spineX = (box: Box, side: "left" | "right", edge: number, lane = 0) =>
+  side === "left"
+    ? Math.min(box.x, edge) - BRACKET_GAP - lane * LANE_STEP
+    : Math.max(box.x + box.w, edge) + BRACKET_GAP + lane * LANE_STEP;
 
 /** Where the margin rail is (region-local px), measured with the anchors. */
 type RailEdges = { leftEnd: number; rightStart: number; width: number; rem: number };
@@ -147,6 +187,8 @@ type Seg = {
    * right one (or a single column) "right" — where a verse-level chip goes. */
   colSide: "left" | "right";
   firstLineY: number;
+  /** The first line's height. */
+  lineH: number;
 };
 
 /** Everything the ink layer reads from the DOM, page-independent: margin
@@ -264,6 +306,8 @@ export function AnnotationMarks({
   layoutKey,
   activeAnnotationId,
   spot = null,
+  openNoteId = null,
+  eraser = false,
   compact = false,
   marginBoxes = true,
   railChips = true,
@@ -300,6 +344,13 @@ export function AnnotationMarks({
    * shown, filled; other notes' brackets and the reader's own marks outside
    * its verses step back — never hidden. */
   spot?: SpotRange | null;
+  /** The note open in the side panel (#211): its links' brackets and labels
+   * step up, every other note's step back by colour. The spotlight
+   * outranks it. */
+  openNoteId?: string | null;
+  /** The eraser is the tool (#211): a bracket's strip says where to remove
+   * the link instead — links are never erased on the page. */
+  eraser?: boolean;
   /** Phone view (#13, #44): single scroll column — brackets sit on the left. */
   compact?: boolean;
   /** Handwriting boxes + arrows in the margin lanes. False when there are no
@@ -324,7 +375,11 @@ export function AnnotationMarks({
   const noteMarks = useSameData(noteMarksProp);
   const spotlight = spot != null;
   const spotMark = spot?.markId ?? null;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const nameOf = useBookName();
+  const locale = bookLocale(i18n.language);
+  /** The open note, unless a spotlight outranks it (#211). */
+  const openNote = spotlight ? null : openNoteId;
   // Current sheet scale (mobile, #13) — pointer deltas are visual px, box
   // coordinates local px
   const scaleRef = useRef(1);
@@ -454,6 +509,7 @@ export function AnnotationMarks({
             side: compact ? "left" : sideOfSpan(left, right, midOf(page)),
             colSide: compact || ox + n * colStride + colWidth / 2 < midOf(page) - colWidth / 4 ? "left" : "right",
             firstLineY: (runs[0].top + runs[0].bottom) / 2,
+            lineH: runs[0].bottom - runs[0].top,
           };
         });
       };
@@ -462,7 +518,7 @@ export function AnnotationMarks({
       for (const mark of noteMarks) anchors[`note:${mark.noteId}:${mark.id}`] = measureAnchor(mark);
       const next: InkGeometry = {
         region: { w: region.offsetWidth, h: region.offsetHeight },
-        rail: { leftEnd: textLeft - RAIL_GAP, rightStart: textRight + RAIL_GAP, width: region.offsetWidth, rem },
+        rail: { leftEnd: textLeft - RAIL_GAP_REM * rem, rightStart: textRight + RAIL_GAP_REM * rem, width: region.offsetWidth, rem },
         leftLaneRight,
         rightLaneLeft,
         contentLeft,
@@ -537,24 +593,90 @@ export function AnnotationMarks({
       }
     }
 
-    for (const mark of noteMarks) {
-      const markId = `note:${mark.noteId}:${mark.id}`;
+    // Note links (#211): one bracket for every link, verse-level ones too.
+    // Desktop: on its column's own side (a single column: the right), in
+    // lanes; 3+ on overlapping lines fold into one group bracket. Phones:
+    // the left gutter, as before
+    const segKey = (markId: string, col: number) => `${markId}:${col}`;
+    const noteSide = (g: Seg) => (compact ? "left" : g.colSide);
+    const noteEdge = (g: Seg) => (noteSide(g) === "left" ? g.edgeL : g.edgeR);
+    const marksById = new Map(noteMarks.map((m) => [`note:${m.noteId}:${m.id}`, m]));
+    const pinnedMark = (markId: string) =>
+      markId === spotMark || (!spotlight && !!openNote && marksById.get(markId)?.noteId === openNote);
+    /** Per segment key: its lane, or the group it folded into. */
+    const laneOf = new Map<string, number>();
+    const groupOf = new Map<string, { key: string; ids: string[]; top: number; bottom: number; lane: number; col: number; side: "left" | "right" }>();
+    const byCol = new Map<string, { span: LaneSpan; seg: Seg }[]>();
+    for (const [markId] of marksById)
+      for (const g of geo.anchors[markId] ?? []) {
+        const k = `${g.col}:${noteSide(g)}`;
+        byCol.set(k, [...(byCol.get(k) ?? []), { span: { id: segKey(markId, g.col), top: g.box.y, bottom: g.box.y + g.box.h }, seg: g }]);
+      }
+    if (!compact)
+      for (const [k, list] of byCol) {
+        const spans = list.map((x) => x.span);
+        let laid = bracketLanes(spans);
+        // The open note's (or spotlit) links never fold: lay out again with
+        // them pinned only when one would — otherwise nothing moves
+        const pinned = (id: string) => pinnedMark(id.slice(0, id.lastIndexOf(":")));
+        if (laid.groups.some((gr) => gr.ids.some(pinned)))
+          laid = bracketLanes(spans.map((x) => ({ ...x, pinned: pinned(x.id) })));
+        for (const [id, lane] of Object.entries(laid.lanes)) laneOf.set(id, lane);
+        const [col, side] = k.split(":");
+        for (const gr of laid.groups) {
+          const group = { key: `group:${col}:${gr.ids.join(",")}`, ...gr, col: Number(col), side: side as "left" | "right" };
+          for (const id of gr.ids) groupOf.set(id, group);
+        }
+      }
+    const drawnGroups = new Set<string>();
+    for (const [markId, mark] of marksById) {
       const segs = geo.anchors[markId] ?? [];
-      // A verse-level mark (#159) is its chip alone: no ink on the words
-      if (!mark.verseLevel)
-        for (const g of segs)
-          penList.push({ key: `${markId}:${g.col}`, markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: edgeOf(g), colSide: g.side, shape: shapeOf(null, g.lines) });
-      const m = onPage(segs)[0];
-      // A whole verse has no side of its own: its chip takes its column's
-      if (m)
-        tabs.push({ mark, box: m.box, lines: m.lines, colSide: mark.verseLevel ? m.colSide : m.side, firstLineY: m.firstLineY });
+      for (const g of segs) {
+        const group = groupOf.get(segKey(markId, g.col));
+        if (!group) {
+          penList.push({ key: segKey(markId, g.col), markId, isNote: true, page: g.page, box: g.box, lines: g.lines, runs: g.runs, edge: noteEdge(g), colSide: noteSide(g), shape: "bracket", lane: laneOf.get(segKey(markId, g.col)) ?? 0 });
+          continue;
+        }
+        if (drawnGroups.has(group.key)) continue;
+        drawnGroups.add(group.key);
+        const members = group.ids.map((id) => marksById.get(id.slice(0, id.lastIndexOf(":")))!);
+        const boxes = group.ids.map((id) => (geo.anchors[id.slice(0, id.lastIndexOf(":"))] ?? []).find((x) => x.col === group.col)!.box);
+        const left = Math.min(...boxes.map((b) => b.x));
+        const right = Math.max(...boxes.map((b) => b.x + b.w));
+        penList.push({ key: group.key, markId: group.key, isNote: true, page: g.page, members, box: { x: left, y: group.top, w: right - left, h: group.bottom - group.top }, lines: 2, runs: [], edge: noteEdge(g), colSide: noteSide(g), shape: "bracket", lane: group.lane });
+      }
+      // The label: on the mark's first segment on this page — its own, or
+      // its group's (once per group)
+      const first = segs.find((g) => g.page === page);
+      if (!first) continue;
+      const side = noteSide(first);
+      const group = groupOf.get(segKey(markId, first.col));
+      if (group && tabs.some((x) => x.id === group.key)) continue;
+      const lead = group
+        ? (geo.anchors[group.ids[0].slice(0, group.ids[0].lastIndexOf(":"))] ?? []).find((x) => x.col === group.col)!
+        : first;
+      const box = group ? { ...first.box, y: group.top, h: group.bottom - group.top } : first.box;
+      const leadY = group ? Math.min(...group.ids.map((id) => (geo.anchors[id.slice(0, id.lastIndexOf(":"))] ?? []).find((x) => x.col === group.col)!.firstLineY)) : first.firstLineY;
+      tabs.push({
+        id: group ? group.key : mark.id,
+        marks: group ? group.ids.map((id) => marksById.get(id.slice(0, id.lastIndexOf(":")))!) : [mark],
+        group: !!group,
+        colSide: side,
+        firstLineY: leadY + boxTop,
+        lineH: lead.lineH,
+        hook: {
+          x: spineX(box, side, noteEdge(first), group ? group.lane : (laneOf.get(segKey(markId, first.col)) ?? 0)) + toRegionX,
+          y: box.y + 2 + boxTop,
+        },
+      });
     }
     return { placements: items, noteTabs: tabs, pens: penList };
-  }, [geo, annotations, noteMarks, page]);
+  }, [geo, annotations, noteMarks, page, compact, spotMark, spotlight, openNote]);
   // Spotlight: the reader's own boxes stay (outside its verses they step
   // back), of the note labels only the spotlit reference's
   const shownPlacements = placements;
-  const shownTabs = spotlight ? noteTabs.filter((m) => spotMark === `note:${m.mark.noteId}:${m.mark.id}`) : noteTabs;
+  const markKey = (m: NoteMark) => `note:${m.noteId}:${m.id}`;
+  const shownTabs = spotlight ? noteTabs.filter((m) => !m.group && spotMark === markKey(m.marks[0])) : noteTabs;
   const annotationById = new Map(annotations.map((a) => [a.id, a]));
   /** A mark that steps back while the spotlight is on. */
   const receded = (markId: string, isNote: boolean) => {
@@ -563,14 +685,22 @@ export function AnnotationMarks({
     const a = annotationById.get(markId);
     return !a || !touchesSpot(spot, a);
   };
+  /** A note link's step on the ladder (#211): rest → open → spotlit; or,
+   * while another note is open, stepped back by colour. */
+  const stateOf = (marks: NoteMark[]): "rest" | "open" | "lit" | "back" => {
+    if (spotlight) return marks.some((m) => markKey(m) === spotMark) ? "lit" : "rest";
+    if (!openNote) return "rest";
+    return marks.some((m) => m.noteId === openNote) ? "open" : "back";
+  };
 
-  // Note chips in the margin rail (#63): beside the mark's first line,
-  // stacked clear of each other and of default-placed annotation boxes.
+  // Note labels in the margin rail (#63): level with their bracket's first
+  // line, stacked clear of each other and of default-placed annotation boxes.
+  // Never under the tool rail: the left edge keeps its gutter clear (#211)
   const chips =
     railChips && rail
       ? placeRailChips(
           shownTabs.map((m) => ({
-            id: m.mark.id,
+            id: m.id,
             side: m.colSide,
             centerY: m.firstLineY,
           })),
@@ -579,8 +709,9 @@ export function AnnotationMarks({
             rightStart: rail.rightStart,
             regionWidth: rail.width,
             edge: EDGE,
-            chipH: CHIP_H,
-            gap: 4,
+            leftEdge: Math.max(EDGE, GUTTER * rail.rem),
+            chipH: CHIP_H_REM * rail.rem,
+            gap: CHIP_GAP_REM * rail.rem,
             maxWidth: CHIP_MAX_REM * rail.rem,
             obstacles: marginBoxes
               ? shownPlacements
@@ -595,6 +726,8 @@ export function AnnotationMarks({
       : null;
   const chipById = new Map(chips?.map((c) => [c.id, c]) ?? []);
   const shownPens = pens;
+  const marksByKey = new Map(noteMarks.map((m) => [markKey(m), m]));
+  const chipH = CHIP_H_REM * (rail?.rem ?? 16);
   /** Hidden at once when a turn starts; fades back in on the new page. */
   const fade = marginHidden ? "opacity-0" : "opacity-100 transition-opacity duration-200";
 
@@ -609,15 +742,20 @@ export function AnnotationMarks({
           <svg aria-hidden className="absolute inset-0 h-full w-full overflow-visible">
             {shownPens.map((p) => {
               const active = p.markId === activeAnnotationId;
+              const mark = p.isNote ? marksByKey.get(p.markId) : undefined;
+              const state = p.isNote ? stateOf(p.members ?? (mark ? [mark] : [])) : "rest";
               return (
                 <path
                   key={p.key}
-                  d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId)}
+                  d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId, p.lane)}
                   fill="none"
-                  stroke={NOTE_INK}
-                  strokeWidth={p.markId === spotMark ? 2.4 : active ? 2.2 : 1.7}
+                  // Another note open: this one steps back by colour (#211)
+                  stroke={state === "back" ? "var(--muted-foreground)" : NOTE_INK}
+                  strokeWidth={state === "lit" ? 2.4 : state === "open" || active ? 2.2 : 1.7}
                   strokeOpacity={receded(p.markId, p.isNote) ? SPOT_FADE : undefined}
                   data-spot-dim={receded(p.markId, p.isNote) || undefined}
+                  data-note-bracket={p.isNote ? (p.members ? "group" : state) : undefined}
+                  data-lane={p.isNote ? p.lane : undefined}
                   strokeLinecap="round"
                 />
               );
@@ -630,6 +768,30 @@ export function AnnotationMarks({
         aria-hidden
         className={cn("pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible", fade)}
       >
+        {/* Connectors (#211 C2): a typeset elbow from a bracket's top hook to
+            its label — at rest only where stacking pushed the label off its
+            line; always for the open note's links, the spotlit one's alone */}
+        {shownTabs.map((m) => {
+          const chip = chipById.get(m.id);
+          if (!chip) return null;
+          const state = stateOf(m.marks);
+          const y = chip.y + chipH / 2;
+          const strong = state === "open" || state === "lit";
+          if (!strong && !needsConnector(m.hook.y, y, m.lineH)) return null;
+          const x = chip.side === "left" ? chip.x + chip.width : chip.x;
+          return (
+            <path
+              key={`connector:${m.id}`}
+              data-connector={state}
+              d={connectorPath(m.hook, { x, y })}
+              fill="none"
+              stroke={state === "back" ? "var(--muted-foreground)" : NOTE_INK}
+              strokeOpacity={strong ? 1 : 0.4}
+              strokeWidth={strong ? 1.25 : 1}
+              strokeLinejoin="round"
+            />
+          );
+        })}
         {marginBoxes &&
           shownPlacements.map((p) => {
             const g = geom(p, drag, resize, boxHeights.current.get(p.key));
@@ -654,46 +816,128 @@ export function AnnotationMarks({
         {/* Note links: a typeset chip (index-tab, NOT handwriting) in the
             margin rail level with the mark's first line — never on the
             running text (#63) */}
+        {/* Bracket hit strips (#211 click map): 12px, invisible, over the
+            spine — open the note at this link (a group: its list); the
+            eraser says where to remove it. Pointer only: the label is the
+            keyboard way to the same note */}
+        {railChips &&
+          geo &&
+          shownPens.map((p) => {
+            if (!p.isNote || p.page !== page) return null;
+            const marks = p.members ?? [marksByKey.get(p.markId)].filter((m): m is NoteMark => !!m);
+            if (marks.length === 0 || (spotlight && !marks.some((m) => markKey(m) === spotMark))) return null;
+            const x = spineX(p.box, p.colSide, p.edge, p.lane) + geo.contentLeft - page * geo.stride;
+            const lead = marks[0];
+            return (
+              <div
+                key={`strip:${p.key}`}
+                aria-hidden
+                data-bracket-strip=""
+                className="pointer-events-auto absolute w-3 cursor-pointer"
+                style={{ left: x - 6, top: p.box.y + geo.boxTop, height: p.box.h }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (eraser) {
+                    const notes = [...new Map(marks.map((m) => [m.noteId, { noteId: m.noteId, title: m.title }])).values()];
+                    linkedHint(t, notes, { verse: lead.startVerse, word: lead.startWord }, onOpenNote);
+                  } else if (p.members)
+                    document.querySelector<HTMLElement>(`[${NOTE_OPENER}="${CSS.escape(p.markId)}"]`)?.click();
+                  else onOpenNote(lead.noteId, { verse: lead.startVerse, word: lead.startWord });
+                }}
+              />
+            );
+          })}
         {shownTabs.map((m) => {
-          const chip = chipById.get(m.mark.id);
+          const chip = chipById.get(m.id);
           if (!chip) return null;
-          const title = m.mark.title || t("note.untitled");
-          const labelled = chip.width >= CHIP_LABEL_MIN;
-          // The spotlit reference's label: filled (#210)
-          const lit = spotlight && spotMark === `note:${m.mark.noteId}:${m.mark.id}`;
+          const state = stateOf(m.marks);
+          const labelled = chip.width >= CHIP_LABEL_MIN_REM * (rail?.rem ?? 16);
+          const verses = {
+            book: m.marks[0].book,
+            chapter: m.marks[0].chapter,
+            startVerse: Math.min(...m.marks.map((x) => x.startVerse)),
+            endVerse: Math.max(...m.marks.map((x) => x.endVerse)),
+          };
+          const passage = referenceLabel(markReference(verses), nameOf, locale);
+          const lead = m.marks[0];
+          const title = lead.title || t("note.untitled");
+          // One more distinct note than its links? A note can link twice
+          const notes = [...new Map(m.marks.map((x) => [x.noteId, x])).values()];
+          const text = m.group ? t("reader.notesCount", { count: notes.length }) : title;
+          const filled = state === "open" || state === "lit";
+          const className = cn(
+            // 44px to touch on coarse pointers (an invisible ring round it)
+            "pointer-events-auto absolute flex h-6 items-center pointer-coarse:before:absolute pointer-coarse:before:-inset-x-1 pointer-coarse:before:-inset-y-2.5 pointer-coarse:before:content-['']",
+            chip.side === "left" ? "justify-end" : "justify-start",
+            focusRing,
+            "rounded-sm",
+          );
+          const style = { left: chip.x, top: chip.y, width: chip.width };
+          // A typeset tab (#211): transparent, a 45% ink hairline; filled
+          // while its note is open or it is spotlit; another note open: the
+          // muted ink, still 4.5:1
+          const tab = (
+            <span
+              className={cn(
+                "flex h-6 max-w-full items-center gap-1 overflow-hidden rounded-sm border font-sans text-list leading-none whitespace-nowrap transition-colors motion-reduce:transition-none",
+                !filled && "hover:bg-accent",
+                labelled ? "px-1.5" : "w-6 justify-center",
+              )}
+              style={
+                filled
+                  ? { color: "var(--background)", background: NOTE_INK, borderColor: NOTE_INK }
+                  : state === "back"
+                    ? { color: "var(--muted-foreground)", borderColor: "var(--border)" }
+                    : { color: NOTE_INK_TEXT, borderColor: "color-mix(in oklab, var(--note-ink) 45%, transparent)" }
+              }
+            >
+              {m.group ? <Files className="size-3.5 shrink-0" /> : <FileText className="size-3.5 shrink-0" />}
+              {labelled && <span className="overflow-hidden text-ellipsis">{text}</span>}
+            </span>
+          );
+          if (m.group)
+            return (
+              <DropdownMenu key={m.id}>
+                <DropdownMenuTrigger
+                  data-ink-box
+                  data-note-label="group"
+                  {...{ [NOTE_OPENER]: m.id }}
+                  aria-label={t("reader.notesGroupLabel", { count: notes.length, passage })}
+                  title={notes.map((x) => x.title || t("note.untitled")).join(" · ")}
+                  className={className}
+                  style={style}
+                >
+                  {tab}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align={chip.side === "left" ? "end" : "start"} className="w-auto max-w-72">
+                  {notes.map((x) => (
+                    <DropdownMenuItem
+                      key={x.noteId}
+                      {...{ [NOTE_OPENER]: m.id }}
+                      onClick={() => onOpenNote(x.noteId, { verse: x.startVerse, word: x.startWord })}
+                    >
+                      <FileText className="size-4 shrink-0" style={{ color: NOTE_INK_TEXT }} />
+                      <span className="truncate">{x.title || t("note.untitled")}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
           return (
             <button
-              key={m.mark.id}
+              key={m.id}
               type="button"
               data-ink-box
-              {...{ [NOTE_OPENER]: m.mark.id }}
-              aria-label={t("reader.openNoteNamed", { title })}
+              data-note-label={state}
+              {...{ [NOTE_OPENER]: lead.id }}
+              aria-label={t("reader.noteLinkLabel", { title, passage })}
+              aria-expanded={lead.noteId === openNoteId}
               title={title}
-              onClick={() => onOpenNote(m.mark.noteId, { verse: m.mark.startVerse, word: m.mark.startWord })}
-              className={cn(
-                // 44px to touch on coarse pointers (an invisible ring round it)
-                "pointer-events-auto absolute flex h-6 items-center pointer-coarse:before:absolute pointer-coarse:before:-inset-x-1 pointer-coarse:before:-inset-y-2.5 pointer-coarse:before:content-['']",
-                chip.side === "left" ? "justify-end" : "justify-start",
-                focusRing,
-                "rounded-full",
-              )}
-              style={{ left: chip.x, top: chip.y, width: chip.width }}
+              onClick={() => onOpenNote(lead.noteId, { verse: lead.startVerse, word: lead.startWord })}
+              className={className}
+              style={style}
             >
-              <span
-                className={cn(
-                  "flex h-5 max-w-full items-center gap-1 overflow-hidden rounded-full border font-sans text-meta leading-none whitespace-nowrap transition-colors",
-                  !lit && "bg-popover hover:bg-accent",
-                  labelled ? "px-1.5" : "w-5 justify-center",
-                )}
-                style={
-                  lit
-                    ? { color: "var(--background)", background: NOTE_INK, borderColor: NOTE_INK }
-                    : { color: NOTE_INK_TEXT, borderColor: NOTE_INK }
-                }
-              >
-                <FileText className="size-3 shrink-0" />
-                {labelled && <span className="overflow-hidden text-ellipsis">{title}</span>}
-              </span>
+              {tab}
             </button>
           );
         })}

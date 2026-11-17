@@ -2,7 +2,7 @@ import type { Chapter, Note, NoteAnchor, NoteRef, Translation } from "@biblestdy
 import * as vz from "@biblestdy/shared/versification";
 import { describe, expect, it } from "vitest";
 import { makeLocalizer } from "./localizer";
-import { noteMarksInChapter as marksWith, noteTouchesChapter, writtenElsewhere } from "./note-marks";
+import { markReference, mergeRanges, noteMarksInChapter as marksWith, notesOnVerse, noteTouchesChapter, writtenElsewhere, type NoteMark } from "./note-marks";
 
 const translations: Translation[] = ["BPH", "WEB", "NIV"].map((a) => ({ id: a, abbreviation: a, name: a, language: a === "BPH" ? "da" : "en" }));
 /** With the map loaded (the reader's steady state). */
@@ -182,5 +182,30 @@ describe("noteTouchesChapter / writtenElsewhere", () => {
     expect(writtenElsewhere(n, "BPH", "JHN", 3)).toEqual(["WEB", "NIV"]);
     expect(writtenElsewhere(n, "WEB", "JHN", 3)).toEqual([]);
     expect(writtenElsewhere(note({ refs: [ref()] }), "BPH", "JHN", 3)).toEqual([]);
+  });
+});
+
+describe("naming a link (#211)", () => {
+  const m = (id: string, title: string, startVerse: number, endVerse: number, startWord = 0): NoteMark => ({
+    id, noteId: id, title, translationId: "WEB", book: "JHN", chapter: 3, startVerse, startWord, endVerse, endWord: 3,
+  });
+  it("names its verses", () => {
+    expect(markReference(m("a", "x", 14, 15))).toEqual({ book: "JHN", chapter: 3, verse: 14, endVerse: 15 });
+    expect(markReference(m("a", "x", 16, 16))).toEqual({ book: "JHN", chapter: 3, verse: 16 });
+  });
+  it("lists a verse's notes once each, in text order, untitled named", () => {
+    const marks = [m("b", "Born again", 16, 16, 4), m("a", "Serpent", 14, 16), m("c", "", 16, 16), m("b2", "Born again", 16, 16)];
+    expect(notesOnVerse(marks, 16, "Untitled")).toEqual(["Serpent", "Untitled", "Born again"]);
+    expect(notesOnVerse(marks, 13, "Untitled")).toEqual([]);
+  });
+});
+
+describe("mergeRanges", () => {
+  it("merges overlapping and touching verse ranges", () => {
+    expect(mergeRanges([{ start: 16, end: 16 }, { start: 3, end: 3 }, { start: 14, end: 15 }, { start: 19, end: 20 }])).toEqual([
+      { start: 3, end: 3 },
+      { start: 14, end: 16 },
+      { start: 19, end: 20 },
+    ]);
   });
 });
