@@ -113,10 +113,11 @@ export const spotStartSelector = (p: SpotPlace) => `[data-verse="${p.start}"][da
 export const SPOT_FADE = 0.35;
 
 /** Page turns keep the spotlight (#190): the foot's ‹ › buttons. A
- * references-overview row decides itself (#210): a second click ends it,
- * another row replaces it — ending it first would re-render the row before
- * its own click, and the toggle would turn it straight back on. */
-const KEEPS_SPOTLIGHT = "[data-foot-end], [data-spot-row]";
+ * references-overview row and the exit line's "Vis alt" decide themselves
+ * (#210, `data-spot-own`): a row's second click ends it, another row
+ * replaces it — ending it first would re-render (or unmount) the control
+ * before its own click runs. */
+const KEEPS_SPOTLIGHT = "[data-foot-end], [data-spot-own]";
 /** Something above the page that Escape closes first (menu, dialog). */
 const ESCAPE_OWNER = "[role='menu'][data-open], [role='dialog'][data-open], [role='alertdialog'][data-open], [aria-modal='true']";
 

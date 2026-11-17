@@ -121,6 +121,7 @@ export function PageFoot({
             <button
               type="button"
               data-spot-exit=""
+              data-spot-own=""
               onClick={spot.onEnd}
               className={cn(
                 CREDIT_LINK,

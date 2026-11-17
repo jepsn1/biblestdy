@@ -126,7 +126,7 @@ describe("spotlight styling", () => {
 
 describe("endsSpotlight (#190: no timer)", () => {
   const el = (keeps: boolean) => ({ closest: (s: string) => (keeps && s.includes("data-foot-end") ? {} : null) });
-  const rowEl = { closest: (s: string) => (s.includes("data-spot-row") ? {} : null) };
+  const rowEl = { closest: (s: string) => (s.includes("data-spot-own") ? {} : null) };
   const doc = (open: boolean) => ({ querySelector: () => (open ? ({} as Element) : null) });
   it("any click ends it, the text included", () => {
     expect(endsSpotlight({ type: "click", target: el(false) as unknown as Element }, doc(false))).toBe(true);

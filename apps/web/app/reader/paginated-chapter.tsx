@@ -850,7 +850,7 @@ export function PaginatedChapter({
     setFlash(null);
     setSpotId(null);
     requestAnimationFrame(() =>
-      (scrollMode && notePeek ? peekRef.current : focusText())?.focus({ preventScroll: true }),
+      (sideInDrawer && notePeek ? peekRef.current : focusText())?.focus({ preventScroll: true }),
     );
   }
   const spotExit = spotLabel
@@ -1629,7 +1629,8 @@ export function PaginatedChapter({
                     prev={prevButton}
                     next={nextButton}
                     phone={false}
-                    spot={spotExit}
+                    // With the note in a drawer, the line sits on its folded bar
+                    spot={sideInDrawer ? null : spotExit}
                     className="chapter-foot mt-sheet-air shrink-0"
                   />
                   {wordInk}
@@ -1779,6 +1780,7 @@ export function PaginatedChapter({
                   <button
                     type="button"
                     data-spot-exit=""
+                    data-spot-own=""
                     onClick={spotExit.onEnd}
                     className={cn("-mx-1 inline-flex min-h-11 shrink-0 items-center rounded-sm px-1 font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2", focusRing)}
                   >
