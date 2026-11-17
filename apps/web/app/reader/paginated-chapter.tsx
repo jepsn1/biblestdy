@@ -270,10 +270,16 @@ export function PaginatedChapter({
   }
   /** Full again ("Back to note", or dragged up): never a spotlight under
    * the full drawer — it ends (#215). */
-  function unfoldNote(refocus = true) {
+  function unfoldNote() {
+    const popup = peekRef.current?.closest<HTMLElement>("[data-slot=drawer-popup]");
     setNotePeek(false);
     setSpotId(null);
-    if (refocus) requestAnimationFrame(() => foldedFrom.current?.focus({ preventScroll: true }));
+    // Full is modal: focus goes in — back to the row it came from, else the sheet
+    requestAnimationFrame(() => {
+      const el = foldedFrom.current;
+      if (el?.isConnected && el.getClientRects().length > 0) el.focus({ preventScroll: true });
+      else if (!popup?.contains(document.activeElement)) popup?.focus({ preventScroll: true });
+    });
   }
 
   const {
@@ -1871,7 +1877,7 @@ export function PaginatedChapter({
             snapPoint={notePeek ? notePeekPoint : NOTE_FULL}
             onSnapPointChange={(point) => {
               if (point === NOTE_FULL) {
-                if (notePeek) unfoldNote(false);
+                if (notePeek) unfoldNote();
               } else if (point !== null && !notePeek) peekNote();
             }}
             // The peek (#195): the text is the reader's again — scroll it, tap
