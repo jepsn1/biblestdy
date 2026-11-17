@@ -1,5 +1,5 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Hint } from "~/components/hint";
@@ -7,6 +7,7 @@ import { Button } from "~/components/ui/button";
 import { useLiveShortcut } from "~/lib/shortcuts";
 import { COFFEE_URL } from "~/lib/support";
 import { cn, focusRing } from "~/lib/utils";
+import { openPalette, palette, PALETTE_PROXY } from "~/palette/open-palette";
 import { lineWidth, partsThatFit } from "./sheet-layout";
 import { ShareMenu } from "./share-menu";
 import { turnStill } from "./turn-still";
@@ -395,15 +396,34 @@ function Parts({ parts, wrapLong = false }: { parts: string[]; wrapLong?: boolea
   ));
 }
 
+/** One end of the phone's chapter bar (#242): "‹ Kapitel 2". */
+export type BarButton = {
+  /** The chapter it goes to; null: none (Genesis 1, Revelation 22). */
+  chapter: number | null;
+  /** Accessible name, starting with the visible words ("Kapitel 1, næste
+   * kapitel: Apostlenes Gerninger 1"): the book is only said, never shown. */
+  name: string;
+  /** Tooltip ("Næste kapitel: Apostlenes Gerninger 1"). */
+  tip: string;
+  hintKey: string;
+  keys: string;
+  disabled: boolean;
+  onClick: () => void;
+};
+
 /**
- * Phones (scroll mode, #238): Previous / Next chapter leave the text for a
- * bar of their own at the bottom of the screen, like an app's tab bar —
+ * Phones (scroll mode, #238, #242): Previous / Next chapter leave the text
+ * for a bar of their own at the bottom of the screen, like an app's tab bar —
  * always in reach while reading, never scrolling or sliding with the text
- * (it sits below the scroll pane, outside the chapter sheet). Each button
- * takes up to half the bar; a long book name gives way with an ellipsis,
- * the chapter number never does. Out of the way while a note's drawer is
- * open (its peek and bar take the bottom of the screen): unseen and inert,
- * yet still holding its room, so the text doesn't jump.
+ * (it sits below the scroll pane, outside the chapter sheet). Three equal
+ * thirds, each wholly a button, thumb-sized: "‹ Kapitel 2", "Søg" (the
+ * omnisearch, as the header's Søg), "Kapitel 4 ›". No book names — the
+ * header says the book; a crossing into another book says it in the
+ * accessible name and tooltip only. Where "Kapitel" won't fit beside the
+ * number (320px, large text) the word goes, the number stays. Out of the
+ * way while a note's drawer is open (its peek and bar take the bottom of
+ * the screen): unseen and inert, yet still holding its room, so the text
+ * doesn't jump.
  */
 export function ChapterBar({
   label,
@@ -413,34 +433,121 @@ export function ChapterBar({
 }: {
   /** Landmark name. */
   label: string;
-  prev: FootButton;
-  next: FootButton;
+  prev: BarButton;
+  next: BarButton;
   hidden: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <nav
       aria-label={label}
       data-chapter-bar=""
       inert={hidden}
       className={cn(
-        // px, not rem: large text keeps its room for the names
-        "flex shrink-0 items-center justify-between gap-[8px] border-t border-border bg-background px-[6px] pt-[2px] pb-[max(env(safe-area-inset-bottom),2px)] font-sans",
+        // px, not rem: large text keeps the bar's room for the words
+        "grid shrink-0 grid-cols-3 gap-[4px] border-t border-border bg-background px-[4px] pt-[4px] pb-[max(env(safe-area-inset-bottom),4px)] font-sans",
         hidden && "invisible",
       )}
     >
-      <FootEnd button={prev} dir="prev" bar />
-      <FootEnd button={next} dir="next" bar />
+      <BarEnd button={prev} dir="prev" />
+      <Hint label={t("palette.open")} side="top">
+        <Button
+          variant="ghost"
+          data-bar-search=""
+          aria-haspopup="dialog"
+          onPointerDown={palette.preload}
+          onFocus={palette.preload}
+          onClick={() => {
+            // Opener first (Esc comes back here), then the proxy: iOS keeps
+            // the keyboard up only for a focus inside the tap itself
+            openPalette();
+            document.querySelector<HTMLInputElement>(`[${PALETTE_PROXY}]`)?.focus();
+          }}
+          className={cn(BAR_BUTTON, "justify-center")}
+        >
+          <Search aria-hidden />
+          <span className="min-w-0 truncate">{t("reader.barSearch")}</span>
+        </Button>
+      </Hint>
+      <BarEnd button={next} dir="next" />
     </nav>
   );
 }
 
-function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev" | "next"; bar?: boolean }) {
+/** A third of the bar, all of it the target: 52px tall (px: large text
+ * keeps the bar one row), the wash fills it. */
+const BAR_BUTTON = cn(
+  "h-auto min-h-[52px] w-full min-w-0 gap-1 px-[6px] py-1 text-control text-foreground",
+  "aria-disabled:pointer-events-none aria-disabled:opacity-40",
+  focusRing,
+);
+
+function BarEnd({ button, dir }: { button: BarButton; dir: "prev" | "next" }) {
+  const { t } = useTranslation();
+  const live = useLiveShortcut();
+  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
+  const wordRef = useCrampedWord(String(button.chapter ?? ""));
+  return (
+    <Hint label={button.tip} shortcut={button.hintKey} side="top">
+      <Button
+        variant="ghost"
+        // Still focusable when disabled: nothing shifts, focus stays put
+        disabled={button.disabled}
+        focusableWhenDisabled
+        data-bar-end={dir}
+        // A spotlight lasts over a chapter step, as on the paged foot
+        data-foot-end
+        aria-label={button.name}
+        aria-keyshortcuts={live(button.keys) || undefined}
+        onClick={button.onClick}
+        className={cn(BAR_BUTTON, dir === "prev" ? "justify-start" : "justify-end")}
+      >
+        {dir === "prev" && <Icon aria-hidden />}
+        <span className="flex min-w-0 whitespace-nowrap">
+          <span ref={wordRef} className="min-w-0 overflow-hidden data-cramped:hidden">
+            {t("reader.barChapter")}
+            {"\u00a0"}
+          </span>
+          {button.chapter !== null && (
+            <span data-chapter-num="" className="shrink-0 tabular-nums">
+              {button.chapter}
+            </span>
+          )}
+        </span>
+        {dir === "next" && <Icon aria-hidden />}
+      </Button>
+    </Hint>
+  );
+}
+
+/** "Kapitel" where it fits whole beside the number, else it goes (the
+ * accessible name still says it). Measured shown, every time, so hiding it
+ * can't flip the answer back. */
+function useCrampedWord(key: string) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const button = el?.closest("button");
+    if (!el || !button) return;
+    const fit = () => {
+      delete el.dataset.cramped;
+      if (el.scrollWidth > el.clientWidth + 0.5) el.dataset.cramped = "";
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(button);
+    void document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, [key]);
+  return ref;
+}
+
+function FootEnd({ button, dir }: { button: FootButton; dir: "prev" | "next" }) {
   const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
   // Mouse turns on press, like a page under the finger; touch keeps click
   // (a press may be a scroll), keyboard keeps Enter/Space (detail 0)
   const pressed = useRef(false);
   const live = useLiveShortcut();
-  const bookRef = useCrampedName(bar, button.label);
   return (
     <Hint label={button.name} shortcut={button.hintKey} side="top">
       <Button
@@ -467,10 +574,8 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
           // -mx-2: chevron and word line up with the text's edge; the hover
           // wash spills into the content padding, never into a margin lane
           "gap-1 px-2 text-control text-foreground has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
-          // The bar: half of it at most, the name cut short inside
-          // 44px (not 2.75rem): large text keeps the bar one slim row
-          bar ? "h-auto min-h-[44px] min-w-0 max-w-[calc(50%-4px)] py-1" : "h-9 min-w-0 max-w-[45cqw]",
-          !bar && (dir === "prev" ? "-ml-2 justify-self-start" : "-mr-2 justify-self-end"),
+          "h-9 min-w-0 max-w-[45cqw]",
+          dir === "prev" ? "-ml-2 justify-self-start" : "-mr-2 justify-self-end",
           "aria-disabled:pointer-events-none aria-disabled:opacity-40",
           focusRing,
         )}
@@ -478,7 +583,7 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
         {dir === "prev" && <Icon aria-hidden data-icon="inline-start" />}
         {button.place ? (
           <span className="flex min-w-0">
-            <span ref={bookRef} className="min-w-0 truncate data-cramped:hidden">
+            <span className="min-w-0 truncate">
               {button.place.book}
               {"\u00a0"}
             </span>
@@ -493,29 +598,4 @@ function FootEnd({ button, dir, bar = false }: { button: FootButton; dir: "prev"
       </Button>
     </Hint>
   );
-}
-
-/** The bar's book name, cut to under ~3 letters ("2 …" at 320px, 200%,
- * #240): it goes, the chapter number stays — the button's accessible name
- * still says the book. Measured shown, every time, so hiding it can't flip
- * the answer back. */
-function useCrampedName(on: boolean, text: string) {
-  const ref = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const button = el?.closest("button");
-    const bar = button?.parentElement;
-    if (!on || !el || !button || !bar) return;
-    const fit = () => {
-      delete el.dataset.cramped;
-      const em = parseFloat(getComputedStyle(el).fontSize) || 16;
-      if (el.scrollWidth > el.clientWidth + 0.5 && el.clientWidth < 2.6 * em) el.dataset.cramped = "";
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(bar);
-    ro.observe(button);
-    return () => ro.disconnect();
-  }, [on, text]);
-  return ref;
 }
