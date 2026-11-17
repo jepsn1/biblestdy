@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn, focusRing } from "~/lib/utils";
 import { PILL_ABOVE, PILL_EDGE, pillPlace } from "./held-selection";
-import { SELECTION_UI_ATTR } from "./selection-menu";
 
 type Rect = { left: number; right: number; top: number; bottom: number };
 
@@ -58,7 +57,7 @@ export function SelectionPill({
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={ref}
-      {...{ [SELECTION_UI_ATTR]: "" }}
+      data-selection-ui=""
       role="group"
       aria-label={label}
       className={cn(surface, "max-w-[calc(100vw-2rem)] p-0.5 duration-120 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none")}
@@ -91,20 +90,14 @@ export function SelectionPill({
   );
 }
 
-/** While a handle is held: the range, 56px above the fingertip. */
+/** While a handle is held: the range, 56px above the fingertip, kept off
+ * the screen's sides (a reference is never wider than ~150px at 12px). */
 export function DragRefTag({ x, y, text }: { x: number; y: number; text: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [left, setLeft] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const w = ref.current?.offsetWidth ?? 0;
-    setLeft(Math.max(PILL_EDGE, Math.min(x - w / 2, window.innerWidth - PILL_EDGE - w)));
-  }, [x, text]);
   return (
     <p
-      ref={ref}
       aria-hidden
-      className={cn(surface, "pointer-events-none px-2 py-0.5 text-meta whitespace-nowrap")}
-      style={{ left: left ?? 0, top: y - 56, visibility: left === null ? "hidden" : undefined }}
+      className={cn(surface, "pointer-events-none -translate-x-1/2 px-2 py-0.5 text-meta whitespace-nowrap")}
+      style={{ left: Math.max(PILL_EDGE + 76, Math.min(x, window.innerWidth - PILL_EDGE - 76)), top: y - 56 }}
     >
       {text}
     </p>
