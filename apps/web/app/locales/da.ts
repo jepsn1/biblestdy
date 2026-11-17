@@ -133,7 +133,7 @@ const da: typeof en = {
     prev: "Forrige",
     next: "Næste",
     pagesNav: "Sider",
-    chaptersNav: "Kapitler",
+    chapterBar: "Forrige og næste kapitel",
     stripLabel: "Kapitler i {{book}}",
     stripChapter: "Kapitel {{n}}",
     stripAlsoHere: "Kapitel {{n}}, også på denne side",

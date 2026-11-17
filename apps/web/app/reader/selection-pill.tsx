@@ -50,8 +50,9 @@ export function SelectionPill({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Above any open drawer (the note's Back-to-note bar included)
-    const drawerTops = [...document.querySelectorAll('[data-slot="drawer-popup"]')]
+    // Above any open drawer (the note's Back-to-note bar included) and
+    // the phone's chapter bar (#238)
+    const drawerTops = [...document.querySelectorAll('[data-slot="drawer-popup"], [data-chapter-bar]')]
       .map((d) => d.getBoundingClientRect().top)
       .filter((top) => top > 0);
     const bottom = Math.min(window.innerHeight, ...drawerTops) - PILL_ABOVE;

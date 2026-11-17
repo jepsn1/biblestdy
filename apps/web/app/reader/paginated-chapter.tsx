@@ -41,7 +41,7 @@ import { preloadWhenIdle } from "~/lib/lazy-module";
 import { boxesFitLane, crossingSlide, LANE, PAD, pagedFits, RAIL, sheetLayout, stripFits, type Span } from "./sheet-layout";
 import { AnnotationMarks } from "./annotation-marks";
 import { MarksLoadError, useMarksLoad } from "./marks-load-error";
-import { CreditParts, PageFoot, type FootButton } from "./page-foot";
+import { ChapterBar, CreditParts, PageFoot, SupportLine, type FootButton } from "./page-foot";
 import { API_BIBLE_URL } from "~/lib/app-info";
 import { ChapterStrip } from "./chapter-strip";
 import { notePage } from "~/lib/recent-passages";
@@ -1134,6 +1134,7 @@ export function PaginatedChapter({
   /** "John 4" — localized book names where the UI has them (#52). */
   const refLabel = (r: ChapterRef) =>
     `${nameOf(r.book)} ${r.chapter}`;
+  const placeOf = (r: ChapterRef) => ({ book: nameOf(r.book), chapter: String(r.chapter) });
   const onFirstPage = scrollMode || page === 0;
   const onLastPage = scrollMode || page >= pageCount - 1;
   /** At a boundary the control says where it goes; inside, it's a page turn. */
@@ -1203,6 +1204,7 @@ export function PaginatedChapter({
     keys: scrollMode ? chapterShortcut("[") : "ArrowLeft PageUp",
     disabled: onFirstPage && !prevTarget,
     onClick: goPrev,
+    place: scrollMode && prevChapter ? placeOf(prevChapter) : undefined,
   };
   const nextButton: FootButton = {
     label: scrollMode && nextChapter ? refLabel(nextChapter) : pagedLabel("next", nextTarget),
@@ -1213,6 +1215,7 @@ export function PaginatedChapter({
     keys: scrollMode ? chapterShortcut("]") : "ArrowRight PageDown",
     disabled: onLastPage && !nextTarget,
     onClick: goNext,
+    place: scrollMode && nextChapter ? placeOf(nextChapter) : undefined,
   };
 
   /** Desktop: jump to a page (Home/End). */
@@ -1641,15 +1644,9 @@ export function PaginatedChapter({
                   {chapterText}
                   {chapterEnd}
                 </div>
-                {/* The chapter ends with its own foot: on to the next one */}
-                <PageFoot
-                  label={t("reader.chaptersNav")}
-                  position={[]}
-                  prev={prevButton}
-                  next={nextButton}
-                  phone
-                  className="mx-auto mt-6 max-w-[65ch]"
-                />
+                {/* The chapter ends with the support line; Previous / Next
+                    chapter wait in the bar below the pane (#238) */}
+                <SupportLine phone className="mx-auto mt-6 max-w-[65ch]" />
                 {wordInk}
               </div>
               {inkLayers}
@@ -1769,7 +1766,6 @@ export function PaginatedChapter({
                     source={source}
                     prev={prevButton}
                     next={nextButton}
-                    phone={false}
                     // With the note in a drawer, the line sits on its folded bar
                     spot={sideInDrawer ? null : spotExit}
                     more={more}
@@ -1818,6 +1814,9 @@ export function PaginatedChapter({
           </>
         )}
       </div>
+      {/* Phones: always in reach, under the text — never in the sheet,
+          so a chapter crossing never slides it (#238) */}
+      {scrollMode && <ChapterBar label={t("reader.chapterBar")} prev={prevButton} next={nextButton} hidden={noteDrawer} />}
 
       {!scrollMode && (
         <p aria-live="polite" className="sr-only">
