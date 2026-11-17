@@ -630,6 +630,7 @@ export default {
     title: "Search or go to",
     loadFailed: "Couldn\u2019t open search. Check your connection and try again.",
     placeholder: "Search, or go to John 3:16",
+    placeholderShort: "Search",
     backTo: "Close — back to {{ref}}",
     cancel: "Cancel",
     cancelTo: "Cancel – back to {{ref}}",

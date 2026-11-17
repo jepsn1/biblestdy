@@ -429,6 +429,25 @@ export function CommandPalette({
       document.removeEventListener("touchmove", onMove);
     };
   }, [open, isMobile]);
+  // Phone: the full placeholder only where it fits the field (large text,
+  // 320px): else just "Søg"
+  const [shortHint, setShortHint] = useState(false);
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!open || !isMobile || !el || typeof ResizeObserver === "undefined") return;
+    const ctx = document.createElement("canvas").getContext("2d");
+    const check = () => {
+      const cs = getComputedStyle(el);
+      if (!ctx) return;
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const room = el.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      setShortHint(ctx.measureText(t("palette.placeholder")).width > room);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, isMobile, column, t]);
   // The hairline under the bar: only once the list has scrolled
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -726,7 +745,7 @@ export function CommandPalette({
       aria-autocomplete="list"
       aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
       aria-label={t("palette.title")}
-      placeholder={t("palette.placeholder")}
+      placeholder={isMobile && shortHint ? t("palette.placeholderShort") : t("palette.placeholder")}
       autoComplete="off"
       autoCapitalize="off"
       autoCorrect="off"
@@ -751,9 +770,13 @@ export function CommandPalette({
       onKeyDown={onKeyDown}
       className={
         isMobile
-          ? // A filled field: no underline; a 1px edge and, focused, a 2px ring (≥3:1).
+          ? cn(
+              // A filled field: no underline; a 1px edge and, focused, a 2px ring (≥3:1).
             // px, not rem: large text keeps the field's room for the words
-            "min-h-[44px] w-full min-w-0 rounded-[10px] bg-muted py-1 pr-[44px] pl-[40px] text-phone ring-1 ring-muted-foreground/80 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              "min-h-[44px] w-full min-w-0 rounded-[10px] bg-muted py-1 pl-[40px] text-phone ring-1 ring-muted-foreground/80 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring",
+              // Room for ⓧ only once there's text to clear
+              query ? "pr-[44px]" : "pr-[12px]",
+            )
           : cn(
               "h-12 min-w-0 flex-1 bg-transparent text-control placeholder:text-muted-foreground max-sm:h-14 max-sm:text-phone",
               focusTitle,
@@ -868,11 +891,12 @@ export function CommandPalette({
           >
             <div
               className={cn(
-                "flex shrink-0 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] transition-[border-color] duration-[120ms] motion-reduce:transition-none",
+                "flex shrink-0 items-center gap-[8px] border-b px-[16px] pt-[env(safe-area-inset-top)] transition-[border-color] duration-[120ms] motion-reduce:transition-none",
                 scrolled ? "border-border" : "border-transparent",
               )}
             >
-              <div className="relative flex min-h-[56px] min-w-0 flex-1 items-center">
+              {/* The field comes first: at least 60% of the bar at any text size */}
+              <div className="relative flex min-h-[56px] min-w-[60%] flex-1 items-center">
                 <Search className="pointer-events-none absolute left-[12px] size-[18px] text-muted-foreground" aria-hidden />
                 {input}
                 {query && (
@@ -896,8 +920,8 @@ export function CommandPalette({
                 type="button"
                 aria-label={t("palette.cancelTo", { ref: here })}
                 onClick={closeVia}
-                // Grows with large text, but leaves the field its room (capped 22px)
-                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md px-1 text-[clamp(16px,1rem,22px)] leading-tight font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                // Grows with large text only to 18px: the field keeps its room
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md px-1 text-[clamp(16px,1rem,18px)] leading-tight font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 {t("palette.cancel")}
               </button>

@@ -670,6 +670,7 @@ const da: typeof en = {
     title: "Søg eller gå til",
     loadFailed: "Søgningen kunne ikke åbnes. Tjek forbindelsen, og prøv igen.",
     placeholder: "Søg, eller gå til Joh 3,16",
+    placeholderShort: "Søg",
     backTo: "Luk — tilbage til {{ref}}",
     cancel: "Annullér",
     cancelTo: "Annullér – tilbage til {{ref}}",
