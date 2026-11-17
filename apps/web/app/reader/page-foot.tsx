@@ -61,8 +61,13 @@ export function PageFoot({
   prev,
   next,
   phone,
+  spot,
   className,
 }: {
+  /** The reference spotlight's exit line (#210), in the folio's place while
+   * it lasts: "Viser Joh 3,14–15 · Vis alt". Its announcement is the
+   * reader's own live region. */
+  spot?: { label: string; showAll: string; onEnd: () => void } | null;
   /** Landmark name: "Pages" / "Chapters". */
   label: string;
   /** Folio (paged: visual only, the live region announces turns): parts
@@ -104,7 +109,28 @@ export function PageFoot({
     >
       <FootEnd button={prev} dir="prev" phone={phone} />
       <div className="min-w-0 text-center">
-        {position.length > 0 && (
+        {spot ? (
+          <p data-spot-line="" className={cn(FOLIO, "flex min-w-0 items-baseline justify-center")}>
+            <span aria-hidden className="truncate">
+              {spot.label}
+            </span>
+            <span aria-hidden className="shrink-0 whitespace-pre">
+              {SEP}
+            </span>
+            <button
+              type="button"
+              data-spot-exit=""
+              onClick={spot.onEnd}
+              className={cn(
+                CREDIT_LINK,
+                // 44px to hit (an invisible ring), the line's own size
+                "relative shrink-0 text-foreground before:absolute before:-inset-x-1.5 before:-inset-y-2.5 before:content-['']",
+              )}
+            >
+              {spot.showAll}
+            </button>
+          </p>
+        ) : position.length > 0 && (
           <p
             aria-hidden={!phone}
             // The folio is set in the reading face (Paper: serif, Clean: sans)

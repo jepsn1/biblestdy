@@ -83,14 +83,17 @@ export function firstWords(chapter: Chapter | undefined, ref: ScriptureRef, n = 
 }
 
 /** The reader URL that reads a reference: its first chapter, `?v=` the
- * verses there (a cross-chapter range runs to that chapter's end). */
-export function readHref(ref: ScriptureRef, noteId?: string): string {
+ * verses there (a cross-chapter range runs to that chapter's end). With a
+ * note's `mark` (#210: a selection's id, or a text reference's canonical
+ * href), the reader spotlights it there instead of tinting the verses. */
+export function readHref(ref: ScriptureRef, noteId?: string, mark?: string): string {
   const params = new URLSearchParams();
   if (ref.verse !== undefined) {
     const crosses = ref.endChapter !== undefined && ref.endChapter !== ref.chapter;
     params.set("v", crosses ? `${ref.verse}-` : ref.endVerse !== undefined ? `${ref.verse}-${ref.endVerse}` : `${ref.verse}`);
   }
   if (noteId) params.set("note", noteId);
+  if (noteId && mark) params.set("mark", mark);
   const qs = params.toString();
   return `/read/${ref.book}/${ref.chapter}${qs ? `?${qs}` : ""}`;
 }

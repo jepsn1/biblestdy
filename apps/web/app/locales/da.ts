@@ -140,6 +140,10 @@ const da: typeof en = {
     nextInto: "Næste: {{ref}}",
     pageOf: "Side {{page}} af {{count}}",
     announce: "{{ref}}, side {{page}} af {{count}}",
+    // Udgangen fra en henvisnings fremhævning (#210)
+    spotShowing: "Viser {{ref}}",
+    spotShowAll: "Vis alt",
+    spotAnnounce: "Viser {{ref}}. Escape viser alt.",
     publicDomain: "Fri af ophavsret",
   },
   tools: {
@@ -237,7 +241,7 @@ const da: typeof en = {
     showText: "Vis tekst",
     notInShort: "Findes ikke i {{abbr}}",
     removeReference: "Fjern dette bibelvers",
-    readPassage: "Læs dette bibelvers",
+    readPassage: "Vis i Bibelen",
     deselect: "Fravælg",
     open: "Åbn note",
     delete: "Slet",
@@ -270,7 +274,7 @@ const da: typeof en = {
     refChipName: "{{ref}}, bibelvers",
     refChipTitle: "{{ref}} \u00b7 {{mod}}klik eller Enter åbner det",
     refIn: "i {{abbr}} {{ref}}",
-    readHere: "Læs her",
+    readHere: "Vis i Bibelen",
     removeRef: "Fjern",
     refNotIn: "{{ref}} findes ikke i {{abbr}}.",
     readIn: "Læs i {{abbr}}",

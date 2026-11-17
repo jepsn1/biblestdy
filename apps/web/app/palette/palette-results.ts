@@ -13,6 +13,7 @@ import {
 import { referenceLabel } from "~/lib/reference-label";
 import { placesToOffer, START_PLACES } from "~/lib/recent-passages";
 import { chapterHref, referenceHref } from "../reader/chapter-nav";
+import { noteMarkId } from "../reader/spotlight";
 import { bookQuery, compareQuery, findPassages, reversedBook, typoBooks, type PassageHit } from "./passage-query";
 
 /**
@@ -206,7 +207,10 @@ function noteItem(ctx: PaletteContext, note: Note, q: string, snippet?: string, 
     group: "notes",
     label: title,
     detail: [ref, more > 0 && ctx.labels.morePassages(more), snippet].filter(Boolean).join(" · ") || undefined,
-    href: a ? `/read/${a.book}/${a.chapter}?note=${note.id}` : `/notes/${note.id}`,
+    // Lands on the reference with the reader's one spotlight (#210)
+    href: a
+      ? `/read/${a.book}/${a.chapter}?note=${note.id}&mark=${encodeURIComponent(noteMarkId({ noteId: note.id, id: a.id }))}`
+      : `/notes/${note.id}`,
     match: q || undefined,
   };
 }

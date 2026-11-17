@@ -2,6 +2,7 @@ import type { Anchor, Highlight } from "@biblestdy/shared";
 import { useState, type RefObject } from "react";
 import { isShown, type HighlightFilter } from "~/lib/highlight-filter";
 import { HIGHLIGHT_BG } from "./highlight-colors";
+import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { clampToColumn, lineRuns, type ColumnFlow, type Rect } from "./ink-geometry";
 import { sameData, useMeasure } from "./use-measure";
 
@@ -14,7 +15,7 @@ import { sameData, useMeasure } from "./use-measure";
  * piece (the box-decoration-break: clone look), clamped to its text column.
  */
 
-type MarkRect = { key: string; x: number; y: number; w: number; h: number; color: string; faint?: boolean };
+type MarkRect = { key: string; x: number; y: number; w: number; h: number; color: string; faint?: boolean; dim?: boolean };
 
 /** A colour the key filters out: still there, see-through. */
 const FAINT = 0.3;
@@ -29,7 +30,7 @@ export function HighlightMarks({
   flowRef,
   scopeRef,
   layoutKey,
-  hidden = false,
+  spot = null,
   shown = null,
 }: {
   highlights: Highlight[];
@@ -45,8 +46,10 @@ export function HighlightMarks({
   /** Anything that moves the words without resizing the boxes (stride,
    * column count, text size) — re-measure on change. */
   layoutKey: string;
-  /** Spotlight active — the marker layer disappears with the other ink. */
-  hidden?: boolean;
+  /** The spotlit reference (#210): its whole verses get the strong link
+   * wash (not under a highlight: blue over gold turns muddy); highlights
+   * inside stay at full strength, those outside fade — never hidden. */
+  spot?: SpotRange | null;
   /** The colour key's filter (null = all): other colours paint faint. */
   shown?: HighlightFilter;
 }) {
@@ -77,10 +80,16 @@ export function HighlightMarks({
         gap,
       };
       const out: MarkRect[] = [];
-      const paint = (a: Anchor, key: string, color: string, faint = false) => {
+      const paint = (
+        a: Anchor,
+        key: string,
+        color: string,
+        { faint = false, dim = false, skip }: { faint?: boolean; dim?: boolean; skip?: (v: number, w: number) => boolean } = {},
+      ) => {
         // Measure straight from the word spans — overlapping highlights all
-        // render, independent of any per-word ownership
-        const words: Rect[] = [];
+        // render, independent of any per-word ownership. A skipped word
+        // splits the run (its own wash shows there instead)
+        const runs: Rect[][] = [[]];
         let lineH = 36;
         for (let v = a.startVerse; v <= a.endVerse; v++) {
           const els = (scopeRef?.current ?? flowEl).querySelectorAll<HTMLElement>(`[data-verse="${v}"][data-word]`);
@@ -88,10 +97,14 @@ export function HighlightMarks({
             const w = Number(el.dataset.word);
             if (v === a.startVerse && w < a.startWord) continue;
             if (v === a.endVerse && w > a.endWord) continue;
+            if (skip?.(v, w)) {
+              if (runs.at(-1)!.length) runs.push([]);
+              continue;
+            }
             const vr = el.getBoundingClientRect();
             if (vr.width === 0) continue;
             lineH = parseFloat(getComputedStyle(el).lineHeight) || 36;
-            words.push({
+            runs.at(-1)!.push({
               left: (vr.left - flowRect.left) / s + ox,
               top: (vr.top - flowRect.top) / s + oy,
               right: (vr.right - flowRect.left) / s + ox,
@@ -99,7 +112,7 @@ export function HighlightMarks({
             });
           }
         }
-        lineRuns(words).forEach((line, i) => {
+        runs.flatMap((words) => lineRuns(words)).forEach((line, i) => {
           const run = clampToColumn(line, flow);
           // Expand the glyph box to the full line box, plus a little extra so
           // adjacent lines OVERLAP slightly — the faint darker band at the
@@ -113,6 +126,7 @@ export function HighlightMarks({
             h: run.bottom - run.top + pad * 2,
             color,
             faint,
+            dim,
           });
         });
       };
@@ -120,19 +134,35 @@ export function HighlightMarks({
       const size = (a: Anchor) => (a.endVerse - a.startVerse) * 1000 + (a.endWord - a.startWord);
       // Faint (filtered-out) ones first: a shown colour always reads on top
       const faint = (hl: Highlight) => !isShown(shown, hl.color);
-      for (const hl of [...highlights].sort((a, b) => Number(faint(b)) - Number(faint(a)) || size(b) - size(a)))
-        paint(hl, hl.id, HIGHLIGHT_BG[hl.color], faint(hl));
+      const sorted = [...highlights].sort((a, b) => Number(faint(b)) - Number(faint(a)) || size(b) - size(a));
+      // The spotlit verses' wash, first (behind everything), skipping words
+      // a highlight carries
+      if (spot && spot.end >= spot.start) {
+        const under = (v: number, w: number) =>
+          sorted.some(
+            (hl) =>
+              (v > hl.startVerse || (v === hl.startVerse && w >= hl.startWord)) &&
+              (v < hl.endVerse || (v === hl.endVerse && w <= hl.endWord)),
+          );
+        paint(
+          { translationId: "", book: "", chapter: 0, startVerse: spot.start, startWord: 0, endVerse: spot.end, endWord: Number.MAX_SAFE_INTEGER },
+          "spot",
+          "var(--link-wash-strong)",
+          { skip: under },
+        );
+      }
+      for (const hl of sorted)
+        paint(hl, hl.id, HIGHLIGHT_BG[hl.color], { faint: faint(hl), dim: !!spot && !touchesSpot(spot, hl) });
       if (selection) paint(selection, "selection", "var(--selection)");
       setRects((prev) => (sameData(prev, out) ? prev : out));
     },
-    [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown],
+    [highlights, selection, layoutKey, boxRef, flowRef, scopeRef, shown, spot?.start, spot?.end],
   );
 
   return (
     <svg
       aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible transition-opacity duration-200"
-      style={{ opacity: hidden ? 0 : 1 }}
+      className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible"
     >
       {rects.map((r) => (
         <rect
@@ -144,8 +174,9 @@ export function HighlightMarks({
           height={r.h}
           rx={RADIUS}
           fill={r.color}
-          fillOpacity={r.faint ? FAINT : undefined}
-          className="transition-[fill-opacity] duration-200"
+          fillOpacity={(r.faint ? FAINT : 1) * (r.dim ? SPOT_FADE : 1)}
+          data-spot-dim={r.dim || undefined}
+          className="transition-[fill-opacity] duration-200 motion-reduce:transition-none"
         />
       ))}
     </svg>

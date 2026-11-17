@@ -16,7 +16,7 @@ import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
 import { Popover, PopoverContent } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import type { EditorKit, PagePlace } from "./ref-context";
+import type { EditorKit, PagePlace, ReadRef } from "./ref-context";
 import type { VersePickerProps } from "./verse-picker";
 import { bookLocale } from "~/lib/book-name";
 import { chipLabel } from "~/lib/reference-label";
@@ -173,7 +173,7 @@ export function NotePanel({
   onAttach,
   onShowAnchor,
   onReadRef,
-  selectedAnchorId,
+  spot,
   onClose,
   onOpenInNotes,
   page = false,
@@ -189,11 +189,11 @@ export function NotePanel({
   /** Puts a removed reader selection back (the overview's Undo). */
   onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
   onShowAnchor: (anchor: NoteAnchor) => void;
-  /** Reads an inline reference (a chip's "Read here", its list row) — in
-   * `translationId` when given ("Read in WEB"). */
-  onReadRef?: (ref: ScriptureRef, translationId?: string) => void;
-  /** Anchor id of the selected reference (spotlit in the reader). */
-  selectedAnchorId: string | null;
+  /** Shows an inline reference in the Bible (a chip's "Show in Bible", its
+   * list row) — in `translationId` when given ("Read in WEB"). */
+  onReadRef?: ReadRef;
+  /** The spotlit reference's id (spotlight.ts), if any. */
+  spot: string | null;
   onClose: () => void;
   /** Reader panel: opens this note on the Notes page. */
   onOpenInNotes?: () => void;
@@ -616,7 +616,7 @@ export function NotePanel({
             note={note}
             body={liveBody}
             onReadRef={onReadRef}
-            selectedAnchorId={selectedAnchorId}
+            spot={spot}
             onShowAnchor={onShowAnchor}
             onDetach={onDetach}
             onAttach={onAttach}

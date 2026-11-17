@@ -1,92 +1,126 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { coverInto, spanSize } from "./mark-coverage";
-import { endsSpotlight, markStartSelector, noteMarkId, spotlitWords } from "./spotlight";
+import type { ScriptureRef } from "@biblestdy/shared";
+import { readHref } from "../notes/verse-resolver";
+import type { NoteMark } from "./note-marks";
+import {
+  endsSpotlight,
+  noteMarkId,
+  refSpot,
+  refSpotId,
+  resolveSpot,
+  spotFromParam,
+  spotNoteId,
+  spotParam,
+} from "./spotlight";
 
-const passage = { translationId: "WEB", book: "GEN", chapter: 1 };
-const verses = [
-  { verse: 1, text: "In the beginning, God created the heavens and the earth." }, // 10 words
-  { verse: 2, text: "The earth was formless and empty." }, // 6 words
-  { verse: 3, text: "God said, “Let there be light,” and there was light." },
-];
-const ref = { ...passage, noteId: "a", id: "r1", startVerse: 1, startWord: 0, endVerse: 2, endWord: 3 };
-// Another note's reference over some of the same words (smaller: it wins
-// the click coverage there)
-const other = { ...passage, noteId: "b", id: "r2", startVerse: 1, startWord: 7, endVerse: 1, endWord: 8 };
-
-const all = (from: [number, number], to: [number, number]) => {
-  const out: string[] = [];
-  for (const v of verses) {
-    const n = v.text.split(/\s+/).length;
-    for (let w = 0; w < n; w++)
-      if ((v.verse > from[0] || (v.verse === from[0] && w >= from[1])) && (v.verse < to[0] || (v.verse === to[0] && w <= to[1])))
-        out.push(`${v.verse}:${w}`);
-  }
-  return out;
+const passage = { translationId: "WEB", book: "JHN", chapter: 3 };
+const chapter = {
+  book: "JHN",
+  chapter: 3,
+  verses: [14, 15, 16, 17].map((verse) => ({ verse, text: "w ".repeat(8).trim() })),
 };
+const mark = (over: Partial<NoteMark>): NoteMark => ({
+  ...passage,
+  id: "a1",
+  noteId: "n",
+  title: "T",
+  startVerse: 14,
+  startWord: 3,
+  endVerse: 15,
+  endWord: 2,
+  ...over,
+});
+/** Canonical = local here (WEB). */
+const same = (r: ScriptureRef) => r;
 
-describe("spotlitWords", () => {
-  it("lights every word of the selected reference, whatever else marks them", () => {
-    const lit = spotlitWords(verses, [ref, other], noteMarkId(ref));
-    expect([...lit].sort()).toEqual(all([1, 0], [2, 3]).sort());
-    // the other note's words inside it are lit too — no muted hole
-    expect(lit.has("1:7") && lit.has("1:8")).toBe(true);
-    // a mark straddling the end: only the reference's part is lit
-    expect(lit.has("2:3")).toBe(true);
-    expect(lit.has("2:4")).toBe(false);
+describe("resolveSpot (#210: one spotlight for every path)", () => {
+  it("a selection lights its whole verses and lands on its first word", () => {
+    const m = mark({});
+    expect(resolveSpot(noteMarkId(m), [m], chapter, same)).toEqual({ noteId: "n", markId: "note:n:a1", start: 14, end: 15, word: 3 });
   });
 
-  it("lights only the smaller reference when that one is selected", () => {
-    expect([...spotlitWords(verses, [ref, other], noteMarkId(other))]).toEqual(["1:7", "1:8"]);
+  it("a text reference resolves by its canonical href, whatever its row id", () => {
+    // The ref's verse-level mark: its id is the note_ref row's, rebuilt on save
+    const placed = mark({ id: "ref-row-9", startVerse: 16, startWord: 0, endVerse: 16, endWord: 7, verseLevel: true });
+    const spot = refSpotId("n", "bible:JHN.3.16");
+    expect(resolveSpot(spot, [placed], chapter, same)).toEqual({ noteId: "n", markId: "note:n:ref-row-9", start: 16, end: 16, word: 0 });
+    // After a save the row id changed: still the same spotlight
+    const saved = { ...placed, id: "ref-row-10" };
+    expect(resolveSpot(spot, [saved], chapter, same)?.markId).toBe("note:n:ref-row-10");
   });
 
-  it("lights nothing without a selected reference here", () => {
-    expect(spotlitWords(verses, [ref], null).size).toBe(0);
-    expect(spotlitWords(verses, [ref], "note:x:y").size).toBe(0);
+  it("a text reference whose verse the note's selection already marks takes that mark", () => {
+    const m = mark({ startVerse: 16, endVerse: 16 });
+    expect(resolveSpot(refSpotId("n", "bible:JHN.3.16"), [m], chapter, same)?.markId).toBe("note:n:a1");
+  });
+
+  it("goes through the versification map, and waits for it", () => {
+    const spot = refSpotId("n", "bible:JHN.3.17");
+    const shifted = (r: ScriptureRef) => ({ ...r, verse: (r.verse ?? 0) - 2 });
+    expect(resolveSpot(spot, [], chapter, shifted)).toMatchObject({ start: 15, end: 15, markId: null });
+    expect(resolveSpot(spot, [], chapter, null)).toBeNull();
+  });
+
+  it("is null for another chapter, a missing mark, or no spot", () => {
+    expect(resolveSpot(refSpotId("n", "bible:ROM.8.14"), [], chapter, same)).toBeNull();
+    expect(resolveSpot("note:n:gone", [], chapter, same)).toBeNull();
+    expect(resolveSpot(null, [], chapter, same)).toBeNull();
+  });
+});
+
+describe("spot ids in the URL", () => {
+  it("?mark= takes a selection's id, or a canonical href with ?note=", () => {
+    expect(spotFromParam("note:n:a1", null)).toBe("note:n:a1");
+    expect(spotFromParam("bible:JHN.3.16-3.17", "n")).toBe("ref:n:bible:JHN.3.16-17");
+    expect(spotFromParam("bible:JHN.3.16", null)).toBeNull();
+    expect(spotFromParam("bogus", "n")).toBeNull();
+  });
+  it("round-trips through spotParam", () => {
+    expect(spotParam("ref:n:bible:JHN.3.16")).toBe("bible:JHN.3.16");
+    expect(spotParam("note:n:a1")).toBe("note:n:a1");
+    expect(spotNoteId("ref:n:bible:JHN.3.16")).toBe("n");
+    expect(refSpot("n", { book: "JHN", chapter: 3, verse: 16 })).toBe("ref:n:bible:JHN.3.16");
+  });
+  it("every path builds the same URL shape", () => {
+    expect(readHref({ book: "JHN", chapter: 3, verse: 16 }, "n", "bible:JHN.3.16")).toBe("/read/JHN/3?v=16&note=n&mark=bible%3AJHN.3.16");
+    // No note: a plain go-to-verse, no spotlight
+    expect(readHref({ book: "JHN", chapter: 3, verse: 16 }, undefined, "bible:JHN.3.16")).toBe("/read/JHN/3?v=16");
   });
 });
 
 describe("spotlight styling", () => {
   const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
-  const src = readFileSync(new URL("./chapter-text.tsx", import.meta.url), "utf8");
+  const read = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8");
 
   it("keys full ink on the word itself, never on a mark's wrapper span", () => {
     expect(css).toMatch(/\[data-spotlight\] \[data-word\]\[data-spotlit\]/);
     expect(css).not.toMatch(/\[data-spotlit\]\s+\[data-word\]/);
-    // the wrapper only exists for the mark that won a word's coverage
-    expect(src).not.toMatch(/data-spotlit=\{seg\./);
-  });
-});
-
-describe("markStartSelector", () => {
-  // A reference wholly covered by smaller marks (a pen underline + another
-  // note): smallest-first coverage gives it no word, so no wrapper span of
-  // its own is rendered — the jump must still find it
-  const covered = { ...passage, noteId: "a", id: "r3", startVerse: 2, startWord: 0, endVerse: 2, endWord: 3 };
-  const pen = { ...passage, id: "pen", startVerse: 2, startWord: 0, endVerse: 2, endWord: 1 };
-  const small = { ...passage, noteId: "b", id: "r4", startVerse: 2, startWord: 2, endVerse: 2, endWord: 3 };
-
-  it("finds a reference that owns no word of the coverage", () => {
-    const coverage = new Map<string, string>();
-    coverInto(
-      coverage,
-      verses,
-      [
-        { ...pen, value: pen.id },
-        ...[covered, small].map((m) => ({ ...m, value: noteMarkId(m) })),
-      ].sort((a, b) => spanSize(a) - spanSize(b)),
-    );
-    expect([...coverage.values()]).not.toContain(noteMarkId(covered));
-    expect(markStartSelector([covered, small], noteMarkId(covered))).toBe('[data-verse="2"][data-word="0"]');
+    expect(read("./chapter-text.tsx")).not.toMatch(/data-spotlit=\{seg\./);
   });
 
-  it("is null until the mark is known (notes still loading)", () => {
-    expect(markStartSelector([], noteMarkId(covered))).toBeNull();
+  it("never hides the reader's own marks: they fade outside the verses", () => {
+    expect(read("./highlight-marks.tsx")).not.toMatch(/hidden\s*\?\s*0/);
+    const marks = read("./annotation-marks.tsx");
+    expect(marks).not.toMatch(/spotlight \? \[\] : placements/);
+    expect(marks).not.toMatch(/spotlight \? pens\.filter/);
+  });
+
+  it("the gold verse tint is for a plain go-to-verse only, never a note's reference", () => {
+    const reader = read("./paginated-chapter.tsx");
+    // ?v= tints only without ?mark; "Read here" no longer navigates to ?v
+    expect(reader).toMatch(/if \(!searchParams\.has\("mark"\)\) \{\s*setFlash\(target\)/);
+    expect(reader).not.toMatch(/navigate\(readHref\(ref\)\)/);
+    expect(read("../routes/notes.tsx")).not.toMatch(/navigate\(readHref\(r, open\.id\)\)/);
+  });
+
+  it("the spotlight never prints, and changes at once under reduced motion", () => {
+    expect(css).toMatch(/@media print \{\s*\[data-spotlight\]/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\[data-spotlight\][^}]*\{\s*transition: none/);
   });
 
   it("the reader looks references up by word, not by wrapper span", () => {
-    const reader = readFileSync(new URL("./paginated-chapter.tsx", import.meta.url), "utf8");
-    expect(reader).not.toMatch(/data-annotation-anchor/);
+    expect(read("./paginated-chapter.tsx")).not.toMatch(/data-annotation-anchor/);
   });
 });
 

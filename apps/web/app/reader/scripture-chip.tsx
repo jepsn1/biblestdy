@@ -272,7 +272,7 @@ function RefPreview({
                 className={cn(actionClass, "text-primary")}
                 onClick={() => {
                   onClose(false);
-                  onRead?.(scripture, elsewhere.id);
+                  onRead?.(scripture, scripture, elsewhere.id);
                 }}
               >
                 {t("note.readIn", { abbr: elsewhere.abbreviation })}
@@ -289,7 +289,7 @@ function RefPreview({
               onClick={() => {
                 onClose(false);
                 // Where this translation has it (BPH Mal 3,20, not Mal 4,2)
-                onRead?.(local?.ref ?? scripture);
+                onRead?.(scripture, local?.ref ?? scripture);
               }}
             >
               {t("note.readHere")}

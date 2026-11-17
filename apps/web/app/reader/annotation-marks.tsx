@@ -8,6 +8,7 @@ import { AnnotationEditor } from "./annotation-editor";
 import { NOTE_INK, NOTE_INK_TEXT, NOTE_INK_TEXT_ACTIVE } from "./highlight-colors";
 import { columnOf, lineRuns, pageOfColumn, sideOfSpan, placeRailChips, type PagedFlow, type Rect } from "./ink-geometry";
 import type { NoteMark } from "./note-marks";
+import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { sameData, useMeasure, useSameData } from "./use-measure";
 import {
@@ -262,7 +263,7 @@ export function AnnotationMarks({
   marginHidden = false,
   layoutKey,
   activeAnnotationId,
-  selectedMarkId,
+  spot = null,
   compact = false,
   marginBoxes = true,
   railChips = true,
@@ -295,9 +296,10 @@ export function AnnotationMarks({
    * re-projects the margin items: the words themselves don't move. */
   layoutKey: string;
   activeAnnotationId: string | null;
-  /** Mark of the reference selected in the note panel — while set, every
-   * other mark's ink is hidden so this one owns the page. */
-  selectedMarkId: string | null;
+  /** The spotlit reference (#210): its bracket strongest and only its label
+   * shown, filled; other notes' brackets and the reader's own marks outside
+   * its verses step back — never hidden. */
+  spot?: SpotRange | null;
   /** Phone view (#13, #44): single scroll column — brackets sit on the left. */
   compact?: boolean;
   /** Handwriting boxes + arrows in the margin lanes. False when there are no
@@ -320,9 +322,8 @@ export function AnnotationMarks({
   // Rebuilt by the caller on every render: only new data re-measures
   const annotations = useSameData(annotationsProp);
   const noteMarks = useSameData(noteMarksProp);
-  const spotlight =
-    selectedMarkId != null &&
-    noteMarks.some((m) => `note:${m.noteId}:${m.id}` === selectedMarkId);
+  const spotlight = spot != null;
+  const spotMark = spot?.markId ?? null;
   const { t } = useTranslation();
   // Current sheet scale (mobile, #13) — pointer deltas are visual px, box
   // coordinates local px
@@ -550,11 +551,18 @@ export function AnnotationMarks({
     }
     return { placements: items, noteTabs: tabs, pens: penList };
   }, [geo, annotations, noteMarks, page]);
-  // Spotlight: only the selected reference's mark is drawn
-  const shownPlacements = spotlight ? [] : placements;
-  const shownTabs = spotlight
-    ? noteTabs.filter((m) => selectedMarkId === `note:${m.mark.noteId}:${m.mark.id}`)
-    : noteTabs;
+  // Spotlight: the reader's own boxes stay (outside its verses they step
+  // back), of the note labels only the spotlit reference's
+  const shownPlacements = placements;
+  const shownTabs = spotlight ? noteTabs.filter((m) => spotMark === `note:${m.mark.noteId}:${m.mark.id}`) : noteTabs;
+  const annotationById = new Map(annotations.map((a) => [a.id, a]));
+  /** A mark that steps back while the spotlight is on. */
+  const receded = (markId: string, isNote: boolean) => {
+    if (!spotlight || markId === spotMark) return false;
+    if (isNote) return true;
+    const a = annotationById.get(markId);
+    return !a || !touchesSpot(spot, a);
+  };
 
   // Note chips in the margin rail (#63): beside the mark's first line,
   // stacked clear of each other and of default-placed annotation boxes.
@@ -586,8 +594,7 @@ export function AnnotationMarks({
         )
       : null;
   const chipById = new Map(chips?.map((c) => [c.id, c]) ?? []);
-  // Spotlight: annotations hide, of the notes only the selected mark stays
-  const shownPens = spotlight ? pens.filter((p) => p.markId === selectedMarkId) : pens;
+  const shownPens = pens;
   /** Hidden at once when a turn starts; fades back in on the new page. */
   const fade = marginHidden ? "opacity-0" : "opacity-100 transition-opacity duration-200";
 
@@ -601,14 +608,16 @@ export function AnnotationMarks({
         createPortal(
           <svg aria-hidden className="absolute inset-0 h-full w-full overflow-visible">
             {shownPens.map((p) => {
-              const active = p.markId === activeAnnotationId || p.markId === selectedMarkId;
+              const active = p.markId === activeAnnotationId;
               return (
                 <path
                   key={p.key}
                   d={penPath(p.shape, p.box, p.lines, p.runs, p.colSide, p.edge, p.markId.split(":").at(-1) ?? p.markId)}
                   fill="none"
                   stroke={NOTE_INK}
-                  strokeWidth={active ? 2.2 : 1.7}
+                  strokeWidth={p.markId === spotMark ? 2.4 : active ? 2.2 : 1.7}
+                  strokeOpacity={receded(p.markId, p.isNote) ? SPOT_FADE : undefined}
+                  data-spot-dim={receded(p.markId, p.isNote) || undefined}
                   strokeLinecap="round"
                 />
               );
@@ -632,6 +641,8 @@ export function AnnotationMarks({
                 d={leaderPath(g.departX, g.departY, g.anchorX, g.anchorY, p.annotation.id, g.approach)}
                 fill="none"
                 stroke={NOTE_INK}
+                strokeOpacity={receded(p.annotation.id, false) ? SPOT_FADE : undefined}
+                data-spot-dim={receded(p.annotation.id, false) || undefined}
                 strokeWidth={active ? 2 : 1.6}
                 strokeLinecap="round"
               />
@@ -648,6 +659,8 @@ export function AnnotationMarks({
           if (!chip) return null;
           const title = m.mark.title || t("note.untitled");
           const labelled = chip.width >= CHIP_LABEL_MIN;
+          // The spotlit reference's label: filled (#210)
+          const lit = spotlight && spotMark === `note:${m.mark.noteId}:${m.mark.id}`;
           return (
             <button
               key={m.mark.id}
@@ -668,10 +681,15 @@ export function AnnotationMarks({
             >
               <span
                 className={cn(
-                  "flex h-5 max-w-full items-center gap-1 overflow-hidden rounded-full border bg-popover font-sans text-meta leading-none whitespace-nowrap transition-colors hover:bg-accent",
+                  "flex h-5 max-w-full items-center gap-1 overflow-hidden rounded-full border font-sans text-meta leading-none whitespace-nowrap transition-colors",
+                  !lit && "bg-popover hover:bg-accent",
                   labelled ? "px-1.5" : "w-5 justify-center",
                 )}
-                style={{ color: NOTE_INK_TEXT, borderColor: NOTE_INK }}
+                style={
+                  lit
+                    ? { color: "var(--background)", background: NOTE_INK, borderColor: NOTE_INK }
+                    : { color: NOTE_INK_TEXT, borderColor: NOTE_INK }
+                }
               >
                 <FileText className="size-3 shrink-0" />
                 {labelled && <span className="overflow-hidden text-ellipsis">{title}</span>}
@@ -827,7 +845,12 @@ export function AnnotationMarks({
                     )}
                     aria-label={p.copy ? t("reader.annotationContinued", { text: p.annotation.text }) : undefined}
                     style={{
-                      color: active ? NOTE_INK_TEXT_ACTIVE : NOTE_INK_TEXT,
+                      // Spotlit elsewhere: steps back by colour, still 4.5:1 (#210)
+                      color: receded(p.annotation.id, false)
+                        ? "var(--muted-foreground)"
+                        : active
+                          ? NOTE_INK_TEXT_ACTIVE
+                          : NOTE_INK_TEXT,
                       textAlign: "inherit",
                     }}
                   >

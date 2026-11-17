@@ -33,7 +33,7 @@ import {
 } from "./selection-menu";
 import type { NoteMark } from "./note-marks";
 import { coverInto, spanSize } from "./mark-coverage";
-import { noteMarkId, spotlitWords } from "./spotlight";
+import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
 import { DragRefTag, SelectionPill } from "./selection-pill";
 import { notifyUndo } from "~/lib/notify";
@@ -118,7 +118,7 @@ export function ChapterText({
   noteMarks,
   allNotes,
   activeAnnotationId,
-  selectedMarkId,
+  spot = null,
   flash = null,
   onAddHighlight,
   onRecolorHighlight,
@@ -160,9 +160,9 @@ export function ChapterText({
   /** Every note of the user — the attach-an-existing-note picker. */
   allNotes: Note[];
   activeAnnotationId: string | null;
-  /** Mark of the reference selected in the note panel — the rest of the page
-   * dims slightly so the spotlight state is legible. */
-  selectedMarkId: string | null;
+  /** The spotlit reference's verses (#210): lit whole while every other
+   * word steps down to the muted ink. */
+  spot?: SpotRange | null;
   /** Verses a jump or "Read here" landed on: tinted until the spotlight
    * ends (#190). Rendered, not a DOM class: re-renders would drop it. */
   flash?: { start: number; end: number } | null;
@@ -401,11 +401,9 @@ export function ChapterText({
       });
   }, [selAnchor, mobile, scrolled]);
 
-  // Per word, from the reference's own range: other marks over some of its
-  // words (smaller ones win annotationCoverage) must not punch muted holes
-  const spotlit = spotlitWords(chapter.verses, noteMarks, selectedMarkId);
-  const spotlight =
-    selectedMarkId != null && noteMarks.some((m) => noteMarkId(m) === selectedMarkId);
+  // Whole touched verses stay lit (#210): never a muted tail inside one
+  // ("should | not perish"); the bracket shows a selection's exact words
+  const spotlight = spot != null;
 
   /** Desktop drag: start word, last word reached (pointer events can outrun renders), touch origin. */
   const dragSel = useRef<{ start: WordPos; last: WordPos; moved: boolean; x: number; y: number } | null>(null);
@@ -1243,7 +1241,7 @@ export function ChapterText({
                           key={`${i}${cut ? "a" : ""}`}
                           data-verse={v.verse}
                           data-word={i}
-                          data-spotlit={spotlit.has(`${v.verse}:${i}`) || undefined}
+                          data-spotlit={(spot && v.verse >= spot.start && v.verse <= spot.end) || undefined}
                           data-flash={(flash && v.verse >= flash.start && v.verse <= flash.end) || undefined}
                           className={cn(
                             (marked || mobile) && "cursor-pointer",

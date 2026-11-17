@@ -99,6 +99,10 @@ export default {
     nextInto: "Next: {{ref}}",
     pageOf: "Page {{page}} of {{count}}",
     announce: "{{ref}}, page {{page}} of {{count}}",
+    // The reference spotlight's exit line (#210)
+    spotShowing: "Showing {{ref}}",
+    spotShowAll: "Show all",
+    spotAnnounce: "Showing {{ref}}. Escape shows all.",
     publicDomain: "Public domain",
   },
   tools: {
@@ -196,7 +200,7 @@ export default {
     showText: "Show text",
     notInShort: "Not in {{abbr}}",
     removeReference: "Remove this passage",
-    readPassage: "Read this passage",
+    readPassage: "Show in Bible",
     deselect: "Deselect",
     open: "Open note",
     delete: "Delete",
@@ -229,7 +233,7 @@ export default {
     refChipName: "{{ref}}, scripture reference",
     refChipTitle: "{{ref}} \u00b7 {{mod}}click or Enter opens it",
     refIn: "in {{abbr}} {{ref}}",
-    readHere: "Read here",
+    readHere: "Show in Bible",
     removeRef: "Remove",
     refNotIn: "{{ref}} isn\u2019t in {{abbr}}.",
     readIn: "Read in {{abbr}}",
