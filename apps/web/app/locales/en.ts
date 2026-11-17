@@ -108,6 +108,8 @@ export default {
     // The reference spotlight's exit line (#210)
     spotShowing: "Showing {{ref}}",
     spotShowAll: "Show all",
+    moreOnPage: "{{count}} more on p. {{page}}",
+    moreOnPageName: "{{count}} more on p. {{page}}: the open note's references, turn to page {{page}}",
     spotAnnounce: "Showing {{ref}}. Escape shows all.",
     publicDomain: "Public domain",
   },

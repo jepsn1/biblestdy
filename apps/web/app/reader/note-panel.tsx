@@ -504,14 +504,15 @@ export function NotePanel({
     const links = scriptureLinks(liveBody).filter((l) => l.href === href);
     if (!links.length) return;
     const before = liveBody;
-    let next = liveBody;
-    for (const l of [...links].reverse()) next = next.slice(0, l.start) + next.slice(l.end);
-    setBody(next);
-    toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
-      duration: 6000,
-      position: "bottom-right",
-      className: "!w-auto !text-list",
-      action: { label: t("toast.undo"), onClick: () => setBody(before) },
+    // Its separators go too (#226); off the reader's first paint
+    void import("./ref-tidy").then(({ removeLinksTidy }) => {
+      setBody(removeLinksTidy(before, links));
+      toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
+        duration: 6000,
+        position: "bottom-right",
+        className: "!w-auto !text-list",
+        action: { label: t("toast.undo"), onClick: () => setBody(before) },
+      });
     });
   }
   // "+ Verse" in the overview: the toolbar button's dialog (verse-button),

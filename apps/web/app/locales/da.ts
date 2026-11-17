@@ -149,6 +149,8 @@ const da: typeof en = {
     // Udgangen fra en henvisnings fremhævning (#210)
     spotShowing: "Viser {{ref}}",
     spotShowAll: "Vis alt",
+    moreOnPage: "{{count}} til på s. {{page}}",
+    moreOnPageName: "{{count}} til på s. {{page}}: den åbne notes henvisninger, gå til side {{page}}",
     spotAnnounce: "Viser {{ref}}. Escape viser alt.",
     publicDomain: "Fri af ophavsret",
   },

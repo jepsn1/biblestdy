@@ -62,8 +62,13 @@ export function PageFoot({
   next,
   phone,
   spot,
+  more,
   className,
 }: {
+  /** The open note's references on another page (#226): "1 more on p. 2 →"
+   * after the folio, a button that turns there. The spotlight's exit line
+   * outranks it (it takes the folio's place). */
+  more?: { label: string; short: string; name: string; back: boolean; onTurn: () => void } | null;
   /** The reference spotlight's exit line (#210), in the folio's place while
    * it lasts: "Viser Joh 3,14–15 · Vis alt". Its announcement is the
    * reader's own live region. */
@@ -89,7 +94,12 @@ export function PageFoot({
   const credits = credit ?? [];
   // The source rides on the last part (measured with it): never dropped
   const measured = source && credits.length > 0 ? [...credits.slice(0, -1), `${credits.at(-1)}\u00a0·\u00a0${source.label}`] : credits;
-  const fit = useFit(position, measured, spot ? [spot.label, spot.short, spot.showAll] : []);
+  const arrow = (text: string) => (more?.back ? `\u2190\u00a0${text}` : `${text}\u00a0\u2192`);
+  const moreText = more && arrow(more.label);
+  // Kept last on the folio: the parts before it give way first
+  const folio = moreText ? [...position, moreText] : position;
+  const fit = useFit(folio, measured, spot ? [spot.label, spot.short, spot.showAll] : [], !!moreText);
+  const kept = moreText ? Math.max(0, fit.position - 1) : fit.position;
   const creditLine = credits.length > 0 && (
     // Own line: as wide as the foot, never widening the folio's track
     <p className={cn(CREDIT, "text-balance", fit.creditWide && "col-span-3 w-0 min-w-full text-center")}>
@@ -132,6 +142,29 @@ export function PageFoot({
               {spot.showAll}
             </button>
           </p>
+        ) : more && moreText ? (
+          <p className={cn(FOLIO, "flex min-w-0 items-baseline justify-center")}>
+            {kept > 0 && (
+              <span aria-hidden={!phone} className="truncate">
+                <Parts parts={position.slice(-kept)} />
+                {SEP}
+              </span>
+            )}
+            <button
+              type="button"
+              data-more-refs=""
+              aria-label={more.name}
+              onClick={more.onTurn}
+              className={cn(
+                CREDIT_LINK,
+                // 44px to hit (an invisible ring), the line's own size
+                "relative shrink-0 whitespace-nowrap text-(--note-ink-text) before:absolute before:-inset-x-1.5 before:-inset-y-2.5 before:content-['']",
+              )}
+            >
+              {/* "p. 2 →" where the whole line won't fit (large text) */}
+              {fit.moreFull ? moreText : arrow(more.short)}
+            </button>
+          </p>
         ) : position.length > 0 && (
           <p
             aria-hidden={!phone}
@@ -148,7 +181,7 @@ export function PageFoot({
       <SupportLine phone={phone} />
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
-        {[position, measured].map((parts, row) => (
+        {[folio, measured].map((parts, row) => (
           <div key={row} className={row === 0 ? FOLIO : CREDIT}>
             <span>{SEP}</span>
             {parts.map((part, i) => (
@@ -207,10 +240,10 @@ function SupportLine({ phone }: { phone: boolean }) {
  * the folio keeps the parts that fit there; the credit stays under it while
  * it fits whole, else takes the foot's full width on a line of its own.
  */
-function useFit(position: string[], credit: string[], spot: string[]) {
+function useFit(position: string[], credit: string[], spot: string[], more: boolean) {
   const navRef = useRef<HTMLElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false, spotFull: true });
+  const [fit, setFit] = useState({ position: position.length, credit: credit.length, creditWide: false, spotFull: true, moreFull: true });
   const key = JSON.stringify([position, credit, spot]);
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -236,9 +269,15 @@ function useFit(position: string[], credit: string[], spot: string[]) {
         credit: partsThatFit(credits, room),
         creditWide,
         spotFull: (spotLine[0] ?? 0) <= centre + 0.5,
+        // The foot's "1 more on p. 2 →" rides last on the folio
+        moreFull: !more || (folio.at(-1) ?? 0) <= centre + 0.5,
       };
       setFit((f) =>
-        f.position === next.position && f.credit === next.credit && f.creditWide === next.creditWide && f.spotFull === next.spotFull
+        f.position === next.position &&
+        f.credit === next.credit &&
+        f.creditWide === next.creditWide &&
+        f.spotFull === next.spotFull &&
+        f.moreFull === next.moreFull
           ? f
           : next,
       );
@@ -259,7 +298,7 @@ function useFit(position: string[], credit: string[], spot: string[]) {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [key]);
+  }, [key, more]);
   return { navRef, rulerRef, ...fit };
 }
 
