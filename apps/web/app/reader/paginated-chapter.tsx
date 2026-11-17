@@ -1473,6 +1473,7 @@ export function PaginatedChapter({
         activeAnnotationId={activeAnnotationId}
         spot={spotPlace}
         openNoteId={openNoteId}
+        eraser={!scrollMode && tool.kind === "erase"}
         onFocus={setActiveAnnotationId}
         onEdit={annotationsApi.edit}
         onRemove={annotationsApi.remove}

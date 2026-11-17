@@ -25,6 +25,7 @@ import {
 } from "./ink-geometry";
 import { markReference, type NoteMark } from "./note-marks";
 import { GUTTER } from "./sheet-layout";
+import { linkedHint } from "./linked-hint";
 import { SPOT_FADE, touchesSpot, type SpotRange } from "./spotlight";
 import { NOTE_OPENER } from "./note-panel";
 import { sameData, useMeasure, useSameData } from "./use-measure";
@@ -120,6 +121,8 @@ type Pen = {
   lane?: number;
   /** A group bracket's links (#211): the marks folded into it. */
   members?: NoteMark[];
+  /** The page its words are on (note links: the bracket's hit strip). */
+  page?: number;
   box: Box;
   lines: number;
   /** The marked words' line runs (content-box space): contour + underline. */
@@ -304,6 +307,7 @@ export function AnnotationMarks({
   activeAnnotationId,
   spot = null,
   openNoteId = null,
+  eraser = false,
   compact = false,
   marginBoxes = true,
   railChips = true,
@@ -344,6 +348,9 @@ export function AnnotationMarks({
    * step up, every other note's step back by colour. The spotlight
    * outranks it. */
   openNoteId?: string | null;
+  /** The eraser is the tool (#211): a bracket's strip says where to remove
+   * the link instead — links are never erased on the page. */
+  eraser?: boolean;
   /** Phone view (#13, #44): single scroll column — brackets sit on the left. */
   compact?: boolean;
   /** Handwriting boxes + arrows in the margin lanes. False when there are no
@@ -627,7 +634,7 @@ export function AnnotationMarks({
       for (const g of segs) {
         const group = groupOf.get(segKey(markId, g.col));
         if (!group) {
-          penList.push({ key: segKey(markId, g.col), markId, isNote: true, box: g.box, lines: g.lines, runs: g.runs, edge: noteEdge(g), colSide: noteSide(g), shape: "bracket", lane: laneOf.get(segKey(markId, g.col)) ?? 0 });
+          penList.push({ key: segKey(markId, g.col), markId, isNote: true, page: g.page, box: g.box, lines: g.lines, runs: g.runs, edge: noteEdge(g), colSide: noteSide(g), shape: "bracket", lane: laneOf.get(segKey(markId, g.col)) ?? 0 });
           continue;
         }
         if (drawnGroups.has(group.key)) continue;
@@ -636,7 +643,7 @@ export function AnnotationMarks({
         const boxes = group.ids.map((id) => (geo.anchors[id.slice(0, id.lastIndexOf(":"))] ?? []).find((x) => x.col === group.col)!.box);
         const left = Math.min(...boxes.map((b) => b.x));
         const right = Math.max(...boxes.map((b) => b.x + b.w));
-        penList.push({ key: group.key, markId: group.key, isNote: true, members, box: { x: left, y: group.top, w: right - left, h: group.bottom - group.top }, lines: 2, runs: [], edge: noteEdge(g), colSide: noteSide(g), shape: "bracket", lane: group.lane });
+        penList.push({ key: group.key, markId: group.key, isNote: true, page: g.page, members, box: { x: left, y: group.top, w: right - left, h: group.bottom - group.top }, lines: 2, runs: [], edge: noteEdge(g), colSide: noteSide(g), shape: "bracket", lane: group.lane });
       }
       // The label: on the mark's first segment on this page — its own, or
       // its group's (once per group)
@@ -808,6 +815,37 @@ export function AnnotationMarks({
         {/* Note links: a typeset chip (index-tab, NOT handwriting) in the
             margin rail level with the mark's first line — never on the
             running text (#63) */}
+        {/* Bracket hit strips (#211 click map): 12px, invisible, over the
+            spine — open the note at this link (a group: its list); the
+            eraser says where to remove it. Pointer only: the label is the
+            keyboard way to the same note */}
+        {railChips &&
+          geo &&
+          shownPens.map((p) => {
+            if (!p.isNote || p.page !== page) return null;
+            const marks = p.members ?? [marksByKey.get(p.markId)].filter((m): m is NoteMark => !!m);
+            if (marks.length === 0 || (spotlight && !marks.some((m) => markKey(m) === spotMark))) return null;
+            const x = spineX(p.box, p.colSide, p.edge, p.lane) + geo.contentLeft - page * geo.stride;
+            const lead = marks[0];
+            return (
+              <div
+                key={`strip:${p.key}`}
+                aria-hidden
+                data-bracket-strip=""
+                className="pointer-events-auto absolute w-3 cursor-pointer"
+                style={{ left: x - 6, top: p.box.y + geo.boxTop, height: p.box.h }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (eraser) {
+                    const notes = [...new Map(marks.map((m) => [m.noteId, { noteId: m.noteId, title: m.title }])).values()];
+                    linkedHint(t, notes, { verse: lead.startVerse, word: lead.startWord }, onOpenNote);
+                  } else if (p.members)
+                    document.querySelector<HTMLElement>(`[${NOTE_OPENER}="${CSS.escape(p.markId)}"]`)?.click();
+                  else onOpenNote(lead.noteId, { verse: lead.startVerse, word: lead.startWord });
+                }}
+              />
+            );
+          })}
         {shownTabs.map((m) => {
           const chip = chipById.get(m.id);
           if (!chip) return null;
