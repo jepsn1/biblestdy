@@ -43,7 +43,7 @@ const translationsQuery = {
  * on that link outlines it here (hoverRef, spotlight.ts).
  *
  * Tagged with a mark (#216): a small glyph before the label — the
- * highlight's swatch or the pen's stroke as the mark is now; a hollow ring
+ * highlight's swatch or the pen's stroke as the mark is now; a broken ring
  * when it can't follow (erased, another translation), said in its name and
  * the preview.
  */
@@ -207,7 +207,10 @@ export function ScriptureChip({
           (markState.state === "live" ? (
             <MarkGlyph kind={markState.kind} className="mr-[0.3em] inline-block size-[0.7em] align-[-0.05em]" />
           ) : (
-            <span aria-hidden className="mr-[0.3em] inline-block size-[0.7em] rounded-full align-[-0.05em] ring-1 ring-current ring-inset opacity-70" />
+            // Can't follow: a broken ring (never mistaken for the pen's circle)
+            <svg aria-hidden viewBox="0 0 12 12" className="mr-[0.3em] inline-block size-[0.7em] align-[-0.05em]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2.4 2.2">
+              <circle cx="6" cy="6" r="4.6" />
+            </svg>
           ))}
         <span aria-hidden>{label}</span>
         <span className="sr-only">
