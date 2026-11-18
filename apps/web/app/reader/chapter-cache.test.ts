@@ -176,10 +176,20 @@ describe("chapter cache", () => {
     const { queryClient } = await import("~/lib/query");
     const { QueryObserver } = await import("@tanstack/react-query");
     prefetchNeighbours("WEB", [{ book: "ROM", chapter: 8 }]);
+    // A disabled observer (drawn later, not needed yet) does not count…
+    const idle = new QueryObserver(queryClient, { ...chapterQuery("WEB", { book: "ROM", chapter: 9 }), enabled: false });
+    const unsubIdle = idle.subscribe(() => {});
+    prefetchNeighbours("WEB", [{ book: "ROM", chapter: 9 }]);
+    await flush();
+    await flush();
+    unsubIdle();
+    expect(queryClient.getQueryData(["chapter", "WEB", "ROM", 9])).toBeUndefined();
+    expect(passageCalls()).toEqual(["/api/passages/WEB/ROM/8", "/api/passages/WEB/ROM/9"]);
+    // …an enabled one does
     const observer = new QueryObserver(queryClient, chapterQuery("WEB", { book: "ROM", chapter: 8 }));
     const unsubscribe = observer.subscribe(() => {});
     await vi.waitFor(() => expect(queryClient.getQueryData(["chapter", "WEB", "ROM", 8])).toBeTruthy());
     unsubscribe();
-    expect(passageCalls()).toEqual(["/api/passages/WEB/ROM/8", "/api/passages/WEB/ROM/8"]);
+    expect(passageCalls().filter((u) => u.endsWith("ROM/8"))).toHaveLength(2);
   });
 });

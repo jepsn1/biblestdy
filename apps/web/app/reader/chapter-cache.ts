@@ -70,9 +70,10 @@ async function fetchChapter(translationId: string, ref: ChapterRef, next?: strin
   );
   if (res.status === 204) {
     deferredUntil = Date.now() + DEFERRED_REST_MS;
-    // Something started showing it meanwhile (it joined this request): fetch for real
+    // Something started showing it meanwhile (an enabled observer joined this
+    // request): fetch for real. Disabled observers (not needed yet) don't count
     const observed = queryClient.getQueryCache().find({ queryKey: chapterQuery(translationId, ref).queryKey });
-    if (observed && observed.getObserversCount() > 0) return fetchChapter(translationId, ref, next);
+    if (observed?.isActive()) return fetchChapter(translationId, ref, next);
     throw new ReadAheadDeferred();
   }
   if (res.status === 404 || res.status === 400) {
