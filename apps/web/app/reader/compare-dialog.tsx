@@ -2,10 +2,9 @@ import type { BookLocale, Chapter, MappedSlice, ScriptureRef, Translation } from
 import { bookName, translationInfo } from "@biblestdy/shared";
 import { mapRange, sourceRange, unionRange } from "@biblestdy/shared/versification";
 import { useQueries } from "@tanstack/react-query";
-import { Check, ChevronLeft, Copy, X } from "lucide-react";
+import { Check, ChevronLeft, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "~/lib/toast";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
@@ -14,39 +13,29 @@ import { bookLocale } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 // Its own words come with this chunk (bundle budget)
 import "../locales/compare";
-import { MAX_COPY_VERSES } from "~/lib/licence-limits";
 import { queryClient } from "~/lib/query";
 import { cn, focusTitle } from "~/lib/utils";
 import type { CompareKit } from "./compare-loader";
 import {
   blockView,
-  canCopyAll,
-  copyAllCount,
-  formatCopyAll,
   fumsTokens,
-  jumpTarget,
   numberingDiffers,
-  partsVerseCount,
   sliceChapters,
   type BlockNote,
   type BlockView,
   type ChapterRef,
   isLimited,
   type Loaded,
-  versesCopy,
 } from "./compare-blocks";
 import { compareCap, firstStep, initialPicks, readPicks, savePicks, togglePick, type CompareStep } from "./compare-picks";
 import type { CompareAnchor, CompareRange } from "./dialog-events";
 import { PassageText } from "./passage-text";
 import { ScriptureCredit } from "./scripture-credit";
 
-/** Where Continue in / Back go: a chapter, and the verse there if known. */
-export type Place = { book: string; chapter: number; verse?: number };
-
 /** A typed range never spans more than this many chapters (reading quota). */
 const MAX_RANGE_CHAPTERS = 3;
 
-/** "51:1" / "51,1–2" — a reference without its book (header notes). */
+/** "51:1" / "51,1–2" — a reference without its book (block notes). */
 function shortRef(ref: ScriptureRef, locale: BookLocale): string {
   const sep = locale === "da" ? "," : ":";
   if (ref.verse === undefined) return String(ref.chapter);
@@ -113,26 +102,6 @@ function refChapters(ref: ScriptureRef): ChapterRef[] {
   return out;
 }
 
-async function writeClipboard(text: string, html: string, notifyCopyFailed: (e: unknown) => void): Promise<boolean> {
-  try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        "text/plain": new Blob([text], { type: "text/plain" }),
-        "text/html": new Blob([html], { type: "text/html" }),
-      }),
-    ]);
-    return true;
-  } catch {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (e) {
-      notifyCopyFailed(e);
-      return false;
-    }
-  }
-}
-
 /** FUMS for one shown chapter (one per token, mounted while it shows). */
 function FumsView({ token, useFumsView }: { token: string; useFumsView: CompareKit["useFumsView"] }) {
   useFumsView({ fumsToken: token });
@@ -142,12 +111,13 @@ function FumsView({ token, useFumsView }: { token: string; useFumsView: CompareK
 
 /**
  * Compare translations (#167): the passage in the reading translation, then
- * in each ticked one, stacked. A modal dialog on desktop, a tall drawer on
- * phones in two steps — pick, then compare (#218). Text comes through the reader's chapter cache and reading quota
- * (nothing is fetched before a translation is ticked); each block carries
- * its chapter's copyright line, the foot the API.Bible credit, and every
- * chapter shown is reported to FUMS once on screen. Verses are matched
- * through the versification map — never by number alone.
+ * in each ticked one, stacked — just each translation's label and its words
+ * (#253: no visible title, copy or jump). A modal dialog on desktop, a tall
+ * drawer on phones in two steps — pick, then compare (#218). Text comes
+ * through the reader's chapter cache and reading quota (nothing is fetched
+ * before a translation is ticked); one quiet foot links the copyright page
+ * and API.Bible, and every chapter shown is reported to FUMS once on screen.
+ * Verses are matched through the versification map — never by number alone.
  */
 export function CompareDialog({
   open,
@@ -157,24 +127,21 @@ export function CompareDialog({
   finalFocus,
   translations,
   current,
-  switchTranslation,
   kit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   anchor?: CompareAnchor;
   range?: CompareRange;
-  /** Where focus goes on every close but a jump (false: the caller moves it). */
+  /** Where focus goes on close (false: the caller moves it). */
   finalFocus: () => HTMLElement | false;
   translations: Translation[];
   current: Translation;
   /** Reader helpers (see CompareKit). */
   kit: CompareKit;
-  /** Switch the reading translation, landing on `to` (its own numbering). */
-  switchTranslation: (id: string, to: { book: string; chapter: number; verse: number }, opts: { long: boolean }) => unknown;
 }) {
   const { t, i18n } = useTranslation();
-  const { chapterQuery, retryWhenLimited, notifyCopyFailed, notifyCopyLimit, groupTranslations, translationTitle, formatWait, useTextSize, Drawer, DrawerContent, DrawerTitle } = kit;
+  const { chapterQuery, retryWhenLimited, groupTranslations, translationTitle, formatWait, useTextSize, Drawer, DrawerContent, DrawerTitle } = kit;
   labelOf = kit.referenceLabel;
   const ui = i18n.language.startsWith("da") ? "da" : "en";
   const isMobile = useMedia(PHONE);
@@ -182,10 +149,6 @@ export function CompareDialog({
   const textSize = useTextSize();
   const ids = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const jumped = useRef(false);
-  useEffect(() => {
-    if (open) jumped.current = false;
-  }, [open]);
 
   // Picker order: the chooser's (UI language first, most read first)
   const others = useMemo(
@@ -261,14 +224,6 @@ export function CompareDialog({
       )
     : null;
   const ref = union?.ref ?? null;
-  // Who widened it ("one verse unit in BPH")
-  const widenedBy =
-    base && union?.widened
-      ? (picked.find((tr) =>
-          unionRange(base.ref, current.abbreviation, [{ numbering: tr.abbreviation, chapters: loadedOf(tr, mapRange(base.ref, current.abbreviation, tr.abbreviation)) }]).widened,
-        ) ?? current)
-      : null;
-
   const shown = [current, ...picked];
   const plans = ref
     ? shown.map((tr) => {
@@ -346,38 +301,6 @@ export function CompareDialog({
     }
   }
 
-  // ---- copy ----
-  const copyBlocks = blocks.flatMap(({ tr, slices, view }) =>
-    view.kind === "ready" && view.parts.length
-      ? [{ abbr: tr.abbreviation, ref: numberingDiffers(slices) && view.ref ? ownLabel(view.ref) : undefined, parts: view.parts, own: view.ref }]
-      : [],
-  );
-  const allCount = copyAllCount(copyBlocks);
-  const allowAll = canCopyAll(copyBlocks);
-  async function copyBlock(tr: Translation, view: Extract<BlockView, { kind: "ready" }>) {
-    if (partsVerseCount(view.parts) > MAX_COPY_VERSES) {
-      notifyCopyLimit();
-      return;
-    }
-    const label = view.ref ? ownLabel(view.ref) : title;
-    const { text, html } = versesCopy(view.parts, label, tr.abbreviation);
-    if (await writeClipboard(text, html, notifyCopyFailed)) toast(t("compare.copied", { ref: label, abbr: tr.abbreviation }));
-  }
-  async function copyAll() {
-    if (!allowAll || !copyBlocks.length) return;
-    const { text, html } = formatCopyAll(title, copyBlocks);
-    if (await writeClipboard(text, html, notifyCopyFailed)) toast(t("compare.copied", { ref: title, abbr: copyBlocks.map((b) => b.abbr).join(" · ") }));
-  }
-
-  // ---- jump ----
-  // The read route's switch lands there and says so: "Now reading NIV ·
-  // Back to WEB" (≥ 10 s), Back = the original translation, chapter, verse
-  function jump(tr: Translation, to: Place) {
-    jumped.current = true;
-    onOpenChange(false);
-    switchTranslation(tr.id, { book: to.book, chapter: to.chapter, verse: to.verse ?? 1 }, { long: true });
-  }
-
   // ---- parts ----
   const pinned = textSize <= 125;
   const readingRow = (
@@ -425,43 +348,31 @@ export function CompareDialog({
     </div>
   );
 
-  // Desktop + tablet: one step, picker on top (unchanged from #167)
-  const header = (
-    <header className="flex shrink-0 items-start gap-3 border-b border-border px-4 pt-3 pb-3 sm:px-5">
-      <div className="min-w-0 flex-1">
-        <p className="eyebrow">{t("compare.title")}</p>
-        <DialogTitle ref={titleRef} tabIndex={-1} className={cn("font-serif text-title leading-tight font-semibold", focusTitle)}>
-          {title}
-        </DialogTitle>
-        {base?.partial && <p className="mt-0.5 text-meta text-muted-foreground">{t("compare.wholeVerses")}</p>}
-        {ref && widenedBy && (
-          <p className="mt-0.5 text-meta text-muted-foreground">
-            {t("compare.widened", { ref: shortRef(ref, curLocale), abbr: widenedBy.abbreviation })}
-          </p>
-        )}
-      </div>
-      <Button variant="outline" size="sm" className="shrink-0 pointer-coarse:h-11" onClick={() => onOpenChange(false)}>
-        {t("compare.close")}
-      </Button>
-    </header>
+  // No visible title (#253): the dialog is still named for screen readers —
+  // "Compare translations, John 3:16" — and takes focus on open / step change
+  const Title = isMobile ? DrawerTitle : DialogTitle;
+  const hiddenTitle = (
+    <Title ref={titleRef} tabIndex={-1} className="sr-only">
+      {title ? `${t("compare.title")}, ${title}` : t("compare.title")}
+    </Title>
   );
 
   const passages = blocks.map(({ tr, slices, view }, i) => (
-        <CompareBlock
-          key={tr.id}
-          first={i === 0}
-          tr={tr}
-          isCurrent={tr.id === current.id}
-          slices={slices}
-          view={view}
-          noteText={(n) => noteText(n, tr)}
-          problem={view.kind === "problem" ? problemText(view, tr.abbreviation) : null}
-          onRetry={() => retry(tr.id, sliceChapters(slices))}
-          onCopy={() => view.kind === "ready" && void copyBlock(tr, view)}
-          onJump={(to) => jump(tr, to)}
-          kit={kit}
-        />
-      ));
+    <CompareBlock
+      key={tr.id}
+      first={i === 0}
+      tr={tr}
+      slices={slices}
+      view={view}
+      noteText={(n) => noteText(n, tr)}
+      problem={view.kind === "problem" ? problemText(view, tr.abbreviation) : null}
+      onRetry={() => retry(tr.id, sliceChapters(slices))}
+      kit={kit}
+    />
+  ));
+  const credit = <ScriptureCredit onFollow={() => onOpenChange(false)} />;
+
+  // Desktop + tablet: one step, picker on top, the passages, one quiet foot
   const body = (
     <>
       {!pinned && <div className="pb-5">{picker}</div>}
@@ -474,23 +385,7 @@ export function CompareDialog({
 
   const foot = (
     <footer className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2.5 sm:px-5 pb-[max(env(safe-area-inset-bottom),0.625rem)]">
-      <ScriptureCredit className="min-w-0 max-sm:basis-full sm:flex-1" onFollow={() => onOpenChange(false)} />
-      {!allowAll && (
-        <p id={`${ids}-cap`} className="basis-full text-meta text-muted-foreground sm:order-first">
-          {t("compare.copyCap", { count: allCount })}
-        </p>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="pointer-coarse:h-11"
-        disabled={!allowAll || copyBlocks.length === 0}
-        // Phones: the two buttons share the row under the credit
-        aria-describedby={!allowAll ? `${ids}-cap` : undefined}
-        onClick={() => void copyAll()}
-      >
-        {t("compare.copyAll")}
-      </Button>
+      <ScriptureCredit className="min-w-0 flex-1" onFollow={() => onOpenChange(false)} />
       <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => onOpenChange(false)}>
         {t("compare.close")}
       </Button>
@@ -504,7 +399,6 @@ export function CompareDialog({
       <X className="size-5" aria-hidden />
     </Button>
   );
-  const Title = isMobile ? DrawerTitle : DialogTitle;
   const titleClass = cn("font-serif text-title leading-tight font-semibold text-foreground", focusTitle);
   const pickStep = (
     <>
@@ -571,54 +465,21 @@ export function CompareDialog({
   );
   const compareStep = (
     <>
-      <header className="shrink-0 border-b border-border px-2 pt-1 pb-2">
-        <div className="flex items-center gap-1">
-          {/* Wraps at 200% so Copy all and Close stay on screen */}
-          <Button variant="ghost" className="h-auto min-h-11 min-w-0 shrink gap-1 px-2 text-left whitespace-normal" onClick={() => goTo("pick")}>
-            <ChevronLeft className="size-5" aria-hidden />
-            {t("compare.change")}
-          </Button>
-          <span className="flex-1" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className={iconButton}
-            aria-label={t("compare.copyAll")}
-            title={t("compare.copyAll")}
-            disabled={!allowAll || copyBlocks.length === 0}
-            aria-describedby={!allowAll ? `${ids}-cap` : undefined}
-            onClick={() => void copyAll()}
-          >
-            <Copy className="size-5" aria-hidden />
-          </Button>
-          {closeX}
-        </div>
-        <div className="px-2">
-          <Title ref={titleRef} tabIndex={-1} className={titleClass}>
-            {/* The step, said with the passage it shows */}
-            <span className="sr-only">{t("compare.title")}, </span>
-            {title}
-          </Title>
-          {base?.partial && <p className="mt-0.5 text-meta text-muted-foreground">{t("compare.wholeVerses")}</p>}
-          {ref && widenedBy && (
-            <p className="mt-0.5 text-meta text-muted-foreground">
-              {t("compare.widened", { ref: shortRef(ref, curLocale), abbr: widenedBy.abbreviation })}
-            </p>
-          )}
-        </div>
+      <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
+        {hiddenTitle}
+        {/* Wraps at 200% so Close stays on screen */}
+        <Button variant="ghost" className="h-auto min-h-11 min-w-0 shrink gap-1 px-2 text-left whitespace-normal" onClick={() => goTo("pick")}>
+          <ChevronLeft className="size-5" aria-hidden />
+          {t("compare.change")}
+        </Button>
+        <span className="flex-1" />
+        {closeX}
       </header>
       <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
         <div className="px-4 pt-4 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
           {passages}
-          {/* Credit + copy-all reason close the scroll, not a tall footer */}
-          <div className="mt-6 flex flex-col gap-2 border-t border-foreground/12 pt-4">
-            {!allowAll && (
-              <p id={`${ids}-cap`} className="text-meta text-muted-foreground">
-                {t("compare.copyCap", { count: allCount })}
-              </p>
-            )}
-            <ScriptureCredit onFollow={() => onOpenChange(false)} />
-          </div>
+          {/* The credit closes the scroll, not a tall footer */}
+          <div className="mt-6 border-t border-foreground/12 pt-4">{credit}</div>
         </div>
       </ScrollArea>
     </>
@@ -636,7 +497,7 @@ export function CompareDialog({
 
   const content = (
     <>
-      {header}
+      {hiddenTitle}
       {pinned && <div className="shrink-0 border-b border-border px-4 py-3 sm:px-5">{picker}</div>}
       {/* Swipes inside never close the drawer: only its header drags */}
       <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
@@ -647,13 +508,10 @@ export function CompareDialog({
     </>
   );
 
-  // Continue in: the text (it stays mounted while the new chapter loads)
-  const final = () => (jumped.current ? (document.getElementById("chapter-text") ?? false) : finalFocus());
-
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-        <DrawerContent className="h-[92dvh] max-h-[92dvh]" initialFocus={titleRef} finalFocus={final}>
+        <DrawerContent className="h-[92dvh] max-h-[92dvh]" initialFocus={titleRef} finalFocus={finalFocus}>
           {step === "pick" ? pickStep : compareStep}
           {live}
         </DrawerContent>
@@ -665,7 +523,7 @@ export function CompareDialog({
       <DialogContent
         showCloseButton={false}
         initialFocus={titleRef}
-        finalFocus={final}
+        finalFocus={finalFocus}
         className={cn(
           "top-[8dvh] flex h-[min(84dvh,56rem)] w-[min(40rem,calc(100vw-2rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-none",
           short && "top-2 h-[calc(100dvh-1rem)]",
@@ -684,106 +542,55 @@ export function CompareDialog({
   );
 }
 
+/** One translation: its abbreviation (the full name for screen readers),
+ * its own reference only where the numbering differs, any numbering notes,
+ * then the words. */
 function CompareBlock({
   first,
   tr,
-  isCurrent,
   slices,
   view,
   noteText,
   problem,
   onRetry,
-  onCopy,
-  onJump,
   kit,
 }: {
   first: boolean;
   tr: Translation;
-  isCurrent: boolean;
   slices: MappedSlice[];
   view: BlockView;
   noteText: (n: BlockNote) => string;
   problem: string | null;
   onRetry: () => void;
-  onCopy: () => void;
-  onJump: (to: Place) => void;
   kit: CompareKit;
 }) {
   const { t } = useTranslation();
   const hid = useId();
   const { translationTitle, passageLines, showVerses } = kit;
-  const name = translationTitle(tr);
   const locale = bookLocale(i18n.language);
-  // Own reference: what it shows, else what the map says it will
-  const target = jumpTarget(slices);
-  const planned = slices.filter((s) => s.kind !== "unmapped" && s.startVerse > 0);
-  const plannedRef: ScriptureRef | null = planned.length
-    ? (() => {
-        const a = planned[0];
-        const b = planned[planned.length - 1];
-        const r: ScriptureRef = { book: a.book, chapter: a.chapter, verse: a.startVerse };
-        if (b.chapter !== a.chapter) Object.assign(r, { endChapter: b.chapter, endVerse: b.endVerse });
-        else if (b.endVerse !== a.startVerse) r.endVerse = b.endVerse;
-        return r;
-      })()
-    : null;
-  const own = view.kind === "ready" ? view.ref ?? plannedRef : plannedRef;
-  const ownText = own ? ownLabel(own) : null;
-  const jumpTo: Place | null = view.kind === "ready" && view.ref ? { book: view.ref.book, chapter: view.ref.chapter, verse: view.ref.verse } : target;
-  const jumpRef = jumpTo ? ownLabel({ book: jumpTo.book, chapter: jumpTo.chapter, verse: jumpTo.verse }) : "";
-  const copyright = view.kind === "ready" ? [...new Set(view.parts.map((p) => p.chapter.copyright?.trim()).filter(Boolean))] : [];
+  const own = view.kind === "ready" && view.ref && numberingDiffers(slices) ? ownLabel(view.ref) : null;
+  const notes = view.kind === "ready" ? view.notes : [];
 
   return (
     <section
       aria-labelledby={hid}
       aria-busy={view.kind === "loading" || undefined}
-      className={cn("[contain-intrinsic-size:auto_12rem] [content-visibility:auto]", !first && "mt-7 border-t border-foreground/12 pt-7 max-sm:mt-6 max-sm:pt-6")}
+      className={cn("[contain-intrinsic-size:auto_12rem] [content-visibility:auto]", !first && "mt-8 border-t border-foreground/12 pt-6 max-sm:mt-7 max-sm:pt-5")}
     >
-      <div className="mb-3 flex flex-wrap items-start gap-x-3 gap-y-1">
-        <div className="min-w-0 flex-1 font-sans">
-          <h3 id={hid} className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-meta font-semibold tracking-[0.06em]">{tr.abbreviation}</span>
-            <span className="text-meta text-muted-foreground">{name}</span>
-          </h3>
-          {ownText && (
-            <p className="text-list font-medium">
-              {ownText}
+      <h3 id={hid} className="mb-2 flex flex-wrap items-baseline gap-x-2 font-sans text-meta">
+        <span className="font-semibold tracking-[0.06em]">{tr.abbreviation}</span>
+        <span className="sr-only">, {translationTitle(tr)}</span>
+        {own && <span className="text-muted-foreground">{own}</span>}
+      </h3>
+      {notes.length > 0 && (
+        <div className="mb-2 font-sans">
+          {notes.map((n) => (
+            <p key={n.kind} className="text-meta text-muted-foreground">
+              {noteText(n)}
             </p>
-          )}
-          {view.kind === "ready" &&
-            view.notes.map((n) => (
-              <p key={n.kind} className="text-meta text-muted-foreground">
-                {noteText(n)}
-              </p>
-            ))}
+          ))}
         </div>
-        <div className="flex shrink-0 gap-1">
-          {!isCurrent && jumpTo && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="pointer-coarse:h-11"
-              onClick={() => onJump(jumpTo)}
-            >
-              {/* Named "Continue in NIV, New International Version, Salme 51,3":
-                  the visible words first (WCAG 2.5.3), then where it goes */}
-              {t("compare.jump", { abbr: tr.abbreviation })}
-              <span className="sr-only">{t("compare.jumpWhere", { name, ref: jumpRef })}</span>
-            </Button>
-          )}
-          {view.kind === "ready" && view.parts.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="pointer-coarse:h-11"
-              aria-label={t("compare.copyNamed", { abbr: tr.abbreviation })}
-              onClick={onCopy}
-            >
-              {t("compare.copy")}
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
 
       {view.kind === "loading" && (
         <div>
@@ -804,15 +611,12 @@ function CompareBlock({
       {view.kind === "ready" && view.parts.length > 0 && (
         <PassageText passageLines={passageLines} showVerses={showVerses} parts={view.parts} language={tr.language} numberSep={locale === "da" ? "," : ":"} />
       )}
-      {copyright.length > 0 && (
-        <p className="mt-3 font-sans text-meta leading-[1.45] text-muted-foreground">{copyright.join(" · ")}</p>
-      )}
     </section>
   );
 }
 
-/** Lines sized from the verse count (em, like the text), plus a muted line
- * for the rights row; still under reduced motion. */
+/** Lines sized from the verse count (em, like the text); still under
+ * reduced motion. */
 function BlockSkeleton({ verses }: { verses: number }) {
   const lines = Math.min(12, Math.max(2, Math.round(verses * 1.8)));
   return (
@@ -825,7 +629,6 @@ function BlockSkeleton({ verses }: { verses: number }) {
           />
         </div>
       ))}
-      <div className="mt-3 h-3 w-40 rounded bg-muted/60" />
     </div>
   );
 }

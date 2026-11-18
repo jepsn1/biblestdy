@@ -1,12 +1,11 @@
 import type { Chapter, MappedSlice, ScriptureRef, TargetUnits } from "@biblestdy/shared";
 import { targetUnits } from "@biblestdy/shared/versification";
-import { MAX_COPY_VERSES } from "~/lib/licence-limits";
 import type { ReadingLimited } from "./reading-limit";
 
 /**
  * Compare translations (#167), the pure part: what each translation's block
  * shows once its chapters are (or aren't) in — text, numbering notes, why it
- * can't show — what it reports to FUMS, and the "Copy all" payload. Lives in
+ * can't show — and what it reports to FUMS. Lives in
  * the dialog's chunk only (it pulls in the versification map).
  */
 
@@ -67,7 +66,7 @@ export type Loaded =
 /** Whole verse units `from`..`to` (stored numbers) of one chapter. */
 export type Part = { chapter: Chapter; from: number; to: number };
 
-/** Header notes — UI words, never in the text flow, never copied. */
+/** Header notes — UI words, never in the text flow. */
 export type BlockNote =
   /** "Verse numbers differ here: {{ref}} in {{abbr}}" (the reading one's numbers) */
   | { kind: "renumbered"; source: ScriptureRef }
@@ -76,7 +75,7 @@ export type BlockNote =
   /** "This translation has no verse {{n}}" */
   | { kind: "absent"; verses: number[] }
   | { kind: "psalmTitle" }
-  /** "Couldn't match the verses in this translation" (+ Continue in) */
+  /** "Couldn't match the verses in this translation" */
   | { kind: "unmapped" };
 
 export type BlockView =
@@ -215,105 +214,14 @@ export function blockView(slices: readonly MappedSlice[], load: (c: ChapterRef) 
   return { kind: "ready", parts, notes, ref, tokens, missing };
 }
 
-/** Numbering differs from the reading translation (Copy all names the
- * block's own reference then). */
+/** Numbering differs from the reading translation (the block names its
+ * own reference then). */
 export function numberingDiffers(slices: readonly MappedSlice[]): boolean {
   return slices.some((s) => s.kind !== "same");
-}
-
-/** Where "Continue in" lands: the first mapped verse; an unmapped block
- * goes to its chapter without a verse (never a guessed number). */
-export function jumpTarget(slices: readonly MappedSlice[]): { book: string; chapter: number; verse?: number } | null {
-  const hit = slices.find((s) => s.kind !== "unmapped" && s.startVerse > 0);
-  if (hit) return { book: hit.book, chapter: hit.chapter, verse: hit.startVerse };
-  const any = slices[0];
-  return any ? { book: any.book, chapter: any.chapter } : null;
-}
-
-// ---- copy ----------------------------------------------------------------
-
-/** Verses the parts carry (a bridge "14–15" counts as both). */
-export function partsVerseCount(parts: readonly Part[]): number {
-  let n = 0;
-  for (const p of parts) {
-    for (const v of p.chapter.verses) {
-      if (v.verse < p.from || v.verse > p.to) continue;
-      n += lastNumber(v) - v.verse + 1;
-    }
-  }
-  return n;
-}
-
-/** The plain words of the parts, verses joined by a space (no numbers). */
-export function partsText(parts: readonly Part[]): string {
-  return parts
-    .flatMap((p) => p.chapter.verses.filter((v) => v.verse >= p.from && v.verse <= p.to).map((v) => v.text.trim()))
-    .filter(Boolean)
-    .join(" ");
-}
-
-/** One block in Copy all. `ref`: its own reference, given only when its
- * numbering differs ("BPH (Salme 51,3): …"). */
-export type CopyBlock = { abbr: string; ref?: string; parts: readonly Part[] };
-
-/** Copy all's total verse count: the licences' 100-verse cap counts every
- * translation's verses. */
-export function copyAllCount(blocks: readonly CopyBlock[]): number {
-  return blocks.reduce((n, b) => n + partsVerseCount(b.parts), 0);
-}
-
-export function canCopyAll(blocks: readonly CopyBlock[]): boolean {
-  return copyAllCount(blocks) <= MAX_COPY_VERSES;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-/**
- * Copy all: a header line ("John 3:16 — NIV · NKJV · BPH"), one paragraph
- * per translation ("NIV: …", "BPH (Salme 51,3): …" when its numbers
- * differ), then each copyright line once. Notes are never copied.
- */
-export function formatCopyAll(reference: string, blocks: readonly CopyBlock[]): { text: string; html: string } {
-  const shown = blocks.filter((b) => b.parts.length > 0);
-  const header = `${reference} — ${shown.map((b) => b.abbr).join(" · ")}`;
-  const paragraphs = shown.map((b) => `${b.abbr}${b.ref ? ` (${b.ref})` : ""}: ${partsText(b.parts)}`);
-  const rights: string[] = [];
-  for (const b of shown) {
-    for (const p of b.parts) {
-      const line = p.chapter.copyright?.trim();
-      if (line && !rights.includes(line)) rights.push(line);
-    }
-  }
-  const text = [header, ...paragraphs, rights.join("\n")].filter(Boolean).join("\n\n");
-  const html = [header, ...paragraphs].map((l) => `<p>${escapeHtml(l)}</p>`).join("") +
-    (rights.length ? `<p>${rights.map(escapeHtml).join("<br>")}</p>` : "");
-  return { text, html };
 }
 
 /** FUMS: the tokens of every block whose text is on screen. A block still
  * loading reports nothing; an unticked one isn't among the views at all. */
 export function fumsTokens(views: readonly BlockView[]): string[] {
   return [...new Set(views.flatMap((v) => (v.kind === "ready" ? v.tokens : [])))];
-}
-
-/** Copy, per block (#167): the whole verses' words, then the reference line
- * and the chapter's copyright line — today's copy format (formatCopy). */
-export function versesCopy(
-  parts: readonly Part[],
-  reference: string,
-  abbreviation: string,
-): { text: string; html: string } {
-  const body = parts
-    .flatMap((p) => p.chapter.verses.filter((v) => v.verse >= p.from && v.verse <= p.to).map((v) => v.text.trim()))
-    .filter(Boolean)
-    .join(" ");
-  const lines = [body, `${reference} (${abbreviation})`];
-  for (const p of parts) {
-    const c = p.chapter.copyright?.trim();
-    if (c && !lines.includes(c)) lines.push(c);
-  }
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return { text: lines.join("\n"), html: lines.map(esc).join("<br>") };
 }

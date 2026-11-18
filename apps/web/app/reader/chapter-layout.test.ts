@@ -2,7 +2,6 @@ import type { Chapter } from "@biblestdy/shared";
 import { words } from "@biblestdy/shared";
 import { describe, expect, it } from "vitest";
 import { layoutChapter, openingLabel, passageLines, sliceBlocks, type LaidBlock } from "./chapter-layout";
-import { versesCopy } from "./compare-blocks";
 
 const base = { translationId: "T", book: "PSA", chapter: 23 };
 
@@ -211,10 +210,5 @@ describe("passageLines (#167)", () => {
 
   it("only the asked verses", () => {
     expect(lines(passageLines(psalm, { from: 2, to: 2 }))).toEqual(["e f g h"]);
-  });
-
-  it("copies whole verses with reference and copyright", () => {
-    const c = { ...psalm, copyright: "© X" };
-    expect(versesCopy([{ chapter: c, from: 1, to: 2 }], "Psalm 23:1–2", "WEB").text).toBe("a b c d e f g h\nPsalm 23:1–2 (WEB)\n© X");
   });
 });
