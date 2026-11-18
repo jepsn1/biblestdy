@@ -116,4 +116,70 @@ describe("chapter cache", () => {
     await loadChapter("WEB", { book: "JHN", chapter: 5 });
     expect(passageCalls()).toHaveLength(2);
   });
+
+  const prefetchHeader = (i: number) =>
+    new Headers((fetchMock.mock.calls[i][1] as RequestInit | undefined)?.headers).get("x-scripture-prefetch");
+
+  it("marks read-ahead low priority (#248); visits and needed run-ons are not", async () => {
+    const { loadChapter, prefetchNeighbours } = await import("./chapter-cache");
+    await loadChapter("WEB", { book: "JHN", chapter: 1 });
+    prefetchNeighbours("WEB", [{ book: "JHN", chapter: 2 }]);
+    prefetchNeighbours("WEB", [{ book: "JHN", chapter: 3 }], { needed: true });
+    await flush();
+    const calls = fetchMock.mock.calls.map(([u], i) => ({ u: String(u), h: prefetchHeader(i) }));
+    const passage = (c: number) => calls.find((x) => x.u === `/api/passages/WEB/JHN/${c}`)!;
+    expect(passage(1).h).toBeNull();
+    expect(passage(2).h).toBe("1");
+    expect(passage(3).h).toBeNull();
+  });
+
+  it("a declined read-ahead (204) keeps nothing, rests reading ahead, and the visit loads", async () => {
+    fetchMock.mockImplementation(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.startsWith("/api/passages/")) return new Response("[]", { status: 200 });
+      if (new Headers(init?.headers).get("x-scripture-prefetch")) return new Response(null, { status: 204 });
+      return new Response(chapterBody(url), { status: 200 });
+    });
+    const { loadChapter, prefetchNeighbours } = await import("./chapter-cache");
+    const { queryClient } = await import("~/lib/query");
+    prefetchNeighbours("WEB", [{ book: "ROM", chapter: 8 }]);
+    await flush();
+    expect(queryClient.getQueryData(["chapter", "WEB", "ROM", 8])).toBeUndefined();
+    prefetchNeighbours("WEB", [{ book: "ROM", chapter: 9 }]); // resting
+    await flush();
+    expect(passageCalls()).toEqual(["/api/passages/WEB/ROM/8"]);
+    await expect(loadChapter("WEB", { book: "ROM", chapter: 8 })).resolves.toMatchObject({ chapter: 8 });
+    expect(passageCalls()).toHaveLength(2);
+  });
+
+  it("a visit that joins a read-ahead the server declines still gets its chapter", async () => {
+    fetchMock.mockImplementation(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.startsWith("/api/passages/")) return new Response("[]", { status: 200 });
+      if (new Headers(init?.headers).get("x-scripture-prefetch")) return new Response(null, { status: 204 });
+      return new Response(chapterBody(url), { status: 200 });
+    });
+    const { loadChapter, prefetchNeighbours } = await import("./chapter-cache");
+    prefetchNeighbours("WEB", [{ book: "ROM", chapter: 8 }]);
+    await expect(loadChapter("WEB", { book: "ROM", chapter: 8 })).resolves.toMatchObject({ chapter: 8 });
+    expect(passageCalls()).toEqual(["/api/passages/WEB/ROM/8", "/api/passages/WEB/ROM/8"]);
+  });
+
+  it("a reader drawing it meanwhile (a query observer) turns a declined read-ahead into a real load", async () => {
+    fetchMock.mockImplementation(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.startsWith("/api/passages/")) return new Response("[]", { status: 200 });
+      if (new Headers(init?.headers).get("x-scripture-prefetch")) return new Response(null, { status: 204 });
+      return new Response(chapterBody(url), { status: 200 });
+    });
+    const { chapterQuery, prefetchNeighbours } = await import("./chapter-cache");
+    const { queryClient } = await import("~/lib/query");
+    const { QueryObserver } = await import("@tanstack/react-query");
+    prefetchNeighbours("WEB", [{ book: "ROM", chapter: 8 }]);
+    const observer = new QueryObserver(queryClient, chapterQuery("WEB", { book: "ROM", chapter: 8 }));
+    const unsubscribe = observer.subscribe(() => {});
+    await vi.waitFor(() => expect(queryClient.getQueryData(["chapter", "WEB", "ROM", 8])).toBeTruthy());
+    unsubscribe();
+    expect(passageCalls()).toEqual(["/api/passages/WEB/ROM/8", "/api/passages/WEB/ROM/8"]);
+  });
 });

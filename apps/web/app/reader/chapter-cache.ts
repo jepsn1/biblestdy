@@ -23,15 +23,31 @@ import { notesQuery } from "./use-notes";
  * - read ahead (prefetchNeighbours): only while the server says the burst
  *   has more than READ_AHEAD_RESERVE left, so reading ahead never spends what
  *   the reader's own turns need; paused after a refusal until its wait ends.
+ *   Marked low priority (#248): when the API.Bible call budget is tight the
+ *   server answers 204 for a chapter it has not cached — nothing is kept, a
+ *   use that joins it fetches for real, and reading ahead rests a while.
  */
 const READ_AHEAD_RESERVE = 10;
 /** The account's refill (policy.ts): estimates the burst between replies. */
 const REFILL_MS = 2000;
 /** Unread chapter text stays this long after its last use. */
 const KEEP_MS = 30 * 60_000;
+/** Header the API reads as "read-ahead, low priority" (scripture.controller). */
+const PREFETCH_HEADER = "X-Scripture-Prefetch";
+/** After a 204 (call budget tight), reading ahead rests this long. */
+const DEFERRED_REST_MS = 5 * 60_000;
+
+/** The server declined a read-ahead (204): not loaded, not an error to show. */
+export class ReadAheadDeferred extends Error {
+  constructor() {
+    super("read-ahead deferred");
+    this.name = "ReadAheadDeferred";
+  }
+}
 
 let remaining: { tokens: number; at: number } | null = null;
 let pausedUntil = 0;
+let deferredUntil = 0;
 
 function tokensLeft(now: number): number {
   if (!remaining) return Infinity; // nothing fetched yet: a full burst
@@ -43,11 +59,22 @@ export function readingPausedFor(): number {
   return Math.max(0, pausedUntil - Date.now());
 }
 
-async function fetchChapter(translationId: string, ref: ChapterRef, next?: string): Promise<Chapter> {
+async function fetchChapter(translationId: string, ref: ChapterRef, next?: string, readAhead = false): Promise<Chapter> {
   // A refusal's wait still runs: sit it out instead of earning another
   const pause = readingPausedFor();
   if (pause > 0) await new Promise((resolve) => setTimeout(resolve, pause));
-  const res = await fetchScripture(`/api/passages/${translationId}/${ref.book}/${ref.chapter}`, next);
+  const res = await fetchScripture(
+    `/api/passages/${translationId}/${ref.book}/${ref.chapter}`,
+    next,
+    readAhead ? { [PREFETCH_HEADER]: "1" } : undefined,
+  );
+  if (res.status === 204) {
+    deferredUntil = Date.now() + DEFERRED_REST_MS;
+    // Something started showing it meanwhile (it joined this request): fetch for real
+    const observed = queryClient.getQueryCache().find({ queryKey: chapterQuery(translationId, ref).queryKey });
+    if (observed && observed.getObserversCount() > 0) return fetchChapter(translationId, ref, next);
+    throw new ReadAheadDeferred();
+  }
   if (res.status === 404 || res.status === 400) {
     throw data(i18n.t("error.chapterUnavailable"), { status: 404 });
   }
@@ -85,7 +112,9 @@ export const retryWhenLimited = {
  * ReadingLimited (429). `next`: where sign-in returns to if the session has
  * expired (the page being opened; default the current one). */
 export function loadChapter(translationId: string, ref: ChapterRef, next?: string): Promise<Chapter> {
-  return queryClient.fetchQuery({ ...chapterQuery(translationId, ref), queryFn: () => fetchChapter(translationId, ref, next) });
+  const load = () => queryClient.fetchQuery({ ...chapterQuery(translationId, ref), queryFn: () => fetchChapter(translationId, ref, next) });
+  // Joined a read-ahead the server declined: this is the visit, fetch it
+  return load().catch((err: unknown) => (err instanceof ReadAheadDeferred ? load() : Promise.reject(err)));
 }
 
 /**
@@ -141,8 +170,9 @@ export function prefetchNeighbours(translationId: string, refs: (ChapterRef | nu
     if (!ref) continue;
     const query = chapterQuery(translationId, ref);
     if (!queryClient.getQueryData(query.queryKey)) {
-      if (!needed && tokensLeft(now) <= READ_AHEAD_RESERVE) continue;
-      void queryClient.prefetchQuery(query); // the real visit reports errors
+      if (needed) void queryClient.prefetchQuery(query); // the real visit reports errors
+      else if (tokensLeft(now) <= READ_AHEAD_RESERVE || now < deferredUntil) continue;
+      else void queryClient.prefetchQuery({ ...query, queryFn: () => fetchChapter(translationId, ref, undefined, true) });
     }
     const { book, chapter } = ref;
     void queryClient.prefetchQuery(highlightsQuery(translationId, book, chapter));
