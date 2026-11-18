@@ -18,8 +18,9 @@ export function LogoMark({ className }: { className?: string }) {
       focusable="false"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.8}
-      // The bowl's base (y 18.6) sits on the text baseline; the ribbon hangs below
+      strokeWidth={2.2}
+      // Stroke 2.2/24 × 1.2em ≈ 0.11em = Geist Mono 600 stem (measured). The
+      // bowl's base (y 18.6) sits on the text baseline; the ribbon hangs below
       className={cn("inline-block shrink-0 align-[-0.27em]", className)}
     >
       <path d="M7 3.2V18.6" />
