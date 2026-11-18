@@ -6,7 +6,7 @@ Everything license-related parked here. NEXT-STEPS points at this file.
 
 | Translation | Status |
 |---|---|
-| **NIV 2011** | ✓ live via API.Bible key (Starter tier: non-commercial, 5k calls/mo, 24h cache keeps quota low; Pro $29/mo when we charge) |
+| **NIV 2011** | ✓ live via API.Bible key (Starter tier: non-commercial, 5k calls/mo, shared DB cache keeps quota low; Pro $29/mo when we charge) |
 | **WEB, NKJV** | ✓ live, same key (WEB is public domain) |
 | **NLT / CSB / NASB** | not on the key — request per-publisher in the API.Bible dashboard |
 | **ESV** | not on API.Bible. Crossway's own ESV API (api.esv.org): free key for non-commercial, individuals OK. Needs a second provider + ESV-only cache ≤500 verses/half a book, "ESV" label, copyright page, esv.org link on every page showing ESV. 5k/day, 1k/h, 60/min. |
@@ -19,7 +19,7 @@ Facts that matter:
 - Biblica licenses only *finished* products (pilot counts), display-only; audio + offline explicitly not licensable.
 - Direct Biblica full-text licenses go to a **registered legal entity only**, not individuals → use the holding company if we go direct. Express route (via platforms) has no such note.
 - Express licensing requires **no AI/ML features** and no monetization. VISION's AI credits would break it for NIV + BPH (and make ESV "commercial"). Decide before shipping AI.
-- API.Bible: cached text must be refreshed every 30 days; max 500 consecutive verses displayed (our 24h cache + chapter pages fit).
+- API.Bible: cached text must be refreshed every 30 days (FAQ: clear every 14 days or less); max 500 consecutive verses displayed (our 14-day cache + chapter pages fit).
 - Any Danish bible that ever lands on our API.Bible key auto-surfaces in the picker (`apibible.provider.ts` language filter).
 
 ## API.Bible compliance (Starter plan) — how biblestdy meets it (2026-11-16)
@@ -29,7 +29,8 @@ Facts that matter:
 | FUMS on every chapter shown (ToS §3.3) | web `lib/fums.ts` reports shown chapters' `fumsToken` → `POST /api/fums/views` → `apps/api/src/fums` relays to `https://fums.api.bible/f3` (server-side: no device storage, no reader IP to a third party; dId/sId = HMAC of the sign-in session, no uId). Token cached with the chapter. Compare translations (#167) reports each (translation, chapter) it shows, once its text is on screen, and fetches only through the reader's chapter cache + reading quota; each block carries its chapter's copyright line, the dialog foot the API.Bible credit. |
 | Citation + link to api.bible (Starter) | reader running foot ("… · API.Bible"), Settings footer, landing footer, copyright page |
 | Copyright page linked from every page with Bible text (§7) | `/copyright` (public; lines verbatim from `GET /api/copyright` = API.Bible metadata, holders in `TRANSLATION_INFO.holder`); credit line, palette + note references, landing quote link there |
-| Cache ≤ 30 days, changes within 24 h (§11) | `CachingScriptureProvider`: 24 h TTL, hard ceiling 25 days. Purge one translation: `tools/purge-scripture-cache.sh <bibleId>` (prod container; `API_PORT=3001` for dev). Restart purges all. |
+| Cache ≤ 30 days (§11), cleared every ≤ 14 days (developer FAQ, §15); changes within 24 h of a written request (§11, §13.2), removals 72 h (§10.3), everything on termination (§10.2, §18.8) | `CachingScriptureProvider` (#248): memory (≤ 1 h) → Postgres `scripture_cache` (shared by every API process on the database; survives restarts) → API.Bible. **On demand only**: a row exists only for a chapter a reader opened or read ahead to — no warm-up job, no bulk fill (§8: no systematic extraction to populate databases). Refresh age 14 days (`SCRIPTURE_CACHE_TTL_DAYS`): past it the row is served once more while it refetches; hard ceiling 25 days, never served older. Purge one translation / everything (memory + DB): `tools/purge-scripture-cache.sh [bibleId]` (prod container; `API_PORT=3001` for dev); without a running API: `DELETE FROM scripture_cache`. A restart no longer purges. Text leaves only through the chapter endpoint (session + reading quota, §12) — no list/export of the cache. |
+| Call budget (Starter: 5,000 calls/month, one key for prod + dev) | Every upstream call is counted per UTC day in `scripture_upstream_call` and logged (`ScriptureCache: upstream call …`). Over the soft cap (`API_BIBLE_DAILY_SOFT_CAP` 150, `API_BIBLE_MONTHLY_SOFT_CAP` 4,000) the reader's read-ahead (`X-Scripture-Prefetch: 1`) gets 204 for uncached chapters; real visits always fetch. Read: `tools/scripture-calls.sh`. One key, one app — never a second account/app to stretch the free tier (§9.6). |
 | Copy/print ≤ 100 verses (§12) | `reader/copy-attribution.ts` `canCopy` + toast; `lib/print-limit.ts` blanks the text in print over 100; Compare translations (#167): Copy all counts every translation's verses (`reader/compare-blocks.ts` `canCopyAll`), its text is not natively selectable |
 | Donations only as minor, non-intrusive links | support pop-up removed; quiet "Support biblestdy" links in Settings; "☕ Buy me a coffee" as plain muted text in the landing footer and the reader's running foot (end of the credit line where it fits, else its own third line under it — always shown, never displaces the credit or source; phones: own line under the chapter's foot) |
 | No AI/LLM/TTS on licensed text (§9) | none in the codebase (checked 2026-11-16). VISION's AI credits would break NIV/BPH/NKJV terms. |
