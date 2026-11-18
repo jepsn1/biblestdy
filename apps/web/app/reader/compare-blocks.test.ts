@@ -5,11 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   blockError,
   blockView,
-  canCopyAll,
-  copyAllCount,
-  formatCopyAll,
   fumsTokens,
-  jumpTarget,
   sliceChapters,
   type Loaded,
 } from "./compare-blocks";
@@ -109,11 +105,6 @@ describe("blockView", () => {
     expect(blockView(slices, err(new ReadingLimited({ reason: "daily", retryAfterSeconds: 9000 }, "")))).toMatchObject({ kind: "problem", error: "daily" });
     expect(blockView(slices, err(new Error("x")))).toMatchObject({ kind: "problem", error: "failed" });
   });
-
-  it("jumps to the mapped verse; an unmapped block to its chapter only", () => {
-    expect(jumpTarget(mapRange({ book: "PSA", chapter: 51, verse: 1 }, "WEB", "BPH"))).toEqual({ book: "PSA", chapter: 51, verse: 3 });
-    expect(jumpTarget([{ book: "NEH", chapter: 7, startVerse: 68, endVerse: 68, kind: "unmapped", source: { chapter: 7, startVerse: 68, endChapter: 7, endVerse: 68 } }])).toEqual({ book: "NEH", chapter: 7 });
-  });
 });
 
 describe("FUMS per shown chapter", () => {
@@ -133,42 +124,5 @@ describe("FUMS per shown chapter", () => {
 
   it("a translation unticked before it arrives reports 0", () => {
     expect(fumsTokens([])).toEqual([]);
-  });
-});
-
-describe("Copy all", () => {
-  const web = chapter("JHN", 3, range(1, 36), { copyright: "Public Domain" });
-  const bph = chapter("JHN", 3, [...range(1, 13), [14, "14–15"], ...range(16, 36)], { copyright: "© Biblica" });
-  const niv = chapter("JHN", 3, range(1, 36), { copyright: "© Biblica" });
-
-  it("header, one paragraph each (own ref when numbering differs), copyright lines once", () => {
-    const { text } = formatCopyAll("John 3:14–15", [
-      { abbr: "WEB", parts: [{ chapter: web, from: 14, to: 15 }] },
-      { abbr: "NIV", parts: [{ chapter: niv, from: 14, to: 15 }] },
-      { abbr: "BPH", ref: "Johannes 3,14–15", parts: [{ chapter: bph, from: 14, to: 14 }] },
-    ]);
-    expect(text).toBe(
-      [
-        "John 3:14–15 — WEB · NIV · BPH",
-        "WEB: w14 x14 w15 x15",
-        "NIV: w14 x14 w15 x15",
-        "BPH (Johannes 3,14–15): w14 x14",
-        "Public Domain\n© Biblica",
-      ].join("\n\n"),
-    );
-  });
-
-  it("the 100-verse cap counts every block, bridges as both verses", () => {
-    const blocks = [
-      { abbr: "WEB", parts: [{ chapter: web, from: 1, to: 36 }] },
-      { abbr: "NIV", parts: [{ chapter: niv, from: 1, to: 36 }] },
-      { abbr: "BPH", parts: [{ chapter: bph, from: 1, to: 28 }] },
-    ];
-    // 36 + 36 + 28 (27 units, the bridge counts 2)
-    expect(copyAllCount(blocks)).toBe(100);
-    expect(canCopyAll(blocks)).toBe(true);
-    blocks[2].parts[0].to = 29;
-    expect(copyAllCount(blocks)).toBe(101);
-    expect(canCopyAll(blocks)).toBe(false);
   });
 });

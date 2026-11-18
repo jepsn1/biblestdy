@@ -16,8 +16,6 @@ export const compareDialog = lazyModule(() => import("./compare-dialog"));
 export type CompareKit = {
   chapterQuery: typeof import("./chapter-cache").chapterQuery;
   retryWhenLimited: typeof import("./chapter-cache").retryWhenLimited;
-  notifyCopyFailed: typeof import("~/lib/notify").notifyCopyFailed;
-  notifyCopyLimit: typeof import("~/lib/notify").notifyCopyLimit;
   passageLines: typeof import("./chapter-layout").passageLines;
   groupTranslations: typeof import("./translation-chooser").groupTranslations;
   translationTitle: typeof import("./translation-chooser").translationTitle;

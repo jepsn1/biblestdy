@@ -39,7 +39,6 @@ import { useFumsView } from "~/lib/fums";
 import { useTextSize } from "~/lib/text-size";
 import { showVerses } from "~/lib/print-limit";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
-import { notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
 import { compareTargetOr } from "../reader/compare-target";
 import { SkipToText } from "../reader/skip-link";
 import { LazyCommandPalette } from "../palette/lazy-palette";
@@ -60,8 +59,6 @@ interface PendingSwitch {
   landing: Landing;
   /** Checks the landing against the loaded chapter (a verse it leaves out). */
   check: ((landing: Landing, chapter: Chapter) => Landing) | null;
-  /** Compare's Continue in (#167): the toast stays ≥ 10 s. */
-  long?: boolean;
 }
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
@@ -70,8 +67,6 @@ import type { Route } from "./+types/read";
 const compareKit: CompareKit = {
   chapterQuery,
   retryWhenLimited,
-  notifyCopyFailed,
-  notifyCopyLimit,
   passageLines,
   groupTranslations,
   translationTitle,
@@ -248,7 +243,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
    * mapped across verse numberings (#174: WEB Mal 4:1 → BPH Mal 3,19), never
    * kept by number. `back` = a place already in that translation's numbering
    * (the toast's way back restores where you were). */
-  async function switchTranslation(id: string, back?: Place, { long = false }: { long?: boolean } = {}) {
+  async function switchTranslation(id: string, back?: Place) {
     const to = translations.find((tr) => tr.id === id);
     if (!to || to.id === translation.id) return;
     const source = { book: chapter.book, chapter: chapter.chapter, verse: placeRef.current ?? 1 };
@@ -265,7 +260,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
       }
     }
     localStorage.setItem("translationId", id);
-    switching.current = { to: to.id, from: translation, source, landing, check, long };
+    switching.current = { to: to.id, from: translation, source, landing, check };
     if (landing.book === chapter.book && landing.chapter === chapter.chapter) void revalidator.revalidate();
     else void navigate(chapterHref(landing), { replace: true }); // the loader reads the new version
   }
@@ -302,7 +297,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
     // A sonner toast is a polite live region: the note is read out too
     toast(t("translations.switched", { name: translationTitle(translation), prev }), {
       description: note,
-      duration: note || p.long ? 10_000 : undefined,
+      duration: note ? 10_000 : undefined,
       action: { label: t("translations.back", { abbr: prev }), onClick: () => void switchRef.current(p.from.id, p.source) },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -511,7 +506,6 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
           finalFocus={compareFocus}
           translations={translations}
           current={translation}
-          switchTranslation={switchTranslation}
           kit={compareKit}
         />
       )}
