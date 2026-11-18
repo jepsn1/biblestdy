@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { HIGHLIGHT_BG, NOTE_INK, NOTE_INK_TEXT } from "~/reader/highlight-colors";
 import { scribblePath } from "~/reader/scribble";
+import { Logo } from "~/components/logo";
 
 /** Static picture of the study surface for the landing page: a page of
  * Scripture with a marker highlight, a pen circle + margin scribble, and the
@@ -22,7 +23,7 @@ export function StudyMock() {
     >
       {/* Reader chrome */}
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <span className="font-mono text-meta font-semibold text-primary">biblestdy</span>
+        <Logo className="text-meta" />
         <span className="font-mono text-meta text-muted-foreground">John 3 · WEB</span>
         <span className="flex gap-1.5">
           <span className="size-2 rounded-full bg-muted-foreground/30" />

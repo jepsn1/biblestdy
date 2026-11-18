@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { HIGHLIGHT_BG, HIGHLIGHT_SWATCH, NOTE_INK, NOTE_INK_TEXT } from "~/reader/highlight-colors";
 import { bracketPath, scribblePath } from "~/reader/scribble";
 import { cn, focusRing } from "~/lib/utils";
+import { Logo } from "~/components/logo";
 
 /** Landing-page illustrations: small, real-looking pieces of the reader
  * (same tokens, inks and scribble geometry as the app), no data. Scripture
@@ -294,7 +295,7 @@ export function PhoneMock() {
         <div className="mx-auto mt-1 h-1.5 w-14 rounded-full bg-foreground/20" />
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-meta font-semibold text-primary">biblestdy</span>
+            <Logo className="text-meta" />
             <span className="font-mono text-meta text-muted-foreground">WEB</span>
           </div>
           <p className="mt-4 font-serif text-title font-medium">John 1</p>

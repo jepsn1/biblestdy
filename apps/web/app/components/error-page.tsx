@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { cn, focusRing } from "~/lib/utils";
+import { Logo } from "~/components/logo";
 
 // No @biblestdy/shared here (not even via reader/chapter-nav): root.tsx
 // imports this, and root is also evaluated at build/dev time (SPA prerender)
@@ -41,8 +42,8 @@ export function ErrorScreen(props: React.ComponentProps<typeof ErrorMessage>) {
   return (
     <main className="flex min-h-dvh flex-col bg-background">
       <div className="px-6 pt-6">
-        <Link to="/" className={cn("inline-flex select-none items-baseline rounded font-mono text-reading font-semibold tracking-tight text-primary", focusRing)}>
-          biblestdy
+        <Link to="/" className={cn("inline-block select-none rounded", focusRing)}>
+          <Logo className="text-reading" />
         </Link>
       </div>
       {/* Optically centred: a little above the middle */}

@@ -8,6 +8,7 @@ import { API_BIBLE_URL } from "~/lib/app-info";
 import i18n from "~/lib/i18n";
 import { api } from "~/lib/query";
 import { cn, focusRing } from "~/lib/utils";
+import { Logo } from "~/components/logo";
 
 /**
  * Public copyright page (API.Bible ToS §7.1) — NO auth: the landing page's
@@ -96,7 +97,7 @@ export default function Copyright() {
           <div className="mb-8 flex items-center justify-between gap-4">
             {back}
             <Link to="/" className="flex select-none items-baseline gap-1.5">
-              <span className="font-mono text-reading font-semibold tracking-tight text-primary">biblestdy</span>
+              <Logo className="text-reading" />
             </Link>
           </div>
 
