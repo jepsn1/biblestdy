@@ -3,8 +3,11 @@ import { useMatches } from "react-router";
 import { isNativeShell } from "~/lib/api-base";
 
 /** Public pages (landing, sign-in, privacy, 404) are websites: pinch-zoom
- * stays on (WCAG 1.4.4). This is also what the static index.html ships. */
-export const VIEWPORT_OPEN = "width=device-width, initial-scale=1";
+ * stays on (WCAG 1.4.4). This is also what the static index.html ships.
+ * viewport-fit=cover (#251): the page runs under the status bar, home
+ * indicator and landscape notch, and pads itself by the safe-area tokens
+ * (app.css --safe-*) — without it every env(safe-area-inset-*) is 0. */
+export const VIEWPORT_OPEN = "width=device-width, initial-scale=1, viewport-fit=cover";
 
 /** App routes lock zoom: the reader is a fixed folio that manages its own
  * scale, and pinch-zoom fights page-flip + annotation drag gestures. Product

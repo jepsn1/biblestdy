@@ -2,6 +2,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "~/lib/utils"
+import { collisionPadding, useSafeInsets } from "~/lib/safe-area"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 const Select = SelectPrimitive.Root
@@ -72,9 +73,12 @@ function SelectContent({
     /** Layout of the option list itself, e.g. a number grid (#62). */
     listClassName?: string
   }) {
+  const insets = useSafeInsets()
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
+        // Clear of the notch / home indicator too (#251)
+        collisionPadding={collisionPadding(insets)}
         side={side}
         sideOffset={sideOffset}
         align={align}

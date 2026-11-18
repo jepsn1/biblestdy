@@ -26,7 +26,8 @@ export const PILL_EDGE = 16;
 /**
  * Where the pill goes (viewport px): under the last line, centred on the end
  * word, clear of its handle; above the first line when there is no room
- * below `bottom` (the screen, or an open drawer's top). Never off the sides.
+ * below `bottom` (the screen, or an open drawer's top). Never off the sides,
+ * nor under the status bar or a landscape notch (`safe` insets, #251).
  */
 export function pillPlace(
   start: Box,
@@ -34,14 +35,17 @@ export function pillPlace(
   pill: { width: number; height: number },
   screenWidth: number,
   bottom: number,
+  safe: { top: number; left: number; right: number } = { top: 0, left: 0, right: 0 },
 ): { left: number; top: number } {
   const centre = (r: Box) => (r.left + r.right) / 2 - pill.width / 2;
-  const clampX = (x: number) => Math.max(PILL_EDGE, Math.min(x, screenWidth - PILL_EDGE - pill.width));
+  const clampX = (x: number) =>
+    Math.max(PILL_EDGE + safe.left, Math.min(x, screenWidth - PILL_EDGE - safe.right - pill.width));
   const below = end.bottom + PILL_BELOW;
   if (below + pill.height <= bottom) return { left: clampX(centre(end)), top: below };
   const above = start.top - PILL_ABOVE - pill.height;
   // A selection taller than the screen: the bottom edge, over the words
-  return { left: clampX(centre(above >= 0 ? start : end)), top: above >= 0 ? above : bottom - pill.height - PILL_ABOVE };
+  const fits = above >= safe.top;
+  return { left: clampX(centre(fits ? start : end)), top: fits ? above : bottom - pill.height - PILL_ABOVE };
 }
 
 /** Within this far (px) of the text's top or bottom edge, a handle drag scrolls. */

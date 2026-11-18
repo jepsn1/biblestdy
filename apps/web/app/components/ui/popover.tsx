@@ -2,6 +2,7 @@ import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
 import { cn } from "~/lib/utils"
+import { collisionPadding, useSafeInsets } from "~/lib/safe-area"
 
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
@@ -28,9 +29,12 @@ function PopoverContent({
     PopoverPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
   >) {
+  const insets = useSafeInsets()
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
+        // Clear of the notch / home indicator too (#251)
+        collisionPadding={collisionPadding(insets)}
         align={align}
         alignOffset={alignOffset}
         side={side}

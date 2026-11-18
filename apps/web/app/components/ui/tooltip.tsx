@@ -3,6 +3,7 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "~/lib/utils"
+import { collisionPadding, useSafeInsets } from "~/lib/safe-area"
 
 function TooltipProvider({
   delay = 0,
@@ -38,9 +39,12 @@ function TooltipContent({
     TooltipPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
   >) {
+  const insets = useSafeInsets()
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
+        // Clear of the notch / home indicator too (#251)
+        collisionPadding={collisionPadding(insets)}
         align={align}
         alignOffset={alignOffset}
         side={side}

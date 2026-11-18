@@ -24,6 +24,11 @@ const FADED_RING = /(?<![\w-])(?:[\w-]+:)*(?:ring|outline|border)-(?:ring|sideba
 const ARBITRARY_SIZE = /(?<![\w-])(?:[\w-]+:)*text-\[\d*\.?\d+(?:rem|px)\]/g;
 const TAILWIND_SIZE = /(?<![\w-])(?:[\w-]+:)*text-(?:xs|sm|base|lg|xl|[2-9]xl|eyebrow)(?![\w-])/g;
 
+/** `env(safe-area-inset-*)` in a class (#251): read the app.css tokens
+ * (`var(--safe-top)` …) instead — one source, and the review screenshots
+ * override them to simulate an iPhone's insets. */
+const RAW_SAFE_AREA = /env\(safe-area-inset-[a-z]+[^)]*\)/g;
+
 /** Report every regex match inside string literals and template chunks. */
 function classNameRule(description, scan) {
   return {
@@ -59,6 +64,11 @@ const biblestdy = {
           `\`${m}\` is off the type scale — use text-meta/list/control/phone/reading/title/display (app.css).`,
       ),
     ),
+    "safe-area-token": classNameRule("Safe-area insets come from the app.css tokens", (text) =>
+      [...text.matchAll(RAW_SAFE_AREA)].map(
+        ([m]) => `\`${m}\` — use var(--safe-top|right|bottom|left) (app.css, #251).`,
+      ),
+    ),
   },
 };
 
@@ -86,6 +96,7 @@ export default tseslint.config(
       "biblestdy/no-faded-text": "error",
       "biblestdy/no-faded-ring": "error",
       "biblestdy/type-scale": "error",
+      "biblestdy/safe-area-token": "error",
       // #228: Sonner loads after first paint — toast via ~/lib/toast
       "no-restricted-imports": [
         "error",
@@ -101,6 +112,6 @@ export default tseslint.config(
   {
     // The contrast test asserts on example class strings.
     files: ["app/**/*.test.ts"],
-    rules: { "biblestdy/no-faded-text": "off", "biblestdy/no-faded-ring": "off", "biblestdy/type-scale": "off" },
+    rules: { "biblestdy/no-faded-text": "off", "biblestdy/no-faded-ring": "off", "biblestdy/type-scale": "off", "biblestdy/safe-area-token": "off" },
   },
 );

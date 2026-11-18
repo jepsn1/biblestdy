@@ -1,6 +1,7 @@
 import { Ellipsis, FileText, Highlighter, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSafeInsets } from "~/lib/safe-area";
 import { cn, focusRing } from "~/lib/utils";
 import { PILL_ABOVE, PILL_EDGE, pillPlace } from "./held-selection";
 
@@ -47,6 +48,7 @@ export function SelectionPill({
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  const safe = useSafeInsets();
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -55,9 +57,9 @@ export function SelectionPill({
     const drawerTops = [...document.querySelectorAll('[data-slot="drawer-popup"], [data-chapter-bar]')]
       .map((d) => d.getBoundingClientRect().top)
       .filter((top) => top > 0);
-    const bottom = Math.min(window.innerHeight, ...drawerTops) - PILL_ABOVE;
-    setAt(pillPlace(start, end, { width: el.offsetWidth, height: el.offsetHeight }, window.innerWidth, bottom));
-  }, [start, end]);
+    const bottom = Math.min(window.innerHeight - safe.bottom, ...drawerTops) - PILL_ABOVE;
+    setAt(pillPlace(start, end, { width: el.offsetWidth, height: el.offsetHeight }, window.innerWidth, bottom, safe));
+  }, [start, end, safe]);
   return (
     // A tap on the surface between buttons lets the selection go (as on the text)
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions

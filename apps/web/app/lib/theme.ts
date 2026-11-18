@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { watchThemeColor } from "./theme-color";
 import { THEME_KEY } from "./theme-prepaint";
 
 /**
@@ -79,5 +80,10 @@ export function watchSystemTheme(): () => void {
     notify();
   };
   mql.addEventListener("change", onChange);
-  return () => mql.removeEventListener("change", onChange);
+  // The status bar's colour follows the page (#251)
+  const stopThemeColor = watchThemeColor();
+  return () => {
+    mql.removeEventListener("change", onChange);
+    stopThemeColor();
+  };
 }

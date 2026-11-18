@@ -9,6 +9,13 @@ describe("phone note drawer snaps (#215)", () => {
     expect(peekPoint(false, true)).toBe("7.5rem");
     expect(peekPoint(false, false)).toBe("4.5rem");
   });
+
+  it("bar peek sits above the home indicator (#251): grows by the inset", () => {
+    expect(peekPoint(false, false, 21, 16)).toBe("93px");
+    expect(peekPoint(false, true, 34, 20)).toBe("184px");
+    expect(peekPoint(true, false, 34, 16)).toBe(NOTE_PEEK);
+  });
+
   it("puts the passage near the top while the note peeks", () => {
     expect(passageInset(780, false, 16)).toBe(260);
     expect(passageInset(780, true, 16)).toBe(48);

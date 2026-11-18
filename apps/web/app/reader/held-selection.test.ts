@@ -33,6 +33,15 @@ describe("pill place (#206)", () => {
     expect(pillPlace(box(350, 300), box(350, 300), pill, 390, 844).left).toBe(390 - PILL_EDGE - 260);
   });
 
+  it("keeps clear of the status bar and a landscape notch (#251)", () => {
+    const safe = { top: 59, left: 59, right: 59 };
+    expect(pillPlace(box(10, 300), box(10, 300), pill, 852, 393, safe).left).toBe(PILL_EDGE + 59);
+    expect(pillPlace(box(800, 300), box(800, 300), pill, 852, 393, safe).left).toBe(852 - PILL_EDGE - 59 - 260);
+    // No room below, and above would run under the status bar: the bottom edge instead
+    const p = pillPlace(box(100, 90), box(170, 790), pill, 393, 800, safe);
+    expect(p.top).toBe(800 - 48 - PILL_ABOVE);
+  });
+
   it("flips above the first line when there is no room below (screen or drawer)", () => {
     const p = pillPlace(box(100, 300), box(170, 700), pill, 390, 760);
     expect(p.top).toBe(300 - PILL_ABOVE - 48);
