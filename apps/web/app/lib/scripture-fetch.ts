@@ -8,8 +8,8 @@ import { currentPath, signinHref } from "./next-path";
  * instead of showing a generic load error. Other statuses are the caller's.
  * Same transport as api(): the API base (native shell) and the session
  * cookie. */
-export async function fetchScripture(url: string, next: string = currentPath()): Promise<Response> {
-  const res = await fetch(apiUrl(url), { credentials: "include" });
+export async function fetchScripture(url: string, next: string = currentPath(), headers?: Record<string, string>): Promise<Response> {
+  const res = await fetch(apiUrl(url), { credentials: "include", ...(headers && { headers }) });
   if (res.status === 401) throw redirect(signinHref(next));
   return res;
 }

@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Drop the API's cached Scripture for one translation (or all), so the next
 # read refetches it from API.Bible — for a change or removal requested by
-# API.Bible or a rights holder (ToS §10/§11: within 24 h / 72 h).
+# API.Bible or a rights holder (ToS §11/§13.2: within 24 h of a written
+# request; §10.3: 72 h), or everything on plan termination (§10.2, §18.8).
+# Clears memory AND the scripture_cache table (#248). Other API processes on
+# the same database (dev servers) drop their memory copies within 1 h.
 # Usage:
 #   tools/purge-scripture-cache.sh [translationId]        # prod container
 #   API_PORT=3001 tools/purge-scripture-cache.sh [id]     # dev API on this host
 # e.g. tools/purge-scripture-cache.sh 78a9f6124f344018-01   (NIV)
-# Ids: GET /api/copyright. No id = every translation. The cache is in memory,
-# so a restart (`make deploy`, `docker restart biblestdy-api`) purges all too.
+# Ids: GET /api/copyright. No id = every translation (+ the translations
+# list). A restart does NOT purge: the cache lives in Postgres. Last resort
+# without a running API: DELETE FROM scripture_cache [WHERE translation_id = '<id>'].
 set -euo pipefail
 ID="${1:-}"
 # Same derivation as purgeKey() in apps/api/src/scripture/cache-admin.controller.ts

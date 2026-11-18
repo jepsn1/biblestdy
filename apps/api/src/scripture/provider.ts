@@ -12,7 +12,14 @@ export interface ScriptureProvider {
     translationId: string,
     book: string,
     chapter: number,
+    opts?: ChapterOptions,
   ): Promise<Chapter>;
+}
+
+export interface ChapterOptions {
+  /** The reader's read-ahead (#248): a cache may decline to go upstream for
+   * it when the API.Bible call budget is tight. */
+  lowPriority?: boolean;
 }
 
 export const SCRIPTURE_PROVIDER = Symbol('SCRIPTURE_PROVIDER');

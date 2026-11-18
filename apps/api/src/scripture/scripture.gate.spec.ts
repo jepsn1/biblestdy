@@ -6,7 +6,8 @@ import { READING_QUOTA_POLICY } from '../reading-quota/policy';
 import { ReadingQuotaService } from '../reading-quota/service';
 import { InMemoryQuotaStore } from '../reading-quota/store';
 import { FakeScriptureProvider } from './fake.provider';
-import { SCRIPTURE_PROVIDER } from './provider';
+import { CachingScriptureProvider } from './caching.provider';
+import { SCRIPTURE_PROVIDER, type ScriptureProvider } from './provider';
 import { ScriptureController } from './scripture.controller';
 
 /**
@@ -25,11 +26,12 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
   async function start(
     signedIn: boolean,
     quota = new ReadingQuotaService({ store: new InMemoryQuotaStore() }),
+    provider: ScriptureProvider = new FakeScriptureProvider(),
   ): Promise<string> {
     let builder = Test.createTestingModule({
       controllers: [ScriptureController],
       providers: [
-        { provide: SCRIPTURE_PROVIDER, useValue: new FakeScriptureProvider() },
+        { provide: SCRIPTURE_PROVIDER, useValue: provider },
         {
           provide: ReadingQuotaService,
           useValue: quota,
@@ -170,5 +172,29 @@ describe('Scripture access gate (HTTP, fake provider)', () => {
       const res = await fetch(`${base}/translations`);
       expect(res.status).toBe(200);
     }
+  });
+
+  it('over the soft budget, an uncached read-ahead gets 204 and spends no quota (#248)', async () => {
+    const cache = new CachingScriptureProvider(new FakeScriptureProvider(), {
+      budget: { daily: 1, monthly: 100 },
+    });
+    const base = await start(true, undefined, cache);
+    const prefetch = { headers: { 'x-scripture-prefetch': '1' } };
+    // Under the cap read-ahead fetches like a visit
+    const first = await fetch(`${base}/passages/WEB/JHN/3`, prefetch);
+    expect(first.status).toBe(200);
+    expect(first.headers.get('ratelimit-remaining')).toBe('29');
+    // Over it: cached text still served, an uncached chapter is not fetched
+    expect((await fetch(`${base}/passages/WEB/JHN/3`, prefetch)).status).toBe(
+      200,
+    );
+    const deferred = await fetch(`${base}/passages/WEB/PSA/23`, prefetch);
+    expect(deferred.status).toBe(204);
+    expect(await deferred.text()).toBe('');
+    // The real visit always fetches, and the 204 spent no reading quota
+    const visit = await fetch(`${base}/passages/WEB/PSA/23`);
+    expect(visit.status).toBe(200);
+    expect(visit.headers.get('ratelimit-remaining')).toBe('28');
+    expect((await cache.stats()).today).toBe(2);
   });
 });

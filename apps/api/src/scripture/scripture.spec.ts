@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import type { Chapter } from '@biblestdy/shared';
 import { describe, expect, it } from 'vitest';
 import { parseChapterContent } from './apibible.provider';
-import { CachingScriptureProvider, MAX_AGE_MS } from './caching.provider';
 import { FakeScriptureProvider } from './fake.provider';
 import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/session.guard';
@@ -18,7 +18,13 @@ describe('ScriptureController (with fake provider)', () => {
   const req = { user: { id: 'reader-1' } } as AuthedRequest;
   const res = { setHeader: () => undefined } as unknown as Response;
   const getChapter = (translationId: string, book: string, chapter: number) =>
-    controller.getChapter(req, res, translationId, book, chapter);
+    controller.getChapter(
+      req,
+      res,
+      translationId,
+      book,
+      chapter,
+    ) as Promise<Chapter>;
 
   it('lists translations', async () => {
     const translations = await controller.listTranslations();
@@ -201,90 +207,5 @@ describe('parseChapterContent (API.Bible json content)', () => {
     ]);
     expect(verses[0].text).toBe('Now there was a man.');
     expect(verses[0].text).not.toContain('Nicodemus,');
-  });
-});
-
-describe('CachingScriptureProvider', () => {
-  function countingProvider(): {
-    provider: ScriptureProvider;
-    calls: () => number;
-  } {
-    let calls = 0;
-    return {
-      calls: () => calls,
-      provider: {
-        listTranslations: () => {
-          calls++;
-          return Promise.resolve([]);
-        },
-        getChapter: (translationId, book, chapter) => {
-          calls++;
-          return Promise.resolve({ translationId, book, chapter, verses: [] });
-        },
-      },
-    };
-  }
-
-  it('serves repeat chapter reads from cache', async () => {
-    const { provider, calls } = countingProvider();
-    const cached = new CachingScriptureProvider(provider);
-    await cached.getChapter('WEB', 'JHN', 3);
-    await cached.getChapter('WEB', 'JHN', 3);
-    expect(calls()).toBe(1);
-    await cached.getChapter('WEB', 'JHN', 4);
-    expect(calls()).toBe(2);
-  });
-
-  it('expires entries after the TTL', async () => {
-    const { provider, calls } = countingProvider();
-    const cached = new CachingScriptureProvider(provider, -1); // already expired
-    await cached.getChapter('WEB', 'JHN', 3);
-    await cached.getChapter('WEB', 'JHN', 3);
-    expect(calls()).toBe(2);
-  });
-
-  it('never serves text older than the 25-day ceiling (ToS §11: 30 days)', async () => {
-    const { provider, calls } = countingProvider();
-    let now = 0;
-    const year = 365 * 24 * 60 * 60 * 1000;
-    const cached = new CachingScriptureProvider(provider, year, () => now);
-    await cached.getChapter('WEB', 'JHN', 3);
-    now = MAX_AGE_MS - 1;
-    await cached.getChapter('WEB', 'JHN', 3);
-    expect(calls()).toBe(1);
-    now = MAX_AGE_MS;
-    await cached.getChapter('WEB', 'JHN', 3);
-    expect(calls()).toBe(2);
-  });
-
-  it('keeps the FUMS token with the cached chapter', async () => {
-    const provider: ScriptureProvider = {
-      listTranslations: () => Promise.resolve([]),
-      getChapter: (translationId, book, chapter) =>
-        Promise.resolve({
-          translationId,
-          book,
-          chapter,
-          verses: [],
-          fumsToken: 'tok-1',
-        }),
-    };
-    const cached = new CachingScriptureProvider(provider);
-    await cached.getChapter('NIV', 'JHN', 3);
-    expect((await cached.getChapter('NIV', 'JHN', 3)).fumsToken).toBe('tok-1');
-  });
-
-  it('purges one translation, leaving the others cached', async () => {
-    const { provider, calls } = countingProvider();
-    const cached = new CachingScriptureProvider(provider);
-    await cached.getChapter('NIV', 'JHN', 3);
-    await cached.getChapter('NIV', 'JHN', 4);
-    await cached.getChapter('WEB', 'JHN', 3);
-    expect(cached.purge('NIV')).toBe(2);
-    await cached.getChapter('WEB', 'JHN', 3);
-    expect(calls()).toBe(3);
-    await cached.getChapter('NIV', 'JHN', 3);
-    expect(calls()).toBe(4);
-    expect(cached.purge()).toBe(2);
   });
 });

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Headers,
   HttpException,
   HttpStatus,
   Inject,
@@ -29,6 +30,16 @@ import {
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import { ReadingQuotaService } from '../reading-quota/service';
 import { fumsSessionKey, IssuedTokens } from '../fums/fums.guard';
+import { UpstreamDeferredError } from './caching.provider';
+
+/** Sent by the reader's read-ahead (#248): low priority — over the API.Bible
+ * soft budget an uncached chapter answers 204 instead of costing a call. */
+export const PREFETCH_HEADER = 'x-scripture-prefetch';
+
+type DeferringProvider = ScriptureProvider &
+  Partial<{
+    wouldDefer(t: string, book: string, chapter: number): Promise<boolean>;
+  }>;
 
 /** 429 body: machine-readable reason + wait (PRD #25 API contract). */
 export interface ReadingLimitBody {
@@ -63,7 +74,8 @@ export class ScriptureController {
     @Param('translationId') translationId: string,
     @Param('book') bookId: string,
     @Param('chapter', ParseIntPipe) chapter: number,
-  ): Promise<Chapter> {
+    @Headers(PREFETCH_HEADER) prefetchHeader?: string,
+  ): Promise<Chapter | undefined> {
     const book = getBook(bookId.toUpperCase());
     if (!book) throw new BadRequestException(`Unknown book '${bookId}'`);
     if (
@@ -74,6 +86,17 @@ export class ScriptureController {
       throw new BadRequestException(
         `${book.name} has ${book.chapters} chapters`,
       );
+    }
+    const lowPriority = prefetchHeader === '1';
+    // Read-ahead that would cost an upstream call over the soft budget:
+    // nothing fetched, no reading quota spent (the real visit fetches)
+    const deferring = this.provider as DeferringProvider;
+    if (
+      lowPriority &&
+      (await deferring.wouldDefer?.(translationId, book.id, chapter))
+    ) {
+      res.status(HttpStatus.NO_CONTENT);
+      return undefined;
     }
     // Cached chapters count too: the quota guards text leaving, not API calls
     // (a chapter this reader already read today is free: no new text leaves)
@@ -101,6 +124,7 @@ export class ScriptureController {
         translationId,
         book.id,
         chapter,
+        { lowPriority },
       );
       // Its views may be reported by this session only (fums.guard.ts)
       if (text.fumsToken) {
@@ -110,6 +134,10 @@ export class ScriptureController {
     } catch (err) {
       if (err instanceof ChapterNotFoundError)
         throw new NotFoundException(err.message);
+      if (err instanceof UpstreamDeferredError) {
+        res.status(HttpStatus.NO_CONTENT);
+        return undefined;
+      }
       throw err;
     }
   }
