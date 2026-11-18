@@ -97,7 +97,7 @@ export default function App() {
       <Toaster
         position="bottom-center"
         offset={{ bottom: "5rem" }}
-        mobileOffset={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+        mobileOffset={{ bottom: "calc(5rem + var(--safe-bottom))" }}
       />
     </QueryClientProvider>
   );

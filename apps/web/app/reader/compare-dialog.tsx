@@ -384,7 +384,7 @@ export function CompareDialog({
   );
 
   const foot = (
-    <footer className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2.5 sm:px-5 pb-[max(env(safe-area-inset-bottom),0.625rem)]">
+    <footer className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2.5 sm:px-5">
       <ScriptureCredit className="min-w-0 flex-1" onFollow={() => onOpenChange(false)} />
       <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => onOpenChange(false)}>
         {t("compare.close")}
@@ -446,7 +446,7 @@ export function CompareDialog({
           )}
         </div>
       </ScrollArea>
-      <footer className="flex shrink-0 flex-col gap-2 border-t border-border px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <footer className="flex shrink-0 flex-col gap-2 border-t border-border px-4 pt-3 pb-3">
         {picks.length === 0 && (
           <p id={`${ids}-empty`} className="text-control text-muted-foreground">
             {t("compare.empty")}
@@ -476,7 +476,7 @@ export function CompareDialog({
         {closeX}
       </header>
       <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
-        <div className="px-4 pt-4 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
+        <div className="px-4 pt-4 pb-6">
           {passages}
           {/* The credit closes the scroll, not a tall footer */}
           <div className="mt-6 border-t border-foreground/12 pt-4">{credit}</div>
@@ -526,7 +526,8 @@ export function CompareDialog({
         finalFocus={finalFocus}
         className={cn(
           "top-[8dvh] flex h-[min(84dvh,56rem)] w-[min(40rem,calc(100vw-2rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-none",
-          short && "top-2 h-[calc(100dvh-1rem)]",
+          // A short (landscape phone) screen: clear of the home indicator (#251)
+          short && "top-[calc(0.5rem+var(--safe-top))] h-[calc(100dvh-1rem-var(--safe-top)-var(--safe-bottom))]",
         )}
       >
         {stepped ? (

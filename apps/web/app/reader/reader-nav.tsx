@@ -52,7 +52,9 @@ export function ReaderNav({
   return (
     <nav
       aria-label={t("nav.label")}
-      className="relative shrink-0 border-b border-border bg-background/85"
+      // Safe areas (#251): the bar's colour runs under the status bar and a
+      // landscape notch; its controls stay clear of both
+      className="relative shrink-0 border-b border-border bg-background/85 pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)"
     >
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
       {/* One row (a second row costs reading height on every phone page).

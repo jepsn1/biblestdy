@@ -15,10 +15,13 @@ export const NOTE_PEEK = 0.45;
 export const NOTE_FULL = 1;
 export type NoteSnap = number | string;
 
-/** The peek's snap point (base-ui `snapPoints`: a fraction or rem). */
-export function peekPoint(scrollMode: boolean, exitLine: boolean): NoteSnap {
+/** The peek's snap point (base-ui `snapPoints`: a fraction, rem or px).
+ * The bar-only peek grows by the home indicator's inset (#251, px), so the
+ * bar keeps its height above it. */
+export function peekPoint(scrollMode: boolean, exitLine: boolean, safeBottom = 0, rem = 16): NoteSnap {
   if (scrollMode) return NOTE_PEEK;
-  return exitLine ? "7.5rem" : "4.5rem";
+  const bar = exitLine ? 7.5 : 4.5;
+  return safeBottom > 0 ? `${bar * rem + safeBottom}px` : `${bar}rem`;
 }
 
 /** Where a passage's first line lands in the phone's scroll pane, px from

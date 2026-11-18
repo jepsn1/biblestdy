@@ -22,8 +22,15 @@ describe("viewportContent (M10)", () => {
   it("open viewport allows pinch-zoom; locked one keeps the #61 lock", () => {
     expect(VIEWPORT_OPEN).not.toMatch(/maximum-scale|user-scalable/);
     expect(VIEWPORT_LOCKED).toBe(
-      "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+      "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no",
     );
+  });
+});
+
+describe("safe areas (#251)", () => {
+  it("both variants run edge to edge, so env(safe-area-inset-*) is non-zero on iOS", () => {
+    expect(VIEWPORT_OPEN).toContain("viewport-fit=cover");
+    expect(VIEWPORT_LOCKED).toContain("viewport-fit=cover");
   });
 });
 

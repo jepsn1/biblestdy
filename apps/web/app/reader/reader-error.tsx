@@ -117,7 +117,11 @@ export function ReaderError({ error, params }: { error: unknown; params: { book:
     <div className="flex h-dvh overflow-hidden">
       <main className="relative flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-background">
         {/* The reader's nav bar, minus what needs a loaded chapter */}
-        <nav aria-label={t("nav.label")} className="relative shrink-0 border-b border-border bg-background/85">
+        <nav
+          aria-label={t("nav.label")}
+          // Safe areas (#251), as the reader's own nav
+          className="relative shrink-0 border-b border-border bg-background/85 pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)"
+        >
           <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
           <div className="flex min-h-12 items-center gap-2 px-3 py-2 sm:px-4">
             <PlaceChooser book={book?.id ?? ""} chapter={Number.isInteger(chapter) && chapter > 0 ? chapter : 1} />

@@ -446,8 +446,11 @@ export function ChapterBar({
       data-chapter-bar=""
       inert={hidden}
       className={cn(
-        // px, not rem: large text keeps the bar's room for the words
-        "group grid shrink-0 grid-cols-3 gap-[4px] border-t border-border bg-background px-[4px] pt-[4px] pb-[max(env(safe-area-inset-bottom),4px)] font-sans",
+        // px, not rem: large text keeps the bar's room for the words.
+        // Safe areas (#251): the bar's colour runs to the screen's bottom,
+        // its buttons sit above the home indicator, and Previous / Next
+        // keep 16px (12 + the button's 4) from the rounded corners
+        "group grid shrink-0 grid-cols-3 gap-[4px] border-t border-border bg-background pt-[4px] pr-[max(12px,var(--safe-right))] pb-[max(var(--safe-bottom),4px)] pl-[max(12px,var(--safe-left))] font-sans",
         hidden && "invisible",
       )}
     >

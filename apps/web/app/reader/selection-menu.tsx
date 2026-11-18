@@ -106,7 +106,7 @@ export function ActionMenu({
                 nested "more" — and a fade at the bottom says there's more.
                 1rem = the swipe handle + border */}
             <ScrollArea className={OVERFLOW_FADE} viewportClassName={MENU_DRAWER_MAX_H}>
-              <div className="flex flex-col px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+              <div className="flex flex-col px-3 pt-1 pb-3">
                 {children}
               </div>
             </ScrollArea>
@@ -317,7 +317,7 @@ export function AnchoredPanel({
       >
         <DrawerContent {...{ [SELECTION_UI_ATTR]: "" }} initialFocus={initialFocus} finalFocus={false}>
           <DrawerTitle className="sr-only">{label}</DrawerTitle>
-          <div className="flex flex-col gap-2 px-4 pt-1 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+          <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
             {children}
           </div>
         </DrawerContent>

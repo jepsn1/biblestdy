@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { cn } from "~/lib/utils"
+import { collisionPadding, useSafeInsets } from "~/lib/safe-area"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -28,9 +29,12 @@ function DropdownMenuContent({
     MenuPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
   >) {
+  const insets = useSafeInsets()
   return (
     <MenuPrimitive.Portal>
       <MenuPrimitive.Positioner
+        // Clear of the notch / home indicator too (#251)
+        collisionPadding={collisionPadding(insets)}
         className="isolate z-50 outline-none"
         align={align}
         alignOffset={alignOffset}

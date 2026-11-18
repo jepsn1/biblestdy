@@ -50,6 +50,14 @@ describe("design-system lint rules", () => {
     expect(await hits("text-eyebrow")).toEqual(["biblestdy/type-scale"]);
   });
 
+  it("flags raw safe-area env(), not the app.css tokens (#251)", async () => {
+    expect(await hits("pb-[max(env(safe-area-inset-bottom),4px)] pt-[env(safe-area-inset-top)]")).toEqual([
+      "biblestdy/safe-area-token",
+      "biblestdy/safe-area-token",
+    ]);
+    expect(await hits("pb-[max(var(--safe-bottom),4px)] pt-(--safe-top)")).toEqual([]);
+  });
+
   it("checks template literals too", async () => {
     const [result] = await eslint.lintText("export const c = `a ${1} text-foreground/70`;\n", {
       filePath: "app/lint-sample.tsx",

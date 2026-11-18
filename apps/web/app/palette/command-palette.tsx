@@ -36,6 +36,7 @@ import { clearRecent, readRecent, restoreRecent } from "~/lib/recent-passages";
 import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
+import { keyboardUp } from "~/lib/safe-area";
 import { cn, focusTitle } from "~/lib/utils";
 import { INSERT_VERSE, openCompare, OPEN_SHORTCUTS, useNoteEditorOpen, type CompareAnchor } from "../reader/dialog-events";
 import { referenceLabel } from "~/lib/reference-label";
@@ -338,7 +339,13 @@ export function CommandPalette({
     const write = () => {
       frame = 0;
       if (vv.offsetTop !== top) column.style.setProperty("--vv-top", `${(top = vv.offsetTop)}px`);
-      if (vv.height !== height) column.style.setProperty("--vv-h", `${(height = vv.height)}px`);
+      if (vv.height !== height) {
+        column.style.setProperty("--vv-h", `${(height = vv.height)}px`);
+        // Keyboard up (#251): it covers the home indicator, so the list's
+        // end needs no inset of its own — never both
+        if (keyboardUp(vv.height, document.documentElement.clientHeight)) column.style.setProperty("--vv-safe-bottom", "0px");
+        else column.style.removeProperty("--vv-safe-bottom");
+      }
     };
     const update = () => {
       if (!frame) frame = requestAnimationFrame(write);
@@ -886,12 +893,13 @@ export function CommandPalette({
           // The column follows the visible area (keyboard up, iOS pan)
           <div
             ref={setColumn}
-            className="flex flex-col overflow-hidden"
+            // Sides: clear of a landscape notch (#251)
+            className="flex flex-col overflow-hidden pr-(--safe-right) pl-(--safe-left)"
             style={{ height: "var(--vv-h, 100%)", transform: "translate3d(0, var(--vv-top, 0px), 0)" }}
           >
             <div
               className={cn(
-                "flex shrink-0 items-center gap-[8px] border-b px-[16px] pt-[env(safe-area-inset-top)] transition-[border-color] duration-[120ms] motion-reduce:transition-none",
+                "flex shrink-0 items-center gap-[8px] border-b px-[16px] pt-[var(--safe-top)] transition-[border-color] duration-[120ms] motion-reduce:transition-none",
                 scrolled ? "border-border" : "border-transparent",
               )}
             >
@@ -932,7 +940,8 @@ export function CommandPalette({
             <ScrollArea
               className="min-h-0 flex-1"
               viewportRef={viewportRef}
-              viewportClassName="overscroll-contain"
+              // The list ends above the home indicator, or the keyboard (#251)
+              viewportClassName="overscroll-contain pb-[var(--vv-safe-bottom,var(--safe-bottom))]"
             >
               {recentAbove && (
                 <div className="flex items-center gap-2 px-4.5 pt-3 pb-1.5 text-meta font-semibold text-foreground">

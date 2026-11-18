@@ -46,8 +46,10 @@ export function Landing() {
   const isDa = i18n.language.startsWith("da");
 
   return (
-    <main className="h-dvh overflow-hidden">
-      <ScrollArea className="h-full">
+    // Safe areas (#251): clear of the status bar and a landscape notch; the
+    // page scrolls on under the home indicator and ends above it
+    <main className="h-dvh overflow-hidden pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
+      <ScrollArea className="h-full" viewportClassName="pb-(--safe-bottom)">
         {/* Header */}
         <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <Link to="/" className="flex select-none items-baseline gap-1.5">

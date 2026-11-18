@@ -199,7 +199,9 @@ export function AccountChip() {
             // Opened from More (the chip is out of the row): under More
             anchor={() => (chipRef.current?.checkVisibility?.() === false ? returnTo.current : chipRef.current)}
             finalFocus={backTo}
-            className="w-80 max-w-[calc(100vw-1rem)] gap-0 p-0"
+            // A short screen (a phone on its side) scrolls the rows, clear
+            // of the home indicator (#251: collision padding)
+            className="max-h-(--available-height) w-80 max-w-[calc(100vw-1rem)] gap-0 p-0"
           >
             {/* The × is the popover's Close part: Base UI traps focus only with one */}
             <PanelHeader
@@ -209,7 +211,9 @@ export function AccountChip() {
             >
               <PopoverTitle className={panelTitleClass}>{t("settings.title")}</PopoverTitle>
             </PanelHeader>
-            <div className="px-4 pt-2 pb-3">{content}</div>
+            <ScrollArea className="flex min-h-0 flex-1 flex-col" viewportClassName="max-h-[calc(var(--available-height)-4rem)]">
+              <div className="px-4 pt-2 pb-3">{content}</div>
+            </ScrollArea>
           </PopoverContent>
         </Popover>
       )}

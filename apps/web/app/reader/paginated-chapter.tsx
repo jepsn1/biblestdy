@@ -51,6 +51,7 @@ import { useLocalizer } from "./localizer";
 import { stepRef } from "./dialog-events";
 import { needsMap, noteMarksInChapter } from "./note-marks";
 import { NOTE_FULL, passageInset, peekPoint, returnsTo } from "./note-drawer";
+import { useSafeInsets } from "~/lib/safe-area";
 import { useAllNotesQuery, useNotes } from "./use-notes";
 import { moreRefs, type RefLocator } from "./ref-location";
 import { noteMarkId, refSpot, resolveSpot, spotFromParam, spotParam, spotStartSelector, usePageHover, useSpotlightEnd } from "./spotlight";
@@ -553,6 +554,7 @@ export function PaginatedChapter({
   const [pane, setPane] = useState({ width: 0, rem: 16 });
   // Text size (#61) changes the rem without resizing the pane: re-measure
   const textSize = useTextSize();
+  const safeInsets = useSafeInsets();
   // The load-error line's place under the foot (paged sheet only)
   useLayoutEffect(() => {
     const box = contentBoxRef.current;
@@ -599,7 +601,9 @@ export function PaginatedChapter({
     if (!el || scrollMode) return;
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      setAreaRem(el.clientWidth / rem);
+      const cs = getComputedStyle(el);
+      // Inside the landscape notch's padding (#251)
+      setAreaRem((el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / rem);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -973,7 +977,7 @@ export function PaginatedChapter({
     </button>
   );
   /** The note drawer's snaps (#215): [peek, full]. */
-  const notePeekPoint = peekPoint(scrollMode, !!spotExit);
+  const notePeekPoint = peekPoint(scrollMode, !!spotExit, safeInsets.bottom, pane.rem);
   const noteSnaps = useMemo(() => [notePeekPoint, NOTE_FULL], [notePeekPoint]);
   /** Phones: the note's drawer is open, peek or full. */
   const noteDrawer = sideInDrawer && scrollMode && !!openNote;
@@ -1621,7 +1625,12 @@ export function PaginatedChapter({
 
   return (
     // Not <main>: SidebarInset already is the page's one main landmark
-    <div ref={areaRef} className="flex min-h-0 w-full flex-1 flex-col">
+    // Safe areas (#251): a landscape notch's sides; the paged sheet also
+    // clears the home indicator (phones: the chapter bar below does)
+    <div
+      ref={areaRef}
+      className={cn("flex min-h-0 w-full flex-1 flex-col pr-(--safe-right) pl-(--safe-left)", !scrollMode && "pb-(--safe-bottom)")}
+    >
       <ResizablePanelGroup
         orientation="horizontal"
         className="min-h-0 w-full flex-1"
@@ -1968,7 +1977,7 @@ export function PaginatedChapter({
                 // A narrow bar (320px at large text, #240): the long label
                 // gives way to the short one, and the spot line takes a row
                 // of its own under it — nothing runs into the ×
-                <div className={cn("@container mt-1 shrink-0", scrollMode ? "mx-2" : "mx-3 mb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
+                <div className={cn("@container mt-1 shrink-0", scrollMode ? "mx-2" : "mx-3 mb-3")}>
                 <div className="flex items-center gap-1 @max-[12rem]:flex-wrap">
                   {scrollMode && spotExit ? (
                     <>

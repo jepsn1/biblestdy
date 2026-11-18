@@ -90,8 +90,10 @@ export default function Copyright() {
   );
 
   return (
-    <main className="h-dvh overflow-hidden">
-      <ScrollArea className="h-full">
+    // Safe areas (#251): clear of the status bar and a landscape notch; the
+    // page scrolls on under the home indicator and ends above it
+    <main className="h-dvh overflow-hidden pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
+      <ScrollArea className="h-full" viewportClassName="pb-(--safe-bottom)">
         <div className="mx-auto max-w-xl px-6 py-12">
           {/* The way back first: a tap on a credit line lands here */}
           <div className="mb-8 flex items-center justify-between gap-4">

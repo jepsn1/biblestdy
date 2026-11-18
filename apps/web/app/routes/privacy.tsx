@@ -18,8 +18,10 @@ export default function Privacy() {
   const { t } = useTranslation();
 
   return (
-    <main className="h-dvh overflow-hidden">
-      <ScrollArea className="h-full">
+    // Safe areas (#251): clear of the status bar and a landscape notch; the
+    // page scrolls on under the home indicator and ends above it
+    <main className="h-dvh overflow-hidden pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
+      <ScrollArea className="h-full" viewportClassName="pb-(--safe-bottom)">
         <div className="mx-auto max-w-xl px-6 py-12">
           <Link to="/" className="mb-10 flex select-none items-baseline gap-1.5">
             <Logo className="text-reading" />

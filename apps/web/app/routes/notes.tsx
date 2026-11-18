@@ -322,7 +322,9 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   );
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden bg-background">
+    // Safe areas (#251): the header clears the status bar, both panes a
+    // landscape notch; the lists end above the home indicator
+    <main className="flex h-dvh flex-col overflow-hidden bg-background pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
       <header className="@container flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:px-3">
         {params.id && mobile ? (
           <Link to={hrefOf()} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-10 text-muted-foreground")}>

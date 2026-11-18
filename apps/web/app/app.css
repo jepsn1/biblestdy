@@ -427,6 +427,19 @@
     overflow: hidden;
     overscroll-behavior: none;
   }
+  /* Safe areas (#251, Apple HIG "Layout"): the page runs edge to edge
+     (viewport-fit=cover, lib/viewport) and every edge that meets the
+     status bar / Dynamic Island, the home indicator or a landscape notch
+     pads by these — backgrounds reach the screen edge, controls stay
+     inside. 0 on desktop and Android. Read the tokens, never env() (lint
+     biblestdy/safe-area-token): the review shots override them to
+     simulate an iPhone. */
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+  }
   ::selection {
     background: var(--selection);
   }
@@ -646,6 +659,20 @@
   }
 }
 
+/* A drawer's scrolling body fills what the sheet leaves it and scrolls
+   there (#251): a content-sized sheet has no definite height, so the
+   viewport's h-full fell back to its content's and ran out of the sheet
+   (under the home indicator; the last rows out of reach). */
+[data-slot="drawer-content"] > [data-slot="scroll-area"] {
+  display: flex;
+  flex-direction: column;
+}
+[data-slot="drawer-content"] > [data-slot="scroll-area"] > [data-slot="scroll-area-viewport"] {
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
 /* A drawer with snap points (#215) is full height, slid down to its snap:
    its content fits the part on screen (growing as it's dragged up, never
    shrinking under a downward drag), so its own scroller reaches its end. */
@@ -654,5 +681,6 @@
   --drawer-snap-hidden: max(0px, calc(var(--drawer-snap-point-offset, 0px) + min(0px, var(--drawer-swipe-movement-y, 0px))));
 }
 [data-slot="drawer-popup"][data-snap-points] > [data-slot="drawer-content"] {
-  padding-bottom: var(--drawer-snap-hidden);
+  /* …and its end clears the home indicator (#251) */
+  padding-bottom: calc(var(--drawer-snap-hidden) + var(--safe-bottom));
 }

@@ -98,7 +98,7 @@ export function VersePicker({ open, mobile, onClose, marks = [], describe = () =
   // Focus goes back to the note by the editor's own hand (verse-button)
   return mobile ? (
     <Drawer open={open} onOpenChange={(o) => !o && close()}>
-      <DrawerContent className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]" initialFocus={inputRef} finalFocus={false}>
+      <DrawerContent className="px-4 pb-4" initialFocus={inputRef} finalFocus={false}>
         <DrawerHeader className="px-0">
           <DrawerTitle>{t("note.insertVerseTitle")}</DrawerTitle>
           <DrawerDescription>{t("note.insertVerseDescription")}</DrawerDescription>

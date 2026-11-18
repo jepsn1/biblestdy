@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -68,86 +69,92 @@ export default function SignIn() {
   }
 
   return (
-    <main className="flex h-dvh items-center justify-center overflow-hidden px-6">
-      <div className="w-full max-w-sm">
-        <Link to="/" className="mb-8 flex select-none items-baseline gap-1.5">
-          <Logo className="text-reading" />
-        </Link>
+    // Safe areas (#251): clear of the status bar and home indicator; a short
+    // screen (a phone on its side) scrolls the form instead of clipping it
+    <main className="h-dvh overflow-hidden pt-(--safe-top) pr-(--safe-right) pb-(--safe-bottom) pl-(--safe-left)">
+      <ScrollArea className="h-full">
+        <div className="flex min-h-full items-center justify-center px-6 py-6">
+          <div className="w-full max-w-sm">
+            <Link to="/" className="mb-8 flex select-none items-baseline gap-1.5">
+              <Logo className="text-reading" />
+            </Link>
 
-        {step === "email" ? (
-          <form onSubmit={sendCode} className="rounded-lg border border-border bg-card p-6">
-            <h1 className="font-serif text-title font-medium">{t("signin.title")}</h1>
-            <p className="mt-1 mb-4 text-control text-muted-foreground">{t("signin.subtitle")}</p>
-            <Input
-              type="email"
-              required
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- sign-in page's only field
-              autoFocus
-              placeholder={t("signin.emailPlaceholder")}
-              aria-label={t("signin.email")}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Button type="submit" className="mt-3 w-full" disabled={busy}>
-              {busy ? t("signin.sending") : t("signin.send")}
-            </Button>
-            {error && <p className="mt-3 text-meta text-destructive">{error}</p>}
-          </form>
-        ) : (
-          <form onSubmit={verifyCode} className="rounded-lg border border-border bg-card p-6">
-            <h1 className="font-serif text-title font-medium">{t("signin.codeTitle")}</h1>
-            <p className="mt-1 mb-4 text-control text-muted-foreground">
-              {t("signin.sentTo")} <span className="text-foreground">{email}</span>.{" "}
-              {t("signin.typeCode")}
-            </p>
-            <Input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- code step replaces the email form; move focus to its only field
-              autoFocus
-              placeholder="123456"
-              aria-label={t("signin.code")}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="text-center font-mono text-reading tracking-[0.5em]"
-            />
-            <Button type="submit" className="mt-3 w-full" disabled={busy}>
-              {busy ? t("signin.verifying") : t("signin.verify")}
-            </Button>
-            {error && <p className="mt-3 text-meta text-destructive">{error}</p>}
+            {step === "email" ? (
+              <form onSubmit={sendCode} className="rounded-lg border border-border bg-card p-6">
+                <h1 className="font-serif text-title font-medium">{t("signin.title")}</h1>
+                <p className="mt-1 mb-4 text-control text-muted-foreground">{t("signin.subtitle")}</p>
+                <Input
+                  type="email"
+                  required
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- sign-in page's only field
+                  autoFocus
+                  placeholder={t("signin.emailPlaceholder")}
+                  aria-label={t("signin.email")}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Button type="submit" className="mt-3 w-full" disabled={busy}>
+                  {busy ? t("signin.sending") : t("signin.send")}
+                </Button>
+                {error && <p className="mt-3 text-meta text-destructive">{error}</p>}
+              </form>
+            ) : (
+              <form onSubmit={verifyCode} className="rounded-lg border border-border bg-card p-6">
+                <h1 className="font-serif text-title font-medium">{t("signin.codeTitle")}</h1>
+                <p className="mt-1 mb-4 text-control text-muted-foreground">
+                  {t("signin.sentTo")} <span className="text-foreground">{email}</span>.{" "}
+                  {t("signin.typeCode")}
+                </p>
+                <Input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- code step replaces the email form; move focus to its only field
+                  autoFocus
+                  placeholder="123456"
+                  aria-label={t("signin.code")}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="text-center font-mono text-reading tracking-[0.5em]"
+                />
+                <Button type="submit" className="mt-3 w-full" disabled={busy}>
+                  {busy ? t("signin.verifying") : t("signin.verify")}
+                </Button>
+                {error && <p className="mt-3 text-meta text-destructive">{error}</p>}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("email");
+                    setCode("");
+                    setError(null);
+                  }}
+                  className="mt-3 w-full text-center text-meta text-muted-foreground hover:text-foreground"
+                >
+                  {t("signin.differentEmail")}
+                </button>
+              </form>
+            )}
+
             <button
               type="button"
-              onClick={() => {
-                setStep("email");
-                setCode("");
-                setError(null);
-              }}
-              className="mt-3 w-full text-center text-meta text-muted-foreground hover:text-foreground"
+              aria-label={t("nav.language")}
+              onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
+              className="mx-auto mt-6 block min-h-6 px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
             >
-              {t("signin.differentEmail")}
+              {i18next.language.startsWith("da") ? "English" : "Dansk"}
             </button>
-          </form>
-        )}
-
-        <button
-          type="button"
-          aria-label={t("nav.language")}
-          onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
-          className="mx-auto mt-6 block min-h-6 px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
-        >
-          {i18next.language.startsWith("da") ? "English" : "Dansk"}
-        </button>
-        <Link
-          to="/privacy"
-          className="mx-auto mt-1 block min-h-6 w-fit px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
-        >
-          {t("settings.privacy")}
-        </Link>
-        <p className="mt-4 text-center text-meta text-muted-foreground">
-          {t("signin.operatedBy", operator)}
-        </p>
-      </div>
+            <Link
+              to="/privacy"
+              className="mx-auto mt-1 block min-h-6 w-fit px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
+            >
+              {t("settings.privacy")}
+            </Link>
+            <p className="mt-4 text-center text-meta text-muted-foreground">
+              {t("signin.operatedBy", operator)}
+            </p>
+          </div>
+        </div>
+      </ScrollArea>
     </main>
   );
 }
