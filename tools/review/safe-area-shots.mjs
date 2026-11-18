@@ -9,9 +9,9 @@
 // Env: ONLY (surfaces, e.g. reader,palette), SCEN (p-app,p-notch,p-safari,l-app,l-safari), THEMES, TAG.
 import { chromium } from "playwright";
 import fs from "node:fs";
-const BASE = process.env.BASE ?? "http://localhost:5951";
+const BASE = process.env.BASE ?? "http://localhost:5173";
 const OUT = process.env.OUT ?? "./shots";
-const token = fs.readFileSync(process.env.COOKIES, "utf8").split("\n").find((l) => l.includes("session_token")).split("\t")[6];
+const token = fs.readFileSync(process.env.COOKIES ?? "cookies.txt", "utf8").split("\n").find((l) => l.includes("session_token")).split("\t")[6];
 fs.mkdirSync(OUT, { recursive: true });
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1";
 
