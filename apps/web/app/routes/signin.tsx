@@ -9,6 +9,7 @@ import i18n, { setUiLanguage } from "~/lib/i18n";
 import { nextFromSearch } from "~/lib/next-path";
 import { redirectIfAuthed } from "~/lib/require-auth";
 import type { Route } from "./+types/signin";
+import { Logo } from "~/components/logo";
 
 export function meta() {
   return [{ title: i18n.t("signin.metaTitle") }];
@@ -70,9 +71,7 @@ export default function SignIn() {
     <main className="flex h-dvh items-center justify-center overflow-hidden px-6">
       <div className="w-full max-w-sm">
         <Link to="/" className="mb-8 flex select-none items-baseline gap-1.5">
-          <span className="font-mono text-reading font-semibold tracking-tight text-primary">
-            biblestdy
-          </span>
+          <Logo className="text-reading" />
         </Link>
 
         {step === "email" ? (

@@ -21,6 +21,7 @@ import { API_BIBLE_URL, operator } from "~/lib/app-info";
 import { COFFEE_URL } from "~/lib/support";
 import { setUiLanguage } from "~/lib/i18n";
 import { cn } from "~/lib/utils";
+import { Logo } from "~/components/logo";
 import { StudyMock } from "./study-mock";
 import {
   ConnectionsDiagram,
@@ -50,9 +51,7 @@ export function Landing() {
         {/* Header */}
         <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <Link to="/" className="flex select-none items-baseline gap-1.5">
-            <span className="font-mono text-reading font-semibold tracking-tight text-primary">
-              biblestdy
-            </span>
+            <Logo className="text-reading" />
           </Link>
           <nav className="flex items-center gap-1">
             <button

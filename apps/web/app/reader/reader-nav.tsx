@@ -14,6 +14,7 @@ import { PaletteTrigger } from "../palette/palette-trigger";
 import { schemeOf } from "./chapter-nav";
 import { PlaceChooser } from "./place-chooser";
 import { TranslationChooser } from "./translation-chooser";
+import { Logo } from "~/components/logo";
 
 export function ReaderNav({
   book,
@@ -71,7 +72,7 @@ export function ReaderNav({
           aria-label={t("nav.home")}
           className={cn("mr-1 hidden shrink-0 rounded-md select-none @4xl/nav:inline", focusRing)}
         >
-          <span className="font-mono text-control font-semibold tracking-tight text-primary">biblestdy</span>
+          <Logo className="text-control" />
         </Link>
 
         {/* The address — "Salmerne 23 ⌄" — and the one pointer route to any

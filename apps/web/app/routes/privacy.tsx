@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { operator } from "~/lib/app-info";
 import i18n from "~/lib/i18n";
+import { Logo } from "~/components/logo";
 
 /** Public privacy policy (issue #17) — NO auth: the App Store listing and
  * curious visitors read it signed out. Support contact = the same mailto. */
@@ -21,9 +22,7 @@ export default function Privacy() {
       <ScrollArea className="h-full">
         <div className="mx-auto max-w-xl px-6 py-12">
           <Link to="/" className="mb-10 flex select-none items-baseline gap-1.5">
-            <span className="font-mono text-reading font-semibold tracking-tight text-primary">
-              biblestdy
-            </span>
+            <Logo className="text-reading" />
           </Link>
 
           <h1 className="font-serif text-title font-medium">{t("privacy.title")}</h1>
