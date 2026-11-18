@@ -245,3 +245,36 @@ export const userPreference = pgTable('user_preference', {
   singleKeyShortcuts: boolean('single_key_shortcuts').notNull().default(true),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+/**
+ * Persistent Scripture cache (#248), shared by every API process on this
+ * database: memory → here → provider. Key "<source>:chapter:<id>/<BOOK>.<n>"
+ * or "<source>:translations"; payload without the FUMS token (own column).
+ * Never served older than MAX_AGE_MS (caching.provider.ts, ToS §11).
+ */
+export const scriptureCache = pgTable(
+  'scripture_cache',
+  {
+    key: text('key').primaryKey(),
+    source: text('source').notNull(),
+    kind: text('kind').$type<'chapter' | 'translations'>().notNull(),
+    translationId: text('translation_id'),
+    payload: jsonb('payload').$type<unknown>().notNull(),
+    fumsToken: text('fums_token'),
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index('scripture_cache_translation_idx').on(t.source, t.translationId),
+  ],
+);
+
+/** Provider (API.Bible) calls per UTC day and source (#248 soft budget). */
+export const scriptureUpstreamCall = pgTable(
+  'scripture_upstream_call',
+  {
+    day: date('day', { mode: 'string' }).notNull(),
+    source: text('source').notNull(),
+    calls: integer('calls').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.source] })],
+);
