@@ -1,7 +1,7 @@
 import type { Anchor, Annotation, AnnotationMark, Chapter } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
-import { notifyError, removeWithUndo } from "~/lib/notify";
+import { marksRemoved, notifyError, removeWithUndo } from "~/lib/notify";
 import { api, updateList } from "~/lib/query";
 import { anchorQuote } from "./copy-attribution";
 import { useQuoteBackfill } from "./quote-backfill";
@@ -30,7 +30,7 @@ export function annotationsQuery(translationId: string, book: string, chapter: n
 }
 
 /** Loads + mutates the current chapter's inline annotations for the signed-in
- * user. Failed writes surface a toast with Retry; removal offers Undo (#64).
+ * user. Failed writes say so inline, with Retry; removal offers Undo (#64).
  * With the loaded `text`, new annotations carry their marked words (`quote`)
  * and older ones without get them backfilled. A failed load is `failed`,
  * `retry` loads again. */
@@ -88,8 +88,12 @@ export function useAnnotations(translationId: string, book: string, chapter: num
       unhide: () => removed && put(removed),
       remove: () => api(`/api/annotations/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
-      message: i18n.t("toast.annotationRemoved"),
+      message: i18n.t("notice.annotationRemoved"),
       retry: () => remove(id),
+      // An eraser sweep: one "3 highlights removed · Undo" for all (#257)
+      group: "mark",
+      item: "annotation",
+      many: marksRemoved,
     });
   }
 

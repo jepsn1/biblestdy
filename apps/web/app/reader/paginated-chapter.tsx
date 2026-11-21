@@ -1812,7 +1812,7 @@ export function PaginatedChapter({
                   <p ref={errorGhostRef} aria-hidden className="invisible absolute inset-x-0 top-0 min-h-6 text-center text-control text-balance">
                     {t("reader.marksLoadFailed")}
                     {"\u00a0· "}
-                    <span className="px-1 font-medium">{t("toast.retry")}</span>
+                    <span className="px-1 font-medium">{t("notice.retry")}</span>
                   </p>
                   <MarksLoadError
                     failed={marksFailed && errorPlace?.inFlow === false}

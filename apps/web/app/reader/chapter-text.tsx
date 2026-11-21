@@ -561,7 +561,7 @@ export function ChapterText({
       // The wash stays on the words being annotated
       setTouchSel((sel) => sel ?? { a: { verse: anchor.startVerse, word: anchor.startWord }, b: { verse: anchor.endVerse, word: anchor.endWord } });
       return true;
-    } else if (key === "c") void copyAnchorText(anchor);
+    } else if (key === "c") void copyAnchorText(anchor, true);
     else if (key === "p") startCompare(anchor);
     else return false;
     return true;
@@ -765,10 +765,12 @@ export function ChapterText({
     return () => document.removeEventListener("copy", onCopy);
   }, [copyAnchor, chapter, translationAbbreviation, locale]);
 
-  async function copyAnchorText(anchor: Anchor) {
+  /** Copies; true when it worked. The menu's Copy then reads "Copied ✓"
+   * (panel C5); a key press (`shown`) says it in the notice place. */
+  async function copyAnchorText(anchor: Anchor, shown = false): Promise<boolean> {
     if (!canCopy(chapter, anchor)) {
       notifyCopyLimit();
-      return;
+      return false;
     }
     const { text, html } = formatCopy(chapter, anchor, translationAbbreviation, locale);
     try {
@@ -784,10 +786,11 @@ export function ChapterText({
         await navigator.clipboard.writeText(text);
       } catch (e) {
         notifyCopyFailed(e);
-        return;
+        return false;
       }
     }
-    announceCopied(anchorReferenceLabel(anchor, locale), translationAbbreviation);
+    announceCopied(anchorReferenceLabel(anchor, locale), translationAbbreviation, { show: shown });
+    return true;
   }
 
   function wordPosOf(target: EventTarget | null): WordPos | null {
@@ -1144,7 +1147,7 @@ export function ChapterText({
    * scrolling at 150% text. */
   const copyGroup = (anchor: Anchor, icons = true) => (
     <>
-      <ActionMenuItem hint={t("menu.copyHint")} icon={icons ? <Copy aria-hidden /> : undefined} shortcut="c" onSelect={() => void copyAnchorText(anchor)}>
+      <ActionMenuItem hint={t("menu.copyHint")} icon={icons ? <Copy aria-hidden /> : undefined} shortcut="c" confirm={t("notice.copied")} onSelect={() => copyAnchorText(anchor)}>
         {t("menu.copy")}
       </ActionMenuItem>
       <ActionMenuItem hint={t("menu.compareHint")} icon={icons ? <BookCopy aria-hidden /> : undefined} shortcut="p" onSelect={() => startCompare(anchor)}>

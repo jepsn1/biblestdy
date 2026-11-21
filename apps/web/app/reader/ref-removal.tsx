@@ -13,7 +13,7 @@ import {
 } from "lexical";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "~/lib/toast";
+import { dismissNotice, postNotice, undoMs } from "~/lib/notices";
 import { bookLocale } from "~/lib/book-name";
 import { chipLabel } from "~/lib/reference-label";
 import { $createScriptureRefNode, $isScriptureRefNode } from "./scripture-ref-node";
@@ -62,44 +62,49 @@ function $putBack(p: Place) {
 /**
  * The note's reference list follows its text (#160, owner default): taking
  * the last chip of a reference out of the text takes the reference off the
- * note. One small toast says so — "Joh 3,16 fjernet fra noten · Fortryd" —
- * in the corner, ~6s, never taking focus. Fortryd = Ctrl+Z while nothing
- * else changed since; after more typing it puts the chip back where it was.
+ * note. The note's notice line says so (#257) — "Joh 3,16 fjernet fra noten
+ * · Fortryd" — never taking focus. Fortryd = Ctrl+Z while nothing else
+ * changed since; after more typing it puts the chip back where it was.
  */
-export function RefRemovalToast() {
+export function RefRemovalNotice() {
   const editor = useCellValue(rootEditor$);
   const { t, i18n } = useTranslation();
   const locale = bookLocale(i18n.language);
   useEffect(() => {
     if (!editor) return;
     let edits = 0;
+    const shown = new Map<string, number>();
     return editor.registerUpdateListener(({ editorState, prevEditorState, tags, dirtyElements, dirtyLeaves }) => {
       if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
       edits++;
       const before = chipsIn(prevEditorState);
       const after = chipsIn(editorState);
       if (tags.has(HISTORIC_TAG)) {
-        // Ctrl+Z brought it back: the toast has said its piece
-        for (const href of after.keys()) toast.dismiss(`ref-removed-${href}`);
+        // Ctrl+Z brought it back: the notice has said its piece
+        for (const href of after.keys()) {
+          const id = shown.get(href);
+          if (id !== undefined) dismissNotice(id);
+          shown.delete(href);
+        }
         return;
       }
       for (const [href, place] of before) {
         if (after.has(href)) continue;
         const ref = parseScriptureHref(href);
         const at = edits;
-        toast(t("note.refRemoved", { ref: ref ? chipLabel(ref, locale) : place.text }), {
-          id: `ref-removed-${href}`,
-          duration: 6000,
-          position: "bottom-right",
-          className: "!w-auto !text-list",
+        const id = postNotice("note", {
+          kind: "undo",
+          message: t("note.refRemoved", { ref: ref ? chipLabel(ref, locale) : place.text }),
+          ms: undoMs(),
           action: {
-            label: t("toast.undo"),
-            onClick: () => {
+            label: t("notice.undo"),
+            run: () => {
               if (edits === at) editor.dispatchCommand(UNDO_COMMAND, undefined);
               else editor.update(() => $putBack(place));
             },
           },
         });
+        shown.set(href, id);
       }
     });
   }, [editor, t, locale]);

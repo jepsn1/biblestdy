@@ -26,6 +26,8 @@ import { saveReaderStyle, useReaderStyle } from "~/lib/reader-style";
 import { saveTextSize, useTextSize } from "~/lib/text-size";
 import { setThemePref, THEME_PREFS, useThemePref } from "~/lib/theme";
 import { notifyError } from "~/lib/notify";
+import i18n from "~/lib/i18n";
+import { InlineNotice } from "~/components/inline-notice";
 import { cn, focusRing } from "~/lib/utils";
 import { api } from "~/lib/query";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
@@ -103,10 +105,19 @@ function Segmented<T extends string>({
 /** Style/size apply locally at once; a failed account save says so (#64)
  * — otherwise the next load would quietly revert it. */
 function saveStyle(style: Parameters<typeof saveReaderStyle>[0]) {
-  saveReaderStyle(style).catch((e: unknown) => notifyError(e, { retry: () => saveStyle(style) }));
+  saveReaderStyle(style).catch((e: unknown) =>
+    notifyError(e, {
+      place: "settings",
+      // What's in effect (#257 panel D7): this device has it, the account not
+      message: i18n.t("notice.styleNotSaved", { value: i18n.t(`readerStyle.${style}`) }),
+      retry: () => saveStyle(style),
+    }),
+  );
 }
 function saveSize(size: Parameters<typeof saveTextSize>[0]) {
-  saveTextSize(size).catch((e: unknown) => notifyError(e, { retry: () => saveSize(size) }));
+  saveTextSize(size).catch((e: unknown) =>
+    notifyError(e, { place: "settings", message: i18n.t("notice.sizeNotSaved", { value: `${size}%` }), retry: () => saveSize(size) }),
+  );
 }
 
 export function SettingsContent({
@@ -137,6 +148,8 @@ export function SettingsContent({
 
   return (
     <div className="flex flex-col text-control">
+      {/* A setting that didn't save says so here (#257), naming what's in effect */}
+      <InlineNotice place="settings" lineClassName="justify-start py-1 text-left" />
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1">
         <div className="min-w-0">
           <p className="text-meta text-muted-foreground">{t("settings.signedInAs")}</p>
@@ -409,7 +422,7 @@ export function SignOutDialog({
                   clearAllDrafts();
                   return navigate("/signin");
                 })
-                .catch((e: unknown) => notifyError(e, { message: t("toast.signOutFailed") }))
+                .catch((e: unknown) => notifyError(e, { place: "settings", message: t("notice.signOutFailed") }))
             }
           >
             {t("settings.signOut")}

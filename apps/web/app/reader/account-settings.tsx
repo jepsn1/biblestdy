@@ -124,7 +124,7 @@ export function AccountChip() {
     <p role="status" className="py-6 text-center text-meta text-muted-foreground">
       {error ? (
         <button type="button" className="underline underline-offset-2" onClick={retry}>
-          {t("common.loadFailed")} {t("toast.retry")}
+          {t("common.loadFailed")} {t("notice.retry")}
         </button>
       ) : (
         t("settings.loading")

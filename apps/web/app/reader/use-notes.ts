@@ -7,9 +7,9 @@ import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api, updateList } from "~/lib/query";
 import { noteTouchesChapter } from "./note-marks";
 
-/** Mutations must not fail silently (#64) — toast, return null, let callers
+/** Mutations must not fail silently (#64) — inline notice, return null, let callers
  * no-op. */
-function toastFail(e: unknown): null {
+function failed(e: unknown): null {
   notifyError(e);
   return null;
 }
@@ -71,7 +71,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const created = await api<Note>("/api/notes", {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(toastFail);
+    }).catch(failed);
     if (created) {
       updateList<Note>(qc, key, (n) => [...n, created]);
       invalidateAll();
@@ -112,7 +112,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       unhide: () => removed && updateList<Note>(qc, key, (n) => [...n, removed]),
       remove: () => api(`/api/notes/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
-      message: i18n.t("toast.noteDeleted"),
+      message: i18n.t("notice.noteDeleted"),
       retry: () => remove(id),
     });
     if (deleted) invalidateAll();
@@ -123,7 +123,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors`, {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(toastFail);
+    }).catch(failed);
     if (updated) {
       updateList<Note>(qc, key, (n) =>
         n.some((x) => x.id === updated.id)
@@ -142,7 +142,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   async function detach(noteId: string, anchorId: string): Promise<Note | null> {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
-    }).catch(toastFail);
+    }).catch(failed);
     if (updated) {
       updateList<Note>(qc, key, (n) =>
         n
@@ -178,12 +178,12 @@ export function useNoteActions() {
     void qc.invalidateQueries({ queryKey: ["connections"] });
   }
 
-  /** A note with no passage yet (or on `anchor`); null after a toast. */
+  /** A note with no passage yet (or on `anchor`); null after a notice. */
   async function create(content: NewNote = {}): Promise<Note | null> {
     const created = await api<Note>("/api/notes", {
       method: "POST",
       body: JSON.stringify(content),
-    }).catch(toastFail);
+    }).catch(failed);
     if (created) {
       put({ ...created, tags: [] });
       invalidateAll();
@@ -208,16 +208,18 @@ export function useNoteActions() {
     return note;
   }
 
-  /** Deletes at once, then "Note deleted · Undo" (soft delete, #64). */
-  async function remove(id: string) {
+  /** Deletes at once, then "Note deleted · Undo" (soft delete, #64) — in
+   * the list row's place when `inPlace` takes the undo (#257). */
+  async function remove(id: string, inPlace?: (undo: () => Promise<unknown>) => void) {
     const removed = qc.getQueryData<Note[]>(allKey)?.find((x) => x.id === id);
     const deleted = await removeWithUndo({
       hide: () => updateList<Note>(qc, allKey, (n) => n.filter((x) => x.id !== id)),
       unhide: () => removed && updateList<Note>(qc, allKey, (n) => [removed, ...n]),
       remove: () => api(`/api/notes/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
-      message: i18n.t("toast.noteDeleted"),
-      retry: () => remove(id),
+      message: i18n.t("notice.noteDeleted"),
+      retry: () => remove(id, inPlace),
+      inPlace,
     });
     if (deleted) invalidateAll();
   }
@@ -227,7 +229,7 @@ export function useNoteActions() {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors`, {
       method: "POST",
       body: JSON.stringify(anchor),
-    }).catch(toastFail);
+    }).catch(failed);
     if (updated) {
       put(updated);
       invalidateAll();
@@ -236,11 +238,11 @@ export function useNoteActions() {
   }
 
   /** Drops one reference — the last one too (the note stays, unlinked).
-   * Resolves to the updated note, null when it failed (toast said so). */
+   * Resolves to the updated note, null when it failed (its notice said so). */
   async function detach(noteId: string, anchorId: string): Promise<Note | null> {
     const updated = await api<Note>(`/api/notes/${noteId}/anchors/${anchorId}`, {
       method: "DELETE",
-    }).catch(toastFail);
+    }).catch(failed);
     if (updated) {
       put(updated);
       invalidateAll();

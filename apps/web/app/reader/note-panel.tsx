@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Anchor, Note, NoteAnchor, ScriptureRef } from "@biblestdy/shared";
 import { formatScriptureHref, scriptureLinkMarkdown, scriptureLinks } from "@biblestdy/shared";
 import { usePanelRef } from "react-resizable-panels";
-import { cn, focusTitle } from "~/lib/utils";
+import { cn, focusRing, focusTitle } from "~/lib/utils";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -12,7 +12,6 @@ import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Check, Maximize2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { announce } from "~/lib/announce";
-import { toast } from "~/lib/toast";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
 import { spotlightsChip } from "~/lib/shortcuts";
@@ -22,9 +21,11 @@ import type { EditorKit, PagePlace, ReadRef } from "./ref-context";
 import type { VersePickerProps } from "./verse-picker";
 import { bookLocale } from "~/lib/book-name";
 import { chipLabel } from "~/lib/reference-label";
-import { notifyError } from "~/lib/notify";
+import { notifyError, notifyUndo } from "~/lib/notify";
+import { dismissNotice } from "~/lib/notices";
+import { InlineNotice } from "~/components/inline-notice";
 import { setOpenNote } from "~/lib/next-path";
-import { clearDraft, draftDecision, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
+import { clearDraft, draftDecision, type NoteDraft, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
 import { useIsDark } from "~/lib/theme";
 import { useViewportFits } from "~/lib/text-size";
 import { PanelHeader } from "./panel-header";
@@ -76,11 +77,43 @@ function NoteTagsRow({ noteId }: { noteId: string }) {
       <TagChips
         tags={tags}
         onAdd={(name) => void add(name)}
-        onRemove={(t) => void remove(t)}
+        onRemove={remove}
       />
       {/* A failed load isn't "no topics" */}
       <LoadError failed={failed} message={t("note.topicsLoadFailed")} onRetry={retry} className="mt-1" />
     </>
+  );
+}
+
+/**
+ * A newer unsaved draft on this device (#257 panel C4): one row above the
+ * text, shown when the note opens, until chosen — "Use newer" puts it in
+ * the editor, "Keep current" drops it. Ignored, it's offered next time
+ * (nothing is lost). Real buttons, in the tab order before the editor.
+ */
+function DraftOffer({ at, onUse, onKeep }: { at: number; onUse: () => void; onKeep: () => void }) {
+  const { t, i18n } = useTranslation();
+  const when = new Date(at);
+  const today = when.toDateString() === new Date().toDateString();
+  const time = new Intl.DateTimeFormat(i18n.language, today ? { timeStyle: "short" } : { dateStyle: "medium", timeStyle: "short" }).format(when);
+  // A row born with its text isn't read out: say it once
+  useEffect(() => announce(t("note.draftNewer", { time })), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const button = cn(
+    "-my-1 inline-flex min-h-6 items-center rounded-md px-1 font-medium text-foreground underline underline-offset-4 hover:decoration-2 pointer-coarse:-my-2.5 pointer-coarse:min-h-11",
+    focusRing,
+  );
+  return (
+    <p className="flex flex-wrap items-center gap-x-1 border-b border-border px-3 py-1.5 font-sans text-control text-muted-foreground">
+      <span>{t("note.draftNewer", { time })}</span>
+      <span aria-hidden>·</span>
+      <button type="button" className={button} onClick={onUse}>
+        {t("note.draftUse")}
+      </button>
+      <span aria-hidden>·</span>
+      <button type="button" className={button} onClick={onKeep}>
+        {t("note.draftKeep")}
+      </button>
+    </p>
   );
 }
 
@@ -351,19 +384,25 @@ export function NotePanel({
     latest.current = { id: note.id, title, body, dirty };
   });
 
+  /** The "Couldn't save · Retry" on show, dropped once a save lands. */
+  const saveNotice = useRef<number | null>(null);
+  /** A newer unsaved draft on this device (#257 panel C4): offered in a row
+   * above the text when the note opens, until chosen. */
+  const [offer, setOffer] = useState<NoteDraft | null>(null);
   async function save(id: string, patch: { title: string; body: string }) {
     setInFlight((n) => n + 1);
     try {
       await onEdit(id, patch);
       setFailed(false);
-      toast.dismiss(`note-save-${id}`);
+      if (saveNotice.current !== null) dismissNotice(saveNotice.current);
+      saveNotice.current = null;
       // Saved what's on screen: nothing left to keep
       const l = latest.current;
       if (l.id === id && l.title === patch.title && l.body === patch.body) clearDraft(id);
     } catch (e) {
       setFailed(true);
-      notifyError(e, {
-        id: `note-save-${id}`,
+      saveNotice.current = notifyError(e, {
+        place: "note",
         retry: () => {
           const l = latest.current;
           if (l.id === id) void save(id, { title: l.title, body: l.body });
@@ -386,25 +425,9 @@ export function NotePanel({
     setFailed(false);
     // The text itself shows it (no toast, #257); read out
     if (opened.decision === "restore") announce(t("note.draftRestored"));
-    // Changed on another device since: offer, never overwrite — a choice,
-    // so this one stays a toast (#257)
-    const draft = opened.decision === "offer" ? opened.draft : null;
-    if (draft) {
-      toast(t("note.draftFound"), {
-        id: `note-draft-${note.id}`,
-        duration: 15_000,
-        action: {
-          label: t("note.draftRestore"),
-          onClick: () => {
-            setTitle(draft.title);
-            setBody(draft.body);
-            setEditorKey((k) => k + 1);
-          },
-        },
-        // Only an explicit Discard drops it: ignored, it's offered next time
-        cancel: { label: t("note.draftDiscard"), onClick: () => clearDraft(note.id) },
-      });
-    }
+    // Changed on another device since: offer, never overwrite — a row above
+    // the text, shown on open only (the text never shifts while typing)
+    setOffer(opened.decision === "offer" && "draft" in opened ? (opened.draft ?? null) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
@@ -504,7 +527,7 @@ export function NotePanel({
     if (!sendRef(INSERT_REF, ref)) insertPlain(ref);
   }
   /** The overview's × on a text reference (#214): its chips leave the
-   * text (the editor's removal toast offers Undo); in the plain-text
+   * text (the editor's removal notice offers Undo); in the plain-text
    * stand-in its links go, with an Undo of their own. */
   function removeRef(ref: ScriptureRef) {
     if (sendRef(REMOVE_REF, ref)) return;
@@ -515,12 +538,7 @@ export function NotePanel({
     // Its separators go too (#226); off the reader's first paint
     void import("./ref-tidy").then(({ removeLinksTidy }) => {
       setBody(removeLinksTidy(before, links));
-      toast(t("note.refRemoved", { ref: chipLabel(ref, locale) }), {
-        duration: 6000,
-        position: "bottom-right",
-        className: "!w-auto !text-list",
-        action: { label: t("toast.undo"), onClick: () => setBody(before) },
-      });
+      void notifyUndo(t("note.refRemoved", { ref: chipLabel(ref, locale) }), async () => setBody(before), { place: "note" });
     });
   }
   // "+ Verse" in the overview: the toolbar button's dialog (verse-button),
@@ -611,6 +629,25 @@ export function NotePanel({
       <div className={cn("border-b border-border px-3 py-1.5", (folded || peek) && "hidden")}>
         <NoteTagsRow noteId={note.id} />
       </div>
+
+      {/* The note's notices (#257): "Couldn't save · Retry", "John 3:16
+          removed · Undo" — above the text, seen in the phone peek too */}
+      <InlineNotice place="note" lineClassName="justify-start border-b border-border px-3 py-1.5 text-left" />
+      {offer && (
+        <DraftOffer
+          at={offer.at}
+          onUse={() => {
+            setTitle(offer.title);
+            setBody(offer.body);
+            setEditorKey((k) => k + 1);
+            setOffer(null);
+          }}
+          onKeep={() => {
+            clearDraft(note.id);
+            setOffer(null);
+          }}
+        />
+      )}
 
       {(() => {
         const editor = Editor && handedOver ? (
@@ -733,7 +770,7 @@ export function NotePanel({
       )}
 
       <footer className={cn("flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-meta text-muted-foreground", peek && "hidden")}>
-        {/* No confirm: the delete toast offers Undo (#64) */}
+        {/* No confirm: the delete notice offers Undo (#64) */}
         <Button
           variant="ghost"
           size="sm"
@@ -750,7 +787,7 @@ export function NotePanel({
         </Button>
         <span className="flex items-center gap-1.5">
           {/* Not a live region: it flips on every keystroke. A failed save
-              is announced by its toast. */}
+              is announced by the note's notice line. */}
           <span className="flex items-center gap-1">
             {status === "failed" ? (
               <span className="text-destructive">{t("note.notSaved")}</span>

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { announce } from "~/lib/announce";
-import { toast } from "~/lib/toast";
+import { postNotice } from "~/lib/notices";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
@@ -257,7 +257,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
       landing = m.switchLanding(source, translation.abbreviation, to.abbreviation);
       check = m.checkLanding;
     } catch {
-      toast.error(t("translations.switchFailed", { abbr: to.abbreviation }));
+      postNotice("page", { kind: "error", message: t("translations.switchFailed", { abbr: to.abbreviation }) });
       return;
     }
     localStorage.setItem("translationId", id);
@@ -373,7 +373,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
   // The chunk didn't come: say so, hand focus back
   useEffect(() => {
     if (!compareError || !compareOpen) return;
-    toast.error(i18n.t("compare.loadFailed"));
+    postNotice("page", { kind: "error", message: i18n.t("compare.loadFailed") });
     setCompareOpen(false);
     const back = compare?.returnTo;
     if (typeof back === "function") back();

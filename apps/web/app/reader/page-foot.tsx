@@ -1,6 +1,8 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { InlineNotice } from "~/components/inline-notice";
+import { useNotice } from "~/lib/notices";
 import { Link } from "react-router";
 import { Hint } from "~/components/hint";
 import { Button } from "~/components/ui/button";
@@ -91,6 +93,7 @@ export function PageFoot({
   next: FootButton;
   className?: string;
 }) {
+  const notice = useNotice("page");
   const credits = credit ?? [];
   // The source rides on the last part (measured with it): never dropped
   const measured = source && credits.length > 0 ? [...credits.slice(0, -1), `${credits.at(-1)}\u00a0·\u00a0${source.label}`] : credits;
@@ -180,7 +183,12 @@ export function PageFoot({
       </div>
       <FootEnd button={next} dir="next" />
       {fit.creditWide && creditLine}
-      <SupportLine />
+      {/* Errors and Undo (#257 panel D5) take the support line's place: same
+          box, laid over it — the foot never grows, the page never re-flows */}
+      <div className="relative col-span-3 grid">
+        <SupportLine className={cn(notice && "invisible")} />
+        <InlineNotice place="page" oneLine className="pointer-events-none absolute inset-0 flex items-center justify-center" lineClassName="pointer-events-auto max-w-full" />
+      </div>
       {/* Ruler: every part at its natural width, for useFit */}
       <div ref={fit.rulerRef} aria-hidden className="invisible absolute top-0 left-0 h-0 overflow-hidden whitespace-nowrap">
         {[folio, measured].map((parts, row) => (
@@ -450,10 +458,16 @@ export function ChapterBar({
         // Safe areas (#251): the bar's colour runs to the screen's bottom,
         // its buttons sit above the home indicator, and Previous / Next
         // keep 16px (12 + the button's 4) from the rounded corners
-        "group grid shrink-0 grid-cols-3 gap-[4px] border-t border-border bg-background pt-[4px] pr-[max(12px,var(--safe-right))] pb-[max(var(--safe-bottom),4px)] pl-[max(12px,var(--safe-left))] font-sans",
+        "group flex shrink-0 flex-col border-t border-border bg-background pt-[4px] pr-[max(12px,var(--safe-right))] pb-[max(var(--safe-bottom),4px)] pl-[max(12px,var(--safe-left))] font-sans",
         hidden && "invisible",
       )}
     >
+      {/* Errors and Undo (#257 panel C1): a row of the bar's own, above the
+          buttons, which never move; the text above gets shorter, never
+          covered. Hidden bar (a note drawer up): not mounted, so notices go
+          to the note's row instead */}
+      {!hidden && <InlineNotice place="page" oneLine lineClassName="min-h-11 justify-start border-b border-border px-1 text-left" />}
+      <div className="grid grid-cols-3 gap-[4px]">
       <BarEnd button={prev} dir="prev" />
       <Hint label={t("palette.open")} side="top">
         <Button
@@ -471,6 +485,7 @@ export function ChapterBar({
         </Button>
       </Hint>
       <BarEnd button={next} dir="next" />
+      </div>
     </nav>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "~/lib/toast";
+import { postNotice } from "~/lib/notices";
 import { lazyModule, preloadWhenIdle, useLazyModule } from "~/lib/lazy-module";
 
 /**
@@ -30,8 +30,10 @@ export function Drawer(props: ComponentProps<Ui["Drawer"]>) {
     }
     if (!error || told.current) return;
     told.current = true;
-    toast.error(t("common.loadFailed"), {
-      action: { label: t("note.reloadPage"), onClick: () => window.location.reload() },
+    postNotice("page", {
+      kind: "error",
+      message: t("common.loadFailed"),
+      action: { label: t("note.reloadPage"), run: () => window.location.reload() },
     });
   }, [error, props.open, retry, t]);
   if (!ui) return null;

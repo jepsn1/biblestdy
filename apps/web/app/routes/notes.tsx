@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { InlineNotice } from "~/components/inline-notice";
 import { ListSkeleton } from "~/components/list-skeleton";
+import { UndoInPlace } from "~/components/undo-in-place";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -90,6 +92,24 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const [frozen, setFrozen] = useState(() => ({ key: viewKey, ids: filtered.map((n) => n.id) }));
   if (frozen.key !== viewKey) setFrozen({ key: viewKey, ids: filtered.map((n) => n.id) });
   const shown = frozen.key === viewKey ? keepOrder(filtered, frozen.ids) : filtered;
+  /** A deleted note, in its row's place: "Note “…” deleted · Undo" (#257
+   * panel D4) until its time is up. */
+  const [ghost, setGhost] = useState<{ id: string; title: string; at: number; undo: () => Promise<unknown>; focus: boolean } | null>(null);
+  const withGhost = (list: Note[]): (Note | { ghost: NonNullable<typeof ghost> })[] => {
+    if (!ghost || list.some((n) => n.id === ghost.id)) return list;
+    const out: (Note | { ghost: NonNullable<typeof ghost> })[] = [...list];
+    out.splice(Math.min(ghost.at, out.length), 0, { ghost });
+    return out;
+  };
+  function removeNote(id: string) {
+    const at = shown.findIndex((n) => n.id === id);
+    const note = shown[at];
+    // Deleted from the open note: focus was there — it goes to the Undo
+    const focus = !!document.activeElement?.closest("[data-notes-editor]");
+    void actions.remove(id, (undo) =>
+      setGhost({ id, title: note ? noteTitle(note, t("note.untitled")) : "", at: Math.max(0, at), undo, focus }),
+    );
+  }
   const open = params.id ? notes.find((n) => n.id === params.id) : undefined;
   const back = readingHref();
   // The way back names the place (#148): "← Back to Psalm 23", on the page
@@ -123,7 +143,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
     navigate(`/read/${a.book}/${a.chapter}?v=${a.startVerse}&note=${note.id}&mark=${encodeURIComponent(`note:${note.id}:${a.id}`)}`);
   }
 
-  // The note open here was deleted (its undo toast is up): back to the list.
+  // The note open here was deleted (its Undo is in its row): back to the list.
   // One that was never here (an old link, another account) says so instead.
   const [seenId, setSeenId] = useState<string | null>(null);
   if (open && seenId !== open.id) setSeenId(open.id);
@@ -226,15 +246,33 @@ export default function NotesPage({ params }: Route.ComponentProps) {
               {t("note.retry")}
             </Button>
           </div>
-        ) : notes.length === 0 ? (
+        ) : notes.length === 0 && !ghost ? (
           <div className="flex flex-col gap-3 p-4">
             <p className="font-serif text-control text-muted-foreground">{t("notes.emptyAll")}</p>
           </div>
-        ) : shown.length === 0 ? (
+        ) : shown.length === 0 && !ghost ? (
           <p className="p-4 font-serif text-control text-muted-foreground italic">{t("notes.noMatches")}</p>
         ) : (
-          <ul className="flex flex-col p-1.5" aria-labelledby={listHeadingId}>
-            {shown.map((n) => {
+          <ul data-notes-list="" className="flex flex-col p-1.5" aria-labelledby={listHeadingId}>
+            {withGhost(shown).map((n) => {
+              if ("ghost" in n)
+                return (
+                  <li key={`gone:${n.ghost.id}`} className="flex min-h-11 items-center px-2.5 py-2 text-control max-md:py-3">
+                    <UndoInPlace
+                      label={t("notes.deleted", { title: n.ghost.title })}
+                      focus={n.ghost.focus}
+                      onUndo={() => {
+                        const g = n.ghost;
+                        setGhost(null);
+                        void g.undo().then(() => navigate(hrefOf(g.id)));
+                      }}
+                      onGone={(hadFocus) => {
+                        setGhost(null);
+                        if (hadFocus) requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-notes-list] a")?.focus({ preventScroll: true }));
+                      }}
+                    />
+                  </li>
+                );
               // In the text and marked in the Bible (#161: inline-only notes too)
               const refs = noteRefLabels(n, nameOf, locale);
               const current = n.id === params.id;
@@ -279,6 +317,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const editorPane = (
     <section
       aria-label={open ? noteTitle(open, t("note.untitled")) : t("notes.editorLabel")}
+      data-notes-editor=""
       className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !params.id && "max-md:hidden")}
     >
       {open ? (
@@ -290,7 +329,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           page
           mobile={mobile}
           onEdit={actions.edit}
-          onRemove={(id) => void actions.remove(id)}
+          onRemove={removeNote}
           onDetach={actions.detach}
           onAttach={actions.attach}
           onShowAnchor={(a) => readAnchor(open, a)}
@@ -369,6 +408,8 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           <span className={cn(params.id && mobile && "@max-[12.5rem]:sr-only")}>{t("notes.new")}</span>
         </Button>
       </header>
+      {/* Errors and Undo for this page (#257): one line under its header */}
+      <InlineNotice place="page" lineClassName="justify-start border-b border-border px-4 py-1.5 text-left" />
       <div className="flex min-h-0 flex-1">
         {listPane}
         {editorPane}
@@ -423,7 +464,7 @@ function TopicChapters({ name, onClear }: { name: string; onClear: () => void })
     }
     void qc.invalidateQueries({ queryKey: ["topic"] });
     void qc.invalidateQueries({ queryKey: ["connections"] });
-    notifyUndo(t("toast.tagRemoved", { name }), async () => {
+    notifyUndo(t("notice.tagRemoved", { name }), async () => {
       await api("/api/tags/passage", { method: "POST", body: JSON.stringify({ ...p, name }) });
       void qc.invalidateQueries({ queryKey: ["topic"] });
     });

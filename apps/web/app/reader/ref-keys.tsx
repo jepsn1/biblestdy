@@ -36,7 +36,7 @@ const CHIP_KEYS = new Set(["Backspace", "Delete", "Enter", "Escape", "ArrowLeft"
 
 /**
  * Keys on chips (#160): Backspace (or Delete) next to a chip selects it
- * first, the second press removes it — the toast offers Undo. Enter on a
+ * first, the second press removes it — the notice offers Undo. Enter on a
  * selected chip opens its preview; Alt+Enter spotlights it in the Bible. Any other key (typing, End, ↑↓) first
  * puts the caret after the chip — a selected chip has no DOM caret, and the
  * browser would act at the start of the note.

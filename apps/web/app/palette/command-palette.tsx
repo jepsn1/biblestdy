@@ -22,7 +22,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { announce } from "~/lib/announce";
-import { toast } from "~/lib/toast";
+import { UndoInPlace } from "~/components/undo-in-place";
 import { modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
@@ -716,21 +716,14 @@ export function CommandPalette({
     );
   }
 
-  // "Ryd" (spec 4): forget the chapters read, undoable (≥6s)
+  // "Ryd" (spec 4): forget the chapters read; "Recent cleared · Undo" in
+  // the same spot until the sheet closes (#257 panel D4)
+  const [cleared, setCleared] = useState<ReturnType<typeof clearRecent> | null>(null);
   function clearRecents() {
     const was = clearRecent({ book: reader.book, chapter: reader.chapter });
     setRecentRev((r) => r + 1);
+    setCleared(was);
     inputRef.current?.focus();
-    toast(t("palette.recentCleared"), {
-      duration: 8000,
-      action: {
-        label: t("toast.undo"),
-        onClick: () => {
-          restoreRecent(was);
-          setRecentRev((r) => r + 1);
-        },
-      },
-    });
   }
 
   const input = (
@@ -949,6 +942,21 @@ export function CommandPalette({
                   >
                     {t("palette.clearRecent")}
                   </button>
+                </div>
+              )}
+              {cleared && isMobile && empty && !recentAbove && (
+                <div className="flex min-h-11 items-center px-4.5 pt-1.5 text-list">
+                  <UndoInPlace
+                    label={t("palette.recentCleared")}
+                    ms={Infinity}
+                    onUndo={() => {
+                      restoreRecent(cleared);
+                      setCleared(null);
+                      setRecentRev((r) => r + 1);
+                      inputRef.current?.focus();
+                    }}
+                    onGone={() => setCleared(null)}
+                  />
                 </div>
               )}
               {list}

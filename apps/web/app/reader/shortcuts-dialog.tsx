@@ -11,6 +11,7 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Switch } from "~/components/ui/switch";
 import { notifyError } from "~/lib/notify";
+import i18n from "~/lib/i18n";
 import { isCharacterShortcut, saveSingleKeys, useSingleKeys } from "~/lib/shortcuts";
 import { cn } from "~/lib/utils";
 
@@ -46,7 +47,7 @@ function Keys({ keys }: { keys: string[][] }) {
 const altKey = () => (modKey() === "⌘" ? "⌥" : "Alt");
 
 function save(on: boolean) {
-  saveSingleKeys(on).catch((e: unknown) => notifyError(e, { retry: () => save(on) }));
+  saveSingleKeys(on).catch((e: unknown) => notifyError(e, { place: "settings", message: i18n.t("shortcuts.saveFailed"), retry: () => save(on) }));
 }
 
 /**

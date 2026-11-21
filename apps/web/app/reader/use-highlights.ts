@@ -1,7 +1,7 @@
 import type { Anchor, Chapter, Highlight, HighlightColor } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import i18n from "~/lib/i18n";
-import { notifyError, removeWithUndo } from "~/lib/notify";
+import { marksRemoved, notifyError, removeWithUndo } from "~/lib/notify";
 import { api, updateList } from "~/lib/query";
 import { anchorQuote } from "./copy-attribution";
 import { useQuoteBackfill } from "./quote-backfill";
@@ -32,7 +32,7 @@ export function highlightsQuery(translationId: string, book: string, chapter: nu
 /** Loads + mutates the current chapter's highlights for the signed-in user.
  * With the loaded `text`, new highlights carry their marked words (`quote`)
  * and older ones without get them backfilled.
- * Failed writes surface a toast with Retry; removal offers Undo (#64 — the
+ * Failed writes say so inline, with Retry; removal offers Undo (#64 — the
  * API soft-deletes, `restore` brings the row back). A failed load is
  * `failed` (MarksLoadError says so), `retry` loads again. */
 export function useHighlights(translationId: string, book: string, chapter: number, text?: Chapter) {
@@ -75,8 +75,12 @@ export function useHighlights(translationId: string, book: string, chapter: numb
       unhide: () => removed && put(removed),
       remove: () => api(`/api/highlights/${id}`, { method: "DELETE" }),
       restore: () => restore(id),
-      message: i18n.t("toast.highlightRemoved"),
+      message: i18n.t("notice.highlightRemoved"),
       retry: () => remove(id),
+      // An eraser sweep: one "3 highlights removed · Undo" for all (#257)
+      group: "mark",
+      item: "highlight",
+      many: marksRemoved,
     });
   }
 
