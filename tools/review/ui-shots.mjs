@@ -185,6 +185,8 @@ const HL = `/api/highlights?translation=${WEB}&book=JHN&chapter=3`, CH = `transl
 const centre = (p, sel) => p.locator(sel).first().evaluate((e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
 const apiText = (p, path) => p.evaluate(async (path) => (await fetch(path, { credentials: "include" })).text(), path);
 const toast = (p) => p.locator("[data-sonner-toast]").first();
+// #257: routine feedback is read out (lib/announce), never shown
+const said = (p) => p.locator("#announcer").innerText();
 const undo = async (p) => { await toast(p).getByRole("button", { name: /^(Undo|Fortryd)$/ }).click(); await p.waitForTimeout(1200); };
 const snap = (p, name) => p.screenshot({ path: `${OUT}/${name}.png` });
 const removeHighlight = (touch) => async (p) => {
@@ -242,7 +244,7 @@ await shot("70-skeleton-connections", {}, R, async (p) => { await p.route("**/ap
 await shot("70b-skeleton-topic", {}, R, async (p) => { await p.route("**/api/tags/topic/*", async (r) => { await new Promise((ok) => setTimeout(ok, 6000)); await r.continue().catch(() => {}); }); await p.goto(BASE + "/topic/new-birth"); await p.waitForTimeout(800); must((await p.getByTestId("list-skeleton").count()) === 1, "no skeleton"); });
 await shot("71-prefs-save-failed", {}, R, async (p) => { await p.route("**/api/preferences", (r) => (r.request().method() === "PATCH" ? r.fulfill({ status: 500, body: "{}" }) : r.continue())); await openSettings(p); await p.getByRole("button", { name: /^Clean$/ }).click(); await p.waitForTimeout(900); must(/Couldn.t save/.test(await toast(p).innerText()), "no save-failed toast"); });
 await shot("K9-logout-keyboard", {}, R, async (p) => { const b = p.getByRole("button", { name: /^Log out$/ }); await b.focus(); await p.keyboard.press("Enter"); await p.waitForTimeout(700); must((await active(p)).inDialog, "focus not in log-out dialog"); await p.keyboard.press("Escape"); await p.waitForTimeout(600); must((await p.getByRole("alertdialog").count()) === 0, "Esc did not close"); must(/^Log out$/.test((await active(p)).label ?? ""), `focus did not return: ${JSON.stringify(await active(p))}`); });
-await shot("72-copy-toast", {}, R, async (p) => { await p.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE }); await tapHighlight(p); await p.getByRole("menuitem", { name: /^Copy/ }).click(); await p.waitForTimeout(800); must(/^Copied John 3:3/.test(await toast(p).innerText()), `no copy toast: ${await toast(p).innerText().catch(() => "")}`); must(/John 3:3/.test(await p.evaluate(() => navigator.clipboard.readText())), "clipboard missing reference"); });
+await shot("72-copy-said", {}, R, async (p) => { await p.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE }); await tapHighlight(p); await p.getByRole("menuitem", { name: /^Copy/ }).click(); await p.waitForTimeout(800); must(/^Copied John 3:3/.test(await said(p)), `copy not read out: ${await said(p)}`); must(!(await toast(p).count()), "a copy toast (#257: read out only)"); must(/John 3:3/.test(await p.evaluate(() => navigator.clipboard.readText())), "clipboard missing reference"); });
 // #65 keyboard study: verse focus (roving Tab stop), keyboard selection, h/n/m/c, panel keys, ? list.
 // Every check FAILs loudly; data the shots create is deleted again by API.
 const verseNow = (p) => p.evaluate(() => document.activeElement?.getAttribute("data-verse-focus"));
@@ -271,7 +273,7 @@ await shot("K13-n-note-roundtrip", {}, R, async (p) => {
   for (const n of await apiJson(p, `/api/notes?${CH}`)) if (n.body.includes("Keyboard note")) await apiDelete(p, `/api/notes/${n.id}`);
 });
 await shot("K14-m-annotate", {}, R, async (p) => { await toVerse(p, 7); await p.keyboard.press("m"); await p.waitForTimeout(700); must((await active(p)).tag === "TEXTAREA", "m did not open the composer"); await snap(p, "K14-annotate-composer-keyboard"); await p.keyboard.press("Escape"); await p.waitForTimeout(500); must((await verseNow(p)) === "7", "focus did not return to verse 7"); });
-await shot("K15-c-copy", {}, R, async (p) => { await p.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE }); await toVerse(p, 5); await p.keyboard.press("c"); await p.waitForTimeout(800); must(/^Copied John 3:5\b/.test(await toast(p).innerText()), `no copy toast: ${await toast(p).innerText().catch(() => "")}`); must(/John 3:5/.test(await p.evaluate(() => navigator.clipboard.readText())), "clipboard missing reference"); });
+await shot("K15-c-copy", {}, R, async (p) => { await p.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE }); await toVerse(p, 5); await p.keyboard.press("c"); await p.waitForTimeout(800); must(/^Copied John 3:5\b/.test(await said(p)), `copy not read out: ${await said(p)}`); must(!(await toast(p).count()), "a copy toast (#257: read out only)"); must(/John 3:5/.test(await p.evaluate(() => navigator.clipboard.readText())), "clipboard missing reference"); });
 await shot("K16-cursor-follows-pages", {}, R, async (p) => {
   await toVerse(p, 1); let n = 1; while (!p.url().includes("p=2") && n < 40) { await p.keyboard.press("ArrowDown"); n++; await p.waitForTimeout(150); }
   must(p.url().includes("p=2"), "↓ never reached page 2"); await p.waitForTimeout(500);
