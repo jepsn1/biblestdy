@@ -36,9 +36,9 @@ import { groupTranslations } from "../reader/translation-chooser";
 import { formatWait } from "../reader/reading-limit";
 import { referenceLabel as uiReferenceLabel } from "~/lib/reference-label";
 import { useFumsView } from "~/lib/fums";
-import { useTextSize } from "~/lib/text-size";
 import { showVerses } from "~/lib/print-limit";
 import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { compareTargetOr } from "../reader/compare-target";
 import { SkipToText } from "../reader/skip-link";
 import { LazyCommandPalette } from "../palette/lazy-palette";
@@ -73,11 +73,14 @@ const compareKit: CompareKit = {
   formatWait,
   referenceLabel: uiReferenceLabel,
   useFumsView,
-  useTextSize,
   showVerses,
   Drawer,
   DrawerContent,
   DrawerTitle,
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
 };
 
 /** How long a chapter must stay open before its neighbours are fetched. */

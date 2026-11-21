@@ -74,3 +74,17 @@ export type CompareStep = "pick" | "compare";
 export function firstStep(raw: string | null, others: readonly string[], cap: number): CompareStep {
   return (parsePicks(raw, others, cap)?.length ?? 0) > 0 ? "compare" : "pick";
 }
+
+/** The picker offers a filter from this many other translations (#258). */
+export const FILTER_FROM = 7;
+
+/** The translations whose words (abbreviation, name, description) contain
+ * every word of the query, any case; an empty query keeps all. */
+export function filterTranslations<T>(items: readonly T[], query: string, words: (item: T) => string[]): T[] {
+  const parts = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  if (!parts.length) return [...items];
+  return items.filter((item) => {
+    const hay = words(item).join(" ").toLocaleLowerCase();
+    return parts.every((p) => hay.includes(p));
+  });
+}

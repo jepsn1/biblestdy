@@ -29,6 +29,12 @@ const en = {
   change: "Change translations",
   verse: "verse {{n}}",
   verses: "verses {{from}} to {{to}}",
+  // The compact picker (#258)
+  picker: "Translations",
+  pickerName: "Compare translations, {{count}} selected",
+  readingNote: "You’re reading this one",
+  filter: "Filter translations",
+  noMatch: "No translation matches",
 };
 
 const da: typeof en = {
@@ -53,6 +59,11 @@ const da: typeof en = {
   change: "Skift oversættelser",
   verse: "vers {{n}}",
   verses: "vers {{from}} til {{to}}",
+  picker: "Oversættelser",
+  pickerName: "Sammenlign oversættelser, {{count}} valgt",
+  readingNote: "Den du læser i",
+  filter: "Filtrér oversættelser",
+  noMatch: "Ingen oversættelser passer",
 };
 
 /** The palette's Compare rows (the palette is its own chunk too). */

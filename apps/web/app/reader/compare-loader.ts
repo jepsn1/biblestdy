@@ -22,9 +22,12 @@ export type CompareKit = {
   formatWait: typeof import("./reading-limit").formatWait;
   referenceLabel: typeof import("~/lib/reference-label").referenceLabel;
   useFumsView: typeof import("~/lib/fums").useFumsView;
-  useTextSize: typeof import("~/lib/text-size").useTextSize;
   showVerses: typeof import("~/lib/print-limit").showVerses;
   Drawer: typeof import("~/components/lazy-drawer").Drawer;
   DrawerContent: typeof import("~/components/lazy-drawer").DrawerContent;
   DrawerTitle: typeof import("~/components/lazy-drawer").DrawerTitle;
+  Popover: typeof import("~/components/ui/popover").Popover;
+  PopoverContent: typeof import("~/components/ui/popover").PopoverContent;
+  PopoverTitle: typeof import("~/components/ui/popover").PopoverTitle;
+  PopoverTrigger: typeof import("~/components/ui/popover").PopoverTrigger;
 };

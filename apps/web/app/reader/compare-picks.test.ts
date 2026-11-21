@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareCap, firstStep, initialPicks, parsePicks, togglePick } from "./compare-picks";
+import { compareCap, filterTranslations, FILTER_FROM, firstStep, initialPicks, parsePicks, togglePick } from "./compare-picks";
 
 const others = ["niv", "nkjv", "bph"];
 
@@ -52,5 +52,31 @@ describe("compare picks", () => {
     // Only ids no longer offered: nothing to compare yet
     expect(firstStep(JSON.stringify(["gone"]), others, 3)).toBe("pick");
     expect(firstStep(JSON.stringify(["nkjv"]), others, 3)).toBe("compare");
+  });
+});
+
+describe("picker filter (#258)", () => {
+  const list = [
+    { a: "NIV", name: "New International Version" },
+    { a: "BPH", name: "Bibelen på hverdagsdansk" },
+    { a: "DA1931", name: "Dansk 1931" },
+  ];
+  const words = (x: (typeof list)[number]) => [x.a, x.name];
+
+  it("keeps all for an empty or blank query", () => {
+    expect(filterTranslations(list, "", words)).toEqual(list);
+    expect(filterTranslations(list, "   ", words)).toEqual(list);
+  });
+
+  it("matches any case, across abbreviation and name, every word", () => {
+    expect(filterTranslations(list, "dansk", words).map((x) => x.a)).toEqual(["BPH", "DA1931"]);
+    expect(filterTranslations(list, "niv", words).map((x) => x.a)).toEqual(["NIV"]);
+    expect(filterTranslations(list, "dansk 1931", words).map((x) => x.a)).toEqual(["DA1931"]);
+    expect(filterTranslations(list, "Hverdags", words).map((x) => x.a)).toEqual(["BPH"]);
+    expect(filterTranslations(list, "zzz", words)).toEqual([]);
+  });
+
+  it("only offers a filter for longer lists", () => {
+    expect(FILTER_FROM).toBeGreaterThan(6);
   });
 });
