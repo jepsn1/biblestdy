@@ -23,10 +23,6 @@ const en = {
   failed: "{{abbr}} didn’t load.",
   retry: "Try again",
   close: "Close",
-  // Phone steps (#218): pick, then compare
-  choose: "Choose translations",
-  go: "Compare",
-  change: "Change translations",
   verse: "verse {{n}}",
   verses: "verses {{from}} to {{to}}",
   // The compact picker (#258)
@@ -54,9 +50,6 @@ const da: typeof en = {
   failed: "{{abbr}} kunne ikke hentes.",
   retry: "Prøv igen",
   close: "Luk",
-  choose: "Vælg oversættelser",
-  go: "Sammenlign",
-  change: "Skift oversættelser",
   verse: "vers {{n}}",
   verses: "vers {{from}} til {{to}}",
   picker: "Oversættelser",

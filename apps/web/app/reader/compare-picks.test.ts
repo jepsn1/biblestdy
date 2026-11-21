@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareCap, filterTranslations, FILTER_FROM, firstStep, initialPicks, parsePicks, togglePick } from "./compare-picks";
+import { compareCap, filterTranslations, FILTER_FROM, initialPicks, parsePicks, togglePick } from "./compare-picks";
 
 const others = ["niv", "nkjv", "bph"];
 
@@ -45,14 +45,6 @@ describe("compare picks", () => {
     expect(togglePick(["niv", "bph"], "nkjv", true, others, 2)).toBeNull();
   });
 
-  it("phone opens on the passages only when picks are remembered (#218)", () => {
-    expect(firstStep(null, others, 3)).toBe("pick");
-    expect(firstStep("not json", others, 3)).toBe("pick");
-    expect(firstStep("[]", others, 3)).toBe("pick");
-    // Only ids no longer offered: nothing to compare yet
-    expect(firstStep(JSON.stringify(["gone"]), others, 3)).toBe("pick");
-    expect(firstStep(JSON.stringify(["nkjv"]), others, 3)).toBe("compare");
-  });
 });
 
 describe("picker filter (#258)", () => {
