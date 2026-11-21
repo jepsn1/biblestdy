@@ -1,12 +1,14 @@
+import { announce } from "~/lib/announce";
 import { toast } from "~/lib/toast";
 import i18n from "./i18n";
 import { ApiError } from "./query";
 
 /**
- * Feedback toasts (#64): every destructive action says what happened and
- * offers Undo; every write that fails says so (no silent catch) and offers
- * Retry where repeating it makes sense. Sonner announces toasts in an
- * aria-live region.
+ * Toasts are for two things only (#64, #257): a delete says what happened and
+ * offers Undo; a write that fails says so (no silent catch) and offers Retry
+ * where repeating it makes sense. Routine success/info ("Copied",
+ * "Highlighted", a theme change) shows nothing — it's read out by
+ * lib/announce instead. Sonner announces toasts in an aria-live region.
  */
 
 /** How long Undo stays on screen — long enough to Tab or swipe to it
@@ -19,7 +21,7 @@ let undoSeq = 0;
 
 /** "Note deleted · Undo". `undo` should resolve once restored; a rejected
  * undo shows its own error toast. */
-export function notifyUndo(message: string, undo: () => Promise<unknown>, ms = UNDO_MS) {
+export function notifyUndo(message: string, undo: () => Promise<unknown>) {
   const id = `undo-${++undoSeq}`;
   let release = () => {};
   const show = (duration: number) =>
@@ -41,9 +43,9 @@ export function notifyUndo(message: string, undo: () => Promise<unknown>, ms = U
         },
       },
     });
-  show(ms);
+  show(UNDO_MS);
   // Same id = updated in place: no timer while focused, a fresh one after
-  release = holdWhileFocused(`.${id}`, (held) => show(held ? Infinity : ms));
+  release = holdWhileFocused(`.${id}`, (held) => show(held ? Infinity : UNDO_MS));
 }
 
 /** Calls `onChange(true)` when focus moves into `selector`, `false` when it
@@ -131,13 +133,14 @@ export async function removeWithUndo({
   return true;
 }
 
-/** "Copied John 3:16 (WEB)". */
-export function notifyCopied(reference: string, translation: string) {
-  toast(i18n.t("toast.copied", { ref: reference, translation }));
+/** "Copied John 3:16 (WEB)" — read out, not shown (#257). */
+export function announceCopied(reference: string, translation: string) {
+  announce(i18n.t("announce.copied", { ref: reference, translation }));
 }
 
 /** Copy refused: over the licences' 100-verse limit (ToS §12). Calm, no
- * error styling — nothing went wrong. */
+ * error styling — but shown: otherwise a paste brings back whatever was on
+ * the clipboard before, silently. */
 export function notifyCopyLimit() {
   toast(i18n.t("toast.copyLimit"), { duration: 8000 }); // long enough to read
 }

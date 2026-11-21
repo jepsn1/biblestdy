@@ -11,6 +11,7 @@ import {
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Check, Maximize2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { announce } from "~/lib/announce";
 import { toast } from "~/lib/toast";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
@@ -383,8 +384,10 @@ export function NotePanel({
     setBody(opened.body);
     setOwner(note.id);
     setFailed(false);
-    if (opened.decision === "restore") toast(t("note.draftRestored"), { id: `note-draft-${note.id}` });
-    // Changed on another device since: offer, never overwrite
+    // The text itself shows it (no toast, #257); read out
+    if (opened.decision === "restore") announce(t("note.draftRestored"));
+    // Changed on another device since: offer, never overwrite — a choice,
+    // so this one stays a toast (#257)
     const draft = opened.decision === "offer" ? opened.draft : null;
     if (draft) {
       toast(t("note.draftFound"), {

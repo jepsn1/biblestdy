@@ -613,7 +613,6 @@ export default {
     close: "Close translations",
     selected: "Selected",
     switched: "Now reading {{name}}. Your highlights and margin notes in {{prev}} are kept.",
-    back: "Back to {{abbr}}",
     renumbered: "Verse numbers differ here: {{from}} in {{prev}} is {{to}}.",
     psalmTitle: "The psalm title has no verse number in {{abbr}}, so you\u2019re at verse 1.",
     nearest: "{{abbr}} has no {{ref}}, so you\u2019re at the nearest verse.",
@@ -775,17 +774,20 @@ export default {
     /** A code-split sheet (phones) that didn't download. */
     loadFailed: "Couldn\u2019t open this. Check your connection and try again.",
   },
-  toast: {
+  /** Read out by lib/announce, never shown (#257). */
+  announce: {
+    copied: "Copied {{ref}} ({{translation}})",
     /** The eraser over a note link alone (#212): links are removed in the note */
     eraseLinked: "Linked to the note “{{title}}” — remove the link there",
     eraseLinkedMany: "Linked to {{count}} notes — remove the links there",
+  },
+  toast: {
     undo: "Undo",
     retry: "Retry",
     noteDeleted: "Note deleted",
     highlightRemoved: "Highlight removed",
     annotationRemoved: "Margin note removed",
     tagRemoved: "Topic \u201c{{name}}\u201d removed",
-    copied: "Copied {{ref}} ({{translation}})",
     saveFailed: "Couldn\u2019t save",
     deleteFailed: "Couldn\u2019t delete",
     undoFailed: "Couldn\u2019t undo \u2014 it may have been deleted for good",

@@ -653,7 +653,6 @@ const da: typeof en = {
     close: "Luk oversættelser",
     selected: "Valgt",
     switched: "Du læser nu {{name}}. Dine fremhævninger, annoteringer og noter i {{prev}} er gemt.",
-    back: "Tilbage til {{abbr}}",
     renumbered: "Versene har andre numre her: {{from}} i {{prev}} er {{to}}.",
     psalmTitle: "Salmens overskrift har intet versnummer i {{abbr}}, så du er ved vers 1.",
     nearest: "{{abbr}} har ikke {{ref}}, så du er ved det nærmeste vers.",
@@ -813,17 +812,20 @@ const da: typeof en = {
     close: "Luk",
     loadFailed: "Det kunne ikke åbnes. Tjek forbindelsen, og prøv igen.",
   },
-  toast: {
+  /** Read out by lib/announce, never shown (#257). */
+  announce: {
+    copied: "{{ref}} ({{translation}}) kopieret",
     /** The eraser over a note link alone (#212): links are removed in the note */
     eraseLinked: "Knyttet til noten »{{title}}« — fjern det i noten",
     eraseLinkedMany: "Knyttet til {{count}} noter — fjern det i noterne",
+  },
+  toast: {
     undo: "Fortryd",
     retry: "Prøv igen",
     noteDeleted: "Note slettet",
     highlightRemoved: "Fremhævning fjernet",
     annotationRemoved: "Annotering fjernet",
     tagRemoved: "Emnet \u00bb{{name}}\u00ab fjernet",
-    copied: "{{ref}} ({{translation}}) kopieret",
     saveFailed: "Kunne ikke gemme",
     deleteFailed: "Kunne ikke slette",
     undoFailed: "Kunne ikke fortryde \u2014 det er måske slettet for altid",
