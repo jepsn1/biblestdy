@@ -2,11 +2,10 @@ import type { BookLocale, Chapter, MappedSlice, ScriptureRef, Translation } from
 import { bookName, translationInfo } from "@biblestdy/shared";
 import { mapRange, sourceRange, unionRange } from "@biblestdy/shared/versification";
 import { useQueries } from "@tanstack/react-query";
-import { Check, ChevronLeft, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { bookLocale } from "~/lib/book-name";
@@ -14,7 +13,7 @@ import i18n from "~/lib/i18n";
 // Its own words come with this chunk (bundle budget)
 import "../locales/compare";
 import { queryClient } from "~/lib/query";
-import { cn, focusTitle } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import type { CompareKit } from "./compare-loader";
 import {
   blockView,
@@ -27,7 +26,8 @@ import {
   isLimited,
   type Loaded,
 } from "./compare-blocks";
-import { compareCap, firstStep, initialPicks, readPicks, savePicks, togglePick, type CompareStep } from "./compare-picks";
+import { ComparePicker } from "./compare-picker";
+import { compareCap, initialPicks, readPicks, savePicks, togglePick } from "./compare-picks";
 import type { CompareAnchor, CompareRange } from "./dialog-events";
 import { PassageText } from "./passage-text";
 import { ScriptureCredit } from "./scripture-credit";
@@ -69,7 +69,7 @@ function useMedia(query: string): boolean {
 }
 /** use-mobile's breakpoint: a drawer below it. */
 const PHONE = "(max-width: 767px)";
-/** A phone on its side: the dialog, but too short for picker + passages. */
+/** A phone on its side: the dialog, kept clear of the home indicator. */
 const SHORT = "(max-height: 600px)";
 
 const keyOf = (id: string, c: ChapterRef) => `${id}/${c.book}.${c.chapter}`;
@@ -113,9 +113,9 @@ function FumsView({ token, useFumsView }: { token: string; useFumsView: CompareK
  * Compare translations (#167): the passage in the reading translation, then
  * in each ticked one, stacked — just each translation's label and its words
  * (#253: no visible title, copy or jump). A modal dialog on desktop, a tall
- * drawer on phones in two steps — pick, then compare (#218). Text comes
- * through the reader's chapter cache and reading quota (nothing is fetched
- * before a translation is ticked); one quiet foot links the copyright page
+ * drawer on phones; either way one compact picker on top, the texts right
+ * under it (#258). Text comes through the reader's chapter cache and reading
+ * quota (only ticked translations are fetched); one quiet foot links the copyright page
  * and API.Bible, and every chapter shown is reported to FUMS once on screen.
  * Verses are matched through the versification map — never by number alone.
  */
@@ -141,13 +141,11 @@ export function CompareDialog({
   kit: CompareKit;
 }) {
   const { t, i18n } = useTranslation();
-  const { chapterQuery, retryWhenLimited, groupTranslations, translationTitle, formatWait, useTextSize, Drawer, DrawerContent, DrawerTitle } = kit;
+  const { chapterQuery, retryWhenLimited, groupTranslations, translationTitle, formatWait, Drawer, DrawerContent, DrawerTitle } = kit;
   labelOf = kit.referenceLabel;
   const ui = i18n.language.startsWith("da") ? "da" : "en";
   const isMobile = useMedia(PHONE);
   const short = useMedia(SHORT);
-  const textSize = useTextSize();
-  const ids = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   // Picker order: the chooser's (UI language first, most read first)
@@ -163,40 +161,11 @@ export function CompareDialog({
     if (open) setPicks(initialPicks(readPicks(), otherIds, cap));
   }, [open, otherIds, cap]);
 
-  // Phones (#218): two steps, so the passages get the height. Remembered
-  // picks open on the passages; first open on the picker. Set while
-  // rendering the open, so the drawer never shows the wrong step first.
-  const stepped = isMobile || short;
-  const [step, setStep] = useState<CompareStep>(() => firstStep(readPicks(), otherIds, cap));
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) setStep(firstStep(readPicks(), otherIds, cap));
-  }
-  const showPassages = !stepped || step === "compare";
-  // A step change moves focus to its heading (the drawer focuses it on open)
-  const stepMoved = useRef(false);
-  useEffect(() => {
-    if (!stepMoved.current) return;
-    stepMoved.current = false;
-    titleRef.current?.focus();
-  }, [step]);
-  function goTo(next: CompareStep) {
-    stepMoved.current = true;
-    setStep(next);
-  }
-
   function toggle(id: string, on: boolean) {
     const next = togglePick(picks, id, on, otherIds, cap);
     if (!next) return;
     setPicks(next);
-    // Phones remember the picks on Compare, not on each tick
-    if (!stepped) savePicks(next);
-  }
-  function compareNow() {
-    if (!picks.length) return;
-    savePicks(picks);
-    goTo("compare");
+    savePicks(next);
   }
   const picked = others.filter((tr) => picks.includes(tr.id));
 
@@ -242,8 +211,7 @@ export function CompareDialog({
   ].filter((w, i, all) => all.findIndex((x) => keyOf(x.id, x.c) === keyOf(w.id, w.c)) === i);
 
   const results = useQueries({
-    // Nothing is fetched while picking (reading quota)
-    queries: wanted.map(({ id, c }) => ({ ...chapterQuery(id, c), ...retryWhenLimited, enabled: open && (showPassages || id === current.id) })),
+    queries: wanted.map(({ id, c }) => ({ ...chapterQuery(id, c), ...retryWhenLimited, enabled: open })),
   });
   const state = new Map<string, Loaded>();
   wanted.forEach((w, i) => {
@@ -302,54 +270,22 @@ export function CompareDialog({
   }
 
   // ---- parts ----
-  const pinned = textSize <= 125;
-  const readingRow = (
-    <div className="flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-control text-accent-foreground">
-      <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden />
-      <span>{t("compare.reading", { abbr: current.abbreviation, name: translationTitle(current) })}</span>
-    </div>
-  );
-  const atCap = picks.length >= cap;
+  // One compact control (#258); the texts start right under it
   const picker = (
-    <div className="flex flex-col gap-2">
-      {readingRow}
-      {others.length > 0 && (
-        <div role="group" aria-labelledby={`${ids}-group`} className="flex flex-col gap-1.5">
-          <span id={`${ids}-group`} className="text-control font-medium">
-            {t("compare.group")}
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {others.map((tr) => {
-              const on = picks.includes(tr.id);
-              const info = translationInfo(tr.abbreviation);
-              return (
-                <label
-                  key={tr.id}
-                  className={cn(
-                    "flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-border px-2.5 py-1 text-control has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring pointer-coarse:min-h-11",
-                    on && "border-foreground/40",
-                    !on && atCap && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  <Checkbox
-                    checked={on}
-                    disabled={!on && atCap}
-                    onCheckedChange={(checked) => toggle(tr.id, checked)}
-                  />
-                  <span className="font-semibold">{tr.abbreviation}</span>
-                  {info && <span className="text-muted-foreground">{info.description[ui]}</span>}
-                </label>
-              );
-            })}
-          </div>
-          {cap < others.length && <p className="text-meta text-muted-foreground">{t("compare.cap", { n: cap })}</p>}
-        </div>
-      )}
-    </div>
+    <ComparePicker
+      current={current}
+      others={others}
+      picks={picks}
+      cap={cap}
+      onToggle={toggle}
+      translationTitle={translationTitle}
+      ui={ui}
+      kit={kit}
+    />
   );
 
   // No visible title (#253): the dialog is still named for screen readers —
-  // "Compare translations, John 3:16" — and takes focus on open / step change
+  // "Compare translations, John 3:16" — and takes focus on open
   const Title = isMobile ? DrawerTitle : DialogTitle;
   const hiddenTitle = (
     <Title ref={titleRef} tabIndex={-1} className="sr-only">
@@ -372,15 +308,8 @@ export function CompareDialog({
   ));
   const credit = <ScriptureCredit onFollow={() => onOpenChange(false)} />;
 
-  // Desktop + tablet: one step, picker on top, the passages, one quiet foot
-  const body = (
-    <>
-      {!pinned && <div className="pb-5">{picker}</div>}
-      {picks.length === 0 && others.length > 0 && (
-        <p className="mb-5 rounded-md border border-dashed border-border px-3 py-2 text-control text-muted-foreground">{t("compare.empty")}</p>
-      )}
-      {passages}
-    </>
+  const empty = picks.length === 0 && others.length > 0 && (
+    <p className="mb-5 rounded-md border border-dashed border-border px-3 py-2 text-control text-muted-foreground">{t("compare.empty")}</p>
   );
 
   const foot = (
@@ -392,91 +321,23 @@ export function CompareDialog({
     </footer>
   );
 
-  // ---- phone steps (#218) ----
-  const iconButton = "size-11 shrink-0";
+  // ---- phones: the picker beside Close, then the texts (#258) ----
   const closeX = (
-    <Button variant="ghost" size="icon" className={iconButton} aria-label={t("compare.close")} onClick={() => onOpenChange(false)}>
+    <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label={t("compare.close")} onClick={() => onOpenChange(false)}>
       <X className="size-5" aria-hidden />
     </Button>
   );
-  const titleClass = cn("font-serif text-title leading-tight font-semibold text-foreground", focusTitle);
-  const pickStep = (
+  const phone = (
     <>
-      <header className="flex shrink-0 items-start gap-2 border-b border-border py-2 pr-2 pl-4">
-        <div className="min-w-0 flex-1 pt-1.5">
-          <p className="eyebrow">{title}</p>
-          <Title ref={titleRef} tabIndex={-1} className={titleClass}>
-            {t("compare.choose")}
-          </Title>
-        </div>
-        {closeX}
-      </header>
-      <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
-        <div className="flex flex-col gap-3 px-4 pt-4 pb-6">
-          {readingRow}
-          {others.length > 0 && (
-            <div role="group" aria-labelledby={`${ids}-group`} className="flex flex-col gap-2">
-              <span id={`${ids}-group`} className="text-control font-medium">
-                {t("compare.group")}
-              </span>
-              {others.map((tr) => {
-                const on = picks.includes(tr.id);
-                const info = translationInfo(tr.abbreviation);
-                return (
-                  <label
-                    key={tr.id}
-                    className={cn(
-                      "flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-border px-3 py-2.5 text-control has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
-                      on && "border-foreground/40",
-                      !on && atCap && "cursor-not-allowed opacity-60",
-                    )}
-                  >
-                    <Checkbox className="mt-0.5" checked={on} disabled={!on && atCap} onCheckedChange={(checked) => toggle(tr.id, checked)} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block">
-                        <span className="font-semibold">{tr.abbreviation}</span> · {translationTitle(tr)}
-                      </span>
-                      {info && <span className="block text-meta text-muted-foreground">{info.description[ui]}</span>}
-                    </span>
-                  </label>
-                );
-              })}
-              {cap < others.length && <p className="text-meta text-muted-foreground">{t("compare.cap", { n: cap })}</p>}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-      <footer className="flex shrink-0 flex-col gap-2 border-t border-border px-4 pt-3 pb-3">
-        {picks.length === 0 && (
-          <p id={`${ids}-empty`} className="text-control text-muted-foreground">
-            {t("compare.empty")}
-          </p>
-        )}
-        <Button
-          className="h-11 w-full"
-          disabled={picks.length === 0}
-          aria-describedby={picks.length === 0 ? `${ids}-empty` : undefined}
-          onClick={compareNow}
-        >
-          {t("compare.go")}
-        </Button>
-      </footer>
-    </>
-  );
-  const compareStep = (
-    <>
-      <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
+      {/* Too narrow for both (200% text): Close goes up a row, the label stays whole */}
+      <header className="flex shrink-0 flex-wrap-reverse items-center gap-x-2 border-b border-border py-1 pr-2 pl-4">
         {hiddenTitle}
-        {/* Wraps at 200% so Close stays on screen */}
-        <Button variant="ghost" className="h-auto min-h-11 min-w-0 shrink gap-1 px-2 text-left whitespace-normal" onClick={() => goTo("pick")}>
-          <ChevronLeft className="size-5" aria-hidden />
-          {t("compare.change")}
-        </Button>
-        <span className="flex-1" />
-        {closeX}
+        {picker}
+        <span className="ml-auto">{closeX}</span>
       </header>
       <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
         <div className="px-4 pt-4 pb-6">
+          {empty}
           {passages}
           {/* The credit closes the scroll, not a tall footer */}
           <div className="mt-6 border-t border-foreground/12 pt-4">{credit}</div>
@@ -489,19 +350,22 @@ export function CompareDialog({
     <>
       {/* Problems only, always naming the translation */}
       <div aria-live="polite" className="sr-only">
-        {showPassages ? problems.join(" ") : ""}
+        {problems.join(" ")}
       </div>
-      {open && showPassages && tokens.map((tk) => <FumsView key={tk} token={tk} useFumsView={kit.useFumsView} />)}
+      {open && tokens.map((tk) => <FumsView key={tk} token={tk} useFumsView={kit.useFumsView} />)}
     </>
   );
 
   const content = (
     <>
       {hiddenTitle}
-      {pinned && <div className="shrink-0 border-b border-border px-4 py-3 sm:px-5">{picker}</div>}
+      <div className="flex shrink-0 items-center border-b border-border px-4 py-2 sm:px-5">{picker}</div>
       {/* Swipes inside never close the drawer: only its header drags */}
       <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
-        <div className="px-4 pt-5 pb-6 sm:px-5">{body}</div>
+        <div className="px-4 pt-5 pb-6 sm:px-5">
+          {empty}
+          {passages}
+        </div>
       </ScrollArea>
       {foot}
       {live}
@@ -512,7 +376,7 @@ export function CompareDialog({
     return (
       <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
         <DrawerContent className="h-[92dvh] max-h-[92dvh]" initialFocus={titleRef} finalFocus={finalFocus}>
-          {step === "pick" ? pickStep : compareStep}
+          {phone}
           {live}
         </DrawerContent>
       </Drawer>
@@ -530,14 +394,7 @@ export function CompareDialog({
           short && "top-[calc(0.5rem+var(--safe-top))] h-[calc(100dvh-1rem-var(--safe-top)-var(--safe-bottom))]",
         )}
       >
-        {stepped ? (
-          <>
-            {step === "pick" ? pickStep : compareStep}
-            {live}
-          </>
-        ) : (
-          content
-        )}
+        {content}
       </DialogContent>
     </Dialog>
   );

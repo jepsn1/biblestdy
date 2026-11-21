@@ -23,12 +23,14 @@ const en = {
   failed: "{{abbr}} didn’t load.",
   retry: "Try again",
   close: "Close",
-  // Phone steps (#218): pick, then compare
-  choose: "Choose translations",
-  go: "Compare",
-  change: "Change translations",
   verse: "verse {{n}}",
   verses: "verses {{from}} to {{to}}",
+  // The compact picker (#258)
+  picker: "Translations",
+  pickerName: "Compare translations, {{count}} selected",
+  readingNote: "You’re reading this one",
+  filter: "Filter translations",
+  noMatch: "No translation matches",
 };
 
 const da: typeof en = {
@@ -48,11 +50,13 @@ const da: typeof en = {
   failed: "{{abbr}} kunne ikke hentes.",
   retry: "Prøv igen",
   close: "Luk",
-  choose: "Vælg oversættelser",
-  go: "Sammenlign",
-  change: "Skift oversættelser",
   verse: "vers {{n}}",
   verses: "vers {{from}} til {{to}}",
+  picker: "Oversættelser",
+  pickerName: "Sammenlign oversættelser, {{count}} valgt",
+  readingNote: "Den du læser i",
+  filter: "Filtrér oversættelser",
+  noMatch: "Ingen oversættelser passer",
 };
 
 /** The palette's Compare rows (the palette is its own chunk too). */
