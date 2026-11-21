@@ -195,7 +195,7 @@ function FallbackEditor({
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
  * Autosaves (debounced) — closing flushes a pending save, so it never loses
  * work. The footer's save state comes from the server (#64): "Saving…" until
- * the PATCH answers, "Saved ✓" after, "Not saved · Retry" (+ toast) on failure.
+ * the PATCH answers, "Saved ✓" after, "Not saved · Retry" (+ the note's notice line) on failure.
  *
  * The references overview at the bottom (#161, references-overview.tsx)
  * lists the references in the text, then the reader's selections; its pane
