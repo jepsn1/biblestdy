@@ -126,3 +126,12 @@ describe("routing (panel D7): never silent", () => {
     expect(at("page")).toBeNull();
   });
 });
+
+describe("marksRemoved (panel D3 wording)", async () => {
+  const { marksRemoved } = await import("./notify");
+  it("names one kind or both", () => {
+    expect(marksRemoved({ highlight: 3 })).toBe("3 highlights removed");
+    expect(marksRemoved({ annotation: 1 })).toBe("1 margin note removed");
+    expect(marksRemoved({ highlight: 2, annotation: 1 })).toBe("2 highlights and 1 margin note removed");
+  });
+});

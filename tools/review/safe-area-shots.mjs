@@ -105,7 +105,7 @@ export const SURF = {
   signin: { path: "/signin", auth: false },
   landing: { path: "/", auth: false },
   notes: { path: "/notes" },
-  toast: { path: R, steps: async (p) => { await p.evaluate(() => import("/app/lib/toast.ts").then((m) => m.toast("Highlight removed", { action: { label: "Undo", onClick() {} } }))); await p.waitForTimeout(1200); } },
+  notice: { path: R, steps: async (p) => { await p.evaluate(() => import("/app/lib/notify.ts").then((m) => m.notifyUndo("Highlight removed", async () => {}))); await p.waitForTimeout(1200); } },
   tour: { path: "/notes", init: { notesTourDone: "" }, steps: async (p) => { await p.waitForTimeout(800); } },
   privacy: { path: "/privacy", auth: false },
 };
