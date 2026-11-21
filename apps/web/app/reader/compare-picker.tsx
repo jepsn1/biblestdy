@@ -16,7 +16,8 @@ import { filterTranslations, FILTER_FROM } from "./compare-picks";
  * of checkboxes — the reading translation first, ticked and fixed, then the
  * others (filter-as-you-type from FILTER_FROM of them). Space ticks, the
  * arrows move, Escape closes back to the button. The button's name carries
- * the count: "Compare translations, 2 selected".
+ * the count of texts shown (the reading one too): "Compare translations, 2
+ * selected".
  */
 export function ComparePicker({
   current,
@@ -52,7 +53,8 @@ export function ComparePicker({
   const describe = (tr: Translation) => translationInfo(tr.abbreviation)?.description[ui];
   const shown = filtering ? filterTranslations(others, query, (tr) => [tr.abbreviation, translationTitle(tr), describe(tr) ?? ""]) : others;
   const atCap = picks.length >= cap;
-  const count = picks.length;
+  // Texts shown, the reading one included: matches the ticks in the list
+  const count = picks.length + 1;
 
   // Up/Down/Home/End between the ticks (Tab still walks them too)
   const boxes = () => [...(listRef.current?.querySelectorAll<HTMLElement>('[role="checkbox"]:not([data-disabled])') ?? [])];
@@ -90,7 +92,7 @@ export function ComparePicker({
             variant="outline"
             size="sm"
             aria-label={t("compare.pickerName", { count })}
-            className={cn("max-w-full min-w-0 shrink gap-1.5 pointer-coarse:h-11 pointer-coarse:px-3", className)}
+            className={cn("max-w-full gap-1.5 pointer-coarse:h-11 pointer-coarse:px-3", className)}
           />
         }
       >
@@ -100,13 +102,15 @@ export function ComparePicker({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        initialFocus={() => (filtering ? filterRef.current : boxes()[0]) ?? true}
+        // Touch: never raise the keyboard on open (it would cover the list)
+        initialFocus={() => (filtering && !window.matchMedia("(pointer: coarse)").matches ? filterRef.current : boxes()[0]) ?? true}
         className="w-[min(22rem,calc(100vw-2rem))] gap-0 p-0"
       >
         <PopoverTitle className="sr-only">{t("compare.title")}</PopoverTitle>
         {/* The reading translation: always shown, so ticked and fixed */}
         <label className="flex min-h-10 items-center gap-2.5 border-b border-border px-3 py-2 text-control pointer-coarse:min-h-11">
-          <Checkbox checked disabled />
+          {/* Fixed, not switched off: full strength, like the other ticks */}
+          <Checkbox checked disabled className="data-disabled:cursor-default data-disabled:opacity-100" />
           <span className="min-w-0 flex-1">
             <span className="font-semibold">{current.abbreviation}</span> · {translationTitle(current)}
             <span className="block text-meta text-muted-foreground">{t("compare.readingNote")}</span>
@@ -140,7 +144,7 @@ export function ComparePicker({
           <span id={`${ids}-group`} className="sr-only">
             {t("compare.group")}
           </span>
-          <ScrollArea viewportClassName="max-h-[min(18rem,calc(var(--available-height)-9rem))]">
+          <ScrollArea viewportClassName="max-h-[min(18rem,40dvh,calc(var(--available-height)-9rem))]">
             <div ref={listRef} className="flex flex-col p-1">
               {shown.map((tr) => {
                 const on = picks.includes(tr.id);

@@ -329,11 +329,11 @@ export function CompareDialog({
   );
   const phone = (
     <>
-      <header className="flex shrink-0 items-center gap-2 border-b border-border py-1 pr-2 pl-4">
+      {/* Too narrow for both (200% text): Close goes up a row, the label stays whole */}
+      <header className="flex shrink-0 flex-wrap-reverse items-center gap-x-2 border-b border-border py-1 pr-2 pl-4">
         {hiddenTitle}
         {picker}
-        <span className="flex-1" />
-        {closeX}
+        <span className="ml-auto">{closeX}</span>
       </header>
       <ScrollArea className="min-h-0 flex-1" data-base-ui-swipe-ignore="">
         <div className="px-4 pt-4 pb-6">
