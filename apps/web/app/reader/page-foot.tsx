@@ -466,7 +466,7 @@ export function ChapterBar({
           buttons, which never move; the text above gets shorter, never
           covered. Hidden bar (a note drawer up): not mounted, so notices go
           to the note's row instead */}
-      {!hidden && <InlineNotice place="page" oneLine lineClassName="min-h-11 justify-start border-b border-border px-1 text-left" />}
+      {!hidden && <InlineNotice place="page" lineClassName="min-h-11 justify-start border-b border-border px-1 text-left" />}
       <div className="grid grid-cols-3 gap-[4px]">
       <BarEnd button={prev} dir="prev" />
       <Hint label={t("palette.open")} side="top">
