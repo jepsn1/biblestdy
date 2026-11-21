@@ -16,6 +16,7 @@ const NO_CHARACTER_KEYS: Record<string, string> = {
   "reader/spotlight.ts": "Esc only, while a reference spotlight shows (#190)",
   "reader/ref-bridge.tsx": "Esc only, while an overview chip is tinted (#190)",
   "notes/notes-tour.tsx": "Esc and Tab only, while a tour card shows; other keys just note that someone's typing",
+  "lib/notices.ts": "Ctrl/Cmd+Z only (a mod chord, never a lone character): runs the visible Undo (#257)",
 };
 
 const root = fileURLToPath(new URL("..", import.meta.url));

@@ -72,7 +72,7 @@ export function LoadError({
               focusRing,
             )}
           >
-            {t("toast.retry")}
+            {t("notice.retry")}
           </button>
         </p>
       )}

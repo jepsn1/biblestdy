@@ -55,7 +55,7 @@ function $chips(href: string): LexicalNode[] {
  * until the next click or Escape (#190)
  * (focus moves there, in the editor); "Insert in text" puts a chip where the
  * caret last was; its × on a text reference (#214) takes every chip of it
- * out (one step, so the removal toast's Undo puts them all back). Listens on the note panel's <aside>, so a second editor
+ * out (one step, so the removal notice's Undo puts them all back). Listens on the note panel's <aside>, so a second editor
  * elsewhere never answers.
  */
 export function RefBridge() {

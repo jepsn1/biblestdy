@@ -2,7 +2,7 @@ import type { AnnotationMark, HighlightColor } from "@biblestdy/shared";
 import { HIGHLIGHT_COLORS } from "@biblestdy/shared";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Check } from "lucide-react";
-import { createContext, useContext, type ReactNode, type RefObject } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
@@ -46,7 +46,7 @@ export type VirtualAnchor = { getBoundingClientRect: () => DOMRect };
 /** Phone drawer elements: the reader keeps them from closing the selection. */
 export const SELECTION_UI_ATTR = "data-selection-ui";
 
-type Ctx = { mobile: boolean; close: () => void };
+type Ctx = { mobile: boolean; close: (keyboard?: boolean) => void };
 const MenuCtx = createContext<Ctx>({ mobile: false, close: () => {} });
 
 /** Closed by keyboard (Esc, Enter on an item)? Then the caller moves focus
@@ -86,7 +86,7 @@ export function ActionMenu({
   label: string;
   children: ReactNode;
 }) {
-  const close = () => onOpenChange(false, false);
+  const close = (keyboard = false) => onOpenChange(false, keyboard);
   if (mobile) {
     return (
       <MenuCtx.Provider value={{ mobile, close }}>
@@ -153,15 +153,23 @@ const OVERFLOW_FADE =
 const mobileItem =
   "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-phone hover:bg-accent [&_svg]:size-5 [&_svg]:shrink-0";
 
+/** How long "Copied ✓" holds the menu open (panel C5). */
+const CONFIRM_MS = 1500;
+
 export function ActionMenuItem({
   onSelect,
   destructive = false,
   hint,
   icon,
   shortcut,
+  confirm,
   children,
 }: {
-  onSelect: () => void;
+  /** With `confirm`: resolves true when it worked. */
+  onSelect: () => void | Promise<boolean>;
+  /** "Copied ✓" (#257 panel C5): shown in the item's place for a moment
+   * once `onSelect` resolves true, then the menu closes. */
+  confirm?: string;
   /** Its key on a focused verse or in this menu (#65), e.g. "n". Desktop only. */
   shortcut?: string;
   /** Destructive actions go last and read red (Remove). */
@@ -173,19 +181,43 @@ export function ActionMenuItem({
 }) {
   const { mobile, close } = useContext(MenuCtx);
   const key = useLiveShortcut()(shortcut);
+  const [done, setDone] = useState(false);
+  const timer = useRef(0);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  /** Runs it; with `confirm`, holds the menu open on "Copied ✓" first. */
+  function run(keyboard: boolean) {
+    const result = onSelect();
+    if (!confirm || !(result instanceof Promise)) {
+      if (mobile) close();
+      return;
+    }
+    void result.then((ok) => {
+      if (!ok) return close(keyboard);
+      setDone(true);
+      timer.current = window.setTimeout(() => close(keyboard), CONFIRM_MS);
+    });
+  }
+  // Same width either way: the label swaps over a ghost of the longer one
+  const label = confirm ? (
+    <span className="inline-grid">
+      <span className={cn("col-start-1 row-start-1", done && "invisible")}>{children}</span>
+      <span aria-hidden className={cn("col-start-1 row-start-1", !done && "invisible")}>
+        {confirm}
+      </span>
+    </span>
+  ) : (
+    children
+  );
   if (mobile) {
     return (
       <button
         type="button"
         title={hint}
-        onClick={() => {
-          onSelect();
-          close();
-        }}
+        onClick={(e) => run(e.detail === 0)}
         className={cn(mobileItem, destructive && "text-destructive", focusRing)}
       >
         {icon}
-        {children}
+        {label}
       </button>
     );
   }
@@ -193,11 +225,13 @@ export function ActionMenuItem({
     <DropdownMenuItem
       variant={destructive ? "destructive" : "default"}
       title={hint}
-      onClick={onSelect}
+      // Held open on "Copied ✓", then closed by the timer
+      closeOnClick={!confirm}
+      onClick={(e) => run(e.detail === 0)}
       className="min-h-8 px-2"
     >
       {icon}
-      {children}
+      {label}
       {key && <DropdownMenuShortcut className="font-mono">{key}</DropdownMenuShortcut>}
     </DropdownMenuItem>
   );

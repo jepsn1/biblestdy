@@ -20,7 +20,7 @@ Problems found:
 6. **English book names in Danish UI** in references ("John 3:16" next to "Johannes" in the nav).
 7. **Untitled notes** show as "Untitled note" everywhere, though the palette already falls back to the first line.
 8. Topic page: no way back except "back to reading" (to `/`), notes on it jump into the reader.
-9. Trash: undo toast only.
+9. Trash: Undo only (an inline notice since #257, no toasts).
 
 ## Panel
 

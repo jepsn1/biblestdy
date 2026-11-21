@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { data, type ShouldRevalidateFunctionArgs, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { toast } from "~/lib/toast";
+import { announce } from "~/lib/announce";
+import { postNotice } from "~/lib/notices";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n from "~/lib/i18n";
 import { loadReaderStyle } from "~/lib/reader-style";
@@ -58,7 +59,7 @@ interface PendingSwitch {
   source: Place;
   landing: Landing;
   /** Checks the landing against the loaded chapter (a verse it leaves out). */
-  check: ((landing: Landing, chapter: Chapter) => Landing) | null;
+  check: (landing: Landing, chapter: Chapter) => Landing;
 }
 import { chapterHref } from "../reader/chapter-nav";
 import type { Route } from "./+types/read";
@@ -244,37 +245,33 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
   const switching = useRef<PendingSwitch | null>(null);
   /** Switches the reading translation and lands on the same text there:
    * mapped across verse numberings (#174: WEB Mal 4:1 → BPH Mal 3,19), never
-   * kept by number. `back` = a place already in that translation's numbering
-   * (the toast's way back restores where you were). */
-  async function switchTranslation(id: string, back?: Place) {
+   * kept by number. */
+  async function switchTranslation(id: string) {
     const to = translations.find((tr) => tr.id === id);
     if (!to || to.id === translation.id) return;
     const source = { book: chapter.book, chapter: chapter.chapter, verse: placeRef.current ?? 1 };
-    let landing: Landing = { ...(back ?? source), note: null };
-    let check: ((l: Landing, c: Chapter) => Landing) | null = null;
-    if (!back) {
-      try {
-        const m = await switchPlace();
-        landing = m.switchLanding(source, translation.abbreviation, to.abbreviation);
-        check = m.checkLanding;
-      } catch {
-        toast.error(t("translations.switchFailed", { abbr: to.abbreviation }));
-        return;
-      }
+    let landing: Landing;
+    let check: (l: Landing, c: Chapter) => Landing;
+    try {
+      const m = await switchPlace();
+      landing = m.switchLanding(source, translation.abbreviation, to.abbreviation);
+      check = m.checkLanding;
+    } catch {
+      postNotice("page", { kind: "error", message: t("translations.switchFailed", { abbr: to.abbreviation }) });
+      return;
     }
     localStorage.setItem("translationId", id);
     switching.current = { to: to.id, from: translation, source, landing, check };
     if (landing.book === chapter.book && landing.chapter === chapter.chapter) void revalidator.revalidate();
     else void navigate(chapterHref(landing), { replace: true }); // the loader reads the new version
   }
-  const switchRef = useRef(switchTranslation);
-  switchRef.current = switchTranslation;
-  // …then lands on the verse there (?v= picks its page) and says where
+  // …then lands on the verse there (?v= picks its page) and says where —
+  // read out, not shown (#257): the new text on the page is the feedback
   useEffect(() => {
     const p = switching.current;
     if (!p || p.to !== translation.id) return;
     switching.current = null;
-    const landing = p.check ? p.check(p.landing, chapter) : p.landing;
+    const landing = p.check(p.landing, chapter);
     setSearchParams(
       (params) => {
         params.delete("p");
@@ -297,12 +294,8 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
                 ref: label(p.landing.note === "nearest" ? p.source : landing),
               })
             : undefined;
-    // A sonner toast is a polite live region: the note is read out too
-    toast(t("translations.switched", { name: translationTitle(translation), prev }), {
-      description: note,
-      duration: note ? 10_000 : undefined,
-      action: { label: t("translations.back", { abbr: prev }), onClick: () => void switchRef.current(p.from.id, p.source) },
-    });
+    const switched = t("translations.switched", { name: translationTitle(translation), prev });
+    announce(note ? `${switched} ${note}` : switched);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [translation.id, chapter, setSearchParams]);
   const heading = `${nameOf(chapter.book)} ${chapter.chapter}`; // UI-language name (#53)
@@ -380,7 +373,7 @@ function Reader({ loaderData }: { loaderData: ReadData & { chapter: Chapter } })
   // The chunk didn't come: say so, hand focus back
   useEffect(() => {
     if (!compareError || !compareOpen) return;
-    toast.error(i18n.t("compare.loadFailed"));
+    postNotice("page", { kind: "error", message: i18n.t("compare.loadFailed") });
     setCompareOpen(false);
     const back = compare?.returnTo;
     if (typeof back === "function") back();

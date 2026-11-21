@@ -47,7 +47,7 @@ export function groupTranslations(translations: Translation[], ui: Lang) {
  * plain-language line + rights line from the static catalog. Popover on
  * desktop, bottom sheet on phones. `t` opens it; ↑/↓ move, Enter picks.
  * Switching lands on the same text in the new version (mapped across verse
- * numberings, #174); the reader's toast says where and offers the way back.
+ * numberings, #174); where it landed is read out (no toast, #257).
  */
 export function TranslationChooser({
   translations,

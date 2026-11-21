@@ -7,7 +7,7 @@ const plain = (n: LexicalNode | null): n is TextNode => $isTextNode(n) && n.isSi
 
 /** The chip out of its sentence, the separators and spaces it leaves
  * tidied (ref-tidy.ts). Inside the caller's `editor.update`: one edit, so
- * Ctrl+Z / the toast's Undo restores the text exactly. */
+ * Ctrl+Z / the notice's Undo restores the text exactly. */
 export function $removeChipTidy(chip: LexicalNode) {
   const prev = chip.getPreviousSibling();
   const next = chip.getNextSibling();

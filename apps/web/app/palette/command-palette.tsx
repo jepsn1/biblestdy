@@ -21,13 +21,14 @@ import {
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { toast } from "~/lib/toast";
+import { announce } from "~/lib/announce";
+import { UndoInPlace } from "~/components/undo-in-place";
 import { modKey } from "~/components/hint";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useIsMobile } from "~/hooks/use-mobile";
-import { setHighlightFilter, useHighlightFilter } from "~/lib/highlight-filter";
+import { setHighlightFilter } from "~/lib/highlight-filter";
 import { useColorName } from "~/lib/highlight-labels";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import i18n, { setUiLanguage } from "~/lib/i18n";
@@ -162,13 +163,10 @@ function useActions(r: ReaderActions) {
       keywords: [...both("settings.theme"), ...both(`theme.${p}`)],
       checked: theme === p,
       common: p !== theme && p !== "system",
+      // The page changing is the feedback (no toast, #257); read out too
       run: () => {
-        const prev = theme;
         setThemePref(p);
-        toast(t("palette.themeChanged", { value: t(`theme.${p}`) }), {
-          duration: 8000,
-          action: { label: t("toast.undo"), onClick: () => setThemePref(prev) },
-        });
+        announce(t("palette.themeChanged", { value: t(`theme.${p}`) }));
       },
     })),
     ...(["paper", "clean"] as const).map((s) => ({
@@ -177,12 +175,8 @@ function useActions(r: ReaderActions) {
       keywords: [...both("settings.style"), ...both(`readerStyle.${s}`)],
       checked: style === s,
       run: () => {
-        const prev = style;
         void saveReaderStyle(s);
-        toast(t("palette.styleChanged", { value: t(`readerStyle.${s}`) }), {
-          duration: 8000,
-          action: { label: t("toast.undo"), onClick: () => void saveReaderStyle(prev) },
-        });
+        announce(t("palette.styleChanged", { value: t(`readerStyle.${s}`) }));
       },
     })),
     {
@@ -475,7 +469,6 @@ export function CommandPalette({
   });
   const actions = useActions(reader);
   const { name: colorNameOf, title: colorTitle, custom: colorLabel } = useColorName();
-  const filter = useHighlightFilter();
   const [tipsOpen, setTipsOpen] = useState(false);
   // "Ryd" (spec 4) re-reads the list
   const [recentRev, setRecentRev] = useState(0);
@@ -548,13 +541,10 @@ export function CommandPalette({
       return;
     }
     if (item.filterColor) {
-      // As the colour key: this colour in full, the others faded; undoable
-      const prev = filter;
+      // As the colour key: this colour in full, the others faded (the key
+      // shows it and resets it; read out, no toast — #257)
       setHighlightFilter(new Set([item.filterColor]));
-      toast(t("colourKey.showing", { colors: colorTitle(item.filterColor) }), {
-        duration: 8000,
-        action: { label: t("toast.undo"), onClick: () => setHighlightFilter(prev) },
-      });
+      announce(t("colourKey.showing", { colors: colorTitle(item.filterColor) }));
       nextFocus.current = "text";
       closeVia();
       return;
@@ -726,21 +716,14 @@ export function CommandPalette({
     );
   }
 
-  // "Ryd" (spec 4): forget the chapters read, undoable (≥6s)
+  // "Ryd" (spec 4): forget the chapters read; "Recent cleared · Undo" in
+  // the same spot until the sheet closes (#257 panel D4)
+  const [cleared, setCleared] = useState<ReturnType<typeof clearRecent> | null>(null);
   function clearRecents() {
     const was = clearRecent({ book: reader.book, chapter: reader.chapter });
     setRecentRev((r) => r + 1);
+    setCleared(was);
     inputRef.current?.focus();
-    toast(t("palette.recentCleared"), {
-      duration: 8000,
-      action: {
-        label: t("toast.undo"),
-        onClick: () => {
-          restoreRecent(was);
-          setRecentRev((r) => r + 1);
-        },
-      },
-    });
   }
 
   const input = (
@@ -959,6 +942,21 @@ export function CommandPalette({
                   >
                     {t("palette.clearRecent")}
                   </button>
+                </div>
+              )}
+              {cleared && isMobile && empty && !recentAbove && (
+                <div className="flex min-h-11 items-center px-4.5 pt-1.5 text-list">
+                  <UndoInPlace
+                    label={t("palette.recentCleared")}
+                    ms={Infinity}
+                    onUndo={() => {
+                      restoreRecent(cleared);
+                      setCleared(null);
+                      setRecentRev((r) => r + 1);
+                      inputRef.current?.focus();
+                    }}
+                    onGone={() => setCleared(null)}
+                  />
                 </div>
               )}
               {list}

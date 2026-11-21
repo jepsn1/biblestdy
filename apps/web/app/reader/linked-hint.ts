@@ -1,27 +1,16 @@
-import type { WordPos } from "@biblestdy/shared";
-import { toast } from "~/lib/toast";
+import { announce } from "~/lib/announce";
 import type { NoteAtWord } from "./word-click";
 
 type T = (key: string, o?: Record<string, unknown>) => string;
 
 /** The eraser over a link (#212; a bracket too, #211): links are never
- * erased here — say which note holds it, with the way there. One toast,
- * updated by repeated strokes. */
-export function linkedHint(
-  t: T,
-  notes: NoteAtWord[],
-  at: WordPos,
-  onOpenNote: (noteId: string, at: WordPos) => void,
-) {
+ * erased here. Says which note holds it — read out, not shown (#257); with
+ * the eraser off, the link opens that note. */
+export function linkedHint(t: T, notes: NoteAtWord[]) {
   if (notes.length === 0) return;
-  const first = notes[0];
-  toast(
+  announce(
     notes.length === 1
-      ? t("toast.eraseLinked", { title: first.title || t("note.untitled") })
-      : t("toast.eraseLinkedMany", { count: notes.length }),
-    {
-      id: "erase-linked",
-      action: { label: t("note.open"), onClick: () => onOpenNote(first.noteId, { verse: at.verse, word: at.word }) },
-    },
+      ? t("announce.eraseLinked", { title: notes[0].title || t("note.untitled") })
+      : t("announce.eraseLinkedMany", { count: notes.length }),
   );
 }

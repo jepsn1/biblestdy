@@ -1,12 +1,11 @@
 import type { Note, Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import i18n from "~/lib/i18n";
-import { notifyError, notifyUndo } from "~/lib/notify";
+import { notifyError } from "~/lib/notify";
 import { api } from "~/lib/query";
 
-/** Failed tag writes say so (#64) — toast, return null. */
-function toastFail(e: unknown): null {
-  notifyError(e);
+/** Failed tag writes say so (#64) — inline notice, return null. */
+function failed(e: unknown): null {
+  notifyError(e, { place: "note" });
   return null;
 }
 
@@ -36,58 +35,21 @@ export function useNoteTags(noteId: string) {
       await api<Tag[]>(`/api/tags/note/${noteId}`, {
         method: "POST",
         body: JSON.stringify({ name }),
-      }).catch(toastFail),
+      }).catch(failed),
     );
   }
 
-  /** Untags, then "Tag removed · Undo" — undo re-adds it by name (the tag
-   * itself may have been dropped as unused; re-adding recreates it). */
-  async function remove(tag: Tag) {
+  /** Untags; true when done. The chip itself then says "Removed · Undo"
+   * (tag-chips.tsx, #257) — undo re-adds it by name (the tag itself may have
+   * been dropped as unused; re-adding recreates it). */
+  async function remove(tag: Tag): Promise<boolean> {
     const updated = await api<Tag[]>(`/api/tags/note/${noteId}/${tag.id}`, {
       method: "DELETE",
-    }).catch(toastFail);
-    if (!updated) return;
+    }).catch(failed);
+    if (!updated) return false;
     settle(updated);
-    notifyUndo(i18n.t("toast.tagRemoved", { name: tag.name }), () => add(tag.name));
+    return true;
   }
 
   return { tags, failed: isError, retry: refetch, add, remove };
-}
-
-/** Tag/untag the current passage (chapter). The panel reads topics from the
- * connections query, so mutations just drop that cache. */
-export function usePassageTags(translationId: string, book: string, chapter: number) {
-  const qc = useQueryClient();
-  const passage = { translationId, book, chapter };
-
-  function settle() {
-    void qc.invalidateQueries({ queryKey: ["connections"] });
-    void qc.invalidateQueries({ queryKey: ["topic"] });
-  }
-
-  async function add(name: string) {
-    await api<Tag[]>("/api/tags/passage", {
-      method: "POST",
-      body: JSON.stringify({ ...passage, name }),
-    }).catch(toastFail);
-    settle();
-  }
-
-  /** Untags the passage, then "Tag removed · Undo" (re-adds by name). */
-  async function remove(tag: Tag) {
-    const params = new URLSearchParams({
-      translation: translationId,
-      book,
-      chapter: String(chapter),
-    });
-    const updated = await api<Tag[]>(`/api/tags/passage/${tag.id}?${params}`, {
-      method: "DELETE",
-    }).catch(toastFail);
-    settle();
-    if (updated) {
-      notifyUndo(i18n.t("toast.tagRemoved", { name: tag.name }), () => add(tag.name));
-    }
-  }
-
-  return { add, remove };
 }

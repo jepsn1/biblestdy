@@ -898,7 +898,7 @@ export function AnnotationMarks({
                   e.stopPropagation();
                   if (eraser) {
                     const notes = [...new Map(marks.map((m) => [m.noteId, { noteId: m.noteId, title: m.title }])).values()];
-                    linkedHint(t, notes, { verse: lead.startVerse, word: lead.startWord }, onOpenNote);
+                    linkedHint(t, notes);
                   } else if (p.members)
                     document.querySelector<HTMLElement>(`[${NOTE_OPENER}="${CSS.escape(p.markId)}"]`)?.click();
                   else onOpenNote(lead.noteId, { verse: lead.startVerse, word: lead.startWord });

@@ -3,7 +3,7 @@ import { formatScriptureHref, type Anchor, type Chapter, type Note, type NoteAnc
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ChevronUp, Plus, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { toast } from "~/lib/toast";
+import { UndoInPlace } from "~/components/undo-in-place";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { noteView } from "~/lib/fums";
@@ -98,7 +98,7 @@ export function ReferencesOverview({
   spot: string | null;
   onShowAnchor: (anchor: NoteAnchor) => void;
   onReadRef?: ReadRef;
-  /** Resolves to the updated note, or null when it failed (said by a toast). */
+  /** Resolves to the updated note, or null when it failed (its notice said so). */
   onDetach: (id: string, anchorId: string) => Promise<unknown> | void;
   /** Undo of a removal: the same selection back. */
   onAttach?: (id: string, anchor: Anchor) => Promise<unknown>;
@@ -108,8 +108,8 @@ export function ReferencesOverview({
   onShowInText: (ref: ScriptureRef) => boolean;
   /** A selection as a canonical (English-numbered) ref, for its href. */
   onInsertInText: (ref: ScriptureRef) => void;
-  /** × on a text reference: its chips out of the text (Undo: the editor's
-   * removal toast). */
+  /** × on a text reference: its chips out of the text (Undo: the note's
+   * notice line). */
   onRemoveRef?: (ref: ScriptureRef) => void;
   /** The reader beside it: the rows' location tags. */
   locator?: RefLocator;
@@ -200,22 +200,41 @@ export function ReferencesOverview({
     onRemoveRef(row.ref);
     focusAfter(next);
   }
+  /** Removed selections, in their rows' places: "John 3:16 removed · Undo"
+   * (#257 panel D4) until the time is up. */
+  const [gone, setGone] = useState<{ key: string; label: string; anchor: Anchor; at: number; next: string | null; focus: boolean }[]>([]);
   async function remove(a: NoteAnchor) {
     const at = marked.findIndex((r) => r.anchor.id === a.id);
     const next = marked[at + 1] ?? marked[at - 1] ?? text.at(-1);
+    const hadFocus = !!sectionRef.current?.contains(document.activeElement);
     const updated = await onDetach(note.id, a.id);
-    if (updated === null) return; // failed: its toast said so
-    focusAfter(next?.key ?? null);
-    if (!onAttach) return;
+    if (updated === null) return; // failed: its notice said so
+    if (!onAttach) {
+      focusAfter(next?.key ?? null);
+      return;
+    }
     const { id: _id, ...anchor } = a;
-    // Corner, no focus taken (as a chip's removal, #160)
-    toast(t("note.refRemoved", { ref: anchorChip(a, locale) }), {
-      duration: 6000,
-      position: "bottom-right",
-      className: "!w-auto !text-list",
-      action: { label: t("toast.undo"), onClick: () => void onAttach(note.id, anchor) },
-    });
+    const key = `gone:${a.id}`;
+    setGone((g) => [...g, { key, label: anchorChip(a, locale), anchor, at, next: next?.key ?? null, focus: hadFocus }]);
   }
+  function dropGone(key: string, hadFocus: boolean) {
+    const g = gone.find((x) => x.key === key);
+    setGone((all) => all.filter((x) => x.key !== key));
+    if (hadFocus) focusAfter(g?.next ?? null);
+  }
+  const ghostRow = (g: (typeof gone)[number]) => (
+    <li key={g.key} className={cn("flex min-h-8 items-center rounded px-1.5 font-sans text-list pointer-coarse:min-h-11", !stacked && "col-span-full")}>
+      <UndoInPlace
+        label={t("note.refRemoved", { ref: g.label })}
+        focus={g.focus}
+        onUndo={() => {
+          setGone((all) => all.filter((x) => x.key !== g.key));
+          void onAttach?.(note.id, g.anchor);
+        }}
+        onGone={(hadFocus) => dropGone(g.key, hadFocus)}
+      />
+    </li>
+  );
 
   // The natural height: the section's padding + heading + the body's own
   // height (inside the scroll viewport it isn't squeezed)
@@ -223,7 +242,7 @@ export function ReferencesOverview({
   useEffect(() => {
     onHeight.current = onNaturalHeight;
   });
-  const empty = rows.length === 0;
+  const empty = rows.length === 0 && gone.length === 0;
   useLayoutEffect(() => {
     const section = sectionRef.current;
     if (!section || collapsed || !onHeight.current) return;
@@ -643,10 +662,12 @@ export function ReferencesOverview({
     );
   };
 
-  const group = (title: string, items: OverviewRow[]) => {
+  const group = (title: string, items: OverviewRow[], ghosts: typeof gone = []) => {
+    const out: React.ReactNode[] = items.map(renderRow);
+    for (const g of [...ghosts].sort((a, b) => a.at - b.at)) out.splice(Math.min(g.at, out.length), 0, ghostRow(g));
     const list = (
       <ul aria-label={both ? undefined : t("note.references")} className={cn(!stacked && "col-span-full grid grid-cols-subgrid", stacked && "flex flex-col")}>
-        {items.map(renderRow)}
+        {out}
       </ul>
     );
     // One shape either way (the subhead comes and goes): React keeps the
@@ -671,7 +692,7 @@ export function ReferencesOverview({
           {heading}
           {rows.length > 0 && addVerse(false)}
         </div>
-        {rows.length === 0 ? (
+        {rows.length === 0 && gone.length === 0 ? (
           <p data-measure="body" className="px-0.5 pb-1 font-sans text-meta text-muted-foreground">
             {t("note.emptyBefore")} {addVerse(true)}
             {t("note.emptyAfter")}
@@ -686,7 +707,7 @@ export function ReferencesOverview({
                 )}
               >
                 {text.length > 0 && group(t("note.groupText"), text)}
-                {marked.length > 0 && group(t("note.groupMarked"), marked)}
+                {(marked.length > 0 || gone.length > 0) && group(t("note.groupMarked"), marked, gone)}
               </div>
               {/* The snippets quote Bible text: its copyright link (ToS §7.2),
                   naming what's quoted — there from the start, so nothing moves */}

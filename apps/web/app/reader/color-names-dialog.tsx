@@ -66,7 +66,7 @@ function ColorNamesForm({ onDone }: { onDone: () => void }) {
     const next = cleanLabels(draft);
     busy.current = true;
     const save = () =>
-      saveHighlightLabels(next).catch((err: unknown) => notifyError(err, { retry: save }));
+      saveHighlightLabels(next).catch((err: unknown) => notifyError(err, { place: "settings", retry: save }));
     void save().finally(() => (busy.current = false));
     onDone(); // the names show at once; a failed save says so and reverts
   }

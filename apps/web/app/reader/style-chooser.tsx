@@ -34,7 +34,9 @@ export function StyleChooser({ verse, onDone }: { verse?: Verse; onDone: () => v
     // Applied locally even if the save fails (the chooser returns next load);
     // the failure is said out loud (#64), with a retry
     const save = () =>
-      saveReaderStyle(picked).catch((e: unknown) => notifyError(e, { retry: save }));
+      saveReaderStyle(picked).catch((e: unknown) =>
+        notifyError(e, { place: "settings", message: t("notice.styleNotSaved", { value: t(`readerStyle.${picked}`) }), retry: save }),
+      );
     await save();
     onDone();
   }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "~/lib/toast";
+import { postNotice } from "~/lib/notices";
 import { useLazyModule, whenIdle } from "~/lib/lazy-module";
 import type { ReaderActions } from "./command-palette";
 import { OPEN_PALETTE, palette, startTypeahead, takeTypeahead } from "./open-palette";
@@ -65,8 +65,10 @@ export function LazyCommandPalette({
       retry();
       return;
     }
-    toast.error(t("palette.loadFailed"), {
-      action: { label: t("note.reloadPage"), onClick: () => window.location.reload() },
+    postNotice("page", {
+      kind: "error",
+      message: t("palette.loadFailed"),
+      action: { label: t("note.reloadPage"), run: () => window.location.reload() },
     });
     onOpenChange(false);
     retry(); // a later open tries the download again

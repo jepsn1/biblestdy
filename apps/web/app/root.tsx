@@ -25,7 +25,7 @@ import { ErrorScreen } from "~/components/error-page";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { useViewportZoom, VIEWPORT_OPEN, VIEWPORT_PREPAINT } from "~/lib/viewport";
 import { usePrintLimit } from "~/lib/print-limit";
-import { Toaster } from "~/components/lazy-toaster";
+import { ANNOUNCER_ID } from "~/lib/announce";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import "./app.css";
 
@@ -92,13 +92,9 @@ export default function App() {
       <TooltipProvider delay={300}>
         <Outlet />
       </TooltipProvider>
-      {/* Feedback toasts (#64): bottom centre, clear of the reader's footer
-          page bar on every screen size */}
-      <Toaster
-        position="bottom-center"
-        offset={{ bottom: "5rem" }}
-        mobileOffset={{ bottom: "calc(5rem + var(--safe-bottom))" }}
-      />
+      {/* No toasts (#257): routine feedback is read out (lib/announce);
+          errors and Undo show inline next to the action (lib/notices) */}
+      <div id={ANNOUNCER_ID} aria-live="polite" aria-atomic="true" className="sr-only" />
     </QueryClientProvider>
   );
 }

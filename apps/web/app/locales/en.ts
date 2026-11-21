@@ -191,9 +191,10 @@ export default {
   },
   note: {
     draftRestored: "Unsaved changes restored",
-    draftFound: "This device has unsaved changes to this note",
-    draftRestore: "Restore",
-    draftDiscard: "Discard",
+    /** A newer unsaved draft on this device (#257 panel C4) */
+    draftNewer: "Newer unsaved text from {{time}} on this device",
+    draftUse: "Use newer",
+    draftKeep: "Keep current",
     topicsLoadFailed: "Couldn\u2019t load this note\u2019s topics",
     untitled: "Untitled note",
     titlePlaceholder: "Untitled note",
@@ -317,6 +318,8 @@ export default {
     sortLabel: "Order",
     sortRecent: "Recent",
     sortBible: "Bible order",
+    /** A deleted note, in its row (#257) */
+    deleted: "Note \u201c{{title}}\u201d deleted",
     noPassages: "No verses yet",
     emptyAll: "You haven\u2019t written any notes yet. Start one here with New note, or select words while reading.",
     emptyEditor: "Notes you write live here — on their own, or tied to the passages they\u2019re about.",
@@ -613,7 +616,6 @@ export default {
     close: "Close translations",
     selected: "Selected",
     switched: "Now reading {{name}}. Your highlights and margin notes in {{prev}} are kept.",
-    back: "Back to {{abbr}}",
     renumbered: "Verse numbers differ here: {{from}} in {{prev}} is {{to}}.",
     psalmTitle: "The psalm title has no verse number in {{abbr}}, so you\u2019re at verse 1.",
     nearest: "{{abbr}} has no {{ref}}, so you\u2019re at the nearest verse.",
@@ -775,23 +777,42 @@ export default {
     /** A code-split sheet (phones) that didn't download. */
     loadFailed: "Couldn\u2019t open this. Check your connection and try again.",
   },
-  toast: {
+  /** Read out by lib/announce, never shown (#257). */
+  announce: {
+    copied: "Copied {{ref}} ({{translation}})",
     /** The eraser over a note link alone (#212): links are removed in the note */
     eraseLinked: "Linked to the note “{{title}}” — remove the link there",
     eraseLinkedMany: "Linked to {{count}} notes — remove the links there",
+  },
+  /** Inline notices (#257): errors and Undo, next to the action — never toasts. */
+  notice: {
     undo: "Undo",
     retry: "Retry",
+    close: "Close",
+    removed: "Removed",
     noteDeleted: "Note deleted",
     highlightRemoved: "Highlight removed",
     annotationRemoved: "Margin note removed",
+    /** An eraser sweep, merged (panel D3): "3 highlights removed",
+     * "2 highlights and 1 margin note removed" */
+    nRemoved: "{{what}} removed",
+    bothRemoved: "{{a}} and {{b}} removed",
+    highlights_one: "{{count}} highlight",
+    highlights_other: "{{count}} highlights",
+    annotations_one: "{{count}} margin note",
+    annotations_other: "{{count}} margin notes",
     tagRemoved: "Topic \u201c{{name}}\u201d removed",
-    copied: "Copied {{ref}} ({{translation}})",
     saveFailed: "Couldn\u2019t save",
     deleteFailed: "Couldn\u2019t delete",
-    undoFailed: "Couldn\u2019t undo \u2014 it may have been deleted for good",
+    undoFailed: "Couldn\u2019t undo \u2014 it may be gone for good",
     signOutFailed: "Couldn\u2019t log out \u2014 check your connection",
+    /** Settings that didn't reach the account: what's in effect (panel D7) */
+    sizeNotSaved: "Text size {{value}} not saved to your account",
+    styleNotSaved: "Style {{value}} not saved to your account",
     copyFailed: "Couldn\u2019t copy",
-    copyLimit: "You can copy up to 100 verses at a time \u2014 the terms for the Bible text here allow no more. Select a shorter passage.",
+    /** One line in the phone bar (panel D8: \u2264 40 characters) */
+    copyLimit: "Copy limit: 100 verses at a time",
+    copied: "Copied \u2713",
   },
   error: {
     title: "Something went wrong",

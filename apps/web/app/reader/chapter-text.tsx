@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import { authClient } from "~/lib/auth-client";
 import { bookLocale } from "~/lib/book-name";
 import type { ReaderTool } from "./tool-palette";
-import { notifyCopied, notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
+import { announceCopied, notifyCopyFailed, notifyCopyLimit } from "~/lib/notify";
 import { showVerses } from "~/lib/print-limit";
 import { singleKeyOff } from "~/lib/shortcuts";
 import { cn, focusField, focusRing } from "~/lib/utils";
@@ -36,9 +36,8 @@ import { coverInto, spanSize } from "./mark-coverage";
 import type { SpotRange } from "./spotlight";
 import { edgeScroll, inAnchor } from "./held-selection";
 import { DragRefTag, SelectionPill } from "./selection-pill";
-import { notifyUndo } from "~/lib/notify";
-import { toast } from "~/lib/toast";
-import { linkedHint as showLinkedHint } from "./linked-hint";
+import { announce } from "~/lib/announce";
+import { linkedHint as sayLinked } from "./linked-hint";
 import { anchorOf, eraseClick, notesAtWord, notesInStroke, wordClick, type NoteAtWord } from "./word-click";
 import { HIGHLIGHT_SWATCH } from "./highlight-colors";
 import { TAP_MAX_MS, isTap, lastScroll, movePress, startPress, watchScroll, type Press } from "./tap-rule";
@@ -562,7 +561,7 @@ export function ChapterText({
       // The wash stays on the words being annotated
       setTouchSel((sel) => sel ?? { a: { verse: anchor.startVerse, word: anchor.startWord }, b: { verse: anchor.endVerse, word: anchor.endWord } });
       return true;
-    } else if (key === "c") void copyAnchorText(anchor);
+    } else if (key === "c") void copyAnchorText(anchor, true);
     else if (key === "p") startCompare(anchor);
     else return false;
     return true;
@@ -766,10 +765,12 @@ export function ChapterText({
     return () => document.removeEventListener("copy", onCopy);
   }, [copyAnchor, chapter, translationAbbreviation, locale]);
 
-  async function copyAnchorText(anchor: Anchor) {
+  /** Copies; true when it worked. The menu's Copy then reads "Copied ✓"
+   * (panel C5); a key press (`shown`) says it in the notice place. */
+  async function copyAnchorText(anchor: Anchor, shown = false): Promise<boolean> {
     if (!canCopy(chapter, anchor)) {
       notifyCopyLimit();
-      return;
+      return false;
     }
     const { text, html } = formatCopy(chapter, anchor, translationAbbreviation, locale);
     try {
@@ -785,10 +786,11 @@ export function ChapterText({
         await navigator.clipboard.writeText(text);
       } catch (e) {
         notifyCopyFailed(e);
-        return;
+        return false;
       }
     }
-    notifyCopied(anchorReferenceLabel(anchor, locale), translationAbbreviation);
+    announceCopied(anchorReferenceLabel(anchor, locale), translationAbbreviation, { show: shown });
+    return true;
   }
 
   function wordPosOf(target: EventTarget | null): WordPos | null {
@@ -835,7 +837,7 @@ export function ChapterText({
       const as = annotations.filter(overlaps);
       for (const h of hs) onRemoveHighlight(h.id);
       for (const a of as) onRemoveAnnotation(a.id);
-      if (hs.length + as.length === 0) linkedHint(notesInStroke(noteMarks, anchor), { verse: anchor.startVerse, word: anchor.startWord });
+      if (hs.length + as.length === 0) linkedHint(notesInStroke(noteMarks, anchor));
     }
   }
 
@@ -913,9 +915,9 @@ export function ChapterText({
   }
 
   /** The eraser over a link alone (#212): links are never erased here —
-   * say which note holds it, with the way there. */
-  function linkedHint(notes: NoteAtWord[], at: WordPos) {
-    showLinkedHint(t, notes, at, onOpenNote);
+   * say which note holds it (`t` is shadowed by the tool in the stroke). */
+  function linkedHint(notes: NoteAtWord[]) {
+    sayLinked(t, notes);
   }
 
   function onWordClick(event: React.MouseEvent, pos: WordPos, virtual = false) {
@@ -928,7 +930,7 @@ export function ChapterText({
         const erase = eraseClick(layers);
         if (erase.kind === "annotation") onRemoveAnnotation(erase.annotation.id);
         else if (erase.kind === "highlight") onRemoveHighlight(erase.highlight.id);
-        else if (erase.kind === "hint") linkedHint(erase.notes, pos);
+        else if (erase.kind === "hint") linkedHint(erase.notes);
       } else if (activeTool.kind === "highlight" && hit) {
         if (hit.color !== activeTool.color) onRecolorHighlight(hit.id, activeTool.color);
       } else applyTool(activeTool, buildAnchor(passage, pos, pos));
@@ -1019,11 +1021,12 @@ export function ChapterText({
     });
   }
 
-  /** The pill's Highlight (#206): the last-used colour at once, Undo for 4s. */
+  /** The pill's Highlight (#206): the last-used colour at once. The mark is
+   * the feedback (no toast, #257) — read out too; tap it to remove. */
   async function highlightNow(anchor: Anchor) {
     setTouchSel(null);
     const h = await onAddHighlight(anchor, defaultColor);
-    if (h) notifyUndo(t("menu.highlighted"), async () => onRemoveHighlight(h.id), 4000);
+    if (h) announce(t("menu.highlighted"));
   }
 
   function addHighlight(anchor: Anchor, color: HighlightColor) {
@@ -1144,7 +1147,7 @@ export function ChapterText({
    * scrolling at 150% text. */
   const copyGroup = (anchor: Anchor, icons = true) => (
     <>
-      <ActionMenuItem hint={t("menu.copyHint")} icon={icons ? <Copy aria-hidden /> : undefined} shortcut="c" onSelect={() => void copyAnchorText(anchor)}>
+      <ActionMenuItem hint={t("menu.copyHint")} icon={icons ? <Copy aria-hidden /> : undefined} shortcut="c" confirm={t("notice.copied")} onSelect={() => copyAnchorText(anchor)}>
         {t("menu.copy")}
       </ActionMenuItem>
       <ActionMenuItem hint={t("menu.compareHint")} icon={icons ? <BookCopy aria-hidden /> : undefined} shortcut="p" onSelect={() => startCompare(anchor)}>
