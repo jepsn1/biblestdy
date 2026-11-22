@@ -84,7 +84,8 @@ export function ConnectionsPanel({
   const inChapter = (a: Note["anchors"][number]) => a.book === book && a.chapter === chapter;
   const here = `${nameOf(book)} ${chapter}`;
   const notesHere = connections?.notesHere ?? [];
-  const abbr = (id: string) => translations.find((x) => x.id === id)?.abbreviation ?? id;
+  // A translation we can't name is left out, never shown as its raw id (#262)
+  const abbr = (id: string) => translations.find((x) => x.id === id)?.abbreviation;
   /** Distinct labels, in order (an anchor and a ref on the same verses). */
   const labels = (xs: string[]) => [...new Set(xs)].join(" · ");
 
@@ -133,7 +134,7 @@ export function ConnectionsPanel({
                     ...own.filter((a) => !inChapter(a)).map((a) => anchorLabel(a, nameOf, locale)),
                     ...refs.filter((r) => !refHere(r)).map((r) => referenceLabel(r, nameOf, locale)),
                   ]);
-                  const writtenIn = writtenElsewhere(n, translationId, book, chapter).map(abbr);
+                  const writtenIn = writtenElsewhere(n, translationId, book, chapter).map(abbr).filter(Boolean);
                   return (
                     <li key={n.id}>
                       <button
