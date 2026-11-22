@@ -5,7 +5,7 @@ import { cn, focusRing } from "~/lib/utils";
 import { ShareMenu } from "./share-menu";
 
 const LINK = cn(
-  "inline-flex min-h-9 items-center gap-1.5 rounded text-control text-muted-foreground underline-offset-2 hover:text-foreground hover:underline max-sm:min-h-11",
+  "inline-flex min-h-9 items-center gap-1.5 rounded text-control text-muted-foreground underline-offset-2 hover:text-foreground hover:underline max-sm:min-h-12 max-sm:w-full max-sm:[&>svg]:ml-auto",
   focusRing,
 );
 

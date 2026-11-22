@@ -253,11 +253,13 @@ export function SettingsContent({
       )}
 
       {/* The notes tours (#162): note + Notes page, from the start */}
-      <Button variant="ghost" className="h-10 justify-start px-0 hover:bg-transparent hover:underline max-sm:h-12" onClick={() => {
+      <Button variant="ghost" className="h-10 justify-between px-0 hover:bg-transparent hover:underline max-sm:h-12" onClick={() => {
           onReplayTour();
           showToursAgain();
         }}>
         {t("tour.replay")}
+        {/* A row that goes somewhere in the app: › (#262 D7) */}
+        <ChevronRight className="text-muted-foreground" aria-hidden />
       </Button>
 
       {/* WCAG 2.1.4 (#145): every device — an iPad with a keyboard fires them too */}

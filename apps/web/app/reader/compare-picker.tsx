@@ -154,7 +154,7 @@ export function ComparePicker({
                   <label
                     key={tr.id}
                     className={cn(
-                      "flex min-h-10 cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 text-control hover:bg-accent has-[:focus-visible]:bg-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring pointer-coarse:min-h-11",
+                      "flex min-h-10 cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 text-control hover:bg-accent has-[:focus-visible]:bg-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring pointer-coarse:min-h-12",
                       off && "cursor-not-allowed opacity-60 hover:bg-transparent",
                     )}
                   >
