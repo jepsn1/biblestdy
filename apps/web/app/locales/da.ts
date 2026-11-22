@@ -56,8 +56,6 @@ const da: typeof en = {
     more: "Mere",
     moreTitle: "Mere",
     moreClose: "Luk",
-    shown: "Vises",
-    hidden: "Skjult",
     language: "Sprog",
     install: "Installér app",
     installIosTitle: "Installér p\u00e5 denne iPhone/iPad",

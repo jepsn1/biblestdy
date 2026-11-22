@@ -15,8 +15,6 @@ export default {
     more: "More",
     moreTitle: "More",
     moreClose: "Close",
-    shown: "Shown",
-    hidden: "Hidden",
     language: "Language",
     install: "Install app",
     installIosTitle: "Install on this iPhone/iPad",
