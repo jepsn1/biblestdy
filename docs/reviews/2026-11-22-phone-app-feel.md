@@ -57,6 +57,13 @@
   "+" is not on the list.
 - **Unchanged:** zero toasts on phone, the zoom lock with in-app text size, controls near the text never slide with page turns, safe-area tokens, ScrollArea, /read ≤350 KB gz (everything here is CSS or class changes; the caret handler sits in the lazy editor chunk).
 
+## Owner directions after the panel (binding, 2026-11-22, real iPhone)
+
+- **O1, no note footer.** The note's footer row ("✓ Saved … Close note") goes everywhere it rendered (reader drawer and the Notes page note): "this footer has no justification for even existing". Close is the header's ×; saving is silent; a failed save still shows "Not saved · Retry" in the note's notice line. (#265)
+- **O2, rounded corners.** Nothing interactive may enter the glass's ~55pt corner arcs. Every bottom edge pads by `--corner-bottom` (≥24px on touch phones, because Safari reports no bottom inset while its toolbar is collapsed), bottom-row content ≥12px in from the sides, and `tools/review/safe-area-shots.mjs` fails `corner-*` (standing rule in `REVIEW-PROCESS.md`). The reader's chapter bar is fine on the home screen and keeps its look there. (#265)
+- **O3, labels tab-bar style.** On phones controls are icon-first like native apps. Where a word is kept, it sits small and muted *under* the icon (≥12px, capped 15px), not beside it (`tab-label`); the accessible name is unchanged. Applied to the note header's "⋯ More" / "× Close" (#265) and to every remaining phone toolbar in this pass. This supersedes D2-style "icon + word on one line" on phones; desktop keeps one line. It does not change D13: words a control has keep showing, just under the icon.
+- #263 (#261) shipped the word "Remove"/"Fjern" on a note's verse rows before this panel's C4 (× named); that stands (Birthe's preference, and O3 allows a kept word).
+
 ## Earlier rules this reverses (recorded)
 
 - **2026-11-15 navigation, 2026-11-16 nav follow-ups:** "words never go … never an icon alone", the worded "Search" button and worded "⋯ More" on phones. **Reversed on phones only** for 🔍 and ⋯ in the top bar (D3), under the closed list in D13. Desktop and tablet rows keep the shed order and their words. Birthe's original blocker (words vanishing at 175–200%) is kept as rule D13.5: no control loses a word it has at 100%; Search and More simply never had a word on phones now.
@@ -67,22 +74,23 @@
 
 | # | Surface (before shot) | What was wrong | Decision | PR |
 |---|---|---|---|---|
-| 1 | Reader top bar (`01-reader`) | 28px words; wraps at 200% | D3: icon chips, 48px row, never wraps | 1 |
-| 2 | All Buttons / inputs / selects | 28–32px on touch | D1, D2 | 1 |
-| 3 | Sheet headers (`03`, `04`, `08`, `09`, `15`) | × 32px | D5: × 44 (via D1); titles wrap | 1 (×), 3 (titles) |
-| 4 | Reader end (`02-reader-end`) | "Buy me a coffee · Share" 12px, 16 tall | 44px hit band, look unchanged (Mads F1) | 2 |
-| 5 | Bottom bar (`01`, big) | "‹ 2" at 200% | D12 | 2 |
-| 6 | More sheet (`03-more`) | "Hidden" word reads as a warning | D7: switch | 2 |
-| 7 | Selection pill (`10`, big) | becomes a vertical card over the text at 200% | D6: one row | 2 |
-| 8 | Highlight drawer (`12`, big) | purple swatch clipped at 200% | 44px swatches, row fits the width (Mads F6) | 2 |
-| 9 | Settings (`04-settings`) | 36px segments, 20px text links | D7 | 3 |
-| 10 | Search (`05`–`07`) | "Cancel" stays 13px at 200% | D4 | 3 |
-| 11 | Translation chooser (`09`, big) | "✓ Selected" squeezes the name to 3 lines | trailing ✓ only, named "Selected" (Mads F5) | 3 |
-| 12 | Compare (`16`) | "Translations 2" chip 28px | 44 via D1; 48px rows (Elias F3) | 1 (chip), 3 (rows) |
-| 13 | Notes panel (`15`) | tiny footer links; raw id | D10 | 4 |
-| 14 | Notes page (`17`, `17b`) | 36–40px controls, lone "+" at 200% | D10 | 4 |
-| 15 | Sign-in, landing (`18`, `19`) | 32px field/button, 24px links, ignores text size | D11 | 4 |
-| 16 | Note editor (`13b`, `14`, `17b`) | 20px toolbar, one-line tap target, unclear verse row | D8, D9 | 5 (after #261) |
+| 1 | Reader top bar (`01-reader`) | 28px words; wraps at 200% | D3: icon chips, 48px row, never wraps | 1 (#264) |
+| 2 | All Buttons / inputs / selects | 28–32px on touch | D1, D2 | 1 (#264) |
+| 3 | Sheet headers (`03`, `04`, `08`, `09`, `15`) | × 32px | D5: × 44 (via D1); titles wrap | 1 (×), 4 (titles) |
+| 4 | Reader end / note credits (`02`, `13`) | "WEB copyright and sources" / "Text via API.Bible" 12px links, 16 tall | 44px hit band, look unchanged (D9) | 3 |
+| 5 | Bottom bar (`01`, big) | "‹ 2" at 200% | D12 — **held**: the owner says the bar is fine; left as is | — |
+| 6 | More sheet (`03-more`) | "Hidden" word reads as a warning | D7: switch | 3 |
+| 7 | Selection pill (`10`, big) | becomes a vertical card over the text at 200% | D6: one row | 3 |
+| 8 | Highlight drawer (`12`, big) | purple swatch clipped at 200% | 44px swatches, row fits the width (Mads F6) | 3 |
+| 8b | Note footer; every bottom edge | footer redundant; corners clip | O1, O2 | 2 (#265) |
+| 9 | Settings (`04-settings`) | 36px segments, 20px text links | D7 | 4 |
+| 10 | Search (`05`–`07`) | "Cancel" stays 13px at 200% | D4 | 4 |
+| 11 | Translation chooser (`09`, big) | "✓ Selected" squeezes the name to 3 lines | trailing ✓ only, named "Selected" (Mads F5) | 4 |
+| 12 | Compare (`16`) | "Translations 2" chip 28px | 44 via D1; 48px rows (Elias F3) | 1 (chip), 4 (rows) |
+| 13 | Notes panel (`15`) | tiny footer links; raw id | D10 | 5 |
+| 14 | Notes page (`17`, `17b`) | 36–40px controls, lone "+" at 200% | D10 | 5 |
+| 15 | Sign-in, landing (`18`, `19`) | 32px field/button, 24px links, ignores text size | D11 | 5 |
+| 16 | Note editor (`13b`, `14`, `17b`) | 20px toolbar, one-line tap target, unclear verse row | D8, D9 | 6 (after #261) |
 
 ## Later / not now
 
