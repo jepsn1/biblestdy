@@ -911,8 +911,9 @@ export function CommandPalette({
                 type="button"
                 aria-label={t("palette.cancelTo", { ref: here })}
                 onClick={closeVia}
-                // Grows with large text only to 18px: the field keeps its room
-                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md px-1 text-[clamp(16px,1rem,18px)] leading-tight font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                // Grows with large text to 24px (#262 D4: at 200% it was the
+                // smallest word on the screen); the field gives way
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md px-1 text-[clamp(16px,1rem,24px)] leading-tight font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 {t("palette.cancel")}
               </button>

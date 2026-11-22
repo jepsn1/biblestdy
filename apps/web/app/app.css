@@ -747,6 +747,35 @@
   }
 }
 
+/* Settings' segmented choices on touch (#262 D7): 44px, 14px words */
+@media (pointer: coarse) {
+  [data-slot="toggle-group-item"] {
+    min-height: 44px;
+    font-size: var(--text-control);
+  }
+}
+@media (width < 48rem) {
+  /* Sheet titles wrap to two balanced lines at large text instead of "…"
+     (#262 D5: the title says where you are) */
+  [data-slot="drawer-popup"] header h2.truncate {
+    white-space: normal;
+    text-wrap: balance;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  /* The chosen translation: a trailing ✓ only, like an iOS list (Mads F5);
+     the word "Selected" stays for screen readers */
+  li > button[aria-current="true"] > span.shrink-0 {
+    font-size: 0;
+    gap: 0;
+  }
+  li > button[aria-current="true"] > span.shrink-0 > svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* The phone top bar's icon chips (#262 D3): 44px round, faint fill (6% ink,
    10% in dark), muted glyph. Phones only (< md). */
 /* The phone top row (#262 D3): one 48px row that never wraps — the book
