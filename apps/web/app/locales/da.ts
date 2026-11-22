@@ -255,7 +255,7 @@ const da: typeof en = {
     groupText: "I teksten",
     groupMarked: "Markeret i Bibelen",
     showInText: "Find i noten",
-    insertInText: "Tilføj i noten",
+    insertInText: "Citér i noten",
     shownInText: "{{ref}} er valgt i noten",
     /** Phone (#195): the note drawer, folded down while its reference is shown in the text */
     backToNote: "Tilbage til noten",

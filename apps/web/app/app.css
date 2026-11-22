@@ -372,6 +372,22 @@
 .mdxeditor > .mdxeditor-root-contenteditable {
   flex-grow: 1;
 }
+/* …and so does the editable itself (#262, owner: "you must hit the single
+   default line"): its two wrappers stretch, so a tap anywhere in the area
+   that looks like the note lands in the real contenteditable — native
+   focus, and iOS opens the keyboard inside the tap (Jonas). A tap below the
+   last line puts the caret at the end (note-editor.tsx) */
+.mdxeditor-root-contenteditable {
+  display: flex;
+  flex-direction: column;
+}
+.mdxeditor-root-contenteditable > div {
+  flex-grow: 1;
+}
+/* (its own parent stays a block: Lexical warns of stray focus in a flex one) */
+.mdxeditor-root-contenteditable > div > [contenteditable="true"] {
+  min-height: 100%;
+}
 /* Quieter toolbar (#66): no grey band, muted icons that come up on hover/on */
 .mdxeditor [role="toolbar"] {
   background: transparent;
@@ -380,8 +396,59 @@
   color: var(--muted-foreground);
   font-size: var(--text-list);
 }
-.mdxeditor [role="toolbar"] :is(button, [role="combobox"]):is(:hover, [data-state="on"], [aria-checked="true"]) {
+.mdxeditor [role="toolbar"] :is(button, [role="combobox"]):is([data-state="on"], [aria-checked="true"]) {
   color: var(--foreground);
+}
+/* Hover only where there is one: on iOS it stuck after a tap (Jonas F4) */
+@media (hover: hover) {
+  .mdxeditor [role="toolbar"] :is(button, [role="combobox"]):hover {
+    color: var(--foreground);
+  }
+}
+/* Phone toolbar (#262 D8): thumb-sized — every tool 44px, glyphs 20px at a
+   1.5 stroke in muted ink (Mads: quieter than the writing). One row; when it
+   doesn't fit (large text) it scrolls sideways with a fade at the edge
+   still to come (C5: a wrap would move the text under the thumb) */
+@property --tb-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes tb-fade {
+  from {
+    --tb-fade: 24px;
+  }
+  to {
+    --tb-fade: 0px;
+  }
+}
+@media (pointer: coarse) and (width < 48rem) {
+  .mdxeditor [role="toolbar"] {
+    flex-wrap: nowrap;
+    gap: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    scrollbar-width: none;
+    padding-block: 2px;
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--tb-fade)), transparent);
+    animation: tb-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+  .mdxeditor [role="toolbar"]::-webkit-scrollbar {
+    display: none;
+  }
+  .mdxeditor [role="toolbar"] button {
+    min-width: 44px;
+    min-height: 44px;
+    flex-shrink: 0;
+    justify-content: center;
+  }
+  .mdxeditor [role="toolbar"] button svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 1.5;
+  }
 }
 /* Placeholders on our muted ink (#123) — the editor's own greys fail AA on
    our pages. Its classes are CSS-module hashed: matched by their stable stem */
@@ -397,6 +464,17 @@
 }
 .mdxeditor [class*="_selectTrigger_"][data-placeholder] > span:first-child {
   color: var(--muted-foreground);
+}
+/* "+ Add topic" keeps its small chip, with a 44px-tall hit area on touch (#262) */
+@media (pointer: coarse) {
+  [data-tag-add] {
+    position: relative;
+  }
+  [data-tag-add]::after {
+    content: "";
+    position: absolute;
+    inset: -11px -4px;
+  }
 }
 /* Popups (block-type select, link dialog) portal outside the panel's stacking
    context — without a z-index they end up behind the editor content */

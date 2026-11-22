@@ -32,6 +32,30 @@ import { scriptureRefPlugin } from "./scripture-ref-node";
 import { VerseButton } from "./verse-button";
 
 /**
+ * A tap in the empty space under the last line (the editable fills the
+ * note's area, app.css, #262) puts the caret at the very end, as a notes app
+ * does — not on the last line at the tap's x. Synchronous, inside the tap:
+ * iOS keeps the keyboard only for a focus/selection made in the gesture, and
+ * Lexical takes the DOM selection from selectionchange (Jonas F2).
+ */
+function caretToEnd(e: React.PointerEvent) {
+  const root = e.target as HTMLElement;
+  if (root.getAttribute("contenteditable") !== "true") return; // a line, a chip, a toolbar
+  const last = root.lastElementChild;
+  if (!last || e.clientY <= last.getBoundingClientRect().bottom) return;
+  const walk = document.createTreeWalker(last, NodeFilter.SHOW_TEXT);
+  let text: Node | null = null;
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) text = n;
+  const range = document.createRange();
+  if (text) range.setStart(text, text.textContent?.length ?? 0);
+  else range.selectNodeContents(last);
+  range.collapse(!!text);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+/**
  * The note body's WYSIWYG markdown editor (MDXEditor / Lexical) — its own
  * chunk (M8): ~270KB gz that most reading sessions never need. Load it via
  * `noteEditor` (note-editor-loader.ts), which sets up the Prism global first.
@@ -91,6 +115,8 @@ export function NoteEditor({
     // The chips' popovers reach "Read here" through this (decorators render
     // inside the editor's React tree)
     <ScriptureRefContext value={refs}>
+    {/* contents: no box of its own, the editor's layout is unchanged */}
+    <div className="contents" onPointerUp={caretToEnd}>
     <MDXEditor
       ref={editorRef}
       iconComponentFor={editorIcon}
@@ -141,6 +167,7 @@ export function NoteEditor({
         }),
       ]}
     />
+    </div>
     </ScriptureRefContext>
   );
 }

@@ -296,7 +296,8 @@ export function ReferencesOverview({
       className={cn(
         "inline-flex items-center gap-0.5 rounded-sm font-sans text-muted-foreground hover:text-foreground",
         inline ? "-mx-0.5 px-0.5 align-baseline font-medium text-primary hover:text-primary hover:underline" : "h-7 px-1.5 text-meta",
-        !inline && (mobile ? "h-11" : "pointer-coarse:h-11"),
+        // Phones: the editor's toolbar has "+ Verse" (same dialog) — once is enough (#262, Freja)
+        !inline && (mobile ? "h-11 max-md:hidden" : "pointer-coarse:h-11"),
         // Tight (#235): icon alone, so the heading keeps its one line
         !inline && tight && "w-11 shrink-0 justify-center",
         inline && (mobile ? "min-h-11" : "pointer-coarse:min-h-11"),
