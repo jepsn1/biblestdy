@@ -68,7 +68,7 @@ export function MoreSheet({
         label={t("nav.connectionsToggle")}
         hint={t("nav.connectionsHint")}
         pressed={connectionsOpen}
-        state={connectionsOpen ? t("nav.shown") : t("nav.hidden")}
+        toggle
         shortcut={isMobile ? undefined : "mod+."}
         onClick={() => {
           setOpen(false);
@@ -81,7 +81,7 @@ export function MoreSheet({
           label={t("nav.annotationsToggle")}
           hint={t("nav.annotationsHint")}
           pressed={annotationBoxesOpen}
-          state={annotationBoxesOpen ? t("nav.shown") : t("nav.hidden")}
+          toggle
           onClick={onToggleAnnotationBoxes}
         />
       )}
@@ -195,7 +195,7 @@ function SheetRow({
   label,
   hint,
   pressed,
-  state,
+  toggle,
   shortcut,
   opensDialog,
   to,
@@ -205,8 +205,8 @@ function SheetRow({
   label: string;
   hint: string;
   pressed?: boolean;
-  /** Visible on/off word for a toggle row. */
-  state?: string;
+  /** An on/off row (`pressed`, a toggle button): drawn as a switch. */
+  toggle?: boolean;
   /** Its key, shown with the state ("mod+."; keyboards only). */
   shortcut?: string;
   /** The row opens another panel (aria-haspopup). */
@@ -223,9 +223,11 @@ function SheetRow({
         <span className="text-control font-medium">{label}</span>
         <span className="text-meta text-muted-foreground">{hint}</span>
       </span>
-      {(state || shortcut) && (
+      {(toggle || shortcut) && (
         <span className="flex shrink-0 flex-col items-end gap-0.5 text-meta text-muted-foreground">
-          {state}
+          {/* On/off as a switch, like Single-key shortcuts in Settings (#262
+              panel C6: a grey "Hidden" read as a warning, not a setting) */}
+          {toggle && <span aria-hidden className="tgl" data-on={pressed} />}
           {shortcut && <Kbd keys={shortcut} />}
         </span>
       )}

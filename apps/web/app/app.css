@@ -819,3 +819,93 @@
     }
   }
 }
+
+/* The selection pill at large text (#262 D6, Mads F7): one row of 44px
+   buttons over the text, not a tall card covering it — words grow with the
+   text size up to 17px, icons to 18px (px, so 200% doesn't double them). */
+[role="group"][data-selection-ui] {
+  max-width: calc(100vw - 32px);
+}
+@media (min-width: 360px) {
+  /* the three words fit in one row from 360px wide; narrower, they wrap */
+  [role="group"][data-selection-ui] > div > div {
+    flex-wrap: nowrap;
+  }
+}
+[role="group"][data-selection-ui] button {
+  min-height: 44px;
+  padding-inline: 10px;
+  font-size: min(0.8125rem, 17px);
+  line-height: 1.2;
+}
+[role="group"][data-selection-ui] > div > button {
+  width: 44px;
+  padding-inline: 0;
+}
+[role="group"][data-selection-ui] svg {
+  width: min(1rem, 18px);
+  height: min(1rem, 18px);
+}
+[role="group"][data-selection-ui] > p {
+  font-size: min(0.75rem, 14px);
+}
+/* The phone colour row (#262, Mads F6): six 44px swatch buttons always fit
+   the drawer's width — px, so 200% text doesn't push the last one off */
+[data-slot="drawer-popup"] [role="group"] > button.size-11 {
+  width: 44px;
+  height: 44px;
+}
+[data-slot="drawer-popup"] [role="group"] > button.size-11 > span {
+  width: 32px;
+  height: 32px;
+}
+/* More's on/off rows (#262 C6): the Switch's look (Settings' Single-key
+   shortcuts at phone size), drawn by the row itself — the row is the
+   toggle button (aria-pressed), so no control nests inside another */
+.tgl {
+  position: relative;
+  display: block;
+  width: 40px;
+  height: 23px;
+  border-radius: 9999px;
+  background: var(--muted-foreground);
+  transition: background-color 150ms;
+}
+.tgl::after {
+  content: "";
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--background);
+  transition: translate 150ms;
+}
+.tgl[data-on="true"] {
+  background: var(--primary);
+}
+.tgl[data-on="true"]::after {
+  translate: 17px 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tgl,
+  .tgl::after {
+    transition: none;
+  }
+}
+/* Licence credits stay quiet 12px lines (#262 D9), but on touch each link
+   gets an invisible 44px-tall hit band — never wider than its words, so
+   two links on one line never overlap */
+@media (pointer: coarse) {
+  a[href^="/copyright"],
+  a[href*="api.bible"] {
+    position: relative;
+  }
+  a[href^="/copyright"]::after,
+  a[href*="api.bible"]::after {
+    content: "";
+    position: absolute;
+    inset: -14px 0;
+  }
+}
