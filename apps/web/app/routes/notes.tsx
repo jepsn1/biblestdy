@@ -322,7 +322,7 @@ function NotesPage({ params }: Route.ComponentProps) {
         {/* Where deleted things wait 30 days (#261): one quiet line, always
             there — an empty list is when someone comes looking */}
         {loaded && !failed && (
-          <p className="px-4 pt-1 pb-4 max-md:pb-[calc(1rem+var(--safe-bottom))]">
+          <p className="px-4 pt-1 pb-4 max-md:pb-[calc(1rem+var(--corner-bottom))]">
             <Link
               to={`/notes/${TRASH_ID}`}
               data-trash-link=""
@@ -347,7 +347,7 @@ function NotesPage({ params }: Route.ComponentProps) {
     >
       {open ? (
         // A readable measure on wide screens, not a 1000px line
-        <div className="flex min-h-0 w-full max-w-[52rem] flex-1 flex-col md:border-r md:border-border">
+        <div className="flex min-h-0 w-full max-w-[52rem] flex-1 flex-col pb-(--corner-bottom) md:border-r md:border-border">
         <NotePanel
           key={open.id}
           note={open}

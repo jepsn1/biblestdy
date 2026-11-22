@@ -9,7 +9,7 @@ import {
   ResizablePanelGroup,
 } from "~/components/ui/resizable";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
-import { Check, Ellipsis, Maximize2, Trash2 } from "lucide-react";
+import { Ellipsis, Maximize2, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { announce } from "~/lib/announce";
@@ -208,8 +208,9 @@ function DeleteConfirm(props: DeleteConfirmProps) {
  * body (MDXEditor — markdown stays the DB format, users never have to see
  * syntax; toolbar + Obsidian-style markdown shortcuts + source-mode toggle).
  * Autosaves (debounced) — closing flushes a pending save, so it never loses
- * work. The footer's save state comes from the server (#64): "Saving…" until
- * the PATCH answers, "Saved ✓" after, "Not saved · Retry" (+ the note's notice line) on failure.
+ * work. Saving is silent (#262: the owner cut the footer row — Close is in
+ * the header); a failed save shows "Not saved · Retry" in the note's notice
+ * line, by the text.
  *
  * The references overview at the bottom (#161, references-overview.tsx)
  * lists the references in the text, then the reader's selections; its pane
@@ -391,8 +392,6 @@ export function NotePanel({
   }, [mobile, note.id]);
 
   /** In-flight PATCHes, and whether the last one failed. */
-  const [inFlight, setInFlight] = useState(0);
-  const [failed, setFailed] = useState(false);
   const dirty = title !== note.title || body !== note.body;
 
   // Latest buffers + save for the unmount flush and the Retry action
@@ -407,17 +406,14 @@ export function NotePanel({
    * above the text when the note opens, until chosen. */
   const [offer, setOffer] = useState<NoteDraft | null>(null);
   async function save(id: string, patch: { title: string; body: string }, opts?: EditOptions) {
-    setInFlight((n) => n + 1);
     try {
       await onEdit(id, patch, opts);
-      setFailed(false);
       if (saveNotice.current !== null) dismissNotice(saveNotice.current);
       saveNotice.current = null;
       // Saved what's on screen: nothing left to keep
       const l = latest.current;
       if (l.id === id && l.title === patch.title && l.body === patch.body) clearDraft(id);
     } catch (e) {
-      setFailed(true);
       saveNotice.current = notifyError(e, {
         place: "note",
         retry: () => {
@@ -425,8 +421,6 @@ export function NotePanel({
           if (l.id === id) void save(id, { title: l.title, body: l.body });
         },
       });
-    } finally {
-      setInFlight((n) => n - 1);
     }
   }
   const saveRef = useRef(save);
@@ -439,7 +433,6 @@ export function NotePanel({
     setTitle(opened.title);
     setBody(opened.body);
     setOwner(note.id);
-    setFailed(false);
     // The text itself shows it (no toast, #257); read out
     if (opened.decision === "restore") announce(t("note.draftRestored"));
     // Changed on another device since: offer, never overwrite — a row above
@@ -565,8 +558,6 @@ export function NotePanel({
     return () => aside.removeEventListener("keydown", onKey);
   }, [mobile, page]);
 
-  const status = failed ? "failed" : dirty || inFlight > 0 ? "saving" : "saved";
-
   // The overview's hands in the text (#161): the rich editor answers on this
   // panel's <aside> (ref-bridge.tsx); its plain-text stand-in is served here
   const editorLive = !!Editor && handedOver;
@@ -680,10 +671,10 @@ export function NotePanel({
           // Close read as "maybe this closes it")
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" aria-label={t("note.moreLabel")} className="h-11 shrink-0 gap-1 px-2.5 font-medium text-foreground md:h-9" />}
+              render={<Button variant="ghost" aria-label={t("note.moreLabel")} className="tab-label h-11 shrink-0 gap-1 px-2.5 font-medium text-foreground md:h-9" />}
             >
               <Ellipsis aria-hidden className="size-[1.125rem]" />
-              {t("note.more")}
+              <span>{t("note.more")}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-auto min-w-48">
               {onOpenInNotes && (
@@ -878,40 +869,6 @@ export function NotePanel({
         />
       )}
 
-      {/* Status left, Close right (#261 panel Q1): nothing that deletes
-          sits in this row — it's where the thumb is when the note is done */}
-      <footer className={cn("flex items-center justify-between gap-2 border-t border-border py-1 pr-1 pl-3 text-meta text-muted-foreground", peek && "hidden")}>
-        <span className="flex min-w-0 items-center gap-1.5">
-          {/* Not a live region: it flips on every keystroke. A failed save
-              is announced by the note's notice line. */}
-          <span className="flex items-center gap-1">
-            {status === "failed" ? (
-              <span className="text-destructive">{t("note.notSaved")}</span>
-            ) : status === "saving" ? (
-              t("note.saving")
-            ) : (
-              <>
-                <Check className="size-3.5" aria-hidden />
-                {t("note.saved")}
-              </>
-            )}
-          </span>
-          {status === "failed" && (
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-meta"
-              onClick={() => void save(note.id, { title, body })}
-            >
-              {t("note.retry")}
-            </Button>
-          )}
-          {!mobile && !page && <span className="pointer-coarse:hidden">· {t("note.escCloses")}</span>}
-        </span>
-        <Button variant="ghost" size="sm" className="shrink-0 font-medium text-foreground max-md:h-11" onClick={onClose}>
-          {t("note.close")}
-        </Button>
-      </footer>
     </aside>
   );
 }

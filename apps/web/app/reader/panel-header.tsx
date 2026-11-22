@@ -24,9 +24,10 @@ export function PanelHeader({
   onClose: () => void;
   closeLabel: string;
   closeAs?: (button: React.ReactElement) => React.ReactElement;
-  /** A visible word beside the × (#261 panel: the note's Close reads
-   * "Luk" — a lone grey × was mistaken for nothing, the footer's Delete for
-   * Close). The accessible name stays `closeLabel` ("Luk note"). */
+  /** A visible word with the × (#261 panel: the note's Close reads "Luk" —
+   * a lone grey × was mistaken for nothing). Beside it on desktop; on phones
+   * small and muted under it, tab-bar style (#262, owner). The accessible
+   * name stays `closeLabel` ("Luk note"). */
   closeText?: string;
   /** Controls left of Close (the note's "Mere" menu). */
   actions?: React.ReactNode;
@@ -48,10 +49,10 @@ export function PanelHeader({
               variant="ghost"
               aria-label={closeLabel}
               onClick={onClose}
-              className="h-11 shrink-0 gap-1 px-2.5 font-medium text-foreground md:h-9"
+              className="tab-label h-11 shrink-0 gap-1 px-2.5 font-medium text-foreground md:h-9"
             >
               <X aria-hidden className="size-[1.125rem]" />
-              {closeText}
+              <span>{closeText}</span>
             </Button>
           ) : (
             <Button

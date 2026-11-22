@@ -439,6 +439,19 @@
     --safe-right: env(safe-area-inset-right, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
+    /* Bottom-anchored rows clear the glass's rounded corners (#262, owner:
+       "you never account for the rounded corners"). iPhone corners are
+       ~55pt; Safari reports no bottom inset while its toolbar is collapsed,
+       yet the page then meets the glass. So on touch phones the bottom pad
+       is never under 24px: at 24px up, the arc leaves ≥10px at the sides
+       (keep row content ≥12px in). Use this, not --safe-bottom, for every
+       bottom edge; tools/review/safe-area-shots.mjs fails corner-*. */
+    --corner-bottom: var(--safe-bottom);
+  }
+  @media (pointer: coarse) and (width < 48rem) {
+    :root {
+      --corner-bottom: max(var(--safe-bottom), 24px);
+    }
   }
   ::selection {
     background: var(--selection);
@@ -682,7 +695,7 @@
 }
 [data-slot="drawer-popup"][data-snap-points] > [data-slot="drawer-content"] {
   /* …and its end clears the home indicator (#251) */
-  padding-bottom: calc(var(--drawer-snap-hidden) + var(--safe-bottom));
+  padding-bottom: calc(var(--drawer-snap-hidden) + var(--corner-bottom));
 }
 
 /* Keyboard up on a phone sheet (#261, lib/keyboard-fit): its content fits
@@ -778,6 +791,31 @@
     & svg.lucide-ellipsis {
       width: clamp(22px, 1.375rem, 30px) !important;
       height: clamp(22px, 1.375rem, 30px) !important;
+    }
+  }
+}
+
+/* Phone labels, tab-bar style (#262, owner): a control that keeps its word
+   shows the icon first and the word small and muted under it, not beside
+   it, like a native app's bar. Desktop keeps icon + word on one line. */
+@utility tab-label {
+  @media (width < 48rem) {
+    flex-direction: column;
+    gap: 1px;
+    height: auto;
+    min-height: 44px;
+    min-width: 44px;
+    padding-block: 2px;
+    padding-inline: 6px;
+    & > span {
+      font-size: min(0.75rem, 15px); /* the 12px floor (#75) */
+      line-height: 1.1;
+      font-weight: 500;
+      color: var(--muted-foreground);
+    }
+    & > svg {
+      width: 20px;
+      height: 20px;
     }
   }
 }

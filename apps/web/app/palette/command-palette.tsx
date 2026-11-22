@@ -924,7 +924,7 @@ export function CommandPalette({
               className="min-h-0 flex-1"
               viewportRef={viewportRef}
               // The list ends above the home indicator, or the keyboard (#251)
-              viewportClassName="overscroll-contain pb-[var(--vv-safe-bottom,var(--safe-bottom))]"
+              viewportClassName="overscroll-contain pb-[var(--vv-safe-bottom,var(--corner-bottom))]"
             >
               {recentAbove && (
                 <div className="flex items-center gap-2 px-4.5 pt-3 pb-1.5 text-meta font-semibold text-foreground">
