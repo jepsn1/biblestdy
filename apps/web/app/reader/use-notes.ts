@@ -7,6 +7,42 @@ import { notifyError, removeWithUndo } from "~/lib/notify";
 import { api, updateList } from "~/lib/query";
 import { noteTouchesChapter } from "./note-marks";
 
+export type EditOptions = {
+  /** The page is being hidden (screen off, app switch, #261): the request
+   * must outlive it. */
+  keepalive?: boolean;
+};
+
+/** keepalive caps the body at 64 KB (fetch spec): a longer note goes as a
+ * plain request — its words are on the device (note-drafts) meanwhile. */
+export const KEEPALIVE_MAX = 60_000;
+
+/** The PATCH request for a note save. */
+export function patchInit(patch: { title?: string; body?: string }, opts?: EditOptions): RequestInit {
+  const body = JSON.stringify(patch);
+  return { method: "PATCH", body, ...(opts?.keepalive && body.length < KEEPALIVE_MAX && { keepalive: true }) };
+}
+
+/** Notes made in this visit and not yet written in (#261): one closed
+ * while still blank (no title, no text) was abandoned — a "New note" tapped
+ * instead of "Add to a note…" — and is discarded, never left behind as an
+ * empty note. */
+export const freshNotes = new Set<string>();
+
+/** Silently removes an abandoned blank note (no Undo: nothing to lose).
+ * Soft delete, never listed under Recently deleted (blank). */
+async function discardNote(qc: ReturnType<typeof useQueryClient>, id: string) {
+  freshNotes.delete(id);
+  qc.setQueriesData<Note[]>({ queryKey: ["notes"] }, (list) => list?.filter((n) => n.id !== id));
+  try {
+    await api(`/api/notes/${id}`, { method: "DELETE" });
+  } catch (e) {
+    console.error("[discard]", e); // an empty note stays: harmless
+  }
+  void qc.invalidateQueries({ queryKey: ["notes"] });
+  void qc.invalidateQueries({ queryKey: ["connections"] });
+}
+
 /** Mutations must not fail silently (#64) — inline notice, return null, let callers
  * no-op. */
 function failed(e: unknown): null {
@@ -73,6 +109,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
       body: JSON.stringify(anchor),
     }).catch(failed);
     if (created) {
+      freshNotes.add(created.id);
       updateList<Note>(qc, key, (n) => [...n, created]);
       invalidateAll();
     }
@@ -82,11 +119,8 @@ export function useNotes(translationId: string, book: string, chapter: number) {
   /** Saves title/body. Resolves to the server's copy — the note panel's
    * save state comes from this — and REJECTS on failure, so the panel can
    * show "Not saved · Retry" (#64). */
-  async function edit(id: string, patch: { title?: string; body?: string }): Promise<Note> {
-    const updated = await api<Note>(`/api/notes/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch),
-    });
+  async function edit(id: string, patch: { title?: string; body?: string }, opts?: EditOptions): Promise<Note> {
+    const updated = await api<Note>(`/api/notes/${id}`, patchInit(patch, opts));
     updateList<Note>(qc, key, (n) => n.map((x) => (x.id === updated.id ? updated : x)));
     invalidateAll();
     return updated;
@@ -154,7 +188,8 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     return updated;
   }
 
-  return { notes, failed: isError, retry: refetch, add, edit, remove, restore, attach, detach };
+  const discard = (id: string) => discardNote(qc, id);
+  return { notes, failed: isError, retry: refetch, add, edit, remove, restore, attach, detach, discard };
 }
 
 /**
@@ -185,6 +220,7 @@ export function useNoteActions() {
       body: JSON.stringify(content),
     }).catch(failed);
     if (created) {
+      if (!created.title && !created.body) freshNotes.add(created.id);
       put({ ...created, tags: [] });
       invalidateAll();
     }
@@ -192,11 +228,8 @@ export function useNoteActions() {
   }
 
   /** Saves title/body; rejects on failure (the editor's save state). */
-  async function edit(id: string, patch: { title?: string; body?: string }): Promise<Note> {
-    const updated = await api<Note>(`/api/notes/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch),
-    });
+  async function edit(id: string, patch: { title?: string; body?: string }, opts?: EditOptions): Promise<Note> {
+    const updated = await api<Note>(`/api/notes/${id}`, patchInit(patch, opts));
     put(updated);
     invalidateAll();
     return updated;
@@ -250,5 +283,6 @@ export function useNoteActions() {
     return updated;
   }
 
-  return { create, edit, remove, restore, attach, detach };
+  const discard = (id: string) => discardNote(qc, id);
+  return { create, edit, remove, restore, attach, detach, discard };
 }

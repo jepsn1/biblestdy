@@ -4,6 +4,7 @@ import {
   clearAllDrafts,
   clearDraft,
   draftDecision,
+  keepDraftThroughDelete,
   pruneDrafts,
   readDraft,
   setDraftUser,
@@ -128,5 +129,18 @@ describe("draft scope + pruning", () => {
     setDraftUser("u1");
     pruneDrafts(new Set(["live", "old"]), now);
     expect(Object.keys(store).sort()).toEqual(["noteDraft:u1:live", "noteDraft:u2:other"]);
+  });
+
+  it("keeps a deleted note's unsaved words while it can be restored (#261), then ages them out", () => {
+    const store = stubStorage();
+    setDraftUser("u1");
+    writeDraft("sermon", { title: "Sermon Eric", body: "last words", base: "b" });
+    keepDraftThroughDelete("sermon");
+    keepDraftThroughDelete("nothing-kept"); // no draft: nothing written
+    pruneDrafts(new Set(["other"]));
+    expect(readDraft("sermon")).toMatchObject({ body: "last words", deleted: true });
+    expect(Object.keys(store)).toEqual(["noteDraft:u1:sermon"]);
+    pruneDrafts(new Set(["other"]), Date.now() + DRAFT_MAX_AGE_MS + 1);
+    expect(readDraft("sermon")).toBeNull();
   });
 });

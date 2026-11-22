@@ -1034,6 +1034,20 @@ export function ChapterText({
     if (color !== defaultColor) void authClient.updateUser({ defaultHighlightColor: color });
   }
 
+  // Screen off / app switch with a margin note being written (#261): it's
+  // saved, like a note's text — not left in a box that may not survive
+  const composing = useRef<() => void>(() => {});
+  composing.current = () => {
+    if (menu?.kind === "compose" && draft.trim()) saveDraft(false);
+  };
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") composing.current();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
+
   function saveDraft(keyboard = false) {
     const text = draft.trim();
     if (text && menu?.kind === "compose") {
@@ -1675,7 +1689,13 @@ export function ChapterText({
 
       <AnchoredPanel
         open={menu?.kind === "compose"}
-        onOpenChange={(open, keyboard) => !open && closeMenu(keyboard)}
+        // Tapped beside it or swiped away, what's written is kept (#261 panel
+        // Q7) — only Cancel (or Esc) throws it away
+        onOpenChange={(open, keyboard) => {
+          if (open) return;
+          if (keyboard) closeMenu(true);
+          else saveDraft(false);
+        }}
         anchor={virtualAnchor}
         mobile={mobile}
         label={t("menu.annotationLabel")}

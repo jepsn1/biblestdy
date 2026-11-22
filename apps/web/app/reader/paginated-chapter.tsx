@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useKeyboardFit } from "~/lib/keyboard-fit";
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLORS, translationInfo, type Anchor, type Chapter, type HighlightColor, type NoteAnchor, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -250,6 +251,9 @@ export function PaginatedChapter({
    * sheet, the bar alone. The note stays mounted (nothing is lost); "Back
    * to note" (or a drag) brings it up full. */
   const [notePeek, setNotePeek] = useState(false);
+  /** The full note drawer follows the keyboard (#261): Close stays on screen. */
+  const [noteSheet, setNoteSheet] = useState<HTMLDivElement | null>(null);
+  useKeyboardFit(noteSheet?.closest<HTMLElement>("[data-slot=drawer-popup]") ?? null, !notePeek);
   const peekRef = useRef<HTMLButtonElement>(null);
   /** What had focus when the note peeked: kept in view, or (hidden by the
    * peek: the bar, or the editor's preview) focus goes to "Back to note";
@@ -1895,6 +1899,7 @@ export function PaginatedChapter({
               note={openNote}
               onEdit={notesApi.edit}
               onRemove={notesApi.remove}
+              onDiscard={notesApi.discard}
               onDetach={notesApi.detach}
               onAttach={notesApi.attach}
               onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}
@@ -2020,13 +2025,16 @@ export function PaginatedChapter({
                   {/* Phones: the peeking note's own header steps aside for its
                       references (#215) — the bar names it and closes it */}
                   {scrollMode && (
+                    // A word with the × (#261 panel): Close never a lone glyph
+                    // — a narrow bar keeps the 44px × alone, still named
                     <button
                       type="button"
                       aria-label={t("note.close")}
                       onClick={closeNote}
-                      className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground @max-[12rem]:ml-auto", focusRing)}
+                      className={cn("inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md px-2 font-medium hover:bg-accent @max-[12rem]:ml-auto", focusRing)}
                     >
-                      <X aria-hidden className="size-4" />
+                      <X aria-hidden className="size-[1.125rem]" />
+                      <span className="@max-[16rem]:hidden">{t("note.closeShort")}</span>
                     </button>
                   )}
                 </div>
@@ -2035,13 +2043,14 @@ export function PaginatedChapter({
               {openNote && (
                 // Phones peek with the note's title and references (#215); a
                 // paged sheet's peek is the bar alone
-                <div className={cn("flex min-h-0 flex-1 flex-col", notePeek && !scrollMode && "hidden")}>
+                <div ref={setNoteSheet} className={cn("flex min-h-0 flex-1 flex-col", notePeek && !scrollMode && "hidden")}>
                 <NotePanel
                   // One panel per note: no text carries over to the next
                   key={openNote.id}
                   note={openNote}
                   onEdit={notesApi.edit}
                   onRemove={notesApi.remove}
+                  onDiscard={notesApi.discard}
                   onDetach={notesApi.detach}
                   onAttach={notesApi.attach}
                   onOpenInNotes={() => navigate(`/notes/${openNote.id}`)}

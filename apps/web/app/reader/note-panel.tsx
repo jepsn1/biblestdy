@@ -9,8 +9,9 @@ import {
   ResizablePanelGroup,
 } from "~/components/ui/resizable";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
-import { Check, Maximize2, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Ellipsis, Maximize2, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { announce } from "~/lib/announce";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
@@ -25,7 +26,8 @@ import { notifyError, notifyUndo } from "~/lib/notify";
 import { dismissNotice } from "~/lib/notices";
 import { InlineNotice } from "~/components/inline-notice";
 import { setOpenNote } from "~/lib/next-path";
-import { clearDraft, draftDecision, type NoteDraft, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
+import { clearDraft, draftDecision, keepDraftThroughDelete, type NoteDraft, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
+import { freshNotes, type EditOptions } from "./use-notes";
 import { useIsDark } from "~/lib/theme";
 import { useViewportFits } from "~/lib/text-size";
 import { PanelHeader } from "./panel-header";
@@ -189,6 +191,53 @@ function FallbackEditor({
   );
 }
 
+/** Open note panels per note id: a StrictMode/switch re-mount is not a close. */
+const mounted = new Map<string, number>();
+
+/** Whether a note has words in it (#261): a title or text. Its references
+ * alone don't count — the one made from the selection comes by itself. */
+export function noteHasContent(n: { title: string; body: string }): boolean {
+  return n.title.trim() !== "" || n.body.trim() !== "";
+}
+
+/**
+ * "Delete “Sermon”? You can restore it for 30 days…" (#261 panel Q3): one
+ * row under the header, where the eye is — not a modal over the writing.
+ * Focus lands on Keep (the safe choice, filled); Enter or Esc there keeps
+ * the note — only Delete deletes.
+ */
+function DeleteConfirm({ title, onKeep, onDelete }: { title: string; onKeep: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const id = useId();
+  useEffect(() => keepRef.current?.focus({ preventScroll: true }), []);
+  // Esc on either button keeps the note (and doesn't close the panel)
+  const escKeeps = (e: React.KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    onKeep();
+  };
+  return (
+    <div
+      role="group"
+      aria-labelledby={id}
+      data-note-confirm=""
+      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/60 px-3 py-2 text-control"
+    >
+      <p id={id} className="min-w-0 basis-full">
+        {title ? t("note.confirmDelete", { title }) : t("note.confirmDeleteUntitled")}
+      </p>
+      <Button ref={keepRef} size="sm" className="max-md:h-11 max-md:px-4" onClick={onKeep} onKeyDown={escKeeps}>
+        {t("note.keep")}
+      </Button>
+      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive max-md:h-11" onClick={onDelete} onKeyDown={escKeeps}>
+        {t("note.deleteNote")}
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Side-by-side editor for a full note (issue #7): title + WYSIWYG markdown
  * body (MDXEditor — markdown stays the DB format, users never have to see
@@ -205,6 +254,7 @@ export function NotePanel({
   note,
   onEdit,
   onRemove,
+  onDiscard,
   onDetach,
   onAttach,
   onShowAnchor,
@@ -220,8 +270,10 @@ export function NotePanel({
 }: {
   note: Note;
   /** Resolves when the server saved; rejects on failure (save state). */
-  onEdit: (id: string, patch: { title?: string; body?: string }) => Promise<unknown>;
+  onEdit: (id: string, patch: { title?: string; body?: string }, opts?: EditOptions) => Promise<unknown>;
   onRemove: (id: string) => void;
+  /** Drops an abandoned blank note made in this visit (#261), silently. */
+  onDiscard?: (id: string) => void;
   /** Resolves to the updated note, or null when it failed. */
   onDetach: (id: string, anchorId: string) => Promise<unknown> | void;
   /** Puts a removed reader selection back (the overview's Undo). */
@@ -389,10 +441,10 @@ export function NotePanel({
   /** A newer unsaved draft on this device (#257 panel C4): offered in a row
    * above the text when the note opens, until chosen. */
   const [offer, setOffer] = useState<NoteDraft | null>(null);
-  async function save(id: string, patch: { title: string; body: string }) {
+  async function save(id: string, patch: { title: string; body: string }, opts?: EditOptions) {
     setInFlight((n) => n + 1);
     try {
-      await onEdit(id, patch);
+      await onEdit(id, patch, opts);
       setFailed(false);
       if (saveNotice.current !== null) dismissNotice(saveNotice.current);
       saveNotice.current = null;
@@ -454,14 +506,73 @@ export function NotePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, body]);
 
-  // Closing (or switching notes) with a save still pending: flush it now
-  useEffect(
-    () => () => {
+  // Closing (or switching notes) with a save still pending: flush it now.
+  // A note made in this visit and left blank is discarded instead (#261) —
+  // once it's really gone (a StrictMode re-mount comes straight back)
+  const discardRef = useRef(onDiscard);
+  useEffect(() => {
+    discardRef.current = onDiscard;
+  });
+  useEffect(() => {
+    const id = note.id;
+    mounted.set(id, (mounted.get(id) ?? 0) + 1);
+    return () => {
+      mounted.set(id, (mounted.get(id) ?? 1) - 1);
       const l = latest.current;
+      const blank = l.id === id && !noteHasContent(l);
+      if (freshNotes.has(id) && blank && discardRef.current) {
+        const discard = discardRef.current;
+        window.setTimeout(() => {
+          if (!mounted.get(id) && freshNotes.has(id)) discard(id);
+        }, 0);
+        return;
+      }
       if (l.dirty) void saveRef.current(l.id, { title: l.title, body: l.body });
-    },
-    [note.id],
-  );
+    };
+  }, [note.id]);
+
+  // Screen off, app switch, tab closed (#261): what's typed goes now, in a
+  // request that outlives the page — not after the 800ms pause, which a
+  // locked phone may never get to. (The device copy is written already.)
+  useEffect(() => {
+    const flush = () => {
+      const l = latest.current;
+      if (l.dirty) void saveRef.current(l.id, { title: l.title, body: l.body }, { keepalive: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, []);
+
+  /** "Delete note…" (#261 panel Q3): a note with words asks first, in a
+   * row under the header; an empty one goes at once. */
+  const [confirming, setConfirming] = useState(false);
+  const hasContent = noteHasContent({ title, body: liveBody });
+  function askDelete() {
+    if (hasContent) setConfirming(true);
+    else void deleteNote();
+  }
+
+  /** Deletes the note (#261): what's typed is saved first, so the copy kept
+   * for restoring (TRASH_DAYS) is complete — and the device copy of any
+   * unsaved words stays until the note can no longer come back. */
+  async function deleteNote() {
+    const l = latest.current;
+    const id = note.id;
+    const pending = l.dirty ? saveRef.current(id, { title: l.title, body: l.body }) : null;
+    latest.current = { ...l, dirty: false }; // saved here, not by the unmount flush
+    freshNotes.delete(id); // deleted, not abandoned
+    keepDraftThroughDelete(id);
+    onClose();
+    if (pending) await pending;
+    onRemove(id);
+  }
 
   // Keys inside the panel (#65): Esc closes it — not when something in it
   // already used the Esc (an editor popup, the tag input); ⌘/Ctrl+Enter
@@ -592,7 +703,40 @@ export function NotePanel({
       {/* Panel heading (h2; its sections are h3) — the visible title is the input */}
       <h2 className="sr-only">{title || t("note.untitled")}</h2>
       {/* The peek (#215): its bar names the note and closes it */}
-      <PanelHeader onClose={onClose} closeLabel={t("note.close")} className={cn("pl-3", peek && "hidden")}>
+      <PanelHeader
+        onClose={onClose}
+        closeLabel={t("note.close")}
+        closeText={t("note.closeShort")}
+        className={cn("gap-1 pl-3", peek && "hidden")}
+        actions={
+          // Delete lives here, away from the thumb (#261 panel Q2), last and
+          // the only red item; "Open in Notes" with it (a lone ⤢ next to
+          // Close read as "maybe this closes it")
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" aria-label={t("note.moreLabel")} className="h-11 shrink-0 gap-1 px-2.5 font-medium text-foreground md:h-9" />}
+            >
+              <Ellipsis aria-hidden className="size-[1.125rem]" />
+              {t("note.more")}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-auto min-w-48">
+              {onOpenInNotes && (
+                <>
+                  <DropdownMenuItem onClick={onOpenInNotes} className="min-h-9 pointer-coarse:min-h-11">
+                    <Maximize2 aria-hidden />
+                    {t("note.openInNotes")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem variant="destructive" onClick={askDelete} className="min-h-9 pointer-coarse:min-h-11">
+                <Trash2 aria-hidden />
+                {hasContent ? t("note.deleteNoteAsk") : t("note.deleteNote")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      >
         <input
           ref={titleRef}
           value={title}
@@ -610,23 +754,20 @@ export function NotePanel({
             focusTitle,
           )}
         />
-        {onOpenInNotes && (
-          <Hint label={t("note.openInNotes")}>
-            <Button
-              variant="ghost"
-              size={mobile ? "icon" : "icon-sm"}
-              aria-label={t("note.openInNotes")}
-              onClick={onOpenInNotes}
-              className="ml-1 text-muted-foreground"
-            >
-              <Maximize2 />
-            </Button>
-          </Hint>
-        )}
       </PanelHeader>
+      {confirming && (
+        <DeleteConfirm
+          title={title.trim()}
+          onKeep={() => setConfirming(false)}
+          onDelete={() => {
+            setConfirming(false);
+            void deleteNote();
+          }}
+        />
+      )}
 
       {/* Tags group study across the graph (issue #10) — chips open topic pages */}
-      <div className={cn("border-b border-border px-3 py-1.5", (folded || peek) && "hidden")}>
+      <div data-kb-hide="" className={cn("border-b border-border px-3 py-1.5", (folded || peek) && "hidden")}>
         <NoteTagsRow noteId={note.id} />
       </div>
 
@@ -724,6 +865,8 @@ export function NotePanel({
             </div>
             <div
               data-tour="note-refs"
+              // Keyboard up (#261): the writing gets the room
+              data-kb-hide=""
               className={cn("flex shrink-0 flex-col border-t border-border", peek ? "min-h-0 flex-1" : "max-h-[40%]")}
             >
               {references}
@@ -769,23 +912,10 @@ export function NotePanel({
         />
       )}
 
-      <footer className={cn("flex items-center justify-between gap-2 border-t border-border py-1 pr-3 pl-1 text-meta text-muted-foreground", peek && "hidden")}>
-        {/* No confirm: the delete notice offers Undo (#64) */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-destructive max-sm:h-10"
-          onClick={() => {
-            latest.current.dirty = false; // nothing to flush into a deleted note
-            clearDraft(note.id);
-            onRemove(note.id);
-            onClose();
-          }}
-        >
-          <Trash2 />
-          {t("note.deleteNote")}
-        </Button>
-        <span className="flex items-center gap-1.5">
+      {/* Status left, Close right (#261 panel Q1): nothing that deletes
+          sits in this row — it's where the thumb is when the note is done */}
+      <footer className={cn("flex items-center justify-between gap-2 border-t border-border py-1 pr-1 pl-3 text-meta text-muted-foreground", peek && "hidden")}>
+        <span className="flex min-w-0 items-center gap-1.5">
           {/* Not a live region: it flips on every keystroke. A failed save
               is announced by the note's notice line. */}
           <span className="flex items-center gap-1">
@@ -812,6 +942,9 @@ export function NotePanel({
           )}
           {!mobile && !page && <span className="pointer-coarse:hidden">· {t("note.escCloses")}</span>}
         </span>
+        <Button variant="ghost" size="sm" className="shrink-0 font-medium text-foreground max-md:h-11" onClick={onClose}>
+          {t("note.close")}
+        </Button>
       </footer>
     </aside>
   );

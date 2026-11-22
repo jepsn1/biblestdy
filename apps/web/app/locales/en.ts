@@ -190,6 +190,14 @@ export default {
     cancel: "Cancel",
   },
   note: {
+    /** #261 panel: Close is a word, Delete lives in the note's More menu and asks first */
+    closeShort: "Close",
+    more: "More",
+    moreLabel: "More for this note",
+    deleteNoteAsk: "Delete note…",
+    confirmDelete: "Delete \u201c{{title}}\u201d? You can restore it for 30 days under Recently deleted.",
+    confirmDeleteUntitled: "Delete this note? You can restore it for 30 days under Recently deleted.",
+    keep: "Keep",
     draftRestored: "Unsaved changes restored",
     /** A newer unsaved draft on this device (#257 panel C4) */
     draftNewer: "Newer unsaved text from {{time}} on this device",

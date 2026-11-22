@@ -330,6 +330,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           mobile={mobile}
           onEdit={actions.edit}
           onRemove={removeNote}
+          onDiscard={actions.discard}
           onDetach={actions.detach}
           onAttach={actions.attach}
           onShowAnchor={(a) => readAnchor(open, a)}

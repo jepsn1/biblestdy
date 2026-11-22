@@ -231,6 +231,14 @@ const da: typeof en = {
     cancel: "Annullér",
   },
   note: {
+    /** #261 panel: Close is a word, Delete lives in the note's More menu and asks first */
+    closeShort: "Luk",
+    more: "Mere",
+    moreLabel: "Mere til noten",
+    deleteNoteAsk: "Slet note…",
+    confirmDelete: "Slet \u00bb{{title}}\u00ab? Den kan gendannes i 30 dage under Senest slettet.",
+    confirmDeleteUntitled: "Slet denne note? Den kan gendannes i 30 dage under Senest slettet.",
+    keep: "Behold",
     draftRestored: "Ikke-gemte ændringer er gendannet",
     draftNewer: "Nyere ikke-gemt tekst fra {{time}} på denne enhed",
     draftUse: "Brug nyere",
