@@ -315,7 +315,7 @@ export function CompareDialog({
   const foot = (
     <footer className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2.5 sm:px-5">
       <ScriptureCredit className="min-w-0 flex-1" onFollow={() => onOpenChange(false)} />
-      <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => onOpenChange(false)}>
+      <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
         {t("compare.close")}
       </Button>
     </footer>
@@ -460,7 +460,7 @@ function CompareBlock({
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2">
           <p className="min-w-0 flex-1 text-control">{problem}</p>
           {view.error === "failed" && (
-            <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={onRetry}>
+            <Button variant="outline" size="sm" onClick={onRetry}>
               {t("compare.retry")}
             </Button>
           )}

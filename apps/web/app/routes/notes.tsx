@@ -403,7 +403,7 @@ function NotesPage({ params }: Route.ComponentProps) {
             // Phones: the arrow + place say it ("Tilbage til" would push the
             // place off the row); the name stays whole
             aria-label={backRef ? t("notes.backToPlace", { ref: backRef }) : undefined}
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-w-0 shrink text-muted-foreground max-md:h-10")}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-w-0 shrink text-muted-foreground")}
           >
             {backRef ? <ArrowLeft aria-hidden /> : <BookOpen aria-hidden />}
             {backRef ? (
@@ -426,7 +426,7 @@ function NotesPage({ params }: Route.ComponentProps) {
             the way back, just the +, its name kept for screen readers */}
         <Button
           size="sm"
-          className={cn("max-md:h-10", params.id && mobile && "@max-[12.5rem]:w-10 @max-[12.5rem]:px-0")}
+          className={cn(params.id && mobile && "@max-[12.5rem]:w-10 @max-[12.5rem]:px-0")}
           data-tour="notes-new"
           onClick={() => void newNote()}
         >

@@ -92,7 +92,7 @@ export function ComparePicker({
             variant="outline"
             size="sm"
             aria-label={t("compare.pickerName", { count })}
-            className={cn("max-w-full gap-1.5 pointer-coarse:h-11 pointer-coarse:px-3", className)}
+            className={cn("max-w-full gap-1.5 pointer-coarse:px-3", className)}
           />
         }
       >

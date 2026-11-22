@@ -696,3 +696,88 @@
 [data-slot="drawer-popup"][data-kb] [data-kb-hide] {
   display: none;
 }
+
+/* Touch feels like an app (#262 panel P2): every control darkens while the
+   finger is on it — an ink overlay (8%, so it shows on dark and on filled
+   buttons alike, Mads) instead of the grey iOS tap flash, the desktop 1px
+   nudge or a hover that sticks after the tap (Tailwind's hover: already
+   needs a hovering pointer). touch-action: no double-tap-zoom wait. */
+@layer base {
+  :root {
+    --press: color-mix(in oklch, var(--foreground) 8%, transparent);
+  }
+  @media (pointer: coarse) {
+    :where(button, a[href], summary, label, [role="button"], [role="menuitem"], [role="menuitemradio"], [role="option"], [role="tab"], [role="switch"], [role="radio"], [role="checkbox"]) {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    :where(button, a[href], summary, [role="button"], [role="menuitem"], [role="menuitemradio"], [role="option"], [role="tab"], [role="radio"]):active:not(:disabled, [aria-disabled="true"], [data-no-press]) {
+      background-image: linear-gradient(var(--press), var(--press));
+    }
+  }
+}
+
+/* Touch floor (#262 D1): on a coarse pointer every Button, input and
+   select trigger is at least 44px (a Button is .group/button: a Hint or
+   popover trigger replaces its data-slot) (px: 200% text doesn't double it). In CSS,
+   not class strings (the /read first-paint JS budget is full), and unlayered
+   so it holds over the components' own heights. A link-styled Button set
+   inside a line (h-auto) keeps its line (Jonas). */
+@media (pointer: coarse) {
+  .group\/button:not(.h-auto),
+  [data-slot="input"],
+  [data-slot="select-trigger"] {
+    min-height: 44px;
+  }
+  .group\/button:not(.h-auto) {
+    min-width: 44px;
+  }
+}
+
+/* The phone top bar's icon chips (#262 D3): 44px round, faint fill (6% ink,
+   10% in dark), muted glyph. Phones only (< md). */
+/* The phone top row (#262 D3): one 48px row that never wraps — the book
+   name gives way (ellipsis), never the icons. px, so 200% text fits. */
+@media (width < 48rem) {
+  .nav-row {
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 2px 12px;
+  }
+  .nav-row [data-nav-book] {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+}
+@utility nav-chip {
+  @media (width < 48rem) {
+    /* The word stays for screen readers (the button's name), off screen */
+    & > span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    width: 44px;
+    height: 44px;
+    padding-inline: 0;
+    border-radius: 9999px !important;
+    color: var(--muted-foreground);
+    background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
+    &:where(.dark *) {
+      background-color: color-mix(in oklch, var(--foreground) 10%, transparent);
+    }
+    /* 20px, growing with the text size to 28 (Mads: calm; Birthe: readable);
+       dots read small, so ⋯ is 2px bigger. Beats the Button's own svg size */
+    & svg {
+      width: clamp(20px, 1.25rem, 28px) !important;
+      height: clamp(20px, 1.25rem, 28px) !important;
+    }
+    & svg.lucide-ellipsis {
+      width: clamp(22px, 1.375rem, 30px) !important;
+      height: clamp(22px, 1.375rem, 30px) !important;
+    }
+  }
+}

@@ -155,7 +155,7 @@ export function SettingsContent({
           <p className="text-meta text-muted-foreground">{t("settings.signedInAs")}</p>
           <p className="truncate">{email}</p>
         </div>
-        <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 max-sm:h-10" aria-haspopup="dialog" onClick={onSignOut}>
+        <Button variant="outline" size="sm" className="shrink-0 gap-1.5 [--btn-h-fine:2rem]" aria-haspopup="dialog" onClick={onSignOut}>
           <LogOut aria-hidden />
           {t("settings.signOut")}
         </Button>

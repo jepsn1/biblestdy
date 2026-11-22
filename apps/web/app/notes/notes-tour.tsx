@@ -511,7 +511,7 @@ function Tour({ id, root, body = "", replay = false, onEnd, kit }: TourProps & {
                 size="sm"
                 onMouseDown={keep}
                 onClick={next}
-                className="h-7 border-border px-2.5 text-list font-medium pointer-coarse:h-11"
+                className="border-border px-2.5 text-list font-medium"
               >
                 {t(last ? "tour.done" : "tour.next")}
               </Button>

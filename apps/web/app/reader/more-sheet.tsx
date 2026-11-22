@@ -146,13 +146,14 @@ export function MoreSheet({
     variant: "ghost" as const,
     size: "sm" as const,
     // Phones always; wider screens while the row is narrow (container query)
-    className: "shrink-0 sm:@min-[36rem]/nav:hidden",
+    // Phones (#262 panel P3, 5–1): ⋯ alone, a 44px round chip like Search
+    className: "sm:@min-[36rem]/nav:hidden nav-chip",
     "aria-haspopup": "dialog" as const,
   };
   const label = (
     <>
-      <Ellipsis data-icon="inline-start" />
-      {t("nav.more")}
+      <Ellipsis data-icon="inline-start" aria-hidden />
+      <span>{t("nav.more")}</span>
     </>
   );
 

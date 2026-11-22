@@ -2,6 +2,10 @@
 
 How we run a design review with the personas in `docs/PERSONAS.md`. Same steps every time, so results are comparable and cost stays predictable.
 
+## 0. Standing rule: phone first (owner, 2026-11-22)
+
+biblestdy is a **phone app first, scaled up to desktop**, not a web app condensed down. Design each surface for thumbs first (44px targets, pressed states, sheets and list rows), then adapt it to desktop. Evidence packs lead with phone shots (390×844, light, dark, 200% text), and panels judge the phone version first. See `docs/reviews/2026-11-22-phone-app-feel.md` for the phone icon rule (D13).
+
 ## 1. Scope + panel (pick 3–6, never all 8 by default)
 
 Write one sentence: what is being reviewed and what decision it should inform. Then pick the personas whose angle matters for it:
@@ -82,3 +86,4 @@ Then: **Keep** (what I'd hate to lose, bullets) and **Verdict** (one line).
 - **2026-11-16 unified note refs (all 8, 1 ping-pong round):** state-flow shots (click X → screenshot) beat static screens for "it takes me there" questions. Log `data-*` state per shot (spotlight, flash, visible chips, URL) so claims are checkable. Typing into a note autosaves: a later shot of the same note shows it (U30 showed U21's "@"), so type in a throwaway note. Compare the highlighted words in the phone and desktop shots: that turned up a wash drift nobody had reported.
 - **2026-11-18 logo (all 8, one vote round):** a single comparison sheet at true pixels (16px icons rendered at 16, plus a pixel-for-pixel blow-up) let every persona judge the tab icon the same way. Six of eight flagged the same 16px problem unprompted. Check numeric claims before applying them: a stem-weight estimate (0.085em) was off, and measuring Geist Mono 600 gave 0.11em.
 - **2026-11-21 no toasts (6 personas, 1 ping-pong round):** a tie in round 1 (3–3 on swapping the phone bar) broke 6/6 once the engineer's facts were in the draft (the swap unmounts a focused button; the bar is inert under a note drawer). Put verified code facts next to each conflict, not just the arguments. Fake-provider fixtures only have JHN 3, GEN 1 and PSA 23 — use those for multi-chapter flows (recents) without spending API.Bible calls. The notes tours block clicks: set `tour.note` / `tour.notes` = `seen` in localStorage for custom shots.
+- **2026-11-22 phone app feel (6 personas, 1 ping-pong round):** a per-surface target inventory (every visible control under 44px, from the DOM) made the walk mechanical and gave the panel numbers instead of impressions. All six caught a draft claim ("fits on one row at 200%") that the attached shot contradicted: re-shoot after every measured fix before stating it. Remember the in-app text size scales the root font: a `rem` hit-area floor doubles at 200%, so touch floors are in px.

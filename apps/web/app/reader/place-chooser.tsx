@@ -433,7 +433,7 @@ function PlacePanel({
               {/* The grid's arrow keys (the links stay plain links in a list) */}
               <div role="presentation" onKeyDown={onGridKey}>
               <div className="mb-2 flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground max-sm:h-11" onClick={backToBooks}>
+                <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground" onClick={backToBooks}>
                   <ArrowLeft data-icon="inline-start" aria-hidden />
                   {t("place.allBooks")}
                 </Button>
