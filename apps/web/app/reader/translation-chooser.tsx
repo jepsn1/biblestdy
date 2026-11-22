@@ -120,7 +120,7 @@ export function TranslationChooser({
       <ChevronDown className="size-4 @max-[28rem]/nav:hidden" aria-hidden />
     </>
   );
-  const triggerClass = "ml-1 shrink-0 gap-1 px-2 text-muted-foreground hover:text-foreground @max-[28rem]/nav:px-1.5";
+  const triggerClass = "ml-1 max-md:ml-0 shrink-0 gap-1 px-2 pointer-coarse:min-w-[44px] text-muted-foreground hover:text-foreground @max-[28rem]/nav:px-1.5";
 
   if (isMobile) {
     return (

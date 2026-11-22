@@ -195,11 +195,11 @@ export function ConnectionsPanel({
       </ScrollArea>
 
       <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-border px-2 py-1.5">
-        <Button variant="ghost" size="sm" className="max-sm:h-10" onClick={() => void newNote()}>
+        <Button variant="ghost" size="sm" onClick={() => void newNote()}>
           <Plus aria-hidden />
           {t("connections.newNote")}
         </Button>
-        <Link to="/notes" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-muted-foreground max-sm:h-10")}>
+        <Link to="/notes" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-muted-foreground")}>
           {t("connections.allNotes")}
           <ArrowRight aria-hidden />
         </Link>

@@ -696,3 +696,23 @@
 [data-slot="drawer-popup"][data-kb] [data-kb-hide] {
   display: none;
 }
+
+/* Touch feels like an app (#262 panel P2): every control darkens while the
+   finger is on it — an ink overlay (8%, so it shows on dark and on filled
+   buttons alike, Mads) instead of the grey iOS tap flash, the desktop 1px
+   nudge or a hover that sticks after the tap (Tailwind's hover: already
+   needs a hovering pointer). touch-action: no double-tap-zoom wait. */
+@layer base {
+  :root {
+    --press: color-mix(in oklch, var(--foreground) 8%, transparent);
+  }
+  @media (pointer: coarse) {
+    :where(button, a[href], summary, label, [role="button"], [role="menuitem"], [role="menuitemradio"], [role="option"], [role="tab"], [role="switch"], [role="radio"], [role="checkbox"]) {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    :where(button, a[href], summary, [role="button"], [role="menuitem"], [role="menuitemradio"], [role="option"], [role="tab"], [role="radio"]):active:not(:disabled, [aria-disabled="true"], [data-no-press]) {
+      background-image: linear-gradient(var(--press), var(--press));
+    }
+  }
+}
