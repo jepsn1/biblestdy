@@ -66,7 +66,7 @@ export function ReaderNav({
           (< 28rem). The book name gives way first throughout (ellipsis),
           down to a recognisable 5em; only a row too narrow for even that
           (a phone at 200 %) wraps, as the last resort — never an icon alone. */}
-      <div className="@container/nav flex flex-wrap items-center gap-1 px-3 py-2 sm:gap-2 sm:px-4">
+      <div className="@container/nav flex flex-wrap items-center gap-1 px-3 py-2 max-md:flex-nowrap max-md:gap-[4px] max-md:px-[12px] max-md:py-[2px] sm:gap-2 sm:px-4">
         {/* The wordmark (the sidebar's, before it went): whose site this is,
             and home. Only where the row has room (rem: large text hides it first) */}
         <Link

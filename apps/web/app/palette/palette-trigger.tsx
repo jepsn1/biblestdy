@@ -9,8 +9,9 @@ import { openPalette as open, openPaletteFromTap, palette, PALETTE_PROXY } from 
 /**
  * The nav's "Search or go to…" (replaces the jump box, #53). A worded
  * field where the nav row (a container, `@container/nav`) has room, a
- * worded "Search" button where it hasn't — never an icon alone (Birthe,
- * persona panel 2026-11-15). Both show the keys: ⌘K / Ctrl+K first (on a
+ * worded "Search" button where it hasn't; on phones the magnifier alone
+ * (#262 panel: a universal glyph, named, 44px — the bottom bar keeps the
+ * word "Søg"). Both show the keys: ⌘K / Ctrl+K first (on a
  * Danish keyboard "/" is Shift+7), then `/`. Owns the keys: ⌘K / Ctrl+K
  * from anywhere (bubble phase, so the note editor's own ⌘K link dialog still
  * wins inside notes), `/` when not typing. The field only takes what the
@@ -39,7 +40,9 @@ export function PaletteTrigger() {
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto shrink-0 gap-1.5 px-2 @min-[48rem]/nav:hidden"
+          // Phones (#262 panel P3, 5–1): the magnifier alone, a 44px round
+          // chip; the bottom bar's worded "Søg" keeps the word on the page
+          className="ml-auto shrink-0 gap-1.5 px-2 @min-[48rem]/nav:hidden max-md:size-[44px] max-md:rounded-full max-md:px-0 max-md:text-muted-foreground max-md:bg-(--chip) [--chip:color-mix(in_oklch,var(--foreground)_6%,transparent)] dark:[--chip:color-mix(in_oklch,var(--foreground)_10%,transparent)]"
           aria-label={t("palette.open")}
           aria-haspopup="dialog"
           aria-keyshortcuts={live("Meta+K Control+K /")}
@@ -50,8 +53,9 @@ export function PaletteTrigger() {
           // Phone: the shared way in (#243) — the proxy keeps the iOS keyboard up
           onClick={(e) => openPaletteFromTap(e.currentTarget)}
         >
-          <Search aria-hidden />
-          {t("nav.search")}
+          {/* Phones: 20px, growing with the text size to 28 (Mads: calm; Birthe: readable) */}
+          <Search aria-hidden className="size-3.5 max-md:size-[clamp(20px,1.25rem,28px)]" />
+          <span className="max-md:hidden">{t("nav.search")}</span>
         </Button>
       </Hint>
       {/* iOS opens the keyboard only for a focus inside the tap itself: a
