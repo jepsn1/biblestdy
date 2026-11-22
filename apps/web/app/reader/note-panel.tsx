@@ -27,7 +27,7 @@ import { notifyError, notifyUndo } from "~/lib/notify";
 import { dismissNotice } from "~/lib/notices";
 import { InlineNotice } from "~/components/inline-notice";
 import { setOpenNote } from "~/lib/next-path";
-import { clearDraft, draftDecision, keepDraftThroughDelete, type NoteDraft, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
+import { clearDraft, draftDecision, keepDraftThroughDelete, noteHasContent, type NoteDraft, readDraft, shouldKeepDraft, writeDraft } from "~/lib/note-drafts";
 import { freshNotes, type EditOptions } from "./use-notes";
 import { useIsDark } from "~/lib/theme";
 import { useViewportFits } from "~/lib/text-size";
@@ -195,11 +195,6 @@ function FallbackEditor({
 /** Open note panels per note id: a StrictMode/switch re-mount is not a close. */
 const mounted = new Map<string, number>();
 
-/** Whether a note has words in it (#261): a title or text. Its references
- * alone don't count — the one made from the selection comes by itself. */
-export function noteHasContent(n: { title: string; body: string }): boolean {
-  return n.title.trim() !== "" || n.body.trim() !== "";
-}
 
 /** The delete confirm row (#261): its own chunk, fetched when idle. */
 const deleteConfirm = lazyModule(() => import("./delete-confirm"));

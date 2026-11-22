@@ -5,6 +5,7 @@ import {
   clearDraft,
   draftDecision,
   keepDraftThroughDelete,
+  noteHasContent,
   pruneDrafts,
   readDraft,
   setDraftUser,
@@ -142,5 +143,13 @@ describe("draft scope + pruning", () => {
     expect(Object.keys(store)).toEqual(["noteDraft:u1:sermon"]);
     pruneDrafts(new Set(["other"]), Date.now() + DRAFT_MAX_AGE_MS + 1);
     expect(readDraft("sermon")).toBeNull();
+  });
+});
+
+describe("noteHasContent (#261: what asks before delete, what's discarded)", () => {
+  it("a title or text is content; whitespace and references alone aren't", () => {
+    expect(noteHasContent({ title: "Sermon Eric", body: "" })).toBe(true);
+    expect(noteHasContent({ title: "", body: "Grace" })).toBe(true);
+    expect(noteHasContent({ title: "  ", body: "\n " })).toBe(false);
   });
 });

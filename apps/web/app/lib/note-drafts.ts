@@ -148,3 +148,11 @@ export function pruneDrafts(liveIds?: ReadonlySet<string>, now = Date.now()) {
     }
   }
 }
+
+/** Whether a note has words in it (#261): a title or text. Its references
+ * alone don't count — the one made from the selection comes by itself. A
+ * note without asks no confirm to delete, and one made in this visit and
+ * closed without is discarded. */
+export function noteHasContent(n: { title: string; body: string }): boolean {
+  return n.title.trim() !== "" || n.body.trim() !== "";
+}
