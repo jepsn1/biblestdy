@@ -80,7 +80,7 @@ export default function SignIn() {
             </Link>
 
             {step === "email" ? (
-              <form onSubmit={sendCode} className="rounded-lg border border-border bg-card p-6">
+              <form onSubmit={sendCode} className="rounded-lg border border-border bg-card p-6 max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
                 <h1 className="font-serif text-title font-medium">{t("signin.title")}</h1>
                 <p className="mt-1 mb-4 text-control text-muted-foreground">{t("signin.subtitle")}</p>
                 <Input
@@ -92,14 +92,15 @@ export default function SignIn() {
                   aria-label={t("signin.email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="max-sm:h-12"
                 />
-                <Button type="submit" className="mt-3 w-full" disabled={busy}>
+                <Button type="submit" className="mt-3 w-full max-sm:h-12 max-sm:text-phone" disabled={busy}>
                   {busy ? t("signin.sending") : t("signin.send")}
                 </Button>
                 {error && <p className="mt-3 text-meta text-destructive">{error}</p>}
               </form>
             ) : (
-              <form onSubmit={verifyCode} className="rounded-lg border border-border bg-card p-6">
+              <form onSubmit={verifyCode} className="rounded-lg border border-border bg-card p-6 max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
                 <h1 className="font-serif text-title font-medium">{t("signin.codeTitle")}</h1>
                 <p className="mt-1 mb-4 text-control text-muted-foreground">
                   {t("signin.sentTo")} <span className="text-foreground">{email}</span>.{" "}
@@ -115,9 +116,9 @@ export default function SignIn() {
                   aria-label={t("signin.code")}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="text-center font-mono text-reading tracking-[0.5em]"
+                  className="text-center font-mono text-reading tracking-[0.5em] max-sm:h-12"
                 />
-                <Button type="submit" className="mt-3 w-full" disabled={busy}>
+                <Button type="submit" className="mt-3 w-full max-sm:h-12 max-sm:text-phone" disabled={busy}>
                   {busy ? t("signin.verifying") : t("signin.verify")}
                 </Button>
                 {error && <p className="mt-3 text-meta text-destructive">{error}</p>}
@@ -128,7 +129,7 @@ export default function SignIn() {
                     setCode("");
                     setError(null);
                   }}
-                  className="mt-3 w-full text-center text-meta text-muted-foreground hover:text-foreground"
+                  className="mt-3 min-h-11 w-full text-center text-meta text-muted-foreground hover:text-foreground"
                 >
                   {t("signin.differentEmail")}
                 </button>
@@ -139,13 +140,13 @@ export default function SignIn() {
               type="button"
               aria-label={t("nav.language")}
               onClick={() => setUiLanguage(i18next.language.startsWith("da") ? "en" : "da")}
-              className="mx-auto mt-6 block min-h-6 px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
+              className="mx-auto mt-6 flex min-h-11 items-center justify-center px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
             >
               {i18next.language.startsWith("da") ? "English" : "Dansk"}
             </button>
             <Link
               to="/privacy"
-              className="mx-auto mt-1 block min-h-6 w-fit px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
+              className="mx-auto mt-1 flex min-h-11 items-center justify-center w-fit px-2 py-1 text-center text-meta text-muted-foreground hover:text-foreground"
             >
               {t("settings.privacy")}
             </Link>

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { formatScriptureHref, type Note, type NoteAnchor, type Tag } from "@biblestdy/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { InlineNotice } from "~/components/inline-notice";
@@ -392,7 +392,7 @@ function NotesPage({ params }: Route.ComponentProps) {
     <main className="flex h-dvh flex-col overflow-hidden bg-background pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
       <header className="@container flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:px-3">
         {params.id && mobile ? (
-          <Link to={hrefOf()} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-10 text-muted-foreground")}>
+          <Link to={hrefOf()} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-w-0 shrink text-muted-foreground")}>
             <ArrowLeft aria-hidden />
             {t("notes.backToList")}
           </Link>
@@ -405,7 +405,8 @@ function NotesPage({ params }: Route.ComponentProps) {
             aria-label={backRef ? t("notes.backToPlace", { ref: backRef }) : undefined}
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-w-0 shrink text-muted-foreground")}
           >
-            {backRef ? <ArrowLeft aria-hidden /> : <BookOpen aria-hidden />}
+            {/* Back, named by where it goes (#262 C3): "← John 3", else "← Bible" */}
+            <ArrowLeft aria-hidden />
             {backRef ? (
               <>
                 <span className="truncate max-sm:hidden">{t("notes.backToPlace", { ref: backRef })}</span>
@@ -422,16 +423,11 @@ function NotesPage({ params }: Route.ComponentProps) {
           {t("notes.title")}
         </h1>
         {params.id && mobile && <span className="flex-1" />}
-        {/* A note open on a narrow row (a phone at 200% text, #196): beside
-            the way back, just the +, its name kept for screen readers */}
-        <Button
-          size="sm"
-          className={cn(params.id && mobile && "@max-[12.5rem]:w-10 @max-[12.5rem]:px-0")}
-          data-tour="notes-new"
-          onClick={() => void newNote()}
-        >
+        {/* Keeps its word at every text size (#262 D13.5: no lone "+");
+            the way back gives way first */}
+        <Button size="sm" className="shrink-0" data-tour="notes-new" onClick={() => void newNote()}>
           <Plus aria-hidden />
-          <span className={cn(params.id && mobile && "@max-[12.5rem]:sr-only")}>{t("notes.new")}</span>
+          {t("notes.new")}
         </Button>
       </header>
       {/* Errors and Undo for this page (#257): one line under its header */}
