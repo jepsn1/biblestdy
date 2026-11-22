@@ -516,13 +516,15 @@ export function ReferencesOverview({
           title={t("note.removeReference")}
           onClick={() => (row.kind === "marked" ? void remove(row.anchor) : removeText(row))}
           className={cn(
-            "inline-flex items-center justify-center rounded hover:text-destructive",
+            // A word, not a ×: × is the note's Close (#261 panel — a × here
+            // one row under it read as the same thing)
+            "inline-flex items-center justify-center rounded px-1.5 font-sans text-list underline-offset-4 hover:text-destructive hover:underline",
             on ? "text-accent-foreground" : "text-muted-foreground",
-            tight ? "size-[44px]" : mobile ? "size-11" : "size-6 pointer-coarse:size-11",
+            tight ? "min-h-[44px] min-w-[44px]" : mobile ? "min-h-11 min-w-11" : "min-h-6 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
             focusRing,
           )}
         >
-          <X className="size-3.5" aria-hidden />
+          {t("note.remove")}
         </button>
       ) : (
         <span />

@@ -17,6 +17,7 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import { notifyError, notifyUndo } from "~/lib/notify";
 import i18n from "~/lib/i18n";
 import { api } from "~/lib/query";
+import { trashCount, trashQuery } from "~/lib/trash";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
 import { pathOf, requireAuth } from "~/lib/require-auth";
@@ -79,6 +80,9 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const { notes, loaded, fetching, failed, retry } = useAllNotesQuery(true);
   const actions = useNoteActions();
   const { data: tags = [] } = useQuery({ queryKey: ["tags"], queryFn: () => api<Tag[]>("/api/tags") });
+  // "Recently deleted (n)" at the list's end (#261); refreshed on each visit
+  const { data: trash } = useQuery({ ...trashQuery, staleTime: 0 });
+  const deletedCount = trashCount(trash);
   const searchId = useId();
   const listHeadingId = useId();
   const sortId = useId();
@@ -306,6 +310,19 @@ export default function NotesPage({ params }: Route.ComponentProps) {
               );
             })}
           </ul>
+        )}
+        {/* Where deleted things wait 30 days (#261): one quiet line, always
+            there — an empty list is when someone comes looking */}
+        {loaded && !failed && (
+          <p className="px-4 pt-1 pb-4 max-md:pb-[calc(1rem+var(--safe-bottom))]">
+            <Link
+              to="/notes/deleted"
+              data-trash-link=""
+              className={cn("inline-flex min-h-9 items-center rounded-sm text-meta text-muted-foreground underline underline-offset-4 hover:text-foreground max-md:min-h-11", focusRing)}
+            >
+              {deletedCount ? t("notes.trashLinkCount", { count: deletedCount }) : t("notes.trashLink")}
+            </Link>
+          </p>
         )}
       </ScrollArea>
       <p className="sr-only" aria-live="polite">

@@ -99,6 +99,7 @@ export function useNotes(translationId: string, book: string, chapter: number) {
     void qc.invalidateQueries({ queryKey: ["notes"] });
     // The connections panel is a view over the same graph
     void qc.invalidateQueries({ queryKey: ["connections"] });
+    void qc.invalidateQueries({ queryKey: ["trash"] }); // Recently deleted (#261)
   }
 
   /** Creates an empty document on the anchor; returns it so the caller can
@@ -211,6 +212,7 @@ export function useNoteActions() {
   function invalidateAll() {
     void qc.invalidateQueries({ queryKey: ["notes"] });
     void qc.invalidateQueries({ queryKey: ["connections"] });
+    void qc.invalidateQueries({ queryKey: ["trash"] }); // Recently deleted (#261)
   }
 
   /** A note with no passage yet (or on `anchor`); null after a notice. */
