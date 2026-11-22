@@ -129,8 +129,6 @@ export function PlaceChooser({
   const triggerClass = cn(
     "-ml-1 justify-start gap-1.5 pl-1.5 text-control",
     short ? "shrink-0" : "min-w-[calc(5em+3.5rem)] max-w-max shrink grow basis-0",
-    // Phones (#262): the row never wraps; the name gives way (ellipsis), never the icons
-    "max-md:min-w-0 max-md:shrink",
   );
   const panel = (
     <PlacePanel

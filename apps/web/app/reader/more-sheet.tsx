@@ -147,15 +147,13 @@ export function MoreSheet({
     size: "sm" as const,
     // Phones always; wider screens while the row is narrow (container query)
     // Phones (#262 panel P3, 5–1): ⋯ alone, a 44px round chip like Search
-    className: "shrink-0 sm:@min-[36rem]/nav:hidden max-md:size-[44px] max-md:rounded-full max-md:px-0 max-md:text-muted-foreground max-md:bg-(--chip) [--chip:color-mix(in_oklch,var(--foreground)_6%,transparent)] dark:[--chip:color-mix(in_oklch,var(--foreground)_10%,transparent)]",
-    "aria-label": t("nav.more"),
+    className: "sm:@min-[36rem]/nav:hidden nav-chip",
     "aria-haspopup": "dialog" as const,
   };
   const label = (
     <>
-      {/* Phones: dots read small, so 22px (Mads), growing with the text size to 30 */}
-      <Ellipsis data-icon="inline-start" aria-hidden className="size-3.5 max-md:size-[clamp(22px,1.375rem,30px)]" />
-      <span className="max-md:hidden">{t("nav.more")}</span>
+      <Ellipsis data-icon="inline-start" aria-hidden />
+      <span>{t("nav.more")}</span>
     </>
   );
 

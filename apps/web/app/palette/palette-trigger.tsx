@@ -42,7 +42,7 @@ export function PaletteTrigger() {
           size="sm"
           // Phones (#262 panel P3, 5–1): the magnifier alone, a 44px round
           // chip; the bottom bar's worded "Søg" keeps the word on the page
-          className="ml-auto shrink-0 gap-1.5 px-2 @min-[48rem]/nav:hidden max-md:size-[44px] max-md:rounded-full max-md:px-0 max-md:text-muted-foreground max-md:bg-(--chip) [--chip:color-mix(in_oklch,var(--foreground)_6%,transparent)] dark:[--chip:color-mix(in_oklch,var(--foreground)_10%,transparent)]"
+          className="ml-auto gap-1.5 px-2 @min-[48rem]/nav:hidden nav-chip"
           aria-label={t("palette.open")}
           aria-haspopup="dialog"
           aria-keyshortcuts={live("Meta+K Control+K /")}
@@ -53,9 +53,8 @@ export function PaletteTrigger() {
           // Phone: the shared way in (#243) — the proxy keeps the iOS keyboard up
           onClick={(e) => openPaletteFromTap(e.currentTarget)}
         >
-          {/* Phones: 20px, growing with the text size to 28 (Mads: calm; Birthe: readable) */}
-          <Search aria-hidden className="size-3.5 max-md:size-[clamp(20px,1.25rem,28px)]" />
-          <span className="max-md:hidden">{t("nav.search")}</span>
+          <Search aria-hidden />
+          <span>{t("nav.search")}</span>
         </Button>
       </Hint>
       {/* iOS opens the keyboard only for a focus inside the tap itself: a
