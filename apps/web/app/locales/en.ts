@@ -217,7 +217,7 @@ export default {
     groupText: "In the text",
     groupMarked: "Marked in the Bible",
     showInText: "Find in note",
-    insertInText: "Add to note",
+    insertInText: "Quote in note",
     shownInText: "{{ref}} selected in the note",
     /** Phone (#195): the note drawer, folded down while its reference is shown in the text */
     backToNote: "Back to note",
