@@ -78,6 +78,9 @@ export interface NoteStore {
   deleteNote(userId: string, id: string): Promise<boolean>;
   /** Undo a deleteNote; null if no deleted note of the user's has the id. */
   restoreNote(userId: string, id: string): Promise<NoteRow | null>;
+  /** The user's soft-deleted notes not yet purged (#261: Recently
+   * deleted), most recently deleted first. */
+  listDeletedNotes(userId: string): Promise<(NoteRow & { deletedAt: Date })[]>;
   /** Account deletion: ids of ALL the user's notes, soft-deleted included. */
   allNoteIds(userId: string): Promise<string[]>;
   /** Hard delete (account deletion) — the note and its anchors are gone. */
@@ -173,6 +176,24 @@ export class DrizzleNoteStore implements NoteStore {
       )
       .returning();
     return row ?? null;
+  }
+
+  async listDeletedNotes(
+    userId: string,
+  ): Promise<(NoteRow & { deletedAt: Date })[]> {
+    const rows = await db
+      .select({
+        id: note.id,
+        userId: note.userId,
+        title: note.title,
+        body: note.body,
+        updatedAt: note.updatedAt,
+        deletedAt: note.deletedAt,
+      })
+      .from(note)
+      .where(and(eq(note.userId, userId), isNotNull(note.deletedAt)))
+      .orderBy(desc(note.deletedAt));
+    return rows.map((r) => ({ ...r, deletedAt: r.deletedAt! }));
   }
 
   async allNoteIds(userId: string): Promise<string[]> {

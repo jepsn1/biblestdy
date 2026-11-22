@@ -16,6 +16,7 @@ function make(overrides: Partial<HighlightsService> = {}) {
     create: vi.fn(),
     remove: vi.fn(),
     restore: vi.fn(),
+    listDeleted: vi.fn(),
     update: vi.fn(),
     ...overrides,
   };

@@ -1,4 +1,5 @@
 import { and, eq, lt, notExists } from 'drizzle-orm';
+import { TRASH_MS } from '@biblestdy/shared';
 import { db } from '../db';
 import {
   annotation,
@@ -9,12 +10,13 @@ import {
   tag,
 } from '../db/schema';
 
-/** How long a soft-deleted row (#64) can still be restored. The client's undo
- * toast lasts seconds; the hour covers a slow network or a retry. */
-export const RESTORE_WINDOW_MS = 3_600_000;
+/** How long a soft-deleted row (#64) can still be restored: 30 days, listed
+ * under Recently deleted (#261). It was an hour — a note deleted by mistake
+ * at church was gone before anyone noticed. */
+export const RESTORE_WINDOW_MS = TRASH_MS;
 
 /** Hard-deletes rows soft-deleted before the window: deleted study is really
- * gone within the hour. Notes cascade to their anchors and note_tag rows; a
+ * gone after TRASH_DAYS. Notes cascade to their anchors and note_tag rows; a
  * tag left on nothing is dropped too (what untag does for live notes). */
 export async function purgeDeleted(now = Date.now()): Promise<void> {
   const cutoff = new Date(now - RESTORE_WINDOW_MS);

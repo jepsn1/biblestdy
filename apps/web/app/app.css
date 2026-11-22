@@ -684,3 +684,15 @@
   /* …and its end clears the home indicator (#251) */
   padding-bottom: calc(var(--drawer-snap-hidden) + var(--safe-bottom));
 }
+
+/* Keyboard up on a phone sheet (#261, lib/keyboard-fit): its content fits
+   the part on screen — header (Close) at the top of what's visible, bottom
+   row just above the keyboard (which covers the home indicator itself) —
+   and the parts marked data-kb-hide step aside for the writing. */
+[data-slot="drawer-popup"][data-kb] > [data-slot="drawer-content"] {
+  padding-top: var(--kb-top, 0px);
+  padding-bottom: var(--kb-bottom, 0px);
+}
+[data-slot="drawer-popup"][data-kb] [data-kb-hide] {
+  display: none;
+}

@@ -4,6 +4,7 @@ import {
   refsInMarkdown,
   sameAnchor,
   type Anchor,
+  type Deleted,
   type NewNote,
   type Note,
   type NoteRef,
@@ -107,7 +108,8 @@ export class NotesService {
     return note;
   }
 
-  /** Soft delete (#64) — restore() undoes it until the purge runs. */
+  /** Soft delete (#64) — restore() undoes it until the purge runs
+   * (TRASH_DAYS, #261). */
   async remove(userId: string, id: string): Promise<boolean> {
     return this.store.deleteNote(userId, id);
   }
@@ -118,6 +120,20 @@ export class NotesService {
     if (!row) return null;
     const [note] = await this.withAnchors([row]);
     return note;
+  }
+
+  /** Recently deleted (#261): the user's deleted notes still restorable,
+   * newest deletion first, each with its anchors. Blank ones (no title, no
+   * text — an abandoned "New note") aren't listed: nothing to bring back. */
+  async listDeleted(userId: string): Promise<Deleted<Note>[]> {
+    const rows = (await this.store.listDeletedNotes(userId)).filter(
+      (r) => r.title.trim() !== '' || r.body.trim() !== '',
+    );
+    const notes = await this.withAnchors(rows);
+    return notes.map((n, i) => ({
+      ...n,
+      deletedAt: rows[i].deletedAt.toISOString(),
+    }));
   }
 
   /** Anchors an existing note to another passage. Anchoring the exact same

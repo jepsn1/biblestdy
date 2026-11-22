@@ -5,7 +5,7 @@ import { refOf } from './notes.service';
 /** In-memory NoteStore: graph rules and panel assembly (NotesService,
  * ConnectionsService) get behavior-tested without a DB. */
 export class InMemoryNoteStore implements NoteStore {
-  private notes: (NoteRow & { deleted?: boolean })[] = [];
+  private notes: (NoteRow & { deleted?: boolean; deletedAt?: Date })[] = [];
   private anchors: AnchorRow[] = [];
   private refs: RefRow[] = [];
   /** The users' live marks (#216): id → owner + translation. */
@@ -91,6 +91,7 @@ export class InMemoryNoteStore implements NoteStore {
     const row = await this.getNote(userId, id);
     if (!row) return false;
     row.deleted = true;
+    row.deletedAt = this.stamp();
     return true;
   }
 
@@ -98,8 +99,20 @@ export class InMemoryNoteStore implements NoteStore {
     const row = this.notes.find(
       (n) => n.id === id && n.userId === userId && n.deleted,
     );
-    if (row) row.deleted = false;
+    if (row) {
+      row.deleted = false;
+      delete row.deletedAt;
+    }
     return Promise.resolve(row ?? null);
+  }
+
+  listDeletedNotes(userId: string) {
+    return Promise.resolve(
+      this.notes
+        .filter((n) => n.userId === userId && n.deleted && n.deletedAt)
+        .map((n) => ({ ...n, deletedAt: n.deletedAt! }))
+        .sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime()),
+    );
   }
 
   allNoteIds(userId: string) {

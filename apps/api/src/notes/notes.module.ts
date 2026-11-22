@@ -25,5 +25,6 @@ import { DrizzleNoteStore } from './notes.store';
         ),
     },
   ],
+  exports: [NotesService],
 })
 export class NotesModule {}

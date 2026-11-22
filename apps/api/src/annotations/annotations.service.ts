@@ -4,6 +4,7 @@ import type {
   Annotation,
   AnnotationMark,
   NewAnnotation,
+  Deleted,
 } from '@biblestdy/shared';
 import { db } from '../db';
 import { annotation } from '../db/schema';
@@ -102,6 +103,21 @@ export class AnnotationsService {
       )
       .returning({ id: annotation.id });
     return deleted.length > 0;
+  }
+
+  /** Recently deleted (#261): deleted, not yet purged, newest first. */
+  async listDeleted(userId: string): Promise<Deleted<Annotation>[]> {
+    const rows = await db
+      .select()
+      .from(annotation)
+      .where(
+        and(eq(annotation.userId, userId), isNotNull(annotation.deletedAt)),
+      )
+      .orderBy(desc(annotation.deletedAt));
+    return rows.map((r) => ({
+      ...toAnnotation(r),
+      deletedAt: r.deletedAt!.toISOString(),
+    }));
   }
 
   /** Undo a delete (#64) — until the purge took it; null if not found. */

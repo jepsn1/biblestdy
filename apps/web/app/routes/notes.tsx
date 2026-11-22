@@ -17,6 +17,7 @@ import { bookLocale, useBookName } from "~/lib/book-name";
 import { notifyError, notifyUndo } from "~/lib/notify";
 import i18n from "~/lib/i18n";
 import { api } from "~/lib/query";
+import { trashCount, trashQuery } from "~/lib/trash";
 import { loadReaderStyle } from "~/lib/reader-style";
 import { loadTextSize } from "~/lib/text-size";
 import { pathOf, requireAuth } from "~/lib/require-auth";
@@ -29,14 +30,18 @@ import { NotePanel, TOUR_KIT } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
 import { NotesTourHost } from "../notes/tour-host";
+import { TrashView } from "../notes/trash-view";
 import type { Route } from "./+types/notes";
 
 // App route: zoom locked (#61) — the in-app Text size setting enlarges text
 export const handle = zoomLockHandle;
 
-export function meta() {
-  return [{ title: `${i18n.t("notes.title")} — biblestdy` }];
+export function meta({ params }: Route.MetaArgs) {
+  return [{ title: `${i18n.t(params.id === TRASH_ID ? "notes.trashTitle" : "notes.title")} — biblestdy` }];
 }
+
+/** /notes/deleted: Recently deleted (#261), not a note. */
+const TRASH_ID = "deleted";
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   // The Notes page is for editing: fetch the editor chunk (M8) alongside
@@ -64,7 +69,11 @@ function editedOn(iso: string, language: string): string {
  * filters by a topic (topic chips everywhere link here). Phones show the
  * list and the editor as two screens.
  */
-export default function NotesPage({ params }: Route.ComponentProps) {
+export default function NotesRoute(props: Route.ComponentProps) {
+  return props.params.id === TRASH_ID ? <TrashView /> : <NotesPage {...props} />;
+}
+
+function NotesPage({ params }: Route.ComponentProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const nameOf = useBookName();
@@ -79,6 +88,9 @@ export default function NotesPage({ params }: Route.ComponentProps) {
   const { notes, loaded, fetching, failed, retry } = useAllNotesQuery(true);
   const actions = useNoteActions();
   const { data: tags = [] } = useQuery({ queryKey: ["tags"], queryFn: () => api<Tag[]>("/api/tags") });
+  // "Recently deleted (n)" at the list's end (#261); refreshed on each visit
+  const { data: trash } = useQuery({ ...trashQuery, staleTime: 0 });
+  const deletedCount = trashCount(trash);
   const searchId = useId();
   const listHeadingId = useId();
   const sortId = useId();
@@ -307,6 +319,19 @@ export default function NotesPage({ params }: Route.ComponentProps) {
             })}
           </ul>
         )}
+        {/* Where deleted things wait 30 days (#261): one quiet line, always
+            there — an empty list is when someone comes looking */}
+        {loaded && !failed && (
+          <p className="px-4 pt-1 pb-4 max-md:pb-[calc(1rem+var(--safe-bottom))]">
+            <Link
+              to={`/notes/${TRASH_ID}`}
+              data-trash-link=""
+              className={cn("inline-flex min-h-9 items-center rounded-sm text-meta text-muted-foreground underline underline-offset-4 hover:text-foreground max-md:min-h-11", focusRing)}
+            >
+              {deletedCount ? t("notes.trashLinkCount", { count: deletedCount }) : t("notes.trashLink")}
+            </Link>
+          </p>
+        )}
       </ScrollArea>
       <p className="sr-only" aria-live="polite">
         {loaded && !failed ? t("notes.count", { count: shown.length }) : ""}
@@ -330,6 +355,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
           mobile={mobile}
           onEdit={actions.edit}
           onRemove={removeNote}
+          onDiscard={actions.discard}
           onDetach={actions.detach}
           onAttach={actions.attach}
           onShowAnchor={(a) => readAnchor(open, a)}

@@ -6,9 +6,10 @@
  * localStorage too; reopening the note brings them back (and saves them).
  *
  * Kept per user (`noteDraft:<user>:<note>`): on a shared device, whoever
- * signs in next never sees them. Cleared once saved, when the note is
- * deleted, on sign-out, and when orphaned (the note is gone, or the draft
- * is older than DRAFT_MAX_AGE_MS).
+ * signs in next never sees them. Cleared once saved, on sign-out, and when
+ * orphaned (the note is gone, or the draft is older than DRAFT_MAX_AGE_MS).
+ * A deleted note's draft stays (#261): the note can be restored for
+ * TRASH_DAYS, and its unsaved words with it — it ages out like any other.
  */
 
 const PREFIX = "noteDraft:";
@@ -29,6 +30,9 @@ export type NoteDraft = {
   /** The note's updatedAt the draft was written on top of. */
   base: string;
   at: number;
+  /** The note was deleted with this unsaved (#261): kept while it can be
+   * restored — not an orphan when the note leaves the live list. */
+  deleted?: boolean;
 };
 
 /** What reopening a note does with a draft:
@@ -62,7 +66,7 @@ function parse(raw: string | null): NoteDraft | null {
   try {
     const d = JSON.parse(raw) as Partial<NoteDraft>;
     if (typeof d.title !== "string" || typeof d.body !== "string" || typeof d.base !== "string") return null;
-    return { title: d.title, body: d.body, base: d.base, at: Number(d.at) || 0 };
+    return { title: d.title, body: d.body, base: d.base, at: Number(d.at) || 0, ...(d.deleted && { deleted: true }) };
   } catch {
     return null;
   }
@@ -83,6 +87,19 @@ export function writeDraft(id: string, draft: Omit<NoteDraft, "at">) {
     localStorage.setItem(keyOf(user, id), JSON.stringify({ ...draft, at: Date.now() }));
   } catch {
     // storage blocked or full: the server save is still the real copy
+  }
+}
+
+/** The note is being deleted (#261): its draft, if any, is kept until the
+ * restore window is over, instead of pruned as an orphan. */
+export function keepDraftThroughDelete(id: string) {
+  if (!user) return;
+  const d = readDraft(id);
+  if (!d) return;
+  try {
+    localStorage.setItem(keyOf(user, id), JSON.stringify({ ...d, deleted: true }));
+  } catch {
+    // storage blocked: nothing was kept
   }
 }
 
@@ -124,10 +141,18 @@ export function pruneDrafts(liveIds?: ReadonlySet<string>, now = Date.now()) {
     try {
       const d = parse(localStorage.getItem(key));
       const stale = !d || now - d.at > DRAFT_MAX_AGE_MS;
-      const gone = Boolean(liveIds && mine && key.startsWith(mine) && !liveIds.has(key.slice(mine.length)));
+      const gone = Boolean(liveIds && mine && key.startsWith(mine) && !liveIds.has(key.slice(mine.length)) && !d?.deleted);
       if (stale || gone) localStorage.removeItem(key);
     } catch {
       // storage blocked: nothing to prune
     }
   }
+}
+
+/** Whether a note has words in it (#261): a title or text. Its references
+ * alone don't count — the one made from the selection comes by itself. A
+ * note without asks no confirm to delete, and one made in this visit and
+ * closed without is discarded. */
+export function noteHasContent(n: { title: string; body: string }): boolean {
+  return n.title.trim() !== "" || n.body.trim() !== "";
 }

@@ -1034,7 +1034,41 @@ export function ChapterText({
     if (color !== defaultColor) void authClient.updateUser({ defaultHighlightColor: color });
   }
 
+  // A margin note being written is never thrown away by leaving it (#261):
+  // a tap on the text (a new selection replaces the composer), a swipe, a
+  // chapter change — whatever closes it, what's written is saved. Only
+  // Cancel or Esc discard it (they clear this first).
+  const openCompose = useRef<{ anchor: Anchor; editId?: string; text: string } | null>(null);
+  useEffect(() => {
+    if (menu?.kind === "compose") {
+      openCompose.current = { anchor: menu.anchor, editId: menu.editId, text: draft };
+      return;
+    }
+    const left = openCompose.current;
+    openCompose.current = null;
+    const text = left?.text.trim();
+    if (!left || !text) return;
+    if (left.editId) onEditAnnotation(left.editId, text);
+    else onAddAnnotation(left.anchor, text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on leaving the composer
+  }, [menu, draft]);
+  // Screen off / app switch while writing one (#261): saved now, like a
+  // note's text — not left in a box a locked phone may not keep
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden" && openCompose.current?.text.trim()) setMenu(null);
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
+  /** Cancel / Esc: what's written goes. */
+  function discardDraft(keyboard: boolean) {
+    openCompose.current = null;
+    closeMenu(keyboard);
+  }
+
   function saveDraft(keyboard = false) {
+    openCompose.current = null; // saved here
     const text = draft.trim();
     if (text && menu?.kind === "compose") {
       if (menu.editId) onEditAnnotation(menu.editId, text);
@@ -1675,7 +1709,13 @@ export function ChapterText({
 
       <AnchoredPanel
         open={menu?.kind === "compose"}
-        onOpenChange={(open, keyboard) => !open && closeMenu(keyboard)}
+        // Tapped beside it or swiped away, what's written is kept (#261 panel
+        // Q7) — only Cancel (or Esc) throws it away
+        onOpenChange={(open, keyboard) => {
+          if (open) return;
+          if (keyboard) discardDraft(true);
+          else saveDraft(false);
+        }}
         anchor={virtualAnchor}
         mobile={mobile}
         label={t("menu.annotationLabel")}
@@ -1700,7 +1740,7 @@ export function ChapterText({
           <span className="flex gap-1">
             <button
               type="button"
-              onClick={(e) => closeMenu(e.detail === 0)}
+              onClick={(e) => discardDraft(e.detail === 0)}
               className={cn("min-h-8 rounded px-2.5 text-control hover:bg-accent", focusRing)}
             >
               {t("menu.cancel")}
