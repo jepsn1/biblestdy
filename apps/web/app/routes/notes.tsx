@@ -30,14 +30,18 @@ import { NotePanel, TOUR_KIT } from "../reader/note-panel";
 import { noteEditor } from "../reader/note-editor-loader";
 import { useAllNotesQuery, useNoteActions } from "../reader/use-notes";
 import { NotesTourHost } from "../notes/tour-host";
+import { TrashView } from "../notes/trash-view";
 import type { Route } from "./+types/notes";
 
 // App route: zoom locked (#61) — the in-app Text size setting enlarges text
 export const handle = zoomLockHandle;
 
-export function meta() {
-  return [{ title: `${i18n.t("notes.title")} — biblestdy` }];
+export function meta({ params }: Route.MetaArgs) {
+  return [{ title: `${i18n.t(params.id === TRASH_ID ? "notes.trashTitle" : "notes.title")} — biblestdy` }];
 }
+
+/** /notes/deleted: Recently deleted (#261), not a note. */
+const TRASH_ID = "deleted";
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   // The Notes page is for editing: fetch the editor chunk (M8) alongside
@@ -65,7 +69,11 @@ function editedOn(iso: string, language: string): string {
  * filters by a topic (topic chips everywhere link here). Phones show the
  * list and the editor as two screens.
  */
-export default function NotesPage({ params }: Route.ComponentProps) {
+export default function NotesRoute(props: Route.ComponentProps) {
+  return props.params.id === TRASH_ID ? <TrashView /> : <NotesPage {...props} />;
+}
+
+function NotesPage({ params }: Route.ComponentProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const nameOf = useBookName();
@@ -316,7 +324,7 @@ export default function NotesPage({ params }: Route.ComponentProps) {
         {loaded && !failed && (
           <p className="px-4 pt-1 pb-4 max-md:pb-[calc(1rem+var(--safe-bottom))]">
             <Link
-              to="/notes/deleted"
+              to={`/notes/${TRASH_ID}`}
               data-trash-link=""
               className={cn("inline-flex min-h-9 items-center rounded-sm text-meta text-muted-foreground underline underline-offset-4 hover:text-foreground max-md:min-h-11", focusRing)}
             >

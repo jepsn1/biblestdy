@@ -10,30 +10,12 @@ import { Button, buttonVariants } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { announce } from "~/lib/announce";
 import { bookLocale, useBookName } from "~/lib/book-name";
-import i18n from "~/lib/i18n";
 import { notifyError } from "~/lib/notify";
 import { api } from "~/lib/query";
 import { trashQuery } from "~/lib/trash";
-import { loadTextSize } from "~/lib/text-size";
-import { pathOf, requireAuth } from "~/lib/require-auth";
 import { cn, focusRing } from "~/lib/utils";
-import { zoomLockHandle } from "~/lib/viewport";
-import { noteRefLabels, noteTitle } from "../notes/note-list";
+import { noteRefLabels, noteTitle } from "./note-list";
 import { anchorReferenceLabel } from "../reader/copy-attribution";
-import type { Route } from "./+types/trash";
-
-// App route: zoom locked (#61) — the in-app Text size setting enlarges text
-export const handle = zoomLockHandle;
-
-export function meta() {
-  return [{ title: `${i18n.t("notes.trashTitle")} — biblestdy` }];
-}
-
-export async function clientLoader({ request }: Route.ClientLoaderArgs) {
-  const session = await requireAuth({ cached: true, next: pathOf(request.url) });
-  await loadTextSize(session.user.id);
-  return null;
-}
 
 type Kind = "notes" | "highlights" | "annotations";
 type Item = { kind: "notes"; item: Deleted<Note> } | { kind: "highlights"; item: Deleted<Highlight> } | { kind: "annotations"; item: Deleted<Annotation> };
@@ -52,9 +34,11 @@ function deletedWhen(iso: string, language: string): string {
  * notes, highlights, margin notes and pen marks — each with what it was,
  * when it went, the days left and a Restore button. A restored row says so
  * in its place, with the way to it (no toast). Reached from the end of the
- * Notes list ("Recently deleted (n)") and named in the delete confirm.
+ * Notes list ("Recently deleted (n)") and named in the delete confirm. It
+ * is the Notes route at /notes/deleted (routes/notes.tsx): no route chunk
+ * of its own — one would re-split modules the reader shares (bundle budget).
  */
-export default function TrashPage() {
+export function TrashView() {
   const { t, i18n } = useTranslation();
   const nameOf = useBookName();
   const locale = bookLocale(i18n.language);

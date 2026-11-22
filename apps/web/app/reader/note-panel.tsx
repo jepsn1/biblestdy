@@ -11,7 +11,7 @@ import {
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Check, Ellipsis, Maximize2, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { announce } from "~/lib/announce";
 import { Button } from "~/components/ui/button";
 import { Hint, modKey } from "~/components/hint";
@@ -20,6 +20,7 @@ import { Popover, PopoverContent } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import type { EditorKit, PagePlace, ReadRef } from "./ref-context";
 import type { VersePickerProps } from "./verse-picker";
+import type { DeleteConfirmProps } from "./delete-confirm";
 import { bookLocale } from "~/lib/book-name";
 import { chipLabel } from "~/lib/reference-label";
 import { notifyError, notifyUndo } from "~/lib/notify";
@@ -200,42 +201,11 @@ export function noteHasContent(n: { title: string; body: string }): boolean {
   return n.title.trim() !== "" || n.body.trim() !== "";
 }
 
-/**
- * "Delete “Sermon”? You can restore it for 30 days…" (#261 panel Q3): one
- * row under the header, where the eye is — not a modal over the writing.
- * Focus lands on Keep (the safe choice, filled); Enter or Esc there keeps
- * the note — only Delete deletes.
- */
-function DeleteConfirm({ title, onKeep, onDelete }: { title: string; onKeep: () => void; onDelete: () => void }) {
-  const { t } = useTranslation();
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const id = useId();
-  useEffect(() => keepRef.current?.focus({ preventScroll: true }), []);
-  // Esc on either button keeps the note (and doesn't close the panel)
-  const escKeeps = (e: React.KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    e.preventDefault();
-    e.stopPropagation();
-    onKeep();
-  };
-  return (
-    <div
-      role="group"
-      aria-labelledby={id}
-      data-note-confirm=""
-      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/60 px-3 py-2 text-control"
-    >
-      <p id={id} className="min-w-0 basis-full">
-        {title ? t("note.confirmDelete", { title }) : t("note.confirmDeleteUntitled")}
-      </p>
-      <Button ref={keepRef} size="sm" className="max-md:h-11 max-md:px-4" onClick={onKeep} onKeyDown={escKeeps}>
-        {t("note.keep")}
-      </Button>
-      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive max-md:h-11" onClick={onDelete} onKeyDown={escKeeps}>
-        {t("note.deleteNote")}
-      </Button>
-    </div>
-  );
+/** The delete confirm row (#261): its own chunk, fetched when idle. */
+const deleteConfirm = lazyModule(() => import("./delete-confirm"));
+function DeleteConfirm(props: DeleteConfirmProps) {
+  const { value } = useLazyModule(deleteConfirm);
+  return value ? <value.DeleteConfirm {...props} /> : null;
 }
 
 /**
@@ -553,6 +523,7 @@ export function NotePanel({
   /** "Delete note…" (#261 panel Q3): a note with words asks first, in a
    * row under the header; an empty one goes at once. */
   const [confirming, setConfirming] = useState(false);
+  useEffect(() => preloadWhenIdle(deleteConfirm), []);
   const hasContent = noteHasContent({ title, body: liveBody });
   function askDelete() {
     if (hasContent) setConfirming(true);

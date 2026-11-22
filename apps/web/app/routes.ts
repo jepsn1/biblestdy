@@ -5,8 +5,7 @@ export default [
   route("read/:book/:chapter", "routes/read.tsx"),
   // A bare book (/read/JHN) opens its first chapter
   route("read/:book", "routes/read-book.tsx"),
-  // Recently deleted (#261) — before notes/:id
-  route("notes/deleted", "routes/trash.tsx"),
+  // /notes/deleted = Recently deleted (#261, notes/trash-view.tsx)
   route("notes/:id?", "routes/notes.tsx"),
   // Old topic links land on the Notes page filtered by the topic
   route("topic/:name", "routes/topic.tsx"),
