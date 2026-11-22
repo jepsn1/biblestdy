@@ -363,6 +363,7 @@ const da: typeof en = {
     trashNotes: "Noter",
     trashHighlights: "Fremhævninger",
     trashAnnotations: "Annoteringer og pennestreger",
+    quoted: "\u00bb{{text}}\u00ab",
     trashPenMark: "Pennestreg",
     trashDeletedOn: "Slettet {{when}}",
     trashDeletedToday: "Slettet i dag {{when}}",

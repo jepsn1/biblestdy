@@ -85,7 +85,7 @@ export function TrashView() {
       href = `/notes/${item.id}`;
     } else {
       const ref = anchorReferenceLabel(item, locale);
-      const words = item.quote ? `»${item.quote}«` : "";
+      const words = item.quote ? t("notes.quoted", { text: item.quote }) : "";
       name = kind === "annotations" ? item.text || (words ? `${t("notes.trashPenMark")}: ${words}` : t("notes.trashPenMark")) : words || ref;
       detail = ref;
       href = `/read/${item.book}/${item.chapter}?v=${item.startVerse}`;

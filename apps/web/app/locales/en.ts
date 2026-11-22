@@ -323,6 +323,7 @@ export default {
     trashNotes: "Notes",
     trashHighlights: "Highlights",
     trashAnnotations: "Margin notes and pen marks",
+    quoted: "\u201c{{text}}\u201d",
     trashPenMark: "Pen mark",
     trashDeletedOn: "Deleted {{when}}",
     trashDeletedToday: "Deleted today {{when}}",
