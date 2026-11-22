@@ -172,6 +172,33 @@ describe('NotesService (note↔anchor graph)', () => {
     expect(await svc.restore('u1', note.id)).not.toBeNull();
   });
 
+  it('Recently deleted lists deleted notes with content, newest first, per user (#261)', async () => {
+    const svc = make();
+    const sermon = await svc.create('u1', {
+      ...jhn3,
+      title: 'Sermon Eric',
+      body: 'Grace',
+    });
+    await svc.addAnchor('u1', sermon.id, gen1);
+    const other = await svc.create('u1', { title: '', body: 'words' });
+    const blank = await svc.create('u1', jhn3); // abandoned "New note"
+    const theirs = await svc.create('u2', { title: 'Theirs' });
+    await svc.create('u1', { title: 'Live' });
+    await svc.remove('u1', sermon.id);
+    await svc.remove('u1', blank.id);
+    await svc.remove('u1', other.id);
+    await svc.remove('u2', theirs.id);
+
+    const trash = await svc.listDeleted('u1');
+    expect(trash.map((n) => n.id)).toEqual([other.id, sermon.id]);
+    expect(trash[1].anchors).toHaveLength(2);
+    expect(trash[1].body).toBe('Grace');
+    expect(Number.isNaN(Date.parse(trash[1].deletedAt))).toBe(false);
+
+    await svc.restore('u1', sermon.id);
+    expect((await svc.listDeleted('u1')).map((n) => n.id)).toEqual([other.id]);
+  });
+
   it('a chapter with two anchors of the same note lists it once', async () => {
     const svc = make();
     const note = await svc.create('u1', jhn3);

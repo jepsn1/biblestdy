@@ -97,3 +97,4 @@ export type {
   SourceAnchor,
   UnionTarget,
 } from './versification.js'
+export { TRASH_DAYS, TRASH_MS, daysLeft, type Deleted, type TrashList } from './trash.js'

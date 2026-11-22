@@ -4,6 +4,7 @@ import type {
   HighlightColor,
   Highlight,
   NewHighlight,
+  Deleted,
 } from '@biblestdy/shared';
 import { db } from '../db';
 import { highlight } from '../db/schema';
@@ -85,6 +86,19 @@ export class HighlightsService {
       )
       .returning({ id: highlight.id });
     return deleted.length > 0;
+  }
+
+  /** Recently deleted (#261): deleted, not yet purged, newest first. */
+  async listDeleted(userId: string): Promise<Deleted<Highlight>[]> {
+    const rows = await db
+      .select()
+      .from(highlight)
+      .where(and(eq(highlight.userId, userId), isNotNull(highlight.deletedAt)))
+      .orderBy(desc(highlight.deletedAt));
+    return rows.map((r) => ({
+      ...toHighlight(r),
+      deletedAt: r.deletedAt!.toISOString(),
+    }));
   }
 
   /** Undo a delete (#64) — until the purge took it; null if not found. */
