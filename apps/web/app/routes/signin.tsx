@@ -71,7 +71,7 @@ export default function SignIn() {
   return (
     // Safe areas (#251): clear of the status bar and home indicator; a short
     // screen (a phone on its side) scrolls the form instead of clipping it
-    <main className="h-dvh overflow-hidden pt-(--safe-top) pr-(--safe-right) pb-(--safe-bottom) pl-(--safe-left)">
+    <main className="h-dvh overflow-hidden pt-(--safe-top) pr-(--safe-right) pb-(--corner-bottom) pl-(--safe-left)">
       <ScrollArea className="h-full">
         <div className="flex min-h-full items-center justify-center px-6 py-6">
           <div className="w-full max-w-sm">

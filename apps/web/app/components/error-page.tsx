@@ -41,7 +41,7 @@ export function ErrorMessage({
 export function ErrorScreen(props: React.ComponentProps<typeof ErrorMessage>) {
   return (
     // Safe areas (#251): the wordmark clears the status bar and a notch
-    <main className="flex min-h-dvh flex-col bg-background pt-(--safe-top) pr-(--safe-right) pb-(--safe-bottom) pl-(--safe-left)">
+    <main className="flex min-h-dvh flex-col bg-background pt-(--safe-top) pr-(--safe-right) pb-(--corner-bottom) pl-(--safe-left)">
       <div className="px-6 pt-6">
         <Link to="/" className={cn("inline-block select-none rounded", focusRing)}>
           <Logo className="text-reading" />

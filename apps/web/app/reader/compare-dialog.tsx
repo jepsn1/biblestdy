@@ -391,7 +391,7 @@ export function CompareDialog({
         className={cn(
           "top-[8dvh] flex h-[min(84dvh,56rem)] w-[min(40rem,calc(100vw-2rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-none",
           // A short (landscape phone) screen: clear of the home indicator (#251)
-          short && "top-[calc(0.5rem+var(--safe-top))] h-[calc(100dvh-1rem-var(--safe-top)-var(--safe-bottom))]",
+          short && "top-[calc(0.5rem+var(--safe-top))] h-[calc(100dvh-1rem-var(--safe-top)-var(--corner-bottom))]",
         )}
       >
         {content}

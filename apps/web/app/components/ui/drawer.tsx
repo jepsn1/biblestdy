@@ -162,7 +162,7 @@ function DrawerContent({
               // Safe areas (#251): the sheet's colour runs to the screen's
               // edges, its content stays clear of the home indicator, the
               // status bar and a landscape notch (snap drawers: app.css)
-              "group-data-[swipe-direction=down]/drawer-popup:pb-(--safe-bottom) group-data-[swipe-direction=up]/drawer-popup:pt-(--safe-top) group-data-[swipe-axis=y]/drawer-popup:pr-(--safe-right) group-data-[swipe-axis=y]/drawer-popup:pl-(--safe-left) group-data-[swipe-axis=x]/drawer-popup:pt-(--safe-top) group-data-[swipe-axis=x]/drawer-popup:pb-(--safe-bottom) group-data-[swipe-direction=left]/drawer-popup:pl-(--safe-left) group-data-[swipe-direction=right]/drawer-popup:pr-(--safe-right)"
+              "group-data-[swipe-direction=down]/drawer-popup:pb-(--corner-bottom) group-data-[swipe-direction=up]/drawer-popup:pt-(--safe-top) group-data-[swipe-axis=y]/drawer-popup:pr-(--safe-right) group-data-[swipe-axis=y]/drawer-popup:pl-(--safe-left) group-data-[swipe-axis=x]/drawer-popup:pt-(--safe-top) group-data-[swipe-axis=x]/drawer-popup:pb-(--safe-bottom) group-data-[swipe-direction=left]/drawer-popup:pl-(--safe-left) group-data-[swipe-direction=right]/drawer-popup:pr-(--safe-right)"
             )}
           >
             {children}

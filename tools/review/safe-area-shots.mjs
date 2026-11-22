@@ -3,7 +3,8 @@
 // (= env(safe-area-inset-*)); this script overrides those tokens with an injected stylesheet
 // (html:root beats :root) and draws the iPhone's hardware zones on top (red-tinted status bar /
 // Dynamic Island / notch / home-indicator strips + a home-indicator pill), pointer-events none.
-// The dark frame is the screen's ~55pt corner radius. Anything interactive inside a red strip is a bug.
+// The dark frame is the screen's ~55pt corner radius. Anything interactive inside a red strip, or
+// reaching past a corner arc (FAIL corner-*, #262), is a bug.
 // Usage (from a dir with `npm i playwright`), after seed.sh:
 //   BASE=http://localhost:5173 COOKIES=cookies.txt OUT=shots node tools/review/safe-area-shots.mjs
 // Env: ONLY (surfaces, e.g. reader,palette), SCEN (p-app,p-notch,p-safari,l-app,l-safari), THEMES, TAG.
@@ -20,9 +21,12 @@ const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/6
 export const SCEN = {
   "p-app": { w: 393, h: 852, top: 59, right: 0, bottom: 34, left: 0, island: "top" },
   "p-notch": { w: 390, h: 844, top: 47, right: 0, bottom: 34, left: 0, island: "notch" },
-  "p-safari": { w: 393, h: 659, top: 0, right: 0, bottom: 0, left: 0 },
+  "p-safari": { w: 393, h: 659, top: 0, right: 0, bottom: 0, left: 0, corners: "" },
+  // Safari with its toolbar collapsed (scrolled): iOS reports no bottom inset,
+  // yet the page runs to the glass's bottom edge and its rounded corners (#262)
+  "p-safari-full": { w: 393, h: 793, top: 0, right: 0, bottom: 0, left: 0, corners: "bottom" },
   "l-app": { w: 852, h: 393, top: 0, right: 59, bottom: 21, left: 59, island: "left" },
-  "l-safari": { w: 852, h: 342, top: 0, right: 59, bottom: 21, left: 59, island: "left" },
+  "l-safari": { w: 852, h: 342, top: 0, right: 59, bottom: 21, left: 59, island: "left", corners: "bottom" },
 };
 
 const browser = await chromium.launch();
@@ -54,7 +58,8 @@ async function page(s, { theme = "light", auth = true, lang = "en", style = "pap
       const W = s.w, H = s.h, R = 55;
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("width", W); svg.setAttribute("height", H); svg.style.cssText = "position:absolute;inset:0";
-      svg.innerHTML = `<path fill="rgba(0,0,0,.85)" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z M${R} 0H${W - R}A${R} ${R} 0 0 1 ${W} ${R}V${H - R}A${R} ${R} 0 0 1 ${W - R} ${H}H${R}A${R} ${R} 0 0 1 0 ${H - R}V${R}A${R} ${R} 0 0 1 ${R} 0Z"/>`;
+      const c = s.corners ?? "top bottom", T = c.includes("top") ? R : 0, B = c.includes("bottom") ? R : 0;
+      svg.innerHTML = `<path fill="rgba(0,0,0,.85)" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z M${T} 0H${W - T}A${T} ${T} 0 0 1 ${W} ${T}V${H - B}A${B} ${B} 0 0 1 ${W - B} ${H}H${B}A${B} ${B} 0 0 1 0 ${H - B}V${T}A${T} ${T} 0 0 1 ${T} 0Z"/>`;
       z.append(svg);
       document.documentElement.append(z);
     };
@@ -69,7 +74,16 @@ const intrusions = (p, s) => p.evaluate((s) => {
   const out = [];
   const sel = "button,a[href],input,textarea,select,[role=button],[role=menuitem],[role=tab],[role=option],[role=radio],[contenteditable=true]";
   for (const e of document.querySelectorAll(sel)) {
-    const r = e.getBoundingClientRect();
+    // The part actually on screen: clipped by every scrolling/clipping ancestor
+    // (a row half-scrolled out of a list doesn't reach where its box would)
+    const b = e.getBoundingClientRect();
+    const r = { left: b.left, top: b.top, right: b.right, bottom: b.bottom };
+    for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+      if (getComputedStyle(a).overflow === "visible") continue;
+      const c = a.getBoundingClientRect();
+      r.left = Math.max(r.left, c.left); r.top = Math.max(r.top, c.top); r.right = Math.min(r.right, c.right); r.bottom = Math.min(r.bottom, c.bottom);
+    }
+    r.width = r.right - r.left; r.height = r.bottom - r.top;
     if (r.width < 2 || r.height < 2) continue;
     const cs = getComputedStyle(e);
     if (cs.visibility === "hidden" || e.closest("[inert],[aria-hidden=true]")) continue;
@@ -83,6 +97,16 @@ const intrusions = (p, s) => p.evaluate((s) => {
     if (s.bottom && r.bottom > innerHeight - s.bottom + 0.5) z.push("bottom");
     if (s.left && r.left < s.left - 0.5) z.push("left");
     if (s.right && r.right > innerWidth - s.right + 0.5) z.push("right");
+    // The glass's rounded corners (#262): no part of a control outside the arc.
+    // The box's point nearest a screen corner is the one furthest out.
+    const R = 55, W = innerWidth, H = innerHeight, c = s.corners ?? "top bottom";
+    for (const [cx, cy, on] of [[0, 0, "top"], [W, 0, "top"], [0, H, "bottom"], [W, H, "bottom"]]) {
+      if (!c.includes(on)) continue;
+      const x = cx ? Math.min(r.right, W) : Math.max(r.left, 0), y = cy ? Math.min(r.bottom, H) : Math.max(r.top, 0);
+      const ox = cx ? W - R : R, oy = cy ? H - R : R;
+      const inSquare = (cx ? x > ox : x < ox) && (cy ? y > oy : y < oy);
+      if (inSquare && Math.hypot(x - ox, y - oy) > R + 0.5) z.push(`corner-${on}-${cx ? "right" : "left"}`);
+    }
     if (z.length) out.push({ z: z.join("+"), el: (e.getAttribute("aria-label") || e.textContent || e.tagName).trim().slice(0, 40), r: [r.left, r.top, r.right, r.bottom].map(Math.round) });
   }
   return out;
@@ -108,6 +132,10 @@ export const SURF = {
   notice: { path: R, steps: async (p) => { await p.evaluate(() => import("/app/lib/notify.ts").then((m) => m.notifyUndo("Highlight removed", async () => {}))); await p.waitForTimeout(1200); } },
   tour: { path: "/notes", init: { notesTourDone: "" }, steps: async (p) => { await p.waitForTimeout(800); } },
   privacy: { path: "/privacy", auth: false },
+  // #262: the note drawer (reader) and the note on the Notes page, their last rows
+  note: { path: R, init: { "tour.note": "seen" }, steps: async (p) => { await tap(p, 'button[aria-label^="Open note"]'); await p.waitForTimeout(800); const back = p.getByRole("button", { name: /Back to note/ }); if (await back.count()) { await back.first().tap(); await p.waitForTimeout(1000); } } },
+  notesNote: { path: "/notes", init: { "tour.notes": "seen", "tour.note": "seen" }, steps: async (p) => { await p.locator("main a[href^='/notes/']").first().click(); await p.waitForTimeout(1500); } },
+  highlight: { path: R, steps: async (p) => { await tap(p, word(1, 2)); await p.getByRole("button", { name: /^(More|Mere)$/ }).last().tap(); await p.waitForTimeout(1000); } },
 };
 
 const scens = (process.env.SCEN ?? Object.keys(SCEN).join(",")).split(",");

@@ -138,7 +138,7 @@ export function TrashView() {
       {/* Errors (a failed restore) — one line under the header (#257) */}
       <InlineNotice place="page" lineClassName="justify-start border-b border-border px-4 py-1.5 text-left" />
       <ScrollArea className="min-h-0 flex-1">
-        <div className="mx-auto w-full max-w-[44rem] pb-(--safe-bottom)">
+        <div className="mx-auto w-full max-w-[44rem] pb-(--corner-bottom)">
           <p className="px-3 pt-4 pb-2 font-serif text-control text-pretty text-muted-foreground">{t("notes.trashIntro")}</p>
           {isPending ? (
             <ListSkeleton sections={[3]} className="p-3" />
