@@ -13,6 +13,8 @@ name: iOS
 #
 # Owner setup (App Store Connect app, API key, secrets): docs/MOBILE.md.
 on:
+  push:
+    branches: [feat/19-ota] # TEMP (#19): unsigned build on the branch; reverted before the PR
   workflow_dispatch:
     inputs:
       signing:
