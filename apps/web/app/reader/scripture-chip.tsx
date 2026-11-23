@@ -76,6 +76,12 @@ export function ScriptureChip({
   const full = ref ? referenceLabel(ref, nameOf, locale) : text;
   const [selected, setSelected] = useState(false);
   const [open, setOpen] = useState(false);
+  /** Phones (#283): the preview's drawer stays mounted after `open` turns
+   * false until it has slid away (onClosed), as every drawer does. */
+  const [shown, setShown] = useState(false);
+  /** What closing the drawer leaves to do once it's gone (Remove: the
+   * chip leaves the text after the drawer, which lives in it). */
+  const afterClose = useRef<(() => void) | null>(null);
   const chipRef = useRef<HTMLSpanElement>(null);
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
@@ -130,7 +136,8 @@ export function ScriptureChip({
   }, [selected, canonical]);
 
   const openPreview = (fromPress = false) => {
-    if (!ref) return;
+    // Removed, its drawer still sliding away: the chip is going (#283)
+    if (!ref || afterClose.current) return;
     saved.current = saveSelection(editor);
     if (mobile) {
       const root = editor.getRootElement();
@@ -139,6 +146,7 @@ export function ScriptureChip({
       hideKeyboard();
     }
     setOpen(true);
+    setShown(true);
   };
   /** Alt+Enter: "Show in Bible" without the preview — where the reading
    * translation has it (its numbers, #163), as the preview's button does. */
@@ -197,13 +205,26 @@ export function ScriptureChip({
     };
   }, [open, mobile]);
 
-  /** Closing puts the caret back where it was (Esc, Kasper). */
+  /** Closing puts the caret back where it was (Esc, Kasper). At once, as
+   * the drawer starts to slide away: still in the tap's gesture, so a
+   * phone's keyboard comes back (it wouldn't after the slide). */
   function close(restore: boolean) {
     setOpen(false);
+    if (!mobile) setShown(false);
     // Phones: only back into a note that was being written in
     if (!restore || (mobile && !writing.current)) return;
     focusEditor(editor, () => $restoreSelection(saved.current));
   }
+  /** The drawer has slid away (or the chip is leaving the text). */
+  function closed() {
+    setShown(false);
+    const then = afterClose.current;
+    afterClose.current = null;
+    then?.();
+  }
+  // The chip unmounted with the drawer still sliding away (the note
+  // closed under it): what Remove asked for still happens
+  useEffect(() => () => void afterClose.current?.(), []);
 
   /** A click: the caret right after the chip — where typing goes on once
    * the preview closes (#213 C6). */
@@ -314,8 +335,10 @@ export function ScriptureChip({
           {stateWords ? t("note.refChipMark", { ref: full, state: stateWords }) : t("note.refChipName", { ref: full })}
         </span>
       </span>
-      {open && ref && (
+      {(mobile ? shown : open) && ref && (
         <RefPreview
+          open={open}
+          onClosed={closed}
           anchor={chipRef}
           scripture={ref}
           label={label}
@@ -323,15 +346,25 @@ export function ScriptureChip({
           onClose={close}
           onRemove={() => {
             setOpen(false);
-            editor.update(() => {
-              const node = $getNodeByKey(nodeKey);
-              if (!$isScriptureRefNode(node)) return;
-              node.selectPrevious();
-              node.remove();
-              // Phones, a note only being read: no focus, so no keyboard
-            }, mobile && !writing.current ? { tag: SKIP_DOM_SELECTION_TAG } : undefined);
-            // Phones: the keyboard stays down for a note only being read
-            if (!mobile || writing.current) focusEditor(editor);
+            const focused = !mobile || writing.current;
+            const remove = () =>
+              editor.update(() => {
+                const node = $getNodeByKey(nodeKey);
+                if (!$isScriptureRefNode(node)) return;
+                if (!focused) node.selectPrevious();
+                node.remove();
+                // Phones, a note only being read: no focus, so no keyboard
+              }, focused ? undefined : { tag: SKIP_DOM_SELECTION_TAG });
+            // Being written in: the caret before the chip and the focus now,
+            // in the tap (a phone's keyboard comes back; typing goes there);
+            // the chip itself goes once the drawer has slid away (#283)
+            if (focused)
+              focusEditor(editor, () => {
+                const node = $getNodeByKey(nodeKey);
+                if ($isScriptureRefNode(node)) node.selectPrevious();
+              });
+            if (mobile) afterClose.current = remove;
+            else remove();
           }}
         />
       )}
@@ -358,6 +391,8 @@ const PREVIEW_MAX = "16em";
  * never a guess. The chapter loads only now (a FUMS view when shown).
  */
 function RefPreview({
+  open,
+  onClosed,
   anchor,
   scripture,
   label,
@@ -365,6 +400,10 @@ function RefPreview({
   onClose,
   onRemove,
 }: {
+  /** Phones: false while the drawer slides away (#283). */
+  open: boolean;
+  /** Phones: the drawer is gone — unmount. */
+  onClosed: () => void;
   anchor: React.RefObject<HTMLSpanElement | null>;
   scripture: ScriptureRef;
   label: string;
@@ -464,7 +503,7 @@ function RefPreview({
     onRead?.(scripture, scripture, elsewhere.id);
   };
 
-  if (mobile) return <RefDrawer {...{ kit, title, ariaLabel: spoken, closeName: named, markState, status, verseText, readRef, onClose, onRemove }} read={notHere ? (elsewhere ? readElsewhere : null) : read} readLabel={notHere && elsewhere ? t("note.readIn", { abbr: elsewhere.abbreviation }) : t("note.readHere")} />;
+  if (mobile) return <RefDrawer {...{ open, onClosed, kit, title, ariaLabel: spoken, closeName: named, markState, status, verseText, readRef, onClose, onRemove }} read={notHere ? (elsewhere ? readElsewhere : null) : read} readLabel={notHere && elsewhere ? t("note.readIn", { abbr: elsewhere.abbreviation }) : t("note.readHere")} />;
 
   const actionClass = cn("inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 text-list font-medium", focusRing);
   return (
@@ -526,6 +565,8 @@ function RefPreview({
  * Close end it — the caret back where it was (close(true)).
  */
 function RefDrawer({
+  open,
+  onClosed,
   kit,
   title,
   ariaLabel,
@@ -539,6 +580,8 @@ function RefDrawer({
   onClose,
   onRemove,
 }: {
+  open: boolean;
+  onClosed: () => void;
   kit: EditorKit;
   title: React.ReactNode;
   /** Spoken: the full name and the translation's. */
@@ -559,7 +602,8 @@ function RefDrawer({
   const { Drawer, DrawerContent, DrawerTitle, ScrollArea } = kit;
   const pressable = "touch-manipulation transition-colors duration-100 motion-reduce:transition-none";
   return (
-    <Drawer open onOpenChange={(o) => !o && onClose(true)} showSwipeHandle>
+    // Opens and closes like every drawer (#283): mounted until it's gone
+    <Drawer open={open} onOpenChange={(o) => !o && onClose(true)} onOpenChangeComplete={(o) => !o && onClosed()} showSwipeHandle>
       <DrawerContent
         initialFocus={read ? readRef : undefined}
         finalFocus={false}
@@ -567,13 +611,9 @@ function RefDrawer({
         // Nested in the note's dialog, base-ui leaves the note readable to
         // VoiceOver: the drawer says it's modal itself (#281 panel F17)
         aria-modal
-        // A layer of its own over the note (#281 panel, 6/6): the note
-        // dimmed, never blurred (its chip and words stay readable) — a
-        // nested drawer's backdrop renders only when forced — and a lifted
-        // edge; dark's near-black needs the deeper dim
-        overlay="force"
-        overlayClassName="bg-black/20 dark:bg-black/40 supports-backdrop-filter:backdrop-blur-none"
-        className="shadow-[0_-6px_20px_rgb(0_0_0/0.08)] [--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))] dark:shadow-[0_-6px_20px_rgb(0_0_0/0.45)]"
+        // A layer of its own over the note (#281 panel): the backdrop and
+        // lifted edge every drawer has (drawer.tsx, #283)
+        className="[--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))]"
       >
         <header className="flex min-h-[52px] shrink-0 items-center gap-2 pt-1 pr-2 pl-4">
           <DrawerTitle className="min-w-0 flex-1 font-sans text-phone">{title}</DrawerTitle>

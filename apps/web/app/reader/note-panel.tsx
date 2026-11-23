@@ -860,16 +860,15 @@ export function NotePanel({
       {/* The note tour (#162): its code arrives only when it will show */}
       <NoteTourHost root={tourRoot} body={liveBody} kit={TOUR_KIT} />
 
-      {picking && (
-        <VersePicker
-          open
-          mobile={mobile}
-          onClose={(ref) => {
-            setPicking(false);
-            if (ref) insertPlain(ref);
-          }}
-        />
-      )}
+      {/* Mounted closed too: it slides in and out like every drawer (#283) */}
+      <VersePicker
+        open={picking}
+        mobile={mobile}
+        onClose={(ref) => {
+          setPicking(false);
+          if (ref) insertPlain(ref);
+        }}
+      />
 
     </aside>
   );

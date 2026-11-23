@@ -27,10 +27,18 @@ function Drawer({
   showSwipeHandle = false,
   snapPoints,
   swipeDirection = "down",
+  open,
   ...props
 }: DrawerPrimitive.Root.Props & {
   showSwipeHandle?: boolean
 }) {
+  // One motion for every drawer (#283): base-ui slides a drawer in only
+  // when `open` turns true — one mounted already open (a chip's preview,
+  // the verse picker, a drawer whose lazy chunk just arrived) appeared at
+  // once. Mounted open, it's closed for its first render and opens on the
+  // next, from data-starting-style like the rest
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => setMounted(true), [])
   const hasSnapPoints = snapPoints != null && snapPoints.length > 0
   const contextValue = React.useMemo(
     () => ({ hasSnapPoints, modal, showSwipeHandle, swipeDirection }),
@@ -42,6 +50,7 @@ function Drawer({
       <DrawerPrimitive.Root
         data-slot="drawer"
         modal={modal}
+        open={open === undefined ? undefined : mounted && open}
         snapPoints={snapPoints}
         swipeDirection={swipeDirection}
         {...props}
@@ -70,7 +79,9 @@ function DrawerOverlay({
     <DrawerPrimitive.Backdrop
       data-slot="drawer-overlay"
       className={cn(
-        "fixed inset-0 z-50 min-h-dvh bg-black/10 opacity-[max(var(--drawer-overlay-min-opacity,0),calc(1-var(--drawer-swipe-progress)))] transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] select-none data-ending-style:pointer-events-none data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-snap-points:[--drawer-overlay-min-opacity:0.5] data-starting-style:opacity-0 data-swiping:duration-0 supports-backdrop-filter:backdrop-blur-xs supports-[-webkit-touch-callout:none]:absolute",
+        // One backdrop for every modal drawer, nested ones too (#283 panel):
+        // a dim, no blur
+        "fixed inset-0 z-50 min-h-dvh bg-black/20 dark:bg-black/40 opacity-[max(var(--drawer-overlay-min-opacity,0),calc(1-var(--drawer-swipe-progress)))] transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] select-none data-ending-style:pointer-events-none data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-snap-points:[--drawer-overlay-min-opacity:0.5] data-starting-style:opacity-0 data-swiping:duration-0 supports-[-webkit-touch-callout:none]:absolute",
         className
       )}
       {...props}
@@ -97,14 +108,10 @@ function DrawerSwipeHandle({
 
 function DrawerContent({
   className,
-  overlayClassName,
   stack = true,
-  overlay,
   children,
   ...props
 }: DrawerPrimitive.Popup.Props & {
-  /** The backdrop's own classes (a modal drawer's overlay). */
-  overlayClassName?: string
   /** false: a drawer opened on this one leaves it as it is (#281) — no
    * shrink to the child's height, no fade, scale or dimming. The note's
    * sheet: a chip's preview or the verse picker over it never collapses
@@ -112,9 +119,6 @@ function DrawerContent({
    * (its height is fixed); a content-sized one keeps base-ui's frozen px
    * height while nested — harmless. */
   stack?: boolean
-  /** "force": the backdrop even when nested (base-ui renders a nested
-   * drawer's only when forced) — a drawer over the note's sheet (#281). */
-  overlay?: "force"
 }) {
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
   const swipeAxis =
@@ -122,8 +126,11 @@ function DrawerContent({
 
   return (
     <DrawerPortal data-slot="drawer-portal">
+      {/* Every modal drawer dims what's under it, nested ones too
+          (base-ui renders a nested drawer's backdrop only when forced);
+          a non-modal one (the note's peek, the selection menu) none */}
       {modal === true && (
-        <DrawerOverlay data-snap-points={hasSnapPoints ? "" : undefined} forceRender={overlay === "force"} className={overlayClassName} />
+        <DrawerOverlay data-snap-points={hasSnapPoints ? "" : undefined} forceRender />
       )}
       <DrawerPrimitive.Viewport
         data-slot="drawer-viewport"
@@ -137,8 +144,11 @@ function DrawerContent({
           className={cn(
             // Base.
             "group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col bg-popover text-control text-popover-foreground transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=down]:border-t data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=left]:border-r data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=right]:border-l data-[swipe-direction=up]:rounded-b-xl data-[swipe-direction=up]:border-b",
+            // One lifted edge for every drawer (#283; #281 panel's values)
+            "shadow-[0_var(--drawer-shadow-y)_20px_rgb(0_0_0/0.08)] [--drawer-shadow-y:-6px] data-[swipe-direction=up]:[--drawer-shadow-y:6px] data-[swipe-axis=x]:[--drawer-shadow-y:0px] dark:shadow-[0_var(--drawer-shadow-y)_20px_rgb(0_0_0/0.45)]",
             // Nested.
-            stack && "data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95",
+            // (the drawer over it dims it with its backdrop, #283)
+            stack && "data-nested-drawer-open:overflow-hidden",
             // Bleed.
             "after:pointer-events-none after:absolute after:bg-(--drawer-bleed-background,var(--color-popover)) data-[swipe-axis=x]:after:inset-y-0 data-[swipe-axis=x]:after:w-(--bleed) data-[swipe-axis=y]:after:inset-x-0 data-[swipe-axis=y]:after:h-(--bleed) data-[swipe-direction=down]:after:top-full data-[swipe-direction=left]:after:right-full data-[swipe-direction=right]:after:left-full data-[swipe-direction=up]:after:bottom-full",
             // Sizing. The top gap is 6rem, at most 12dvh: large text keeps
