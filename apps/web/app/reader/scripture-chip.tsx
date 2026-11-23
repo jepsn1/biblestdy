@@ -14,11 +14,17 @@ import { cn, focusRing } from "~/lib/utils";
 import { useReadingTranslationId } from "../notes/add-reference";
 import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext, type EditorKit } from "./ref-context";
-import { chipOpensOnClick, touchTapOpens } from "./chip-click";
+import { chipOpensOnClick, touchStayed, touchTapOpens } from "./chip-click";
 import { hoverRef, spotParam, useRefHover, useRefSpot } from "./spotlight";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
 import { MarkGlyph } from "./mark-row";
 import { useMarkStateWords, useRefMarkState, type RefMarkState } from "./ref-mark";
+
+/** When anything last scrolled (event time): a finger landing on a chip
+ * right after stops the scroll, it doesn't open it (chip-click). */
+let lastScrollAt = -Infinity;
+if (typeof document !== "undefined")
+  document.addEventListener("scroll", (e) => void (lastScrollAt = e.timeStamp), { capture: true, passive: true });
 
 /** Asks a chip to open its preview (Enter on a selected chip), or (#213,
  * Alt+Enter) to show it in the Bible straight away. */
@@ -74,7 +80,11 @@ export function ScriptureChip({
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
-  const touchedAt = useRef<{ x: number; y: number; t: number } | null>(null);
+  const touchedAt = useRef<{ x: number; y: number; t: number; sinceScroll: number } | null>(null);
+  /** When a finger's tap opened it (event time): a stray click after it
+   * is the same tap. Not the pointer type: VoiceOver's double tap is a
+   * bare click, and must open after a real touch too. */
+  const liftAt = useRef(-Infinity);
   /** Phones (#281): the note was being written in when the chip was
    * pressed — closing the drawer gives the caret (and keyboard) back; a
    * note only being read keeps the keyboard down. */
@@ -101,6 +111,13 @@ export function ScriptureChip({
     read();
     return editor.registerUpdateListener(read);
   }, [editor, nodeKey]);
+
+  // Phones: the drawer's code in before the first tap (the Notes page
+  // mounts none of its own, Jonas)
+  const { preloadDrawer } = kit;
+  useEffect(() => {
+    if (mobile) preloadDrawer();
+  }, [mobile, preloadDrawer]);
 
   // A chip leaving the text (removed, note closed) takes its hover along
   useEffect(() => () => hoverRef(null), []);
@@ -147,6 +164,36 @@ export function ScriptureChip({
     return () => opens.removeEventListener("open", on);
   }, [nodeKey]);
 
+  // Phones (#281 panel, Elias): a chip low in a long note would open under
+  // its drawer — the note scrolls it into sight above, and back on close
+  const scrolled = useRef<{ el: HTMLElement; top: number; pad: string } | null>(null);
+  useEffect(() => {
+    if (!open || !mobile) return;
+    const chip = chipRef.current;
+    const id = window.setTimeout(() => {
+      const drawer = [...document.querySelectorAll<HTMLElement>('[data-slot="drawer-popup"]')].at(-1);
+      const pane = chip && scrollPane(chip);
+      if (!chip || !drawer || !pane || drawer.contains(chip)) return;
+      const over = chip.getBoundingClientRect().bottom - (drawer.getBoundingClientRect().top - 16);
+      if (over <= 0) return;
+      // A chip on the last lines: room below the text to scroll it up
+      // (under the drawer, unseen), taken back on close
+      const room = over - (pane.scrollHeight - pane.clientHeight - pane.scrollTop);
+      const pad = pane.style.paddingBottom;
+      if (room > 0) pane.style.paddingBottom = `calc(${getComputedStyle(pane).paddingBottom} + ${Math.ceil(room)}px)`;
+      scrolled.current = { el: pane, top: pane.scrollTop, pad };
+      pane.scrollBy({ top: over, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }, 480); // the drawer's slide (drawer.tsx: 450ms)
+    return () => {
+      window.clearTimeout(id);
+      const back = scrolled.current;
+      scrolled.current = null;
+      if (!back?.el.isConnected) return;
+      back.el.style.paddingBottom = back.pad;
+      back.el.scrollTo({ top: back.top });
+    };
+  }, [open, mobile]);
+
   /** Closing puts the caret back where it was (Esc, Kasper). */
   function close(restore: boolean) {
     setOpen(false);
@@ -190,15 +237,19 @@ export function ScriptureChip({
         // where it was for one being written
         onTouchStart={(e) => {
           const t = e.touches[0];
-          touchedAt.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
+          touchedAt.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, t: e.timeStamp, sinceScroll: e.timeStamp - lastScrollAt } : null;
         }}
         onTouchEnd={(e) => {
           const from = touchedAt.current;
           touchedAt.current = null;
           const t = e.changedTouches[0];
-          if (!t || !from || !touchTapOpens({ from, to: { x: t.clientX, y: t.clientY }, ms: e.timeStamp - from.t })) return;
-          e.preventDefault();
-          openPreview(true);
+          // Every finger's lift: no click after it opens (Jonas F1)
+          liftAt.current = e.timeStamp;
+          if (!t || !from) return;
+          const to = { x: t.clientX, y: t.clientY };
+          // Stayed put (a tap, a long press): no focus, caret or click
+          if (touchStayed(from, to)) e.preventDefault();
+          if (touchTapOpens({ from, to, ms: e.timeStamp - from.t, sinceScroll: from.sinceScroll })) openPreview(true);
         }}
         onTouchCancel={() => {
           touchedAt.current = null;
@@ -214,8 +265,14 @@ export function ScriptureChip({
         // On click, not press: the press would count as outside the
         // preview that it opens
         onClick={(e) => {
-          // A finger's tap opened it at the lift (above)
-          if (pointer.current === "touch") return;
+          // A finger's lift decided already (above)
+          if (e.timeStamp - liftAt.current < 800) return;
+          // VoiceOver / a keyboard's activation: a bare click (detail 0,
+          // no press before it) opens it, the caret left alone (Jonas F2)
+          if (e.detail === 0) {
+            openPreview();
+            return;
+          }
           const mouse = pointer.current === "mouse";
           const from = pressedAt.current;
           pressedAt.current = null;
@@ -276,6 +333,15 @@ export function ScriptureChip({
       )}
     </>
   );
+}
+
+/** The note's scroller around a chip: the nearest ancestor that scrolls. */
+function scrollPane(el: HTMLElement): HTMLElement | null {
+  for (let a = el.parentElement; a; a = a.parentElement) {
+    const y = getComputedStyle(a).overflowY;
+    if ((y === "auto" || y === "scroll") && a.scrollHeight > a.clientHeight) return a;
+  }
+  return null;
 }
 
 /** Verses at most shown (~10 lines, then a fade). */
@@ -350,9 +416,13 @@ function RefPreview({
       : null;
   const verses = resolved && chapter.data ? chapter.data.verses.filter((v) => v.verse >= resolved.startVerse && v.verse <= resolved.endVerse) : [];
 
+  // Phones (#281 panel, Freja/Sofie/Birthe): the book's full name in the
+  // drawer — where a reader finds out what "Sl" is; the chip stays short
+  const named = mobile ? referenceLabel(scripture, nameOf, locale) : label;
   const title = (
     <>
-      <span className="font-medium whitespace-nowrap text-foreground">{label}</span>
+      {/* One unit, never broken at its dash (#281 panel) */}
+      <span className="font-medium whitespace-nowrap text-foreground">{named}</span>
       {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
       {abbr && where && (
         <span className="text-muted-foreground">
@@ -363,6 +433,9 @@ function RefPreview({
     </>
   );
   const ariaLabel = `${label.replace(/\u00a0/g, " ")}${abbr ? ` · ${abbr}` : ""}`;
+  // Spoken (#281 panel, Birthe/Elias): the full name and the translation's
+  // name, not "S L … dot W E B"
+  const spoken = `${named.replace(/\u00a0/g, " ")}${current ? `, ${current.name}` : ""}`;
   const verseText = verses.map((v) => (
     <span key={v.verse}>
       <sup className="mr-0.5 text-[0.7em] text-muted-foreground">{v.label ?? v.verse}</sup>
@@ -387,7 +460,7 @@ function RefPreview({
     onRead?.(scripture, scripture, elsewhere.id);
   };
 
-  if (mobile) return <RefDrawer {...{ kit, title, ariaLabel, markState, status, verseText, readRef, onClose, onRemove }} read={notHere ? (elsewhere ? readElsewhere : null) : read} readLabel={notHere && elsewhere ? t("note.readIn", { abbr: elsewhere.abbreviation }) : t("note.readHere")} />;
+  if (mobile) return <RefDrawer {...{ kit, title, ariaLabel: spoken, closeName: named, markState, status, verseText, readRef, onClose, onRemove }} read={notHere ? (elsewhere ? readElsewhere : null) : read} readLabel={notHere && elsewhere ? t("note.readIn", { abbr: elsewhere.abbreviation }) : t("note.readHere")} />;
 
   const actionClass = cn("inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 text-list font-medium", focusRing);
   return (
@@ -452,6 +525,7 @@ function RefDrawer({
   kit,
   title,
   ariaLabel,
+  closeName,
   markState,
   status,
   verseText,
@@ -463,7 +537,10 @@ function RefDrawer({
 }: {
   kit: EditorKit;
   title: React.ReactNode;
+  /** Spoken: the full name and the translation's. */
   ariaLabel: string;
+  /** The reference alone, for Close's name ("Close Psalm 23:1–4"). */
+  closeName: string;
   markState: RefMarkState | null;
   status: React.ReactNode;
   verseText: React.ReactNode;
@@ -483,15 +560,19 @@ function RefDrawer({
         initialFocus={read ? readRef : undefined}
         finalFocus={false}
         aria-label={ariaLabel}
-        // The note stays readable under it: dimmed, not blurred
-        overlayClassName="supports-backdrop-filter:backdrop-blur-none"
-        className="[--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))]"
+        // A layer of its own over the note (#281 panel, 6/6): the note
+        // dimmed, never blurred (its chip and words stay readable) — a
+        // nested drawer's backdrop renders only when forced — and a lifted
+        // edge; dark's near-black needs the deeper dim
+        overlay="force"
+        overlayClassName="bg-black/20 dark:bg-black/40 supports-backdrop-filter:backdrop-blur-none"
+        className="shadow-[0_-6px_20px_rgb(0_0_0/0.08)] [--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))] dark:shadow-[0_-6px_20px_rgb(0_0_0/0.45)]"
       >
         <header className="flex min-h-[52px] shrink-0 items-center gap-2 pt-1 pr-2 pl-4">
           <DrawerTitle className="min-w-0 flex-1 font-sans text-phone">{title}</DrawerTitle>
           <button
             type="button"
-            aria-label={t("note.refClose", { ref: ariaLabel })}
+            aria-label={t("note.refClose", { ref: closeName.replace(/\u00a0/g, " ") })}
             onClick={() => onClose(true)}
             className={cn("inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-control font-medium text-foreground hover:bg-accent active:bg-accent", pressable, focusRing)}
           >
@@ -511,8 +592,9 @@ function RefDrawer({
             <p className="px-4 pt-1 pb-3 font-serif text-reading leading-[1.6] text-foreground select-text">{verseText}</p>
           </ScrollArea>
         )}
-        {/* Large text on a narrow phone: Remove wraps under, right-aligned */}
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 pt-3 pb-3">
+        {/* Large text on a narrow phone: Remove wraps under the primary,
+            from the left (#281 panel, Mads) */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 pt-2.5 pb-2.5">
           {read && (
             <button
               ref={readRef}
@@ -532,7 +614,7 @@ function RefDrawer({
             type="button"
             onClick={onRemove}
             className={cn(
-              "ml-auto inline-flex min-h-[48px] shrink-0 py-1.5 items-center justify-center rounded-lg px-4 text-phone font-medium whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground",
+              "-mr-2 inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-lg px-2.5 py-1.5 text-phone font-medium whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground",
               !read && "flex-1",
               pressable,
               focusRing,

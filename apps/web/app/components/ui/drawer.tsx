@@ -99,6 +99,7 @@ function DrawerContent({
   className,
   overlayClassName,
   stack = true,
+  overlay,
   children,
   ...props
 }: DrawerPrimitive.Popup.Props & {
@@ -107,8 +108,13 @@ function DrawerContent({
   /** false: a drawer opened on this one leaves it as it is (#281) — no
    * shrink to the child's height, no fade, scale or dimming. The note's
    * sheet: a chip's preview or the verse picker over it never collapses
-   * the note under the keyboard (#277 F14). */
+   * the note under the keyboard (#277 F14). Meant for a snap-point sheet
+   * (its height is fixed); a content-sized one keeps base-ui's frozen px
+   * height while nested — harmless. */
   stack?: boolean
+  /** "force": the backdrop even when nested (base-ui renders a nested
+   * drawer's only when forced) — a drawer over the note's sheet (#281). */
+  overlay?: "force"
 }) {
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
   const swipeAxis =
@@ -117,7 +123,7 @@ function DrawerContent({
   return (
     <DrawerPortal data-slot="drawer-portal">
       {modal === true && (
-        <DrawerOverlay data-snap-points={hasSnapPoints ? "" : undefined} className={overlayClassName} />
+        <DrawerOverlay data-snap-points={hasSnapPoints ? "" : undefined} forceRender={overlay === "force"} className={overlayClassName} />
       )}
       <DrawerPrimitive.Viewport
         data-slot="drawer-viewport"

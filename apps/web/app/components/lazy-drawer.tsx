@@ -15,6 +15,11 @@ import { lazyModule, preloadWhenIdle, useLazyModule } from "~/lib/lazy-module";
 const drawer = lazyModule(() => import("~/components/ui/drawer"));
 type Ui = typeof import("~/components/ui/drawer");
 
+/** Fetch the drawer's chunk when the page is idle (a chip's preview, #281). */
+export function preloadDrawer() {
+  preloadWhenIdle(drawer);
+}
+
 export function Drawer(props: ComponentProps<Ui["Drawer"]>) {
   const { t } = useTranslation();
   useEffect(() => preloadWhenIdle(drawer), []);

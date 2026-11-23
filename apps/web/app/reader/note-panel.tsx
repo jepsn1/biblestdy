@@ -18,7 +18,7 @@ import { Hint, modKey } from "~/components/hint";
 import { spotlightsChip } from "~/lib/shortcuts";
 import { Popover, PopoverContent } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Drawer, DrawerContent, DrawerTitle } from "~/components/lazy-drawer";
+import { Drawer, DrawerContent, DrawerTitle, preloadDrawer } from "~/components/lazy-drawer";
 import type { EditorKit, PagePlace, ReadRef } from "./ref-context";
 import type { VersePickerProps } from "./verse-picker";
 import type { DeleteConfirmProps } from "./delete-confirm";
@@ -64,7 +64,7 @@ function ReferencesOverview(props: ReferencesOverviewProps) {
  * 100–125% text; not at 150%+, nor in landscape). */
 const roomyFits = (heightRem: number) => heightRem >= 40;
 
-const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker, ScrollArea, spotlightsChip, Drawer, DrawerContent, DrawerTitle };
+const EDITOR_KIT: EditorKit = { Popover, PopoverContent, Hint, modKey, VersePicker, ScrollArea, spotlightsChip, Drawer, DrawerContent, DrawerTitle, preloadDrawer };
 /** What the notes tours' chunk borrows from here (tour-host.tsx). */
 export const TOUR_KIT: TourKit = { Popover, PopoverContent, Button };
 

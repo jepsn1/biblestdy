@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipOpensOnClick, touchTapOpens } from "./chip-click";
+import { chipOpensOnClick, touchStayed, touchTapOpens } from "./chip-click";
 
 const at = { x: 10, y: 10 };
 
@@ -33,5 +33,20 @@ describe("a finger lifted from a chip (#281)", () => {
   });
   it("a lift without a press on the chip doesn't", () => {
     expect(touchTapOpens({ from: null, to: at, ms: 50 })).toBe(false);
+  });
+});
+
+describe("a finger on a chip, held back or not (#281 panel)", () => {
+  it("a tap that stops a fling doesn't open", () => {
+    expect(touchTapOpens({ from: at, to: at, ms: 80, sinceScroll: 40 })).toBe(false);
+  });
+  it("a tap well after a scroll does", () => {
+    expect(touchTapOpens({ from: at, to: at, ms: 80, sinceScroll: 2000 })).toBe(true);
+  });
+  it("a long press stays put: its default is held back", () => {
+    expect(touchStayed(at, { x: 12, y: 11 })).toBe(true);
+  });
+  it("a scroll's default isn't", () => {
+    expect(touchStayed(at, { x: 10, y: 80 })).toBe(false);
   });
 });
