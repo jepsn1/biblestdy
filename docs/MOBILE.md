@@ -50,7 +50,9 @@ membership.
 5. **Create the `appstore` environment.** GitHub repo → Settings →
    Environments → New environment → `appstore`. Tick **Required reviewers**
    and add yourself, so a signed build only starts after you approve it.
-   Optionally limit Deployment branches to `main`.
+   Optionally limit Deployment branches to `main`. Create it before the first
+   `signing: appstore` run, because GitHub otherwise creates it on the fly
+   with no reviewer.
 6. **Add four environment secrets** to the `appstore` environment (Add
    environment secret), not repository secrets:
 

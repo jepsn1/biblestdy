@@ -25,9 +25,6 @@ on:
         description: 'Marketing version (CFBundleShortVersionString). Must exceed the live App Store version'
         type: string
         default: '1.0.0'
-  # TEMP: lets the branch run before the workflow exists on main; removed before merge
-  push:
-    branches: [ci/ios-macos-270]
 
 permissions:
   contents: read
