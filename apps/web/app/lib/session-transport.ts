@@ -45,16 +45,22 @@ const KEY = "session-token";
  * loaded only in the shell, so the web bundle never carries it. This
  * device only (not in backups), readable while unlocked. */
 function secureStore(): TokenStore {
-  const plugin = import("@aparajita/capacitor-secure-storage").then(async (m) => {
+  // Boxed: a Capacitor plugin proxy answers every property, `then`
+  // included, so resolving a promise WITH it never settles
+  const loaded = import("@aparajita/capacitor-secure-storage").then(async (m) => {
     await m.SecureStorage.setDefaultKeychainAccess(m.KeychainAccess.whenUnlockedThisDeviceOnly);
-    return m.SecureStorage;
+    return { plugin: m.SecureStorage };
   });
   return {
-    get: async () => (await plugin).getItem(KEY),
-    set: async (token) => (await plugin).setItem(KEY, token),
-    remove: async () => (await plugin).removeItem(KEY),
+    get: async () => (await loaded).plugin.getItem(KEY),
+    set: async (token) => (await loaded).plugin.setItem(KEY, token),
+    remove: async () => (await loaded).plugin.removeItem(KEY),
   };
 }
+
+/** The app waits this long at most for the Keychain before its first
+ * render: a stuck read means starting signed out, never a blank screen. */
+const READY_TIMEOUT_MS = 3000;
 
 let store: TokenStore | null = null;
 let token: string | null = null;
@@ -67,15 +73,17 @@ const tokenStore = () => (store ??= secureStore());
  * loader's session check already carries it — a restart stays signed in. */
 export function sessionReady(): Promise<void> {
   if (mode !== "bearer") return Promise.resolve();
-  return (ready ??= tokenStore()
+  if (ready) return ready;
+  const read = tokenStore()
     .get()
     .then((t) => {
       token = t || null;
     })
-    .catch(() => {
-      // Storage unreadable: start signed out rather than not at all
-      token = null;
-    }));
+    // Storage unreadable: start signed out rather than not at all
+    .catch(() => undefined);
+  // ...and the same if it never answers
+  const timeout = new Promise<void>((done) => setTimeout(done, READY_TIMEOUT_MS));
+  return (ready = Promise.race([read, timeout]));
 }
 
 export function sessionToken(): string | null {

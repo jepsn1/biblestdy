@@ -145,3 +145,21 @@ describe("authFetchOptions (Better Auth client)", () => {
     expect(store.value()).toBeNull();
   });
 });
+
+describe("sessionReady never blocks launch", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    resetSessionTransport();
+  });
+
+  it("a Keychain read that never answers starts signed out after a moment", async () => {
+    vi.useFakeTimers();
+    const store = memoryStore();
+    store.get = () => new Promise<string | null>(() => undefined);
+    resetSessionTransport({ mode: "bearer", store });
+    const ready = sessionReady();
+    await vi.advanceTimersByTimeAsync(3000);
+    await expect(ready).resolves.toBeUndefined();
+    expect(sessionToken()).toBeNull();
+  });
+});
