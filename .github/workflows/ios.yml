@@ -10,6 +10,8 @@ name: iOS
 #
 # Owner setup (App Store Connect app, API key, secrets): docs/MOBILE.md.
 on:
+  push: # TEMP (#18) — removed before PR
+    branches: [feat/18-shell-bearer-auth]
   workflow_dispatch:
     inputs:
       signing:
