@@ -136,7 +136,8 @@ export function ScriptureChip({
   }, [selected, canonical]);
 
   const openPreview = (fromPress = false) => {
-    if (!ref) return;
+    // Removed, its drawer still sliding away: the chip is going (#283)
+    if (!ref || afterClose.current) return;
     saved.current = saveSelection(editor);
     if (mobile) {
       const root = editor.getRootElement();
@@ -345,18 +346,23 @@ export function ScriptureChip({
           onClose={close}
           onRemove={() => {
             setOpen(false);
+            const focused = !mobile || writing.current;
             const remove = () =>
               editor.update(() => {
                 const node = $getNodeByKey(nodeKey);
                 if (!$isScriptureRefNode(node)) return;
-                node.selectPrevious();
+                if (!focused) node.selectPrevious();
                 node.remove();
                 // Phones, a note only being read: no focus, so no keyboard
-              }, mobile && !writing.current ? { tag: SKIP_DOM_SELECTION_TAG } : undefined);
-            // Phones: the keyboard stays down for a note only being read;
-            // focus now, in the tap (the keyboard comes back), the chip
-            // goes once the drawer has slid away (#283)
-            if (!mobile || writing.current) focusEditor(editor);
+              }, focused ? undefined : { tag: SKIP_DOM_SELECTION_TAG });
+            // Being written in: the caret before the chip and the focus now,
+            // in the tap (a phone's keyboard comes back; typing goes there);
+            // the chip itself goes once the drawer has slid away (#283)
+            if (focused)
+              focusEditor(editor, () => {
+                const node = $getNodeByKey(nodeKey);
+                if ($isScriptureRefNode(node)) node.selectPrevious();
+              });
             if (mobile) afterClose.current = remove;
             else remove();
           }}
