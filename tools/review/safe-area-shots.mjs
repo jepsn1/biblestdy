@@ -135,7 +135,7 @@ export const SURF = {
   // #262: the note drawer (reader) and the note on the Notes page, their last rows
   note: { path: R, init: { "tour.note": "seen" }, steps: async (p) => { await tap(p, 'button[aria-label^="Open note"]'); await p.waitForTimeout(800); const back = p.getByRole("button", { name: /Back to note/ }); if (await back.count()) { await back.first().tap(); await p.waitForTimeout(1000); } } },
   // #281: a chip's preview as a drawer over the note (needs a note with an inline reference)
-  refDrawer: { path: R, init: { "tour.note": "seen" }, steps: async (p) => { await SURF.note.steps(p); await p.locator("[contenteditable] span[title]").first().tap(); await p.waitForTimeout(1200); } },
+  refDrawer: { path: R, init: { "tour.note": "seen" }, steps: async (p) => { await SURF.note.steps(p); await tap(p, "[contenteditable] span[title]"); await p.waitForTimeout(600); } },
   notesNote: { path: "/notes", init: { "tour.notes": "seen", "tour.note": "seen" }, steps: async (p) => { await p.locator("main a[href^='/notes/']").first().click(); await p.waitForTimeout(1500); } },
   highlight: { path: R, steps: async (p) => { await tap(p, word(1, 2)); await p.getByRole("button", { name: /^(More|Mere)$/ }).last().tap(); await p.waitForTimeout(1000); } },
 };

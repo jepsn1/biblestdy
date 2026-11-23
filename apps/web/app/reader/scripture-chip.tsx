@@ -174,8 +174,11 @@ export function ScriptureChip({
       const drawer = [...document.querySelectorAll<HTMLElement>('[data-slot="drawer-popup"]')].at(-1);
       const pane = chip && scrollPane(chip);
       if (!chip || !drawer || !pane || drawer.contains(chip)) return;
-      const over = chip.getBoundingClientRect().bottom - (drawer.getBoundingClientRect().top - 16);
-      if (over <= 0) return;
+      const box = chip.getBoundingClientRect();
+      const over = box.bottom - (drawer.getBoundingClientRect().top - 16);
+      // Under it, and room above it to show the chip (a drawer at full
+      // height — large text — leaves none: the note stays as it was)
+      if (over <= 0 || box.top - over < pane.getBoundingClientRect().top) return;
       // A chip on the last lines: room below the text to scroll it up
       // (under the drawer, unseen), taken back on close
       const room = over - (pane.scrollHeight - pane.clientHeight - pane.scrollTop);
@@ -561,6 +564,9 @@ function RefDrawer({
         initialFocus={read ? readRef : undefined}
         finalFocus={false}
         aria-label={ariaLabel}
+        // Nested in the note's dialog, base-ui leaves the note readable to
+        // VoiceOver: the drawer says it's modal itself (#281 panel F17)
+        aria-modal
         // A layer of its own over the note (#281 panel, 6/6): the note
         // dimmed, never blurred (its chip and words stay readable) — a
         // nested drawer's backdrop renders only when forced — and a lifted
