@@ -144,7 +144,8 @@ export function VerseButton({ dock = false, onDockOpen }: { dock?: boolean; onDo
           ref={button}
           type="button"
           data-tour="note-verse"
-          className="dock-button dock-labelled"
+          className="dock-button"
+          aria-label={t("note.verseButton")}
           onPointerDown={() => editor && (saved.current = saveSelection(editor))}
           onClick={() => {
             const keep = saved.current;
@@ -153,7 +154,6 @@ export function VerseButton({ dock = false, onDockOpen }: { dock?: boolean; onDo
           }}
         >
           <BookPlus aria-hidden className="dock-glyph" />
-          <span className="dock-label">{t("note.verseButton")}</span>
         </button>
         {row &&
           createPortal(
