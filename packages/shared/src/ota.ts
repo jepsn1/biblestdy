@@ -108,12 +108,23 @@ export function currentVersion(state: OtaState, channel: OtaChannel): string | n
   return h && h.length ? h[h.length - 1]! : null
 }
 
+/** The log keeps this many entries. */
+export const LOG_LIMIT = 200
+
+const logged = (state: OtaState, entry: OtaLogEntry) => [...state.log, entry].slice(-LOG_LIMIT)
+
+/** Whether a channel has ever served `version` (still in its history, or
+ * rolled back from but still logged). */
+function servedOn(state: OtaState, channel: OtaChannel, version: string): boolean {
+  return (state.channels[channel] ?? []).includes(version) || state.log.some((e) => e.channel === channel && e.version === version)
+}
+
 function pushVersion(state: OtaState, channel: OtaChannel, version: string, action: OtaLogEntry['action'], at: string): OtaState {
   const history = [...(state.channels[channel] ?? []), version].slice(-HISTORY_LIMIT)
   return {
     ...state,
     channels: { ...state.channels, [channel]: history },
-    log: [...state.log, { at, channel, action, version }],
+    log: logged(state, { at, channel, action, version }),
   }
 }
 
@@ -146,21 +157,22 @@ export function promote(
   if (from === to) throw new Error('promote: from and to are the same channel')
   const version = opts.version ?? currentVersion(state, from)
   if (!version) throw new Error(`promote: ${from} has nothing published`)
-  if (!(state.channels[from] ?? []).includes(version)) throw new Error(`promote: ${version} was never on ${from}`)
+  if (!servedOn(state, from, version)) throw new Error(`promote: ${version} was never on ${from}`)
   if (!state.bundles[version]) throw new Error(`promote: no bundle ${version}`)
   if (currentVersion(state, to) === version) return { state, changed: false, version }
   return { state: pushVersion(state, to, version, 'promote', at), changed: true, version }
 }
 
 /** Rollback: the channel goes back to what it served before (its history
- * pops one), or to a named version it has served. The bundle itself stays. */
+ * pops one), or to a named version it has served — which can also roll
+ * forward again after a rollback. The bundles themselves stay. */
 export function rollback(state: OtaState, channel: OtaChannel, at: string, toVersion?: string): Change {
   const history = state.channels[channel] ?? []
   const current = currentVersion(state, channel)
   if (!current) throw new Error(`rollback: ${channel} has nothing published`)
   let next: string[]
   if (toVersion) {
-    if (!history.includes(toVersion)) throw new Error(`rollback: ${toVersion} was never on ${channel}`)
+    if (!servedOn(state, channel, toVersion)) throw new Error(`rollback: ${toVersion} was never on ${channel}`)
     if (!state.bundles[toVersion]) throw new Error(`rollback: no bundle ${toVersion}`)
     if (toVersion === current) return { state, changed: false, version: current }
     next = [...history, toVersion].slice(-HISTORY_LIMIT)
@@ -175,16 +187,17 @@ export function rollback(state: OtaState, channel: OtaChannel, at: string, toVer
     state: {
       ...state,
       channels: { ...state.channels, [channel]: next },
-      log: [...state.log, { at, channel, action: 'rollback', version }],
+      log: logged(state, { at, channel, action: 'rollback', version }),
     },
     changed: true,
     version,
   }
 }
 
-/** Bundles no channel's history mentions any more — their zips can go. */
+/** Bundles neither a channel's history nor the log mentions any more —
+ * their zips can go. */
 export function prunable(state: OtaState): string[] {
-  const live = new Set(Object.values(state.channels).flat())
+  const live = new Set([...Object.values(state.channels).flat(), ...state.log.map((e) => e.version)])
   return Object.keys(state.bundles).filter((v) => !live.has(v))
 }
 

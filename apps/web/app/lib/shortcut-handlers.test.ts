@@ -17,6 +17,7 @@ const NO_CHARACTER_KEYS: Record<string, string> = {
   "reader/ref-bridge.tsx": "Esc only, while an overview chip is tinted (#190)",
   "notes/notes-tour.tsx": "Esc and Tab only, while a tour card shows; other keys just note that someone's typing",
   "lib/notices.ts": "Ctrl/Cmd+Z only (a mod chord, never a lone character): runs the visible Undo (#257)",
+  "lib/ota-native.ts": "acts on no key: only notes that someone is using the app, so an OTA switch waits (#19)",
 };
 
 const root = fileURLToPath(new URL("..", import.meta.url));

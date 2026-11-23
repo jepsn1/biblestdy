@@ -7,6 +7,7 @@ import {
   dropBundles,
   emptyState,
   HISTORY_LIMIT,
+  LOG_LIMIT,
   manifestFor,
   parseSignedManifest,
   promote,
@@ -71,13 +72,16 @@ describe('publish', () => {
     const s1 = publish(emptyState(), bundle('v1'), 'dev', AT).state
     expect(() => publish(s1, bundle('v1', { sha256: 'other' }), 'dev', AT)).toThrow(/different contents/)
   })
-  it('keeps history bounded', () => {
+  it('keeps history and log bounded; only bundles neither mentions are prunable', () => {
     let s = emptyState()
     for (let i = 0; i < HISTORY_LIMIT + 5; i++) s = publish(s, bundle(`v${i}`), 'dev', AT).state
     expect(s.channels.dev).toHaveLength(HISTORY_LIMIT)
     expect(currentVersion(s, 'dev')).toBe(`v${HISTORY_LIMIT + 4}`)
+    expect(prunable(s)).toEqual([]) // still in the log: can be rolled to
+    for (let i = HISTORY_LIMIT + 5; i < LOG_LIMIT + 5; i++) s = publish(s, bundle(`v${i}`), 'dev', AT).state
+    expect(s.log).toHaveLength(LOG_LIMIT)
     expect(prunable(s)).toEqual(['v0', 'v1', 'v2', 'v3', 'v4'])
-    expect(Object.keys(dropBundles(s, prunable(s)).bundles)).toHaveLength(HISTORY_LIMIT)
+    expect(Object.keys(dropBundles(s, prunable(s)).bundles)).toHaveLength(LOG_LIMIT)
   })
 })
 
@@ -113,6 +117,10 @@ describe('rollback', () => {
     expect(() => rollback(r2.state, 'dev', AT)).toThrow(/no earlier/)
     // the bundles stay, so a later rollback-to can bring v3 back
     expect(r2.state.bundles.v3).toBeDefined()
+  })
+  it('rolls forward again to the version it rolled back from', () => {
+    const back = rollback(s, 'dev', AT).state
+    expect(currentVersion(rollback(back, 'dev', AT, 'v3').state, 'dev')).toBe('v3')
   })
   it('to a named version that channel served', () => {
     const r = rollback(s, 'dev', AT, 'v1')
