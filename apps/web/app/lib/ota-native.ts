@@ -24,8 +24,9 @@ import { verifyManifest } from "./ota-verify";
  * - It switches to a downloaded bundle (a page reload) only at a safe
  *   moment: at launch before the first render, or when the app comes back
  *   to the front — and right after a download that finished before the
- *   reader touched anything. Never while a text field has focus; pending
- *   note saves are flushed first (note-panel saves on `pagehide`).
+ *   reader touched anything. Never mid-edit (a focused field with text in
+ *   it); pending note saves are flushed first (note-panel saves on
+ *   `pagehide`).
  * - Every boot calls notifyAppReady once the app has rendered. A bundle
  *   that never gets there is rolled back by the native side after
  *   appReadyTimeout; we see it at the next boot (bootOutcome) and never
@@ -81,10 +82,15 @@ export function otaChannel(): OtaChannel {
   return isOtaChannel(kept) ? kept : "stable";
 }
 
-/** Someone is typing: a focused text field. */
+/** Mid-edit: a focused text field with something in it. (An empty field
+ * that merely has focus — the sign-in page's autofocused email — isn't;
+ * typing into it counts as a touch anyway.) */
 function editing(): boolean {
   const el = document.activeElement;
-  return el instanceof HTMLElement && (el.isContentEditable || el.matches("input, textarea, select"));
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return (el.textContent ?? "").trim() !== "";
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return el.value !== "";
+  return el instanceof HTMLSelectElement;
 }
 
 let touched = false;

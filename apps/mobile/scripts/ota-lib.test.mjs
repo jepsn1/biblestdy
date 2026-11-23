@@ -1,44 +1,19 @@
 // The publisher's output, checked the way the app checks it (#19):
-// - native side: a re-implementation of @capgo/capacitor-updater's iOS
-//   verifier (CryptoCipher.swift / RSA.swift: raw RSA recovery, PKCS#1
-//   type-1 unpadding, AES-128-CBC) — decrypt, then compare SHA-256;
+// - native side: capgo-mirror.mjs, the plugin's iOS verifier re-done in
+//   Node — decrypt, then compare SHA-256;
 // - web side: the manifest signature through WebCrypto, as lib/ota does;
 // - the CLI against a temp store: publish, promote, rollback.
 import { execFileSync, spawnSync } from "node:child_process";
-import { constants, createDecipheriv, createHash, publicDecrypt } from "node:crypto";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { encryptBundle, generateKeys, publicPemOf, signManifest, spkiBase64, zipDir } from "./ota-lib.mjs";
 import { fingerprintOf, normalizedConfig } from "./native-fingerprint.mjs";
+import { capgoVerify } from "./capgo-mirror.mjs";
 
 const keys = generateKeys();
-
-/** RSA.swift `decrypt`: raw public-key op, then RFC 8017 type-1 unpadding. */
-function capgoRecover(publicPem, data) {
-  const block = publicDecrypt({ key: publicPem, padding: constants.RSA_NO_PADDING }, data);
-  if (block.length !== 256 || block[0] !== 0 || block[1] !== 1) return null;
-  let i = 2;
-  while (i < block.length && block[i] === 0xff) i++;
-  if (i < 10 || i >= block.length - 1 || block[i] !== 0) return null;
-  return block.subarray(i + 1);
-}
-
-/** CapgoUpdater.downloadZip: decrypt with the session key, then checksum. */
-function capgoVerify(publicPem, { data, checksum, sessionKey }) {
-  const [ivB64, keyB64] = sessionKey.split(":");
-  const iv = Buffer.from(ivB64, "base64");
-  const aes = capgoRecover(publicPem, Buffer.from(keyB64, "base64"));
-  if (iv.length !== 16 || aes?.length !== 16) throw new Error("bad session key");
-  const d = createDecipheriv("aes-128-cbc", aes, iv);
-  const zip = Buffer.concat([d.update(data), d.final()]);
-  const expected = capgoRecover(publicPem, Buffer.from(checksum, "hex"));
-  if (!expected || expected.length !== 32) throw new Error("bad checksum");
-  const actual = createHash("sha256").update(zip).digest("hex");
-  if (actual !== expected.toString("hex")) throw new Error("checksum mismatch");
-  return zip;
-}
 
 function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "ota-test-"));
