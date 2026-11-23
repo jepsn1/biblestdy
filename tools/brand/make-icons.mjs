@@ -1,6 +1,7 @@
 // Tab + home-screen icons from one source (#250). Writes apps/web/public/
 // favicon.svg, favicon.ico, apple-touch-icon.png, pwa-192.png, pwa-512.png,
-// pwa-maskable-512.png. The in-app mark lives in apps/web/app/components/logo.tsx
+// pwa-maskable-512.png, plus the iOS app icon (apps/mobile/ios asset catalog,
+// 1024 full bleed, no alpha — App Store rejects transparency). The in-app mark lives in apps/web/app/components/logo.tsx
 // — keep MARK below in step with it (same paths; tiles use a bolder stroke).
 // Needs Playwright (not a repo dependency). From a scratch dir:
 //   npm i playwright && node /path/to/tools/brand/make-icons.mjs
@@ -46,6 +47,11 @@ fs.writeFileSync(path.join(out, "pwa-192.png"), await png(tile(192, { scale: 0.7
 fs.writeFileSync(path.join(out, "pwa-512.png"), await png(tile(512, { scale: 0.7, rx: 112 }), 512));
 // Maskable: full bleed, mark well inside the 80 % safe circle
 fs.writeFileSync(path.join(out, "pwa-maskable-512.png"), await png(tile(512, { scale: 0.62 }), 512));
+
+// iOS app icon: single 1024 universal size; iOS masks the corners itself, and
+// an opaque tile comes out RGB (no alpha channel) — App Store requires that.
+const iosIcon = path.resolve(import.meta.dirname, "../../apps/mobile/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png");
+fs.writeFileSync(iosIcon, await png(tile(1024, { scale: 0.7 }), 1024));
 
 // favicon.ico: PNG-in-ICO, 16 + 32 (pixel-fitted) + 48
 const images = [
