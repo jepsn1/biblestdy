@@ -77,9 +77,11 @@ function tick(e: React.MouseEvent) {
 function revealCaret(box: HTMLElement | null) {
   const sel = window.getSelection();
   if (!box || !sel?.rangeCount || !box.contains(sel.anchorNode)) return;
-  const range = sel.getRangeAt(0);
-  const rects = range.getClientRects();
-  const r = rects.length ? rects[rects.length - 1] : (sel.anchorNode instanceof Element ? sel.anchorNode : sel.anchorNode?.parentElement)?.getBoundingClientRect();
+  const rects = sel.getRangeAt(0).getClientRects();
+  // A caret on an empty line has no rect of its own: its line's
+  const node = sel.anchorNode;
+  const line = node instanceof Element ? node : node?.parentElement;
+  const r = rects.length ? rects[rects.length - 1] : line && line !== box ? line.getBoundingClientRect() : null;
   if (!r) return;
   const d = caretDelta(r, box.getBoundingClientRect());
   if (d) box.scrollTop += d;
@@ -144,7 +146,7 @@ export function NoteEditor({
   const wrap = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const vv = window.visualViewport;
-    const box = wrap.current?.querySelector<HTMLElement>(".mdxeditor-root-contenteditable");
+    const box = wrap.current?.querySelector<HTMLElement>('.mdxeditor-root-contenteditable [contenteditable="true"]');
     if (!dock || !vv || !box) return;
     box.closest(".mdxeditor")?.querySelector(".note-dock")?.setAttribute("aria-label", translation("dock.label", "Formatting"));
     let timer = 0;

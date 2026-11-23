@@ -390,7 +390,9 @@
 }
 /* Quieter toolbar (#66): no grey band, muted icons that come up on hover/on */
 .mdxeditor [role="toolbar"] {
-  background: transparent;
+  /* the page's own colour: no band, yet the text scrolling under the
+     sticky bar doesn't show through it (#273) */
+  background: var(--background);
   border-radius: 0;
   border-bottom: 1px solid var(--border);
   color: var(--muted-foreground);
@@ -459,14 +461,25 @@
   overflow: hidden;
 }
 .note-docked > .mdxeditor-root-contenteditable {
+  flex: 1 1 0;
   min-height: 0;
+}
+.note-docked > .mdxeditor-root-contenteditable > div {
+  flex: 1 1 0;
+  min-height: 0;
+}
+/* the editable itself scrolls: focusable, and its own box is what Lexical
+   keeps the caret inside */
+.note-docked > .mdxeditor-root-contenteditable > div > [contenteditable="true"] {
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .note-docked > .note-dock {
   display: none;
 }
-[data-kb] .note-docked > .note-dock {
+/* …while the keyboard is up for the text (not the title or a topic) */
+[data-kb] .note-docked:focus-within > .note-dock {
   display: flex;
   position: relative;
   border-bottom: 0;
