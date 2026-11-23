@@ -4,6 +4,8 @@ import { emailOTP, magicLink } from 'better-auth/plugins';
 import { db, schema } from '../db';
 import { emailLanguage, queueAuthEmail } from './email';
 import { AUTH_IP_ADDRESS, AUTH_RATE_LIMIT } from './rate-limit';
+import { SHELL_ORIGINS } from '../http/shell-cors';
+import { shellBearer } from './shell-bearer';
 
 /**
  * Better Auth instance. Passwordless — no passwords, ever (see VISION.md:
@@ -40,8 +42,15 @@ export const auth = betterAuth({
         return Promise.resolve();
       },
     }),
+    // The Capacitor shell's session transport (#18); web stays on cookies
+    shellBearer(),
   ],
-  trustedOrigins: [process.env.BETTER_AUTH_URL ?? 'http://localhost:5173'],
+  // The web origin, plus the Capacitor shell's (http/shell-cors.ts) — its
+  // sign-in POSTs carry Origin: capacitor://localhost (iOS) / https://localhost
+  trustedOrigins: [
+    process.env.BETTER_AUTH_URL ?? 'http://localhost:5173',
+    ...SHELL_ORIGINS,
+  ],
   // Per-IP throttling of OTP/magic-link/sign-in (rate-limit.ts), keyed on the
   // proxy-resolved client IP (http/client-ip.ts).
   rateLimit: AUTH_RATE_LIMIT,

@@ -13,6 +13,7 @@ import {
 import { AppModule } from './app.module';
 import { auth } from './auth/auth';
 import { configureClientIp, trustProxyFrom } from './http/client-ip';
+import { shellCors } from './http/shell-cors';
 
 async function bootstrap() {
   // Body parsing is re-added below — Better Auth must see the raw stream
@@ -25,6 +26,10 @@ async function bootstrap() {
     app.getHttpAdapter().getInstance(),
     trustProxyFrom(process.env.TRUST_PROXY),
   );
+
+  // CORS for the Capacitor shell's origins only (#18) — before the auth
+  // handler and Nest, so their preflights are answered for both
+  app.use(shellCors());
 
   const authHandler = toNodeHandler(auth);
   // Better Auth owns /api/auth/*; everything else falls through to Nest
