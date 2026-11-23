@@ -66,7 +66,20 @@ function write(key: string, value: unknown) {
   }
 }
 
-type Pending = { id: string; version: string };
+/** A downloaded bundle waiting for its moment, and the native build it was
+ * taken for (a native update in between makes it unusable). */
+type Pending = { id: string; version: string; native: string };
+
+/** The pending bundle, if this native build may still switch to it. */
+function usablePending(): Pending | null {
+  const p = read<Pending>(K.pending);
+  if (!p) return null;
+  if (p.version === BUILD.version || p.native !== BUILD.native) {
+    write(K.pending, null);
+    return null;
+  }
+  return p;
+}
 
 function log(...args: unknown[]) {
   console.info("[ota]", ...args);
@@ -105,8 +118,8 @@ async function flushSaves() {
 }
 
 async function applyPending(reason: string): Promise<boolean> {
-  const pending = read<Pending>(K.pending);
-  if (!pending || pending.version === BUILD.version || applying) return false;
+  const pending = usablePending();
+  if (!pending || applying) return false;
   if (!safeToApply({ editing: editing(), touchedSinceForeground: touched })) return false;
   applying = true;
   try {
@@ -144,7 +157,7 @@ async function checkNow() {
   const m = await fetchManifest(channel);
   if (!m) return;
   const lastSeq = read<number>(K.seq(channel)) ?? 0;
-  const pending = read<Pending>(K.pending);
+  const pending = usablePending();
   const d = decide(m, BUILD, { lastSeq, failed: read<string[]>(K.failed) ?? [], pending: pending?.version ?? null });
   write(K.seq(channel), Math.max(lastSeq, m.seq));
   if (!d.take) {
@@ -159,7 +172,7 @@ async function checkNow() {
   log(`downloading ${m.version} (${channel})`);
   const bundle = await CapacitorUpdater.download({ url: m.url, version: m.version, checksum: m.checksum, sessionKey: m.sessionKey });
   if (pending && pending.id !== bundle.id) void CapacitorUpdater.delete({ id: pending.id }).catch(() => {});
-  write(K.pending, { id: bundle.id, version: m.version } satisfies Pending);
+  write(K.pending, { id: bundle.id, version: m.version, native: m.native } satisfies Pending);
   await applyPending("downloaded");
 }
 
@@ -192,11 +205,7 @@ async function launchNow(): Promise<void> {
     write(K.failed, rememberFailed(read<string[]>(K.failed) ?? [], bad));
   }
   write(K.applying, null);
-  const pending = read<Pending>(K.pending);
-  if (!pending || pending.version === BUILD.version) {
-    if (pending) write(K.pending, null);
-    return;
-  }
+  if (!usablePending()) return;
   // This boot got this far: don't let the native side roll it back for
   // switching before it rendered
   await CapacitorUpdater.notifyAppReady();
