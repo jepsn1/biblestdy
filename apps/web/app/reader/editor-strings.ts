@@ -62,13 +62,22 @@ const DA: Record<string, string> = {
   "codeBlock.selectLanguage": "Vælg kodeblokkens sprog",
   "codeBlock.inlineLanguage": "Sprog",
   "codeblock.delete": "Slet kodeblok",
+  // Ours: the format bar docked on the keyboard in the app (#273)
+  "dock.label": "Formatering",
+  "dock.hideKeyboard": "Skjul tastatur",
 };
 
-/** MDXEditor's `translation` prop for a UI language. */
-export function editorTranslation(language: string) {
+/** Names that carry a desktop shortcut ("Undo Ctrl+Z"): on a phone the
+ * shortcut is noise to VoiceOver, and wrong on Apple keys (#273 panel). */
+const SHORTCUT_IN_NAME = new Set(["toolbar.undo", "toolbar.redo"]);
+
+/** MDXEditor's `translation` prop for a UI language; `touch`: no
+ * keyboard shortcuts in the buttons' names. */
+export function editorTranslation(language: string, touch = false) {
   const strings = language.startsWith("da") ? DA : null;
   return (key: string, defaultValue: string, interpolations: Record<string, unknown> = {}) => {
     let value = strings?.[key] ?? defaultValue;
+    if (touch && SHORTCUT_IN_NAME.has(key)) return value.replace(/\s*\{\{shortcut\}\}/, "");
     for (const [k, v] of Object.entries(interpolations)) value = value.replaceAll(`{{${k}}}`, String(v));
     return value;
   };

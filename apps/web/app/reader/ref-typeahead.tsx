@@ -283,11 +283,12 @@ export function RefTypeahead() {
     if (!open || !box) return;
     const again = () => setScrolled((n) => n + 1);
     const vv = window.visualViewport;
-    box.addEventListener("scroll", again, { passive: true });
+    // Capture: in the app the writing area inside it is the scroller (#273)
+    box.addEventListener("scroll", again, { passive: true, capture: true });
     window.addEventListener("resize", again);
     vv?.addEventListener("resize", again);
     return () => {
-      box.removeEventListener("scroll", again);
+      box.removeEventListener("scroll", again, { capture: true });
       window.removeEventListener("resize", again);
       vv?.removeEventListener("resize", again);
     };
