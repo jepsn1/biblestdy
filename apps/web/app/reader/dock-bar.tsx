@@ -32,7 +32,7 @@ import { VerseButton } from "./verse-button";
  * style `[B | I | U]` (several at once) and Lists `[• | 1. | ☑]` (one at a
  * time; the lit one turns the list off). Our own buttons with aria-pressed:
  * MDXEditor's toggles are one-item radiogroups, undo/redo radios (Sofie F4,
- * Jonas F1). Five controls in sight at every width and text size — no
+ * Jonas F1). Glyphs only — no words under any (owner). Five controls in sight at every width and text size — no
  * sideways scroll; undo always in sight (Birthe).
  */
 export function DockBar() {

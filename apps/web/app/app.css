@@ -527,18 +527,17 @@
 .dock-spacer {
   flex: 1 1 0;
 }
-/* Every glyph on one line (Mads F6): 22px at 1.75 (the note text's
-   weight), centre 21px from the platter's top; a kept word (Verse, O3)
-   hangs under it. Targets 48×48, in px (a rem floor doubles at 200 %). */
+/* Glyphs only, centred (owner: all labels or none): 22px at 1.75 (the
+   note text's weight), names in aria-label. Targets 48×48, in px (a rem
+   floor doubles at 200 %). */
 .note-docked .dock-button.dock-button {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   min-width: 48px;
   min-height: 48px;
-  padding: 10px 6px 0;
+  padding: 0 6px;
   border: 0;
   border-radius: 14px;
   background-color: transparent;
@@ -552,16 +551,6 @@
   height: 22px;
   flex-shrink: 0;
   stroke-width: 1.75;
-}
-.dock-label {
-  margin-top: 1px;
-  font-family: var(--font-sans);
-  font-size: clamp(12px, var(--text-meta), 15px);
-  line-height: 1;
-  white-space: nowrap;
-}
-.note-docked .dock-labelled.dock-labelled {
-  padding-inline: 8px;
 }
 /* On: full ink on a tint inset 4px — concentric radii 14/10 (Mads F3) */
 .note-docked .dock-button.dock-button[aria-pressed="true"] {
