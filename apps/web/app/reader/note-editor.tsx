@@ -19,12 +19,17 @@ import {
   thematicBreakPlugin,
   toolbarPlugin,
   UndoRedo,
+  useTranslation as useEditorTranslation,
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import type { NoteRef } from "@biblestdy/shared";
-import { useEffect, useMemo, type Ref } from "react";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, type Ref } from "react";
 import { useTranslation } from "react-i18next";
+import { isNativeShell } from "~/lib/api-base";
+import { caretDelta, KEYBOARD_MS } from "~/lib/keyboard-native";
+import { hideKeyboard, lightTap } from "~/lib/native-touch";
 import { editorIcon } from "./editor-icons";
 import { editorTranslation } from "./editor-strings";
 import { ScriptureRefContext, type EditorKit, type PagePlace, type ReadRef } from "./ref-context";
@@ -53,6 +58,42 @@ function caretToEnd(e: React.PointerEvent) {
   const sel = window.getSelection();
   sel?.removeAllRanges();
   sel?.addRange(range);
+}
+
+/** The format bar's buttons (#273): a tap keeps the keyboard up — no
+ * focus move, so iOS doesn't drop it with the editor's focus — and, in the
+ * app, ticks under the finger. */
+function keepFocus(e: React.MouseEvent) {
+  if ((e.target as Element).closest(".note-dock button")) e.preventDefault();
+}
+function tick(e: React.MouseEvent) {
+  const button = (e.target as Element).closest<HTMLButtonElement>(".note-dock button");
+  if (button && !button.disabled && !button.hasAttribute("data-hide-keyboard")) lightTap();
+}
+
+/** The caret shows above the docked bar once the keyboard is up (#273):
+ * nothing scrolls it there by itself when the writing area shrinks under
+ * it (Lexical only does as you type). */
+function revealCaret(box: HTMLElement | null) {
+  const sel = window.getSelection();
+  if (!box || !sel?.rangeCount || !box.contains(sel.anchorNode)) return;
+  const range = sel.getRangeAt(0);
+  const rects = range.getClientRects();
+  const r = rects.length ? rects[rects.length - 1] : (sel.anchorNode instanceof Element ? sel.anchorNode : sel.anchorNode?.parentElement)?.getBoundingClientRect();
+  if (!r) return;
+  const d = caretDelta(r, box.getBoundingClientRect());
+  if (d) box.scrollTop += d;
+}
+
+/** Last in the docked bar, held at its end: the keyboard goes away (the
+ * accessory bar's ✓ that the app hides, #256). */
+function HideKeyboard() {
+  const t = useEditorTranslation();
+  return (
+    <button type="button" data-hide-keyboard="" aria-label={t("dock.hideKeyboard", "Hide keyboard")} onClick={hideKeyboard}>
+      <ChevronDown aria-hidden className="size-4" />
+    </button>
+  );
 }
 
 /**
@@ -97,6 +138,27 @@ export function NoteEditor({
   const pageTid = page?.translationId;
   const pageBook = page?.book;
   const pageCh = page?.chapter;
+  // Phones in the app (#273): the format bar docks on the keyboard and is
+  // there only while writing; the web keeps it above the text
+  const dock = mobile && isNativeShell();
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const box = wrap.current?.querySelector<HTMLElement>(".mdxeditor-root-contenteditable");
+    if (!dock || !vv || !box) return;
+    box.closest(".mdxeditor")?.querySelector(".note-dock")?.setAttribute("aria-label", translation("dock.label", "Formatting"));
+    let timer = 0;
+    const settle = () => {
+      window.clearTimeout(timer);
+      // After the sheet has fitted itself to the keyboard (its slide)
+      timer = window.setTimeout(() => revealCaret(box), KEYBOARD_MS + 30);
+    };
+    vv.addEventListener("resize", settle);
+    return () => {
+      window.clearTimeout(timer);
+      vv.removeEventListener("resize", settle);
+    };
+  }, [dock, translation]);
   const refs = useMemo(
     () => ({
       onRead: onReadRef,
@@ -116,7 +178,8 @@ export function NoteEditor({
     // inside the editor's React tree)
     <ScriptureRefContext value={refs}>
     {/* contents: no box of its own, the editor's layout is unchanged */}
-    <div className="contents" onPointerUp={caretToEnd}>
+    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- listens only: the bar's buttons are the controls */}
+    <div ref={wrap} className="contents" onPointerUp={caretToEnd} onMouseDown={dock ? keepFocus : undefined} onClick={dock ? tick : undefined}>
     <MDXEditor
       ref={editorRef}
       iconComponentFor={editorIcon}
@@ -125,7 +188,7 @@ export function NoteEditor({
       placeholder={placeholder}
       translation={translation}
       // relative: the `@` menu's place outside a note panel (ref-typeahead)
-      className={`relative min-h-0 flex-1 overflow-y-auto ${dark ? "dark-theme" : ""}`}
+      className={`relative min-h-0 flex-1 ${dock ? "note-docked" : "overflow-y-auto"} ${dark ? "dark-theme" : ""}`}
       contentEditableClassName="font-serif text-control leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-medium [&_h2]:mb-1.5 [&_h2]:text-title [&_h2]:font-medium [&_h3]:mb-1 [&_h3]:text-reading [&_h3]:font-medium [&_h4]:font-medium [&_hr]:my-3 [&_hr]:border-border [&_li]:mb-0.5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
       plugins={[
         headingsPlugin(),
@@ -141,8 +204,22 @@ export function NoteEditor({
         codeMirrorPlugin({ codeBlockLanguages: { "": "Plain", js: "JavaScript" } }),
         markdownShortcutPlugin(),
         toolbarPlugin({
+          toolbarPosition: dock ? "bottom" : "top",
+          toolbarClassName: dock ? "note-dock" : "",
           toolbarContents: () =>
-            mobile ? (
+            dock ? (
+              // On the keyboard (#273 panel): writing first, nearest the
+              // thumb; the way out of the keyboard held at the end
+              <>
+                <BoldItalicUnderlineToggles />
+                <ListsToggle />
+                <Separator />
+                <VerseButton />
+                <Separator />
+                <UndoRedo />
+                <HideKeyboard />
+              </>
+            ) : mobile ? (
               // Thumb-width toolbar: the essentials, one row
               <>
                 <UndoRedo />

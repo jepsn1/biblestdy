@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { bookLocale, useBookName } from "~/lib/book-name";
+import { useKeyboardFit } from "~/lib/keyboard-fit";
 import { notifyError, notifyUndo } from "~/lib/notify";
 import i18n from "~/lib/i18n";
 import { api } from "~/lib/query";
@@ -123,6 +124,10 @@ function NotesPage({ params }: Route.ComponentProps) {
     );
   }
   const open = params.id ? notes.find((n) => n.id === params.id) : undefined;
+  /** A phone writing here: the page fits the part above the keyboard, as
+   * the reader's note sheet does (#261, #273) — the bar on it, Close in sight. */
+  const [mainEl, setMainEl] = useState<HTMLElement | null>(null);
+  useKeyboardFit(mainEl, mobile && !!open);
   const back = readingHref();
   // The way back names the place (#148): "← Back to Psalm 23", on the page
   // last read (lastRead keeps it across reloads); "Bible" before any
@@ -389,7 +394,7 @@ function NotesPage({ params }: Route.ComponentProps) {
   return (
     // Safe areas (#251): the header clears the status bar, both panes a
     // landscape notch; the lists end above the home indicator
-    <main className="flex h-dvh flex-col overflow-hidden bg-background pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
+    <main ref={setMainEl} className="flex h-dvh flex-col overflow-hidden bg-background pt-(--safe-top) pr-(--safe-right) pl-(--safe-left)">
       <header className="@container flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:px-3">
         {params.id && mobile ? (
           <Link to={hrefOf()} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-w-0 shrink text-muted-foreground")}>

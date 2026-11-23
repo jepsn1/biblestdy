@@ -62,6 +62,9 @@ const DA: Record<string, string> = {
   "codeBlock.selectLanguage": "Vælg kodeblokkens sprog",
   "codeBlock.inlineLanguage": "Sprog",
   "codeblock.delete": "Slet kodeblok",
+  // Ours: the format bar docked on the keyboard in the app (#273)
+  "dock.label": "Formatering",
+  "dock.hideKeyboard": "Skjul tastatur",
 };
 
 /** MDXEditor's `translation` prop for a UI language. */

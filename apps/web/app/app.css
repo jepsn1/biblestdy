@@ -450,6 +450,62 @@
     stroke-width: 1.5;
   }
 }
+/* The format bar docked on the keyboard (#273: the app, on phones). There
+   only while writing; then a row on the keyboard's top edge, like Notes.
+   The writing area is the scroller, not the editor's box, so the bar sits
+   under the text, never over it, and the caret Lexical keeps in sight is
+   in sight above the bar. */
+.note-docked {
+  overflow: hidden;
+}
+.note-docked > .mdxeditor-root-contenteditable {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.note-docked > .note-dock {
+  display: none;
+}
+[data-kb] .note-docked > .note-dock {
+  display: flex;
+  position: relative;
+  border-bottom: 0;
+  border-top: 1px solid var(--border);
+  background-color: var(--background);
+  padding-block: 0;
+  padding-right: 0;
+  /* the fade is the "hide keyboard" key's (below) */
+  mask-image: none;
+  animation: none;
+}
+/* The way out of the keyboard, held at the bar's end while the rest scrolls
+   sideways under it (a fade says there is more) */
+.note-dock [data-hide-keyboard] {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+.note-dock [data-hide-keyboard]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  right: 100%;
+  width: 16px;
+  background: linear-gradient(to right, transparent, var(--background));
+  pointer-events: none;
+}
+/* The sheet's fitting slides with the keyboard in the app, where the
+   plugin says so as it starts (lib/native-shell); Safari reports it after */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-native] [data-slot="drawer-popup"][data-kb] > [data-slot="drawer-content"],
+  :root[data-native] main[data-kb] {
+    transition:
+      opacity 300ms cubic-bezier(0.45, 1.005, 0, 1.005),
+      padding 250ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+}
 /* Placeholders on our muted ink (#123) — the editor's own greys fail AA on
    our pages. Its classes are CSS-module hashed: matched by their stable stem */
 .mdxeditor [class*="_placeholder_"] {
@@ -784,8 +840,27 @@
   padding-top: var(--kb-top, 0px);
   padding-bottom: var(--kb-bottom, 0px);
 }
-[data-slot="drawer-popup"][data-kb] [data-kb-hide] {
+/* …except the part being written in (a topic being added, #273) */
+[data-kb] [data-kb-hide]:not(:focus-within) {
   display: none;
+}
+/* The Notes page on a phone, writing (#273): the same fitting, the page's
+   own bottom pad dropped (the keyboard covers the home indicator) */
+main[data-kb] {
+  padding-top: max(var(--safe-top), var(--kb-top, 0px));
+  padding-bottom: var(--kb-bottom, 0px);
+}
+main[data-kb] [data-notes-editor] > div {
+  padding-bottom: 0;
+}
+/* The app's keyboard covers other sheets' lower part (no pan in the shell,
+   lib/native-shell): a bottom sheet sits on top of it instead */
+:root[data-kb-open] [data-slot="drawer-popup"][data-swipe-direction="down"]:not([data-snap-points]) {
+  margin-bottom: var(--kb-h, 0px);
+  max-height: calc(100dvh - var(--kb-h, 0px) - var(--safe-top));
+}
+:root[data-kb-open] [data-slot="drawer-popup"][data-swipe-direction="down"]:not([data-snap-points]) > [data-slot="drawer-content"] {
+  padding-bottom: 0;
 }
 
 /* Touch feels like an app (#262 panel P2): every control darkens while the
