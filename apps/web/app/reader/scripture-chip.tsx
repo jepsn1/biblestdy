@@ -1,7 +1,7 @@
 import { formatScriptureHref, parseScriptureHref, resolveInChapter, type Chapter, type MarkLink, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import { localRef } from "@biblestdy/shared/versification";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
+import { $getNodeByKey, $getSelection, $isNodeSelection, SKIP_DOM_SELECTION_TAG, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
 import { ArrowRight, X } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -325,7 +325,8 @@ export function ScriptureChip({
               if (!$isScriptureRefNode(node)) return;
               node.selectPrevious();
               node.remove();
-            });
+              // Phones, a note only being read: no focus, so no keyboard
+            }, mobile && !writing.current ? { tag: SKIP_DOM_SELECTION_TAG } : undefined);
             // Phones: the keyboard stays down for a note only being read
             if (!mobile || writing.current) focusEditor(editor);
           }}
