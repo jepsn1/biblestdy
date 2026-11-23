@@ -128,10 +128,19 @@ importers:
       '@capacitor/keyboard':
         specifier: 8.0.6
         version: 8.0.6(@capacitor/core@8.5.1)
+      '@capgo/capacitor-updater':
+        specifier: 8.54.2
+        version: 8.54.2(@capacitor/core@8.5.1)
     devDependencies:
+      '@biblestdy/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@capacitor/cli':
         specifier: ^8.5.1
         version: 8.5.1
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)
 
   apps/web:
     dependencies:
@@ -153,6 +162,9 @@ importers:
       '@capacitor/keyboard':
         specifier: 8.0.6
         version: 8.0.6(@capacitor/core@8.5.1)
+      '@capgo/capacitor-updater':
+        specifier: 8.54.2
+        version: 8.54.2(@capacitor/core@8.5.1)
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9
@@ -984,6 +996,11 @@ packages:
     resolution: {integrity: sha512-Bbe+9V0qaT6dzEFJEK7BUWR01l2+vZE8FM5ITF/WgKtx+G6eGZ6d5+YiSMRJBAK0VGjdO59v8yiQ10Doa5KyvQ==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
+
+  '@capgo/capacitor-updater@8.54.2':
+    resolution: {integrity: sha512-Tuy9xeaJeudIzz3Dp/oenvhjtC2C3+E2OcZy+zW7w5/0RieTedyI7QRX/hxI3uXsb/94G5HT4ueN3pIb9pbtRA==}
+    peerDependencies:
+      '@capacitor/core': ^8.0.0
 
   '@codemirror/autocomplete@6.20.3':
     resolution: {integrity: sha512-tlosUqb+3BbxCxZdu4tKeRghPFC+QM7q4X5YhKV2eCmPG+1r2F3f4AaSz5sCrFqUtX4Jh20VFTKecl16MgiV9g==}
@@ -7801,6 +7818,10 @@ snapshots:
       '@capacitor/core': 8.5.1
 
   '@capacitor/keyboard@8.0.6(@capacitor/core@8.5.1)':
+    dependencies:
+      '@capacitor/core': 8.5.1
+
+  '@capgo/capacitor-updater@8.54.2(@capacitor/core@8.5.1)':
     dependencies:
       '@capacitor/core': 8.5.1
 

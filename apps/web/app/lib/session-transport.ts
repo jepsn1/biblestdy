@@ -74,10 +74,13 @@ const tokenStore = () => (store ??= secureStore());
 export function sessionReady(): Promise<void> {
   if (mode !== "bearer") return Promise.resolve();
   if (ready) return ready;
-  // The rest of the shell's start-up rides along (#273): its keyboard, in
-  // its own chunk (an import here costs first paint nothing new). Awaited
-  // with the token, so no effect reads visualViewport before it's in place
-  const keyboard = isNativeShell() ? import("./native-shell").catch(() => undefined) : undefined;
+  // The rest of the shell's start-up rides along (#273, #19): its keyboard
+  // and OTA updates, in their own chunk (an import here costs first paint
+  // nothing new). Awaited with the token, so no effect reads visualViewport
+  // before it's in place, and a pending OTA switch happens before any render
+  const keyboard = isNativeShell()
+    ? import("./native-start").then((m) => m.started).catch(() => undefined)
+    : undefined;
   const stored = tokenStore()
     .get()
     .then((t) => {

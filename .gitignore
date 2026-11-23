@@ -8,3 +8,6 @@ build/
 .DS_Store
 coverage/
 .claude/worktrees/
+
+# OTA store (#19): bundles + signed manifests, written by make deploy, served by Caddy at /ota/
+/ota/

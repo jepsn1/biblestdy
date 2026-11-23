@@ -7,6 +7,9 @@ name: iOS
 #   signing=none     unsigned .ipa artifact, no secrets — proves the build
 #   signing=appstore archive + App Store export via the `appstore` environment
 #                    (owner approves each run); upload=true sends it to TestFlight
+#   channel          OTA channel the build follows (#19): dev = every deploy
+#                    (TestFlight, the owner's phone), stable = only promoted
+#                    bundles (the build you submit to the App Store)
 #
 # Owner setup (App Store Connect app, API key, secrets): docs/MOBILE.md.
 on:
@@ -25,6 +28,11 @@ on:
         description: 'Marketing version (CFBundleShortVersionString). Must exceed the live App Store version'
         type: string
         default: '1.0.0'
+      channel:
+        description: 'OTA channel: dev = every deploy (TestFlight), stable = promoted bundles only (App Store)'
+        type: choice
+        options: [dev, stable]
+        default: dev
 
 permissions:
   contents: read
@@ -47,6 +55,8 @@ jobs:
       SIGNING: ${{ inputs.signing || 'none' }}
       UPLOAD: ${{ inputs.upload || false }}
       VERSION: ${{ inputs.version || '1.0.0' }}
+      # Baked into the app's own web build (apps/web/app/lib/ota-native.ts)
+      VITE_OTA_CHANNEL: ${{ inputs.channel || 'dev' }}
       BUILD_NUMBER: ${{ github.run_number }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -110,6 +120,11 @@ jobs:
           test -f public/index.html || { echo "::error::no index.html in the iOS bundle"; exit 1; }
           grep -lqE '["`]https://biblestdy\.com["`]' public/assets/*.js || { echo "::error::prod API origin not found in the bundled JS (apps/web/app/lib/api-base.ts)"; exit 1; }
           grep -q "\"appId\": \"$BUNDLE_ID\"" capacitor.config.json || { echo "::error::capacitor.config.json appId is not $BUNDLE_ID"; cat capacitor.config.json; exit 1; }
+          # OTA (#19): the updater must hold the signing key, and the bundle
+          # its build info (version + native fingerprint)
+          grep -q 'BEGIN RSA PUBLIC KEY' capacitor.config.json || { echo "::error::no OTA publicKey in capacitor.config.json (apps/mobile/capacitor.config.ts)"; exit 1; }
+          test -f public/ota-build.json || { echo "::error::no ota-build.json in the bundled web app"; exit 1; }
+          echo "OTA channel $VITE_OTA_CHANNEL, bundle $(node -p 'require("./public/ota-build.json").version'), native $(node -p 'require("./public/ota-build.json").native')"
           echo "bundled $(find public -type f | wc -l | tr -d ' ') files, $(du -sh public | cut -f1)"
 
       # The committed project must already match what cap sync produces —
@@ -243,7 +258,7 @@ jobs:
           SIGNED: ${{ steps.gate.outputs.signed }}
         run: |
           {
-            echo "### biblestdy iOS $VERSION ($BUILD_NUMBER) — signing: $SIGNING"
+            echo "### biblestdy iOS $VERSION ($BUILD_NUMBER) — signing: $SIGNING, OTA channel: $VITE_OTA_CHANNEL"
             if [ "$SIGNING" = none ]; then
               echo "Unsigned IPA attached (artifact biblestdy-ios-none-$VERSION-$BUILD_NUMBER). iOS won't install it directly;"
               echo "device farms (BrowserStack App Live, Sauce Labs) re-sign it to run on a real phone."

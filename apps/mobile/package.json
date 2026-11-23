@@ -4,7 +4,9 @@
   "private": true,
   "description": "Capacitor shell wrapping the built web SPA (issue #16)",
   "scripts": {
-    "sync": "pnpm --filter @biblestdy/web build && ./scripts/copy-www.sh && cap sync"
+    "sync": "pnpm --filter @biblestdy/web build && ./scripts/copy-www.sh && cap sync",
+    "test": "vitest run",
+    "ota": "node scripts/ota.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "8.0.1",
@@ -12,9 +14,12 @@
     "@capacitor/core": "^8.5.1",
     "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "^8.5.1",
-    "@capacitor/keyboard": "8.0.6"
+    "@capacitor/keyboard": "8.0.6",
+    "@capgo/capacitor-updater": "8.54.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.1"
+    "@biblestdy/shared": "workspace:*",
+    "@capacitor/cli": "^8.5.1",
+    "vitest": "^3.2.4"
   }
 }
