@@ -11,8 +11,10 @@
     "bundle:check": "node scripts/bundle-budget.mjs"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "8.0.1",
     "@base-ui/react": "^1.6.0",
     "@biblestdy/shared": "workspace:*",
+    "@capacitor/core": "^8.5.1",
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@fontsource-variable/literata": "^5.2.8",

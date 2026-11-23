@@ -2,8 +2,9 @@
  * API base seam. The SPA calls same-origin `/api`, but inside the Capacitor
  * shell the origin is capacitor://localhost, so same-origin breaks. When
  * running native the app targets production instead. This is only the URL
- * seam — bearer-token session transport is issue #18, so cookie auth is
- * knowingly incomplete cross-origin in the shell for now.
+ * seam; the session goes with it in lib/session-transport (bearer in the
+ * shell, #18) — the API allows the shell's origins by CORS
+ * (apps/api/src/http/shell-cors.ts).
  */
 type CapacitorGlobal = { isNativePlatform?: () => boolean };
 

@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { operator } from "~/lib/app-info";
+import { isNativeShell } from "~/lib/api-base";
 import { authClient } from "~/lib/auth-client";
 import i18n, { setUiLanguage } from "~/lib/i18n";
 import { nextFromSearch } from "~/lib/next-path";
@@ -23,6 +24,10 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
 
 type Step = "email" | "code";
 
+/** The app (#18) signs in by code only: a magic link opens the browser, not
+ * the app (universal links are out of scope), so it isn't sent or promised. */
+const codeOnly = isNativeShell();
+
 export default function SignIn() {
   const { t, i18n: i18next } = useTranslation();
   const navigate = useNavigate();
@@ -40,12 +45,13 @@ export default function SignIn() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    // Send both: OTP code (typed here) and a magic link (clickable in email).
-    // The email is written in the UI language, not the browser's (api email.ts)
+    // Send both: OTP code (typed here) and a magic link (clickable in email)
+    // — the code alone in the app. The email is written in the UI language,
+    // not the browser's (api email.ts)
     const fetchOptions = { headers: { "Accept-Language": i18next.language } };
     const [otp] = await Promise.all([
       authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in", fetchOptions }),
-      authClient.signIn.magicLink({ email, callbackURL: next, fetchOptions }),
+      !codeOnly && authClient.signIn.magicLink({ email, callbackURL: next, fetchOptions }),
     ]);
     setBusy(false);
     if (otp.error) {
@@ -62,7 +68,7 @@ export default function SignIn() {
     const { error } = await authClient.signIn.emailOtp({ email, otp: code });
     setBusy(false);
     if (error) {
-      setError(t("signin.codeError"));
+      setError(t(codeOnly ? "signin.codeErrorApp" : "signin.codeError"));
       return;
     }
     navigate(next, { replace: true });
@@ -104,7 +110,7 @@ export default function SignIn() {
                 <h1 className="font-serif text-title font-medium">{t("signin.codeTitle")}</h1>
                 <p className="mt-1 mb-4 text-control text-muted-foreground">
                   {t("signin.sentTo")} <span className="text-foreground">{email}</span>.{" "}
-                  {t("signin.typeCode")}
+                  {t(codeOnly ? "signin.typeCodeApp" : "signin.typeCode")}
                 </p>
                 <Input
                   inputMode="numeric"
