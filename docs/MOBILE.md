@@ -58,10 +58,14 @@ build at another API; never set it for a release build.
   keyboard would cover elsewhere (Safari's pan, stood in for), and matches
   the keyboard to the app's theme.
 - In the app on phones the note's format bar docks on the keyboard while
-  writing the text (`note-editor.tsx`, `app.css` `.note-dock`), with a
-  Hide keyboard key (the accessory bar's ✓). Light haptics
-  (`@capacitor/haptics`, `lib/native-touch.ts`) on its buttons. The web
-  keeps the toolbar above the text: Safari's own bar can't be hidden.
+  writing the text (`reader/dock-bar.tsx`, `app.css` `.note-dock`; #277
+  panel): `Aa · Verse ··· ↶ ↷ · ⌄`, B/I/U and the lists in Aa's panel,
+  Hide keyboard last (the accessory bar's ✓). "+ Verse" turns the bar into
+  a verse search on the keyboard (`reader/verse-row.tsx`), focused inside
+  the tap so the keyboard stays up. Light haptics (`@capacitor/haptics`,
+  `lib/native-touch.ts`) on its buttons. The web keeps the toolbar above
+  the text: Safari's own bar can't be hidden. A native inputAccessoryView
+  isn't planned (docs/reviews/2026-11-23-writing-bar.md).
 - None of it is in the reader's first paint; check with `pnpm bundle:check`.
 
 ## Unsigned build (no Apple setup)
