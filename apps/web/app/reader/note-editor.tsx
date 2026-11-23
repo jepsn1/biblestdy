@@ -19,7 +19,6 @@ import {
   thematicBreakPlugin,
   toolbarPlugin,
   UndoRedo,
-  useTranslation as useEditorTranslation,
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
@@ -28,11 +27,12 @@ import { useEffect, useMemo, useRef, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { isNativeShell } from "~/lib/api-base";
 import { caretDelta, KEYBOARD_MS } from "~/lib/keyboard-native";
-import { hideKeyboard, lightTap, preloadTap } from "~/lib/native-touch";
+import { lightTap, preloadTap } from "~/lib/native-touch";
 import { editorIcon } from "./editor-icons";
 import { editorTranslation } from "./editor-strings";
 import { ScriptureRefContext, type EditorKit, type PagePlace, type ReadRef } from "./ref-context";
 import { scriptureRefPlugin } from "./scripture-ref-node";
+import { DockBar } from "./dock-bar";
 import { VerseButton } from "./verse-button";
 
 /**
@@ -62,12 +62,14 @@ function caretToEnd(e: React.PointerEvent) {
 /** The format bar's buttons (#273): a tap keeps the keyboard up — no
  * focus move, so iOS doesn't drop it with the editor's focus — and, in the
  * app, ticks under the finger. */
+const DOCK_TAPS = ".note-dock button, [data-dock-panel] button, [data-verse-row] button, [data-verse-option]";
 function keepFocus(e: React.MouseEvent) {
-  if ((e.target as Element).closest(".note-dock button")) e.preventDefault();
+  if ((e.target as Element).closest(DOCK_TAPS)) e.preventDefault();
 }
 function tick(e: React.MouseEvent) {
-  const button = (e.target as Element).closest<HTMLButtonElement>(".note-dock button");
-  if (button && !button.disabled && !button.hasAttribute("data-hide-keyboard")) lightTap();
+  const el = (e.target as Element).closest<HTMLElement>(DOCK_TAPS);
+  if (!el || (el instanceof HTMLButtonElement && el.disabled) || el.matches("[aria-disabled=true], [data-hide-keyboard], [data-no-tick]")) return;
+  lightTap();
 }
 
 /** The caret shows above the docked bar once the keyboard is up (#273):
@@ -84,29 +86,6 @@ function revealCaret(box: HTMLElement | null) {
   if (!r) return;
   const d = caretDelta(r, box.getBoundingClientRect());
   if (d) box.scrollTop += d;
-}
-
-/** iOS's own "hide keyboard" glyph (#273 panel Q5, 5–1): a keyboard with
- * ⌄ under it — a bare ⌄ beside "+ Verse" read as its dropdown. Lucide's
- * 24px grid and stroke, like the bar's other glyphs. */
-function KeyboardDown() {
-  return (
-    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-      <rect x="2" y="3" width="20" height="12" rx="2" />
-      <path d="M6 7h.01M10 7h.01M14 7h.01M18 7h.01M8 11h8M9 19l3 2.5 3-2.5" />
-    </svg>
-  );
-}
-
-/** Last in the docked bar, held at its end: the keyboard goes away (the
- * accessory bar's ✓ that the app hides, #256). */
-function HideKeyboard() {
-  const t = useEditorTranslation();
-  return (
-    <button type="button" data-hide-keyboard="" aria-label={t("dock.hideKeyboard", "Hide keyboard")} onClick={hideKeyboard}>
-      <KeyboardDown />
-    </button>
-  );
 }
 
 /**
@@ -169,8 +148,18 @@ export function NoteEditor({
       timer = window.setTimeout(() => revealCaret(box), KEYBOARD_MS + 30);
     };
     vv.addEventListener("resize", settle);
+    // The format panel or the verse list taking room: the caret stays in
+    // sight above them (Jonas F6)
+    let frame = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => revealCaret(box));
+    });
+    ro.observe(box);
     return () => {
       window.clearTimeout(timer);
+      cancelAnimationFrame(frame);
+      ro.disconnect();
       vv.removeEventListener("resize", settle);
     };
   }, [dock, translation]);
@@ -223,17 +212,8 @@ export function NoteEditor({
           toolbarClassName: dock ? "note-dock" : "",
           toolbarContents: () =>
             dock ? (
-              // On the keyboard (#273 panel): writing first, nearest the
-              // thumb, and "+ Verse" — the bar's one word — next, so it is
-              // never what the row cuts (Mads F1, 6/6); the way out of the
-              // keyboard held at the end
-              <>
-                <BoldItalicUnderlineToggles />
-                <VerseButton />
-                <ListsToggle />
-                <UndoRedo />
-                <HideKeyboard />
-              </>
+              // On the keyboard (#277 panel): Aa · Verse ··· ↶ ↷ · ⌄
+              <DockBar />
             ) : mobile ? (
               // Thumb-width toolbar: the essentials, one row
               <>

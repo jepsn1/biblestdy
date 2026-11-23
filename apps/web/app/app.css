@@ -452,17 +452,21 @@
     stroke-width: 1.5;
   }
 }
-/* The format bar docked on the keyboard (#273: the app, on phones). There
-   only while writing; then a row on the keyboard's top edge, like Notes.
-   The writing area is the scroller, not the editor's box, so the bar sits
-   under the text, never over it, and the caret Lexical keeps in sight is
-   in sight above the bar. */
+/* The format bar docked on the keyboard (#273: the app, on phones; laid out
+   by the #277 panel). There only while writing; then a row on the
+   keyboard's top edge, like Notes: Aa · Verse ··· ↶ ↷ · ⌄, each group one
+   rounded platter (iOS 26's shared background, drawn in the page's own
+   paper — no imitation glass, Mads), five controls in sight at every width
+   and text size (no sideways scroll). The writing area is the scroller,
+   not the editor's box, so the bar sits under the text, never over it, and
+   the caret Lexical keeps in sight is above the bar. */
 .note-docked {
   overflow: hidden;
 }
 .note-docked > .mdxeditor-root-contenteditable {
   flex: 1 1 0;
   min-height: 0;
+  order: 0;
 }
 .note-docked > .mdxeditor-root-contenteditable > div {
   flex: 1 1 0;
@@ -475,69 +479,233 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.note-docked > .note-dock {
+.note-docked > :is(.note-dock, [data-dock-panel], [data-verse-row]) {
   display: none;
 }
-/* …while the keyboard is up for the text (not the title or a topic) */
+/* …while the keyboard is up for the text (not the title or a topic): the
+   bar, or the verse search in its place; Aa's panel just above it (in the
+   column, so it takes room rather than covering the caret's line) */
 [data-kb] .note-docked:focus-within > .note-dock {
   display: flex;
-  position: relative;
+  order: 2;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
   border-bottom: 0;
   border-top: 1px solid var(--border);
   background-color: var(--background);
-  padding-block: 0;
-  padding-right: 0;
-  /* the fade is the "hide keyboard" key's (below) */
+  overflow: visible;
   mask-image: none;
   animation: none;
 }
-/* Gaps, not hairlines, between the groups (Mads F4) */
-.note-dock [role="separator"] {
+[data-kb] .note-docked[data-dock="verse"]:focus-within > .note-dock {
   display: none;
 }
-.note-dock > * + * {
-  margin-left: 8px;
+[data-kb] .note-docked:focus-within > [data-dock-panel] {
+  display: flex;
+  order: 1;
 }
-/* "+ Verse", the bar's one word: muted like the glyphs, and it stops
-   growing at ~150 % text so it never outweighs the note (Mads F5) */
-.note-dock [data-tour="note-verse"] {
+[data-kb] .note-docked:focus-within > [data-verse-row] {
+  display: flex;
+  order: 2;
+}
+:root {
+  --dock-tint: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --dock-on: color-mix(in oklch, var(--foreground) 14%, transparent);
+}
+/* (6 % turns muddy on the near-black: a touch more, Mads F7) */
+.dark {
+  --dock-tint: color-mix(in oklch, var(--foreground) 8%, transparent);
+  --dock-on: color-mix(in oklch, var(--foreground) 18%, transparent);
+}
+.dock-platter {
+  display: flex;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background-color: var(--dock-tint);
+}
+.dock-spacer {
+  flex: 1 1 0;
+}
+/* Every glyph on one line (Mads F6): 22px at 1.75 (the note text's
+   weight), centre 21px from the platter's top; a kept word (Verse, O3)
+   hangs under it. Targets 48×48, in px (a rem floor doubles at 200 %). */
+.note-docked .dock-button.dock-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 10px 6px 0;
+  border: 0;
+  border-radius: 14px;
+  background-color: transparent;
   color: var(--muted-foreground);
-  font-size: min(var(--text-list), 20px);
 }
-/* On: full ink on a rounded tint inset in the 44px button, not a slab
-   flush with the bar's edges (Elias F4) */
-.note-dock :is(button, [role="radio"])[data-state="on"] {
-  color: var(--foreground);
-  background-color: var(--press, var(--accent));
-  background-clip: padding-box;
-  border: 4px solid transparent;
-  border-radius: 12px;
+.note-docked .dock-button.dock-button > * {
+  position: relative;
 }
-/* The way out of the keyboard, held at the bar's end while the rest scrolls
-   sideways under it: a hairline and a fade before it say there is more,
-   and the row rests so its cut falls on a glyph, never "+ Verse" */
-.note-dock {
-  scroll-padding-right: 68px;
+.note-docked .dock-button.dock-button .dock-glyph.dock-glyph {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  stroke-width: 1.75;
 }
-.note-dock [data-hide-keyboard] {
-  position: sticky;
-  right: 0;
-  margin-left: auto;
-  background-color: var(--background);
-  border-left: 1px solid var(--border);
-  color: var(--muted-foreground);
+.dock-label {
+  margin-top: 1px;
+  font-family: var(--font-sans);
+  font-size: clamp(12px, var(--text-meta), 15px);
+  line-height: 1;
+  white-space: nowrap;
 }
-.note-dock [data-hide-keyboard]:active {
+.note-docked .dock-labelled.dock-labelled {
+  padding-inline: 8px;
+}
+/* On: full ink on a tint inset 4px — concentric radii 14/10 (Mads F3) */
+.note-docked .dock-button.dock-button[aria-pressed="true"] {
   color: var(--foreground);
 }
-.note-dock [data-hide-keyboard]::before {
+.note-docked .dock-button.dock-button[aria-pressed="true"]::before {
   content: "";
   position: absolute;
-  inset-block: 0;
-  right: 100%;
-  width: 24px;
-  background: linear-gradient(to right, transparent, var(--background));
-  pointer-events: none;
+  inset: 4px;
+  border-radius: 10px;
+  background-color: var(--dock-on);
+}
+.note-docked .dock-button.dock-button:disabled {
+  opacity: 0.4;
+}
+@media (hover: hover) {
+  .note-docked .dock-button.dock-button:not(:disabled):hover {
+    color: var(--foreground);
+  }
+}
+/* Aa's panel: Text style [B | I | U] and Lists [• | 1. | ☑], each one
+   full-width segmented platter, segments 52 tall */
+.dock-panel {
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 8px 4px;
+  border-top: 1px solid var(--border);
+  background-color: var(--background);
+}
+.dock-segments {
+  display: flex;
+  border-radius: 14px;
+  background-color: var(--dock-tint);
+}
+.note-docked .dock-segments .dock-button {
+  flex: 1 1 0;
+  min-height: 52px;
+  padding-top: 15px;
+}
+/* "+ Verse" with the keyboard up (#277 V-A): the bar becomes a verse
+   search — field, Insert, Cancel — and what it resolves to is listed just
+   above, over the bottom of the note (which stays in sight) */
+.verse-row {
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background-color: var(--background);
+}
+.verse-suggest {
+  padding: 4px 8px 0;
+}
+.verse-suggest-head {
+  padding: 4px 12px 2px;
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  color: var(--muted-foreground);
+}
+.verse-option {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--text-list);
+  color: var(--foreground);
+  cursor: pointer;
+}
+/* the row Insert / Enter takes */
+.verse-option.is-active {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.verse-option-note {
+  font-size: var(--text-meta);
+  color: var(--muted-foreground);
+}
+.verse-option.is-active .verse-option-note {
+  color: var(--accent-foreground);
+}
+.verse-problem {
+  padding: 6px 16px 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  color: var(--destructive);
+}
+.verse-row-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+}
+.verse-field {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background-color: var(--dock-tint);
+}
+.verse-field:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.verse-field input {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  /* 16px at least: iOS zooms into smaller fields */
+  font-family: var(--font-sans);
+  font-size: clamp(16px, var(--text-control), 22px);
+}
+.verse-field input::placeholder {
+  color: var(--muted-foreground);
+}
+.verse-insert,
+.verse-cancel {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-family: var(--font-sans);
+  font-size: clamp(15px, var(--text-control), 18px);
+  white-space: nowrap;
+}
+/* the row's one filled button */
+.verse-insert {
+  padding: 0 14px;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
+}
+.verse-insert[aria-disabled="true"] {
+  background-color: var(--dock-tint);
+  color: var(--muted-foreground);
+}
+.verse-cancel {
+  padding: 0 6px;
+  color: var(--foreground);
 }
 /* The sheet's fitting slides with the keyboard in the app, both ways, where
    the plugin says so as it starts (lib/native-shell); Safari reports it

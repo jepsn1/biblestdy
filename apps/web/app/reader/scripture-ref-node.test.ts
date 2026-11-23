@@ -139,7 +139,7 @@ describe("a chip tagged with a mark (#216)", () => {
       $insertScriptureRef("bible:JHN.3.16", "Joh 3,16", { kind: "highlight", id });
     });
     await settle();
-    expect(markdown().trim()).toBe(`See[Joh 3,16](bible:JHN.3.16 "mark:hl:${id}")`);
+    expect(markdown().trim()).toBe(`See [Joh 3,16](bible:JHN.3.16 "mark:hl:${id}")`);
   });
 
   it("JSON v2 carries the mark; a v1 node (no mark) still imports", async () => {
@@ -173,7 +173,7 @@ describe("inserting a chip at a saved selection", () => {
       $insertScriptureRef("bible:ROM.1.7", "Rom 1,7");
     });
     await settle();
-    expect(markdown().trim()).toBe("Grace[Rom 1,7](bible:ROM.1.7) and peace.");
+    expect(markdown().trim()).toBe("Grace [Rom 1,7](bible:ROM.1.7) and peace.");
   });
 
   it("goes to the end of the note with no selection", async () => {
@@ -184,7 +184,27 @@ describe("inserting a chip at a saved selection", () => {
       $insertScriptureRef("bible:ROM.1.7", "Rom 1,7");
     });
     await settle();
-    expect(markdown().trim()).toBe("Grace[Rom 1,7](bible:ROM.1.7)");
+    expect(markdown().trim()).toBe("Grace [Rom 1,7](bible:ROM.1.7)");
+  });
+
+  it("after a full stop, a space before it (#277)", async () => {
+    const { editor, markdown } = editorWith("Believing.");
+    await settle();
+    editor.update(() => {
+      $restoreSelection(null);
+      $insertScriptureRef("bible:ROM.8.28", "Rom 8,28");
+    });
+    await settle();
+    expect(markdown().trim()).toBe("Believing. [Rom 8,28](bible:ROM.8.28)");
+  });
+
+  it("after a space, no second one", async () => {
+    const { editor, markdown } = editorWith("See it");
+    await settle();
+    editor.update(() => $getRoot().getAllTextNodes()[0].select(4, 4));
+    editor.update(() => $insertScriptureRef("bible:ROM.1.7", "Rom 1,7"));
+    await settle();
+    expect(markdown().trim()).not.toContain("  ");
   });
 
   it("before a word, a space separates them", async () => {
@@ -209,6 +229,6 @@ describe("inserting a chip at a saved selection", () => {
       $insertScriptureRef("bible:PSA.23", "Sl 23");
     });
     await settle();
-    expect(markdown().trim()).toBe("Two[Sl 23](bible:PSA.23)");
+    expect(markdown().trim()).toBe("Two [Sl 23](bible:PSA.23)");
   });
 });

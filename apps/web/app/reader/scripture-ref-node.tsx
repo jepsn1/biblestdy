@@ -199,8 +199,8 @@ const WORDISH = /^[\p{L}\p{N}]/u;
 /**
  * Inserts a chip at the current selection (replacing selected text), or at
  * the end of the note with none; the caret lands after it. `mark`: picked
- * from one of the page's marks (#216). Put before a
- * word, a space separates them. Call inside editor.update.
+ * from one of the page's marks (#216). Next to a word on either side, a
+ * space separates them. Call inside editor.update.
  */
 export function $insertScriptureRef(href: string, text: string, mark: MarkLink | null = null): ScriptureRefNode {
   const chip = $createScriptureRefNode(href, text, mark);
@@ -210,6 +210,10 @@ export function $insertScriptureRef(href: string, text: string, mark: MarkLink |
     sel = $getSelection();
   }
   $insertNodes([chip]);
+  // Right after a word or a full stop ("believing.|"): a space before it
+  // too, so it reads as its own word (#277, Elias F2)
+  const prev = chip.getPreviousSibling();
+  if ($isTextNode(prev) && /\S$/u.test(prev.getTextContent())) chip.insertBefore($createTextNode(" "));
   // Not at a line's end: a trailing space would be saved as "&#x20;"
   const next = chip.getNextSibling();
   if ($isTextNode(next) && WORDISH.test(next.getTextContent())) {
