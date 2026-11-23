@@ -12,6 +12,10 @@
     "./versification": {
       "types": "./dist/versification.d.ts",
       "default": "./dist/versification.js"
+    },
+    "./ota": {
+      "types": "./dist/ota.d.ts",
+      "default": "./dist/ota.js"
     }
   },
   "scripts": {
