@@ -1,23 +1,30 @@
 import { formatScriptureHref, parseScriptureHref, resolveInChapter, type Chapter, type MarkLink, type ScriptureRef, type Translation } from "@biblestdy/shared";
 import { localRef } from "@biblestdy/shared/versification";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
-import { ArrowRight } from "lucide-react";
+import { $getNodeByKey, $getSelection, $isNodeSelection, SKIP_DOM_SELECTION_TAG, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
+import { ArrowRight, X } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { noteView } from "~/lib/fums";
+import { hideKeyboard } from "~/lib/native-touch";
 import { ApiError, api } from "~/lib/query";
 import { chipLabel, referenceLabel } from "~/lib/reference-label";
 import { cn, focusRing } from "~/lib/utils";
 import { useReadingTranslationId } from "../notes/add-reference";
 import { focusEditor } from "./lexical-util";
-import { ScriptureRefContext } from "./ref-context";
-import { chipOpensOnClick } from "./chip-click";
+import { ScriptureRefContext, type EditorKit } from "./ref-context";
+import { chipOpensOnClick, touchStayed, touchTapOpens } from "./chip-click";
 import { hoverRef, spotParam, useRefHover, useRefSpot } from "./spotlight";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
 import { MarkGlyph } from "./mark-row";
 import { useMarkStateWords, useRefMarkState, type RefMarkState } from "./ref-mark";
+
+/** When anything last scrolled (event time): a finger landing on a chip
+ * right after stops the scroll, it doesn't open it (chip-click). */
+let lastScrollAt = -Infinity;
+if (typeof document !== "undefined")
+  document.addEventListener("scroll", (e) => void (lastScrollAt = e.timeStamp), { capture: true, passive: true });
 
 /** Asks a chip to open its preview (Enter on a selected chip), or (#213,
  * Alt+Enter) to show it in the Bible straight away. */
@@ -73,7 +80,17 @@ export function ScriptureChip({
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
-  const { kit, onRead, page, noteRefs } = useContext(ScriptureRefContext);
+  const touchedAt = useRef<{ x: number; y: number; t: number; sinceScroll: number } | null>(null);
+  /** When a finger's tap opened it (event time): a stray click after it
+   * is the same tap. Not the pointer type: VoiceOver's double tap is a
+   * bare click, and must open after a real touch too. */
+  const liftAt = useRef(-Infinity);
+  /** Phones (#281): the note was being written in when the chip was
+   * pressed — closing the drawer gives the caret (and keyboard) back; a
+   * note only being read keeps the keyboard down. */
+  const writingAtPress = useRef(false);
+  const writing = useRef(false);
+  const { kit, onRead, page, noteRefs, mobile } = useContext(ScriptureRefContext);
   const queryClient = useQueryClient();
   const translationId = useReadingTranslationId();
   const markStateOf = useRefMarkState(page, noteRefs, translationId);
@@ -95,6 +112,13 @@ export function ScriptureChip({
     return editor.registerUpdateListener(read);
   }, [editor, nodeKey]);
 
+  // Phones: the drawer's code in before the first tap (the Notes page
+  // mounts none of its own, Jonas)
+  const { preloadDrawer } = kit;
+  useEffect(() => {
+    if (mobile) preloadDrawer();
+  }, [mobile, preloadDrawer]);
+
   // A chip leaving the text (removed, note closed) takes its hover along
   useEffect(() => () => hoverRef(null), []);
 
@@ -105,9 +129,15 @@ export function ScriptureChip({
     return () => hoverRef(null);
   }, [selected, canonical]);
 
-  const openPreview = () => {
+  const openPreview = (fromPress = false) => {
     if (!ref) return;
     saved.current = saveSelection(editor);
+    if (mobile) {
+      const root = editor.getRootElement();
+      writing.current = fromPress ? writingAtPress.current : !!root?.contains(document.activeElement);
+      // The keyboard never covers the drawer (#281): down while it's open
+      hideKeyboard();
+    }
     setOpen(true);
   };
   /** Alt+Enter: "Show in Bible" without the preview — where the reading
@@ -134,10 +164,44 @@ export function ScriptureChip({
     return () => opens.removeEventListener("open", on);
   }, [nodeKey]);
 
+  // Phones (#281 panel, Elias): a chip low in a long note would open under
+  // its drawer — the note scrolls it into sight above, and back on close
+  const scrolled = useRef<{ el: HTMLElement; top: number; pad: string } | null>(null);
+  useEffect(() => {
+    if (!open || !mobile) return;
+    const chip = chipRef.current;
+    const id = window.setTimeout(() => {
+      const drawer = [...document.querySelectorAll<HTMLElement>('[data-slot="drawer-popup"]')].at(-1);
+      const pane = chip && scrollPane(chip);
+      if (!chip || !drawer || !pane || drawer.contains(chip)) return;
+      const box = chip.getBoundingClientRect();
+      const over = box.bottom - (drawer.getBoundingClientRect().top - 16);
+      // Under it, and room above it to show the chip (a drawer at full
+      // height — large text — leaves none: the note stays as it was)
+      if (over <= 0 || box.top - over < pane.getBoundingClientRect().top) return;
+      // A chip on the last lines: room below the text to scroll it up
+      // (under the drawer, unseen), taken back on close
+      const room = over - (pane.scrollHeight - pane.clientHeight - pane.scrollTop);
+      const pad = pane.style.paddingBottom;
+      if (room > 0) pane.style.paddingBottom = `calc(${getComputedStyle(pane).paddingBottom} + ${Math.ceil(room)}px)`;
+      scrolled.current = { el: pane, top: pane.scrollTop, pad };
+      pane.scrollBy({ top: over, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }, 480); // the drawer's slide (drawer.tsx: 450ms)
+    return () => {
+      window.clearTimeout(id);
+      const back = scrolled.current;
+      scrolled.current = null;
+      if (!back?.el.isConnected) return;
+      back.el.style.paddingBottom = back.pad;
+      back.el.scrollTo({ top: back.top });
+    };
+  }, [open, mobile]);
+
   /** Closing puts the caret back where it was (Esc, Kasper). */
   function close(restore: boolean) {
     setOpen(false);
-    if (!restore) return;
+    // Phones: only back into a note that was being written in
+    if (!restore || (mobile && !writing.current)) return;
     focusEditor(editor, () => $restoreSelection(saved.current));
   }
 
@@ -167,6 +231,31 @@ export function ScriptureChip({
         data-spot={spotlit || undefined}
         onPointerDown={(e) => {
           pointer.current = e.pointerType;
+          // Before the tap moves focus into the text
+          writingAtPress.current = !!editor.getRootElement()?.contains(document.activeElement);
+        }}
+        // A finger opens at the lift (#281, chip-click: the press may move
+        // the chip from under it); no click follows, so the note isn't
+        // focused — no keyboard for a note only being read, the caret
+        // where it was for one being written
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          touchedAt.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, t: e.timeStamp, sinceScroll: e.timeStamp - lastScrollAt } : null;
+        }}
+        onTouchEnd={(e) => {
+          const from = touchedAt.current;
+          touchedAt.current = null;
+          const t = e.changedTouches[0];
+          // Every finger's lift: no click after it opens (Jonas F1)
+          liftAt.current = e.timeStamp;
+          if (!t || !from) return;
+          const to = { x: t.clientX, y: t.clientY };
+          // Stayed put (a tap, a long press): no focus, caret or click
+          if (touchStayed(from, to)) e.preventDefault();
+          if (touchTapOpens({ from, to, ms: e.timeStamp - from.t, sinceScroll: from.sinceScroll })) openPreview(true);
+        }}
+        onTouchCancel={() => {
+          touchedAt.current = null;
         }}
         onPointerEnter={() => canonical && hoverRef({ from: "note", keys: [canonical] })}
         onPointerLeave={() => !selected && hoverRef(null)}
@@ -179,12 +268,20 @@ export function ScriptureChip({
         // On click, not press: the press would count as outside the
         // preview that it opens
         onClick={(e) => {
+          // A finger's lift decided already (above)
+          if (e.timeStamp - liftAt.current < 800) return;
+          // VoiceOver / a keyboard's activation: a bare click (detail 0,
+          // no press before it) opens it, the caret left alone (Jonas F2)
+          if (e.detail === 0) {
+            openPreview();
+            return;
+          }
           const mouse = pointer.current === "mouse";
           const from = pressedAt.current;
           pressedAt.current = null;
           if (!chipOpensOnClick({ mouse, button: e.button, from, to: { x: e.clientX, y: e.clientY } })) return;
           if (mouse) caretAfter();
-          openPreview();
+          openPreview(true);
         }}
         className={cn(
           // select-none: the browser never puts the caret inside the label
@@ -231,13 +328,24 @@ export function ScriptureChip({
               if (!$isScriptureRefNode(node)) return;
               node.selectPrevious();
               node.remove();
-            });
-            focusEditor(editor);
+              // Phones, a note only being read: no focus, so no keyboard
+            }, mobile && !writing.current ? { tag: SKIP_DOM_SELECTION_TAG } : undefined);
+            // Phones: the keyboard stays down for a note only being read
+            if (!mobile || writing.current) focusEditor(editor);
           }}
         />
       )}
     </>
   );
+}
+
+/** The note's scroller around a chip: the nearest ancestor that scrolls. */
+function scrollPane(el: HTMLElement): HTMLElement | null {
+  for (let a = el.parentElement; a; a = a.parentElement) {
+    const y = getComputedStyle(a).overflowY;
+    if ((y === "auto" || y === "scroll") && a.scrollHeight > a.clientHeight) return a;
+  }
+  return null;
 }
 
 /** Verses at most shown (~10 lines, then a fade). */
@@ -312,8 +420,53 @@ function RefPreview({
       : null;
   const verses = resolved && chapter.data ? chapter.data.verses.filter((v) => v.verse >= resolved.startVerse && v.verse <= resolved.endVerse) : [];
 
-  const actionClass = cn("inline-flex items-center gap-1 rounded-sm text-list font-medium", mobile ? "min-h-11 px-2" : "min-h-7 px-1.5", focusRing);
+  // Phones (#281 panel, Freja/Sofie/Birthe): the book's full name in the
+  // drawer — where a reader finds out what "Sl" is; the chip stays short
+  const named = mobile ? referenceLabel(scripture, nameOf, locale) : label;
+  const title = (
+    <>
+      {/* One unit, never broken at its dash (#281 panel) */}
+      <span className="font-medium whitespace-nowrap text-foreground">{named}</span>
+      {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
+      {abbr && where && (
+        <span className="text-muted-foreground">
+          {" "}
+          · {t("note.refIn", { abbr, ref: where })}
+        </span>
+      )}
+    </>
+  );
+  const ariaLabel = `${label.replace(/\u00a0/g, " ")}${abbr ? ` · ${abbr}` : ""}`;
+  // Spoken (#281 panel, Birthe/Elias): the full name and the translation's
+  // name, not "S L … dot W E B"
+  const spoken = `${named.replace(/\u00a0/g, " ")}${current ? `, ${current.name}` : ""}`;
+  const verseText = verses.map((v) => (
+    <span key={v.verse}>
+      <sup className="mr-0.5 text-[0.7em] text-muted-foreground">{v.label ?? v.verse}</sup>
+      {v.text}{" "}
+    </span>
+  ));
+  const status = notHere ? (
+    <p className="text-list text-muted-foreground">{t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}</p>
+  ) : chapter.isError ? (
+    <p className="text-list text-muted-foreground">{t("note.refPreviewFailed")}</p>
+  ) : !resolved ? (
+    <p className="text-list text-muted-foreground">{t("note.refLoading")}</p>
+  ) : null;
+  const read = () => {
+    onClose(false);
+    // Where this translation has it (BPH Mal 3,20, not Mal 4,2)
+    onRead?.(scripture, local?.ref ?? scripture);
+  };
+  const readElsewhere = () => {
+    if (!elsewhere) return;
+    onClose(false);
+    onRead?.(scripture, scripture, elsewhere.id);
+  };
 
+  if (mobile) return <RefDrawer {...{ kit, title, ariaLabel: spoken, closeName: named, markState, status, verseText, readRef, onClose, onRemove }} read={notHere ? (elsewhere ? readElsewhere : null) : read} readLabel={notHere && elsewhere ? t("note.readIn", { abbr: elsewhere.abbreviation }) : t("note.readHere")} />;
+
+  const actionClass = cn("inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 text-list font-medium", focusRing);
   return (
     <Popover open onOpenChange={(o, details) => !o && onClose(details.reason !== "outside-press")}>
       <PopoverContent
@@ -322,29 +475,12 @@ function RefPreview({
         align="start"
         initialFocus={readRef}
         finalFocus={false}
-        aria-label={`${label.replace(/ /g, " ")}${abbr ? ` · ${abbr}` : ""}`}
+        aria-label={ariaLabel}
         className="w-max max-w-[min(22rem,calc(100vw-2rem))] gap-2 px-3.5 py-3 motion-reduce:animate-none"
       >
-        <p className="text-list">
-          <span className="font-medium text-foreground">{label}</span>
-          {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
-          {abbr && where && (
-            <span className="text-muted-foreground">
-              {" "}
-              · {t("note.refIn", { abbr, ref: where })}
-            </span>
-          )}
-        </p>
+        <p className="text-list">{title}</p>
         {markState && <MarkStateLine state={markState} />}
-        {notHere ? (
-          <p className="text-list text-muted-foreground">
-            {t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}
-          </p>
-        ) : chapter.isError ? (
-          <p className="text-list text-muted-foreground">{t("note.refPreviewFailed")}</p>
-        ) : !resolved ? (
-          <p className="text-list text-muted-foreground">{t("note.refLoading")}</p>
-        ) : (
+        {status ?? (
           <p
             className="overflow-hidden font-serif text-control leading-[1.6] text-foreground"
             style={{
@@ -352,26 +488,13 @@ function RefPreview({
               maskImage: `linear-gradient(to bottom, black calc(${PREVIEW_MAX} - 2.5em), transparent ${PREVIEW_MAX})`,
             }}
           >
-            {verses.map((v) => (
-              <span key={v.verse}>
-                <sup className="mr-0.5 text-[0.7em] text-muted-foreground">{v.label ?? v.verse}</sup>
-                {v.text}{" "}
-              </span>
-            ))}
+            {verseText}
           </p>
         )}
         <div className="-mx-1.5 flex items-center justify-between gap-3">
           {notHere ? (
             elsewhere ? (
-              <button
-                ref={readRef}
-                type="button"
-                className={cn(actionClass, "text-(--note-ink-text)")}
-                onClick={() => {
-                  onClose(false);
-                  onRead?.(scripture, scripture, elsewhere.id);
-                }}
-              >
+              <button ref={readRef} type="button" className={cn(actionClass, "text-(--note-ink-text)")} onClick={readElsewhere}>
                 {t("note.readIn", { abbr: elsewhere.abbreviation })}
                 <ArrowRight className="size-3.5" aria-hidden />
               </button>
@@ -379,16 +502,7 @@ function RefPreview({
               <span />
             )
           ) : (
-            <button
-              ref={readRef}
-              type="button"
-              className={cn(actionClass, "text-(--note-ink-text)")}
-              onClick={() => {
-                onClose(false);
-                // Where this translation has it (BPH Mal 3,20, not Mal 4,2)
-                onRead?.(scripture, local?.ref ?? scripture);
-              }}
-            >
+            <button ref={readRef} type="button" className={cn(actionClass, "text-(--note-ink-text)")} onClick={read}>
               {t("note.readHere")}
               <ArrowRight className="size-3.5" aria-hidden />
             </button>
@@ -399,6 +513,125 @@ function RefPreview({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * The preview on phones (#281, owner: a drawer, not a popover): the same
+ * content in a bottom drawer over the note. The note's sheet stays as it is
+ * (its DrawerContent `stack={false}`); the content clears the home
+ * indicator and the glass's corners (drawer.tsx: `--corner-bottom`);
+ * every control 44px or more, with a pressed state. A dialog named by its
+ * title; focus on "Show in Bible"; Esc, a swipe down, a tap above it or
+ * Close end it — the caret back where it was (close(true)).
+ */
+function RefDrawer({
+  kit,
+  title,
+  ariaLabel,
+  closeName,
+  markState,
+  status,
+  verseText,
+  readRef,
+  read,
+  readLabel,
+  onClose,
+  onRemove,
+}: {
+  kit: EditorKit;
+  title: React.ReactNode;
+  /** Spoken: the full name and the translation's. */
+  ariaLabel: string;
+  /** The reference alone, for Close's name ("Close Psalm 23:1–4"). */
+  closeName: string;
+  markState: RefMarkState | null;
+  status: React.ReactNode;
+  verseText: React.ReactNode;
+  readRef: React.RefObject<HTMLButtonElement | null>;
+  /** null: nowhere to read it (not in this translation, nor in WEB). */
+  read: (() => void) | null;
+  readLabel: string;
+  onClose: (restore: boolean) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  const { Drawer, DrawerContent, DrawerTitle, ScrollArea } = kit;
+  const pressable = "touch-manipulation transition-colors duration-100 motion-reduce:transition-none";
+  return (
+    <Drawer open onOpenChange={(o) => !o && onClose(true)} showSwipeHandle>
+      <DrawerContent
+        initialFocus={read ? readRef : undefined}
+        finalFocus={false}
+        aria-label={ariaLabel}
+        // Nested in the note's dialog, base-ui leaves the note readable to
+        // VoiceOver: the drawer says it's modal itself (#281 panel F17)
+        aria-modal
+        // A layer of its own over the note (#281 panel, 6/6): the note
+        // dimmed, never blurred (its chip and words stay readable) — a
+        // nested drawer's backdrop renders only when forced — and a lifted
+        // edge; dark's near-black needs the deeper dim
+        overlay="force"
+        overlayClassName="bg-black/20 dark:bg-black/40 supports-backdrop-filter:backdrop-blur-none"
+        className="shadow-[0_-6px_20px_rgb(0_0_0/0.08)] [--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))] dark:shadow-[0_-6px_20px_rgb(0_0_0/0.45)]"
+      >
+        <header className="flex min-h-[52px] shrink-0 items-center gap-2 pt-1 pr-2 pl-4">
+          <DrawerTitle className="min-w-0 flex-1 font-sans text-phone">{title}</DrawerTitle>
+          <button
+            type="button"
+            aria-label={t("note.refClose", { ref: closeName.replace(/\u00a0/g, " ") })}
+            onClick={() => onClose(true)}
+            className={cn("inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-control font-medium text-foreground hover:bg-accent active:bg-accent", pressable, focusRing)}
+          >
+            <X aria-hidden className="size-[1.125rem]" />
+            <span>{t("note.closeShort")}</span>
+          </button>
+        </header>
+        {markState && (
+          <div className="shrink-0 px-4 pb-1">
+            <MarkStateLine state={markState} />
+          </div>
+        )}
+        {status ? (
+          <div className="shrink-0 px-4 py-2">{status}</div>
+        ) : (
+          <ScrollArea className="min-h-0" viewportClassName="max-h-[min(45dvh,20rem)] overscroll-contain">
+            <p className="px-4 pt-1 pb-3 font-serif text-reading leading-[1.6] text-foreground select-text">{verseText}</p>
+          </ScrollArea>
+        )}
+        {/* Large text on a narrow phone: Remove wraps under the primary,
+            from the left (#281 panel, Mads) */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 pt-2.5 pb-2.5">
+          {read && (
+            <button
+              ref={readRef}
+              type="button"
+              onClick={read}
+              className={cn(
+                "inline-flex min-h-[48px] min-w-0 py-1.5 flex-[1_1_10rem] items-center justify-center gap-1.5 rounded-lg bg-(--link-wash) px-4 text-phone whitespace-nowrap font-medium text-(--note-ink-text) active:bg-(--link-wash-strong)",
+                pressable,
+                focusRing,
+              )}
+            >
+              {readLabel}
+              <ArrowRight className="size-4" aria-hidden />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            className={cn(
+              "-mr-2 inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-lg px-2.5 py-1.5 text-phone font-medium whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground",
+              !read && "flex-1",
+              pressable,
+              focusRing,
+            )}
+          >
+            {t("note.removeRef")}
+          </button>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

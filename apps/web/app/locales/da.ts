@@ -305,6 +305,7 @@ const da: typeof en = {
     refIn: "i {{abbr}} {{ref}}",
     readHere: "Vis i Bibelen",
     removeRef: "Fjern",
+    refClose: "Luk {{ref}}",
     refNotIn: "{{ref}} findes ikke i {{abbr}}.",
     readIn: "Læs i {{abbr}}",
     refPreviewFailed: "Verseteksten kunne ikke hentes.",

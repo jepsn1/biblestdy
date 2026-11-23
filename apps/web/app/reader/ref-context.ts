@@ -1,6 +1,7 @@
 import type { NoteRef, ScriptureRef } from "@biblestdy/shared";
 import { createContext, type ComponentType } from "react";
 import type { Hint, modKey } from "~/components/hint";
+import type { Drawer, DrawerContent, DrawerTitle, preloadDrawer } from "~/components/lazy-drawer";
 import type { Popover, PopoverContent } from "~/components/ui/popover";
 import type { ScrollArea } from "~/components/ui/scroll-area";
 import type { spotlightsChip } from "~/lib/shortcuts";
@@ -20,6 +21,11 @@ export type EditorKit = {
   Hint: typeof Hint;
   modKey: typeof modKey;
   ScrollArea: typeof ScrollArea;
+  /** A chip's preview on phones (#281): the reader's code-split drawer. */
+  Drawer: typeof Drawer;
+  DrawerContent: typeof DrawerContent;
+  DrawerTitle: typeof DrawerTitle;
+  preloadDrawer: typeof preloadDrawer;
   /** Alt+Enter on a chip (#213) — lib/shortcuts.ts, handed over: the
    * editor chunk importing it re-splits the first-paint chunks. */
   spotlightsChip: typeof spotlightsChip;
@@ -39,7 +45,8 @@ export type ReadRef = (ref: ScriptureRef, at: ScriptureRef, translationId?: stri
 export type RefContextValue = {
   /** "Show in Bible": the reference spotlit in the reader. */
   onRead?: ReadRef;
-  /** Phone build: 44px targets, the verse picker as a drawer. */
+  /** Phone build: 44px targets, the verse picker and a chip's preview as
+   * drawers (#281). */
   mobile: boolean;
   kit: EditorKit;
   /** Absent off the reader (the Notes page): no page marks. */

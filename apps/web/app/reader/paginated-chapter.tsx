@@ -1961,6 +1961,9 @@ export function PaginatedChapter({
           >
             <DrawerContent
               aria-label={openNote?.title || t("note.untitled")}
+              // A drawer opened on the note (a chip's preview, #281; the
+              // verse picker, #277 F14) leaves its sheet as it is
+              stack={false}
               // One surface (#235): the peek's bar on the note's own background
               className="bg-background [--drawer-bleed-background:var(--color-background)]"
               // Full: no blur on the strip above — its passage wash shows (#235)

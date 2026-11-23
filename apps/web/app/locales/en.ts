@@ -265,6 +265,7 @@ export default {
     refIn: "in {{abbr}} {{ref}}",
     readHere: "Show in Bible",
     removeRef: "Remove",
+    refClose: "Close {{ref}}",
     refNotIn: "{{ref}} isn\u2019t in {{abbr}}.",
     readIn: "Read in {{abbr}}",
     refPreviewFailed: "Couldn\u2019t load the verse text.",
