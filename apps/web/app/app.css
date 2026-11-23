@@ -582,17 +582,35 @@
     color: var(--foreground);
   }
 }
-/* Aa's panel: Text style [B | I | U] and Lists [• | 1. | ☑], each one
-   full-width segmented platter, segments 52 tall */
+/* Aa's panel: Text style [B | I | U] and Lists [• | 1. | ☑], two segmented
+   platters side by side in one row (fits 320 wide: 6 × 48 + 8), segments
+   52 tall. It gives way (clipped) before the bar would be pushed under the
+   keyboard on a very short screen. */
 .dock-panel {
-  flex-direction: column;
+  flex-direction: row;
+  flex-shrink: 1;
   gap: 8px;
+  min-height: 0;
+  overflow: hidden;
   padding: 8px 8px 4px;
   border-top: 1px solid var(--border);
   background-color: var(--background);
 }
+.note-docked > .note-dock {
+  flex-shrink: 0;
+}
+/* the verse search's list gives way the same; its field row never */
+.note-docked > [data-verse-row] {
+  min-height: 0;
+  flex-shrink: 1;
+}
+.note-docked > .mdxeditor-root-contenteditable {
+  overflow: hidden;
+}
 .dock-segments {
   display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   border-radius: 14px;
   background-color: var(--dock-tint);
 }
@@ -610,6 +628,11 @@
   background-color: var(--background);
 }
 .verse-suggest {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex-shrink: 1;
+  overflow: hidden;
   padding: 4px 8px 0;
 }
 .verse-suggest-head {
@@ -648,6 +671,7 @@
   color: var(--destructive);
 }
 .verse-row-bar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
