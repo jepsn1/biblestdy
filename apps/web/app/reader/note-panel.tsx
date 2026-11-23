@@ -707,7 +707,8 @@ export function NotePanel({
           data-form-type="other"
           aria-label={t("note.titleLabel")}
           className={cn(
-            "min-w-0 flex-1 bg-transparent font-serif text-title font-medium placeholder:text-muted-foreground",
+            // A long title ends in "…" when it doesn't fit (#273 panel)
+            "min-w-0 flex-1 bg-transparent font-serif text-title font-medium text-ellipsis placeholder:text-muted-foreground",
             focusTitle,
           )}
         />

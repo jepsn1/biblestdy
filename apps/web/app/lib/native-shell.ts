@@ -93,16 +93,27 @@ function reveal() {
   lift(panFor({ top: r.top + lifted, bottom: r.bottom + lifted }, root.clientHeight - keyboard));
 }
 
-let settle = 0;
+let closing = 0;
 function setKeyboard(px: number) {
+  const was = keyboard;
   keyboard = px;
-  root.style.setProperty("--kb-h", `${px}px`);
-  root.toggleAttribute("data-kb-open", px > 0);
+  // One rule for "the keyboard is up" everywhere (Jonas F5): a hardware
+  // keyboard's slim shortcut bar isn't one, here or in the sheet fitting
+  // (lib/safe-area's keyboardUp, inlined: importing it here would split
+  // it out of the reader's first-paint chunk into one of its own)
+  const up = px > 150;
+  root.style.setProperty("--kb-h", `${up ? px : 0}px`);
+  root.toggleAttribute("data-kb-open", up);
+  // Going down, the sheets ease back too (app.css), for the slide's length
+  window.clearTimeout(closing);
+  if (was && !px) {
+    root.toggleAttribute("data-kb-closing", true);
+    closing = window.setTimeout(() => root.removeAttribute("data-kb-closing"), KEYBOARD_MS + 50);
+  }
   viewport.emit("resize");
-  window.clearTimeout(settle);
   if (!px) return lift(0);
-  // Once the sheets have fitted themselves (one frame + their slide)
-  settle = window.setTimeout(reveal, KEYBOARD_MS + 50);
+  // In step with the slide, once the sheets have fitted (their rAF)
+  requestAnimationFrame(() => requestAnimationFrame(reveal));
 }
 
 void Keyboard.addListener("keyboardWillShow", (info) => setKeyboard(Math.max(0, Math.round(info.keyboardHeight))));

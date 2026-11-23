@@ -38,6 +38,32 @@ The app runs on `capacitor://localhost` (iOS) / `https://localhost`
 unset in prod. `VITE_SHELL_API_ORIGIN` (web build) points a local shell
 build at another API; never set it for a release build.
 
+## The keyboard and writing (#273, #256)
+
+- `@capacitor/keyboard`, resize mode **none** (`capacitor.config.ts`): the
+  keyboard lies over the page, as in Safari. "native" would shrink the web
+  view only after the keyboard has finished sliding (the plugin waits its
+  animation + 0.2 s) — a jump once it's up — and re-lay the paginated reader
+  under a note every time. "body" resizes `<body>`, which our `h-dvh` routes
+  don't follow.
+- The plugin hides the accessory bar (‹ › ✓) from launch and **removes
+  WKWebView's own keyboard handling**: no pan, and `visualViewport` no
+  longer shrinks. `apps/web/app/lib/native-shell.ts` (loaded only in the
+  shell, from `sessionReady()`) gives `window.visualViewport` the keyboard
+  back from the plugin's `keyboardWillShow` / `keyboardWillHide`, so the
+  note sheet's fitting (`lib/keyboard-fit`), the palette and the `@` menu
+  work as in Safari — in step with the slide, since the event comes as it
+  starts. It also sets `--kb-h` / `data-kb-open` on `<html>` (bottom
+  sheets sit on the keyboard), lifts the page just enough for a field the
+  keyboard would cover elsewhere (Safari's pan, stood in for), and matches
+  the keyboard to the app's theme.
+- In the app on phones the note's format bar docks on the keyboard while
+  writing the text (`note-editor.tsx`, `app.css` `.note-dock`), with a
+  Hide keyboard key (the accessory bar's ✓). Light haptics
+  (`@capacitor/haptics`, `lib/native-touch.ts`) on its buttons. The web
+  keeps the toolbar above the text: Safari's own bar can't be hidden.
+- None of it is in the reader's first paint; check with `pnpm bundle:check`.
+
 ## Unsigned build (no Apple setup)
 
 Actions → **iOS** → Run workflow → `signing: none`. You get an unsigned `.ipa`

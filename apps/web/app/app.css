@@ -491,13 +491,43 @@
   mask-image: none;
   animation: none;
 }
+/* Gaps, not hairlines, between the groups (Mads F4) */
+.note-dock [role="separator"] {
+  display: none;
+}
+.note-dock > * + * {
+  margin-left: 8px;
+}
+/* "+ Verse", the bar's one word: muted like the glyphs, and it stops
+   growing at ~150 % text so it never outweighs the note (Mads F5) */
+.note-dock [data-tour="note-verse"] {
+  color: var(--muted-foreground);
+  font-size: min(var(--text-list), 20px);
+}
+/* On: full ink on a rounded tint inset in the 44px button, not a slab
+   flush with the bar's edges (Elias F4) */
+.note-dock :is(button, [role="radio"])[data-state="on"] {
+  color: var(--foreground);
+  background-color: var(--press, var(--accent));
+  background-clip: padding-box;
+  border: 4px solid transparent;
+  border-radius: 12px;
+}
 /* The way out of the keyboard, held at the bar's end while the rest scrolls
-   sideways under it (a fade says there is more) */
+   sideways under it: a hairline and a fade before it say there is more,
+   and the row rests so its cut falls on a glyph, never "+ Verse" */
+.note-dock {
+  scroll-padding-right: 68px;
+}
 .note-dock [data-hide-keyboard] {
   position: sticky;
   right: 0;
   margin-left: auto;
   background-color: var(--background);
+  border-left: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+.note-dock [data-hide-keyboard]:active {
   color: var(--foreground);
 }
 .note-dock [data-hide-keyboard]::before {
@@ -505,18 +535,24 @@
   position: absolute;
   inset-block: 0;
   right: 100%;
-  width: 16px;
+  width: 24px;
   background: linear-gradient(to right, transparent, var(--background));
   pointer-events: none;
 }
-/* The sheet's fitting slides with the keyboard in the app, where the
-   plugin says so as it starts (lib/native-shell); Safari reports it after */
+/* The sheet's fitting slides with the keyboard in the app, both ways, where
+   the plugin says so as it starts (lib/native-shell); Safari reports it
+   after. The page's lift for a covered field rides along. */
 @media (prefers-reduced-motion: no-preference) {
   :root[data-native] [data-slot="drawer-popup"][data-kb] > [data-slot="drawer-content"],
-  :root[data-native] main[data-kb] {
+  :root[data-native][data-kb-closing] [data-slot="drawer-popup"] > [data-slot="drawer-content"],
+  :root[data-native] main[data-kb],
+  :root[data-native][data-kb-closing] main {
     transition:
       opacity 300ms cubic-bezier(0.45, 1.005, 0, 1.005),
       padding 250ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  :root[data-native] body {
+    transition: transform 250ms cubic-bezier(0.25, 1, 0.5, 1);
   }
 }
 /* Placeholders on our muted ink (#123) — the editor's own greys fail AA on

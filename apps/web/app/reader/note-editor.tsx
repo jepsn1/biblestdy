@@ -24,12 +24,11 @@ import {
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import type { NoteRef } from "@biblestdy/shared";
-import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { isNativeShell } from "~/lib/api-base";
 import { caretDelta, KEYBOARD_MS } from "~/lib/keyboard-native";
-import { hideKeyboard, lightTap } from "~/lib/native-touch";
+import { hideKeyboard, lightTap, preloadTap } from "~/lib/native-touch";
 import { editorIcon } from "./editor-icons";
 import { editorTranslation } from "./editor-strings";
 import { ScriptureRefContext, type EditorKit, type PagePlace, type ReadRef } from "./ref-context";
@@ -87,13 +86,25 @@ function revealCaret(box: HTMLElement | null) {
   if (d) box.scrollTop += d;
 }
 
+/** iOS's own "hide keyboard" glyph (#273 panel Q5, 5–1): a keyboard with
+ * ⌄ under it — a bare ⌄ beside "+ Verse" read as its dropdown. Lucide's
+ * 24px grid and stroke, like the bar's other glyphs. */
+function KeyboardDown() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+      <rect x="2" y="3" width="20" height="12" rx="2" />
+      <path d="M6 7h.01M10 7h.01M14 7h.01M18 7h.01M8 11h8M9 19l3 2.5 3-2.5" />
+    </svg>
+  );
+}
+
 /** Last in the docked bar, held at its end: the keyboard goes away (the
  * accessory bar's ✓ that the app hides, #256). */
 function HideKeyboard() {
   const t = useEditorTranslation();
   return (
     <button type="button" data-hide-keyboard="" aria-label={t("dock.hideKeyboard", "Hide keyboard")} onClick={hideKeyboard}>
-      <ChevronDown aria-hidden className="size-4" />
+      <KeyboardDown />
     </button>
   );
 }
@@ -136,7 +147,7 @@ export function NoteEditor({
   noteRefs?: readonly NoteRef[];
 }) {
   const { i18n } = useTranslation();
-  const translation = useMemo(() => editorTranslation(i18n.language), [i18n.language]);
+  const translation = useMemo(() => editorTranslation(i18n.language, mobile), [i18n.language, mobile]);
   const pageTid = page?.translationId;
   const pageBook = page?.book;
   const pageCh = page?.chapter;
@@ -148,6 +159,8 @@ export function NoteEditor({
     const vv = window.visualViewport;
     const box = wrap.current?.querySelector<HTMLElement>('.mdxeditor-root-contenteditable [contenteditable="true"]');
     if (!dock || !vv || !box) return;
+    // The first tick shouldn't wait for its chunk (Jonas F6)
+    preloadTap();
     box.closest(".mdxeditor")?.querySelector(".note-dock")?.setAttribute("aria-label", translation("dock.label", "Formatting"));
     let timer = 0;
     const settle = () => {
@@ -211,13 +224,13 @@ export function NoteEditor({
           toolbarContents: () =>
             dock ? (
               // On the keyboard (#273 panel): writing first, nearest the
-              // thumb; the way out of the keyboard held at the end
+              // thumb, and "+ Verse" — the bar's one word — next, so it is
+              // never what the row cuts (Mads F1, 6/6); the way out of the
+              // keyboard held at the end
               <>
                 <BoldItalicUnderlineToggles />
-                <ListsToggle />
-                <Separator />
                 <VerseButton />
-                <Separator />
+                <ListsToggle />
                 <UndoRedo />
                 <HideKeyboard />
               </>

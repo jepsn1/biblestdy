@@ -74,10 +74,11 @@ const tokenStore = () => (store ??= secureStore());
 export function sessionReady(): Promise<void> {
   if (mode !== "bearer") return Promise.resolve();
   if (ready) return ready;
-  // The rest of the shell's start-up rides along (#273): its keyboard,
-  // in its own chunk (an import here costs first paint nothing new)
-  if (isNativeShell()) void import("./native-shell");
-  const read = tokenStore()
+  // The rest of the shell's start-up rides along (#273): its keyboard, in
+  // its own chunk (an import here costs first paint nothing new). Awaited
+  // with the token, so no effect reads visualViewport before it's in place
+  const keyboard = isNativeShell() ? import("./native-shell").catch(() => undefined) : undefined;
+  const stored = tokenStore()
     .get()
     .then((t) => {
       token = t || null;
@@ -86,6 +87,7 @@ export function sessionReady(): Promise<void> {
     .catch(() => undefined);
   // ...and the same if it never answers
   const timeout = new Promise<void>((done) => setTimeout(done, READY_TIMEOUT_MS));
+  const read = Promise.all([stored, keyboard]).then(() => undefined);
   return (ready = Promise.race([read, timeout]));
 }
 
