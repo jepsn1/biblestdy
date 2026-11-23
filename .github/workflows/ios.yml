@@ -1,0 +1,258 @@
+name: iOS
+
+# Builds the Capacitor shell (apps/mobile) on a GitHub-hosted macOS runner, so
+# nobody needs a Mac. The ios/ project is committed (apps/mobile/ios); this
+# workflow only syncs the freshly built web bundle into it and builds.
+#
+#   signing=none     unsigned .ipa artifact, no secrets — proves the build
+#   signing=appstore archive + App Store export via the `appstore` environment
+#                    (owner approves each run); upload=true sends it to TestFlight
+#
+# Owner setup (App Store Connect app, API key, secrets): docs/MOBILE.md.
+on:
+  workflow_dispatch:
+    inputs:
+      signing:
+        description: 'none = unsigned build (no secrets); appstore = signed, needs the appstore environment secrets'
+        type: choice
+        options: [none, appstore]
+        default: none
+      upload:
+        description: 'Upload to TestFlight (appstore signing only)'
+        type: boolean
+        default: false
+      version:
+        description: 'Marketing version (CFBundleShortVersionString). Must exceed the live App Store version'
+        type: string
+        default: '1.0.0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ inputs.signing }})
+    runs-on: macos-15
+    timeout-minutes: 45
+    # Signed runs read the App Store Connect key from the `appstore` environment,
+    # which requires the owner's approval before the job starts. Unsigned runs
+    # need no secrets and skip the gate.
+    environment: ${{ inputs.signing == 'appstore' && 'appstore' || '' }}
+
+    env:
+      SIGNING: ${{ inputs.signing }}
+      UPLOAD: ${{ inputs.upload }}
+      VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      PROJECT: apps/mobile/ios/App/App.xcodeproj
+      BUNDLE_ID: com.biblestdy.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check inputs and signing secrets
+        id: gate
+        env:
+          HAS_P8: ${{ secrets.ASC_KEY_P8 != '' }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo "::error::version must look like 1.0.0, got '$VERSION'"; exit 1; }
+          signed=false
+          if [ "$SIGNING" = appstore ]; then
+            if [ -n "$APPLE_TEAM_ID" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ "$HAS_P8" = true ]; then
+              signed=true
+            else
+              echo "::warning::signing=appstore but the appstore environment secrets are missing — syncing and checking the project only. See docs/MOBILE.md."
+            fi
+          fi
+          if [ "$UPLOAD" = true ] && [ "$signed" != true ]; then
+            echo "::warning::upload=true needs signing=appstore with secrets — nothing will be uploaded"
+          fi
+          echo "signed=$signed" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # App Store Connect rejects uploads not built with the iOS 26 SDK. Pick
+      # the newest Xcode 26 the image ships rather than its default.
+      - name: Select Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          test -n "$XC" || { echo "::error::no Xcode 26 on this runner image"; ls -d /Applications/Xcode*.app; exit 1; }
+          sudo xcode-select -switch "$XC"
+          xcodebuild -version
+
+      # Web SPA build -> apps/mobile/www -> cap sync (copies into
+      # ios/App/App/public and rewrites CapApp-SPM/Package.swift).
+      - name: Build web and sync into the shell
+        run: |
+          pnpm --filter @biblestdy/shared build
+          pnpm --filter @biblestdy/mobile sync
+
+      # The shell ships the SPA offline-bundled; api-base.ts switches API calls
+      # to the prod origin at runtime when window.Capacitor is native. Fail if
+      # the bundle is missing or that prod origin isn't in it.
+      - name: Check bundled web app
+        working-directory: apps/mobile/ios/App/App
+        run: |
+          test -f public/index.html || { echo "::error::no index.html in the iOS bundle"; exit 1; }
+          grep -lqE '["`]https://biblestdy\.com["`]' public/assets/*.js || { echo "::error::prod API origin not found in the bundled JS (apps/web/app/lib/api-base.ts)"; exit 1; }
+          grep -q "\"appId\": \"$BUNDLE_ID\"" capacitor.config.json || { echo "::error::capacitor.config.json appId is not $BUNDLE_ID"; cat capacitor.config.json; exit 1; }
+          echo "bundled $(find public -type f | wc -l | tr -d ' ') files, $(du -sh public | cut -f1)"
+
+      # The committed project must already match what cap sync produces —
+      # otherwise someone added a plugin without committing the sync.
+      - name: Committed iOS project is in sync
+        run: |
+          git diff --exit-code -- apps/mobile/ios || { echo "::error::cap sync changed apps/mobile/ios — run 'pnpm --filter @biblestdy/mobile sync' and commit"; exit 1; }
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;" "$PROJECT/project.pbxproj" || { echo "::error::bundle id is not $BUNDLE_ID"; exit 1; }
+
+      # Capacitor 8 is a Swift Package Manager project (no Pods, no workspace);
+      # xcodebuild resolves CapApp-SPM itself. iOS won't install an unsigned
+      # .ipa, but it proves the Mac-free build, and device farms re-sign it.
+      - name: Build unsigned
+        if: inputs.signing == 'none'
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+      - name: Package unsigned IPA
+        if: inputs.signing == 'none'
+        run: |
+          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/App.app"
+          test -d "$APP" || { echo "::error::no App.app at $APP"; ls -R "$RUNNER_TEMP/dd/Build/Products" || true; exit 1; }
+          test -f "$APP/public/index.html" || { echo "::error::web bundle missing from App.app"; exit 1; }
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' "$APP/Info.plist"
+          mkdir -p "$RUNNER_TEMP/export/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/export/Payload/"
+          cd "$RUNNER_TEMP/export"
+          zip -qry "biblestdy-$VERSION-$BUILD_NUMBER-unsigned.ipa" Payload
+          rm -rf Payload
+          ls -lh *.ipa
+
+      - name: Write App Store Connect API key
+        if: steps.gate.outputs.signed == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s\n' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      # Automatic signing mints a new "Created via API" development certificate
+      # on every run (fresh keychain) and Apple caps them per team. Revoke the
+      # old CI ones before archiving so the cap is never hit.
+      - name: Prune CI-minted development certificates
+        if: steps.gate.outputs.signed == 'true'
+        run: ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" node apps/mobile/scripts/prune-ci-certs.mjs
+
+      # Cloud signing: Xcode creates the certificates and profiles itself with
+      # the API key, so no certificates live in this repo.
+      - name: Archive
+        if: steps.gate.outputs.signed == 'true'
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme App \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -destination 'generic/platform=iOS' \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+      # Export needs the API key too: -allowProvisioningUpdates alone looks for
+      # an Xcode account and fails with "No Accounts" on CI.
+      - name: Export IPA
+        if: steps.gate.outputs.signed == 'true'
+        run: |
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>method</key><string>app-store-connect</string>
+              <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+              <key>signingStyle</key><string>automatic</string>
+              <key>uploadSymbols</key><true/>
+              <key>destination</key><string>export</string>
+            </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ls -lh "$RUNNER_TEMP"/export/*.ipa
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: biblestdy-ios-${{ inputs.signing }}-${{ inputs.version }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 14
+          if-no-files-found: ${{ (inputs.signing == 'none' || steps.gate.outputs.signed == 'true') && 'error' || 'ignore' }}
+
+      # altool finds the key in ~/private_keys/AuthKey_<id>.p8.
+      - name: Upload to TestFlight
+        if: inputs.upload && steps.gate.outputs.signed == 'true'
+        run: |
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Remove API key
+        if: always()
+        run: rm -rf ~/private_keys
+
+      - name: Summary
+        if: always()
+        env:
+          SIGNED: ${{ steps.gate.outputs.signed }}
+        run: |
+          {
+            echo "### biblestdy iOS $VERSION ($BUILD_NUMBER) — signing: $SIGNING"
+            if [ "$SIGNING" = none ]; then
+              echo "Unsigned IPA attached (artifact biblestdy-ios-none-$VERSION-$BUILD_NUMBER). iOS won't install it directly;"
+              echo "device farms (BrowserStack App Live, Sauce Labs) re-sign it to run on a real phone."
+            elif [ "$SIGNED" != true ]; then
+              echo "Signing secrets absent — synced and checked the project only."
+              echo "Add APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 to the appstore environment (docs/MOBILE.md)."
+            elif [ "$UPLOAD" = true ]; then
+              echo "Archived, exported and uploaded to TestFlight. Processing takes ~5–30 min in App Store Connect."
+            else
+              echo "Archived and exported (App Store IPA attached, not uploaded)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
