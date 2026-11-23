@@ -10,9 +10,6 @@ name: iOS
 #
 # Owner setup (App Store Connect app, API key, secrets): docs/MOBILE.md.
 on:
-  # TEMP (#273): build this branch unsigned on push; reverted before the PR
-  push:
-    branches: [feat/273-native-writing]
   workflow_dispatch:
     inputs:
       signing:
