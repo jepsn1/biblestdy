@@ -14,7 +14,7 @@ import { cn, focusRing } from "~/lib/utils";
 import { useReadingTranslationId } from "../notes/add-reference";
 import { focusEditor } from "./lexical-util";
 import { ScriptureRefContext, type EditorKit } from "./ref-context";
-import { chipOpensOnClick } from "./chip-click";
+import { chipOpensOnClick, touchTapOpens } from "./chip-click";
 import { hoverRef, spotParam, useRefHover, useRefSpot } from "./spotlight";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
 import { MarkGlyph } from "./mark-row";
@@ -74,6 +74,7 @@ export function ScriptureChip({
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
+  const touchedAt = useRef<{ x: number; y: number; t: number } | null>(null);
   /** Phones (#281): the note was being written in when the chip was
    * pressed — closing the drawer gives the caret (and keyboard) back; a
    * note only being read keeps the keyboard down. */
@@ -183,6 +184,25 @@ export function ScriptureChip({
           // Before the tap moves focus into the text
           writingAtPress.current = !!editor.getRootElement()?.contains(document.activeElement);
         }}
+        // A finger opens at the lift (#281, chip-click: the press may move
+        // the chip from under it); no click follows, so the note isn't
+        // focused — no keyboard for a note only being read, the caret
+        // where it was for one being written
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          touchedAt.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
+        }}
+        onTouchEnd={(e) => {
+          const from = touchedAt.current;
+          touchedAt.current = null;
+          const t = e.changedTouches[0];
+          if (!t || !from || !touchTapOpens({ from, to: { x: t.clientX, y: t.clientY }, ms: e.timeStamp - from.t })) return;
+          e.preventDefault();
+          openPreview(true);
+        }}
+        onTouchCancel={() => {
+          touchedAt.current = null;
+        }}
         onPointerEnter={() => canonical && hoverRef({ from: "note", keys: [canonical] })}
         onPointerLeave={() => !selected && hoverRef(null)}
         onMouseDown={(e) => {
@@ -194,6 +214,8 @@ export function ScriptureChip({
         // On click, not press: the press would count as outside the
         // preview that it opens
         onClick={(e) => {
+          // A finger's tap opened it at the lift (above)
+          if (pointer.current === "touch") return;
           const mouse = pointer.current === "mouse";
           const from = pressedAt.current;
           pressedAt.current = null;
@@ -330,7 +352,7 @@ function RefPreview({
 
   const title = (
     <>
-      <span className="font-medium text-foreground">{label}</span>
+      <span className="font-medium whitespace-nowrap text-foreground">{label}</span>
       {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
       {abbr && where && (
         <span className="text-muted-foreground">
@@ -465,13 +487,13 @@ function RefDrawer({
         overlayClassName="supports-backdrop-filter:backdrop-blur-none"
         className="[--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))]"
       >
-        <header className="flex min-h-12 shrink-0 items-center gap-2 pt-1 pr-2 pl-4">
+        <header className="flex min-h-[52px] shrink-0 items-center gap-2 pt-1 pr-2 pl-4">
           <DrawerTitle className="min-w-0 flex-1 font-sans text-phone">{title}</DrawerTitle>
           <button
             type="button"
             aria-label={t("note.refClose", { ref: ariaLabel })}
             onClick={() => onClose(true)}
-            className={cn("inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-control font-medium text-foreground hover:bg-accent active:bg-accent", pressable, focusRing)}
+            className={cn("inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-control font-medium text-foreground hover:bg-accent active:bg-accent", pressable, focusRing)}
           >
             <X aria-hidden className="size-[1.125rem]" />
             <span>{t("note.closeShort")}</span>
@@ -485,18 +507,19 @@ function RefDrawer({
         {status ? (
           <div className="shrink-0 px-4 py-2">{status}</div>
         ) : (
-          <ScrollArea viewportClassName="max-h-[min(45dvh,20rem)] overscroll-contain">
+          <ScrollArea className="min-h-0" viewportClassName="max-h-[min(45dvh,20rem)] overscroll-contain">
             <p className="px-4 pt-1 pb-3 font-serif text-reading leading-[1.6] text-foreground select-text">{verseText}</p>
           </ScrollArea>
         )}
-        <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 pt-3 pb-3">
+        {/* Large text on a narrow phone: Remove wraps under, right-aligned */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 pt-3 pb-3">
           {read && (
             <button
               ref={readRef}
               type="button"
               onClick={read}
               className={cn(
-                "inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-lg bg-(--link-wash) px-4 text-phone font-medium text-(--note-ink-text) active:bg-(--link-wash-strong)",
+                "inline-flex min-h-[48px] min-w-0 py-1.5 flex-[1_1_10rem] items-center justify-center gap-1.5 rounded-lg bg-(--link-wash) px-4 text-phone whitespace-nowrap font-medium text-(--note-ink-text) active:bg-(--link-wash-strong)",
                 pressable,
                 focusRing,
               )}
@@ -509,7 +532,7 @@ function RefDrawer({
             type="button"
             onClick={onRemove}
             className={cn(
-              "inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-phone font-medium text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground",
+              "ml-auto inline-flex min-h-[48px] shrink-0 py-1.5 items-center justify-center rounded-lg px-4 text-phone font-medium whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground",
               !read && "flex-1",
               pressable,
               focusRing,

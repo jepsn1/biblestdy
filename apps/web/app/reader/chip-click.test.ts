@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipOpensOnClick } from "./chip-click";
+import { chipOpensOnClick, touchTapOpens } from "./chip-click";
 
 const at = { x: 10, y: 10 };
 
@@ -18,5 +18,20 @@ describe("a click on a chip (#213 C6)", () => {
   });
   it("a tap always does", () => {
     expect(chipOpensOnClick({ mouse: false, button: 0, from: null, to: at })).toBe(true);
+  });
+});
+
+describe("a finger lifted from a chip (#281)", () => {
+  it("a short tap opens at the lift", () => {
+    expect(touchTapOpens({ from: at, to: { x: 14, y: 13 }, ms: 120 })).toBe(true);
+  });
+  it("a scroll that began on the chip doesn't", () => {
+    expect(touchTapOpens({ from: at, to: { x: 10, y: 60 }, ms: 200 })).toBe(false);
+  });
+  it("a long press doesn't", () => {
+    expect(touchTapOpens({ from: at, to: at, ms: 800 })).toBe(false);
+  });
+  it("a lift without a press on the chip doesn't", () => {
+    expect(touchTapOpens({ from: null, to: at, ms: 50 })).toBe(false);
   });
 });

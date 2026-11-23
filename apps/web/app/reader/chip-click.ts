@@ -24,3 +24,29 @@ export function chipOpensOnClick({
   if (button !== 0 || !from) return false;
   return Math.hypot(to.x - from.x, to.y - from.y) <= CLICK_SLOP;
 }
+
+/** How far a finger may drift and still tap (px), and how long a press may
+ * last before it is iOS's long press instead (ms). */
+export const TAP_SLOP = 10;
+export const LONG_PRESS_MS = 500;
+
+/**
+ * Does a finger lifted from a chip open its preview (#281)? It opens at
+ * the lift, not at the click that follows: the press focuses the note,
+ * which can fold the row above the text (tags, large text) and move the
+ * chip from under the finger before that click lands — the click then
+ * hits the line, not the chip. A finger that moved (a scroll) or stayed
+ * (a long press) is no tap.
+ */
+export function touchTapOpens({
+  from,
+  to,
+  ms,
+}: {
+  from: { x: number; y: number } | null;
+  to: { x: number; y: number };
+  ms: number;
+}): boolean {
+  if (!from || ms > LONG_PRESS_MS) return false;
+  return Math.hypot(to.x - from.x, to.y - from.y) <= TAP_SLOP;
+}
