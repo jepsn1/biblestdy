@@ -2,17 +2,18 @@ import { formatScriptureHref, parseScriptureHref, resolveInChapter, type Chapter
 import { localRef } from "@biblestdy/shared/versification";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { $getNodeByKey, $getSelection, $isNodeSelection, type BaseSelection, type LexicalEditor, type NodeKey } from "lexical";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { bookLocale, useBookName } from "~/lib/book-name";
 import { noteView } from "~/lib/fums";
+import { hideKeyboard } from "~/lib/native-touch";
 import { ApiError, api } from "~/lib/query";
 import { chipLabel, referenceLabel } from "~/lib/reference-label";
 import { cn, focusRing } from "~/lib/utils";
 import { useReadingTranslationId } from "../notes/add-reference";
 import { focusEditor } from "./lexical-util";
-import { ScriptureRefContext } from "./ref-context";
+import { ScriptureRefContext, type EditorKit } from "./ref-context";
 import { chipOpensOnClick } from "./chip-click";
 import { hoverRef, spotParam, useRefHover, useRefSpot } from "./spotlight";
 import { $isScriptureRefNode, $restoreSelection, saveSelection } from "./scripture-ref-node";
@@ -73,7 +74,12 @@ export function ScriptureChip({
   const saved = useRef<BaseSelection | null>(null);
   const pointer = useRef("mouse");
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
-  const { kit, onRead, page, noteRefs } = useContext(ScriptureRefContext);
+  /** Phones (#281): the note was being written in when the chip was
+   * pressed — closing the drawer gives the caret (and keyboard) back; a
+   * note only being read keeps the keyboard down. */
+  const writingAtPress = useRef(false);
+  const writing = useRef(false);
+  const { kit, onRead, page, noteRefs, mobile } = useContext(ScriptureRefContext);
   const queryClient = useQueryClient();
   const translationId = useReadingTranslationId();
   const markStateOf = useRefMarkState(page, noteRefs, translationId);
@@ -105,9 +111,15 @@ export function ScriptureChip({
     return () => hoverRef(null);
   }, [selected, canonical]);
 
-  const openPreview = () => {
+  const openPreview = (fromPress = false) => {
     if (!ref) return;
     saved.current = saveSelection(editor);
+    if (mobile) {
+      const root = editor.getRootElement();
+      writing.current = fromPress ? writingAtPress.current : !!root?.contains(document.activeElement);
+      // The keyboard never covers the drawer (#281): down while it's open
+      hideKeyboard();
+    }
     setOpen(true);
   };
   /** Alt+Enter: "Show in Bible" without the preview — where the reading
@@ -137,7 +149,8 @@ export function ScriptureChip({
   /** Closing puts the caret back where it was (Esc, Kasper). */
   function close(restore: boolean) {
     setOpen(false);
-    if (!restore) return;
+    // Phones: only back into a note that was being written in
+    if (!restore || (mobile && !writing.current)) return;
     focusEditor(editor, () => $restoreSelection(saved.current));
   }
 
@@ -167,6 +180,8 @@ export function ScriptureChip({
         data-spot={spotlit || undefined}
         onPointerDown={(e) => {
           pointer.current = e.pointerType;
+          // Before the tap moves focus into the text
+          writingAtPress.current = !!editor.getRootElement()?.contains(document.activeElement);
         }}
         onPointerEnter={() => canonical && hoverRef({ from: "note", keys: [canonical] })}
         onPointerLeave={() => !selected && hoverRef(null)}
@@ -184,7 +199,7 @@ export function ScriptureChip({
           pressedAt.current = null;
           if (!chipOpensOnClick({ mouse, button: e.button, from, to: { x: e.clientX, y: e.clientY } })) return;
           if (mouse) caretAfter();
-          openPreview();
+          openPreview(true);
         }}
         className={cn(
           // select-none: the browser never puts the caret inside the label
@@ -232,7 +247,8 @@ export function ScriptureChip({
               node.selectPrevious();
               node.remove();
             });
-            focusEditor(editor);
+            // Phones: the keyboard stays down for a note only being read
+            if (!mobile || writing.current) focusEditor(editor);
           }}
         />
       )}
@@ -312,8 +328,46 @@ function RefPreview({
       : null;
   const verses = resolved && chapter.data ? chapter.data.verses.filter((v) => v.verse >= resolved.startVerse && v.verse <= resolved.endVerse) : [];
 
-  const actionClass = cn("inline-flex items-center gap-1 rounded-sm text-list font-medium", mobile ? "min-h-11 px-2" : "min-h-7 px-1.5", focusRing);
+  const title = (
+    <>
+      <span className="font-medium text-foreground">{label}</span>
+      {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
+      {abbr && where && (
+        <span className="text-muted-foreground">
+          {" "}
+          · {t("note.refIn", { abbr, ref: where })}
+        </span>
+      )}
+    </>
+  );
+  const ariaLabel = `${label.replace(/\u00a0/g, " ")}${abbr ? ` · ${abbr}` : ""}`;
+  const verseText = verses.map((v) => (
+    <span key={v.verse}>
+      <sup className="mr-0.5 text-[0.7em] text-muted-foreground">{v.label ?? v.verse}</sup>
+      {v.text}{" "}
+    </span>
+  ));
+  const status = notHere ? (
+    <p className="text-list text-muted-foreground">{t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}</p>
+  ) : chapter.isError ? (
+    <p className="text-list text-muted-foreground">{t("note.refPreviewFailed")}</p>
+  ) : !resolved ? (
+    <p className="text-list text-muted-foreground">{t("note.refLoading")}</p>
+  ) : null;
+  const read = () => {
+    onClose(false);
+    // Where this translation has it (BPH Mal 3,20, not Mal 4,2)
+    onRead?.(scripture, local?.ref ?? scripture);
+  };
+  const readElsewhere = () => {
+    if (!elsewhere) return;
+    onClose(false);
+    onRead?.(scripture, scripture, elsewhere.id);
+  };
 
+  if (mobile) return <RefDrawer {...{ kit, title, ariaLabel, markState, status, verseText, readRef, onClose, onRemove }} read={notHere ? (elsewhere ? readElsewhere : null) : read} readLabel={notHere && elsewhere ? t("note.readIn", { abbr: elsewhere.abbreviation }) : t("note.readHere")} />;
+
+  const actionClass = cn("inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 text-list font-medium", focusRing);
   return (
     <Popover open onOpenChange={(o, details) => !o && onClose(details.reason !== "outside-press")}>
       <PopoverContent
@@ -322,29 +376,12 @@ function RefPreview({
         align="start"
         initialFocus={readRef}
         finalFocus={false}
-        aria-label={`${label.replace(/ /g, " ")}${abbr ? ` · ${abbr}` : ""}`}
+        aria-label={ariaLabel}
         className="w-max max-w-[min(22rem,calc(100vw-2rem))] gap-2 px-3.5 py-3 motion-reduce:animate-none"
       >
-        <p className="text-list">
-          <span className="font-medium text-foreground">{label}</span>
-          {abbr && !where && <span className="text-muted-foreground"> · {abbr}</span>}
-          {abbr && where && (
-            <span className="text-muted-foreground">
-              {" "}
-              · {t("note.refIn", { abbr, ref: where })}
-            </span>
-          )}
-        </p>
+        <p className="text-list">{title}</p>
         {markState && <MarkStateLine state={markState} />}
-        {notHere ? (
-          <p className="text-list text-muted-foreground">
-            {t("note.refNotIn", { ref: referenceLabel(scripture, nameOf, locale), abbr })}
-          </p>
-        ) : chapter.isError ? (
-          <p className="text-list text-muted-foreground">{t("note.refPreviewFailed")}</p>
-        ) : !resolved ? (
-          <p className="text-list text-muted-foreground">{t("note.refLoading")}</p>
-        ) : (
+        {status ?? (
           <p
             className="overflow-hidden font-serif text-control leading-[1.6] text-foreground"
             style={{
@@ -352,26 +389,13 @@ function RefPreview({
               maskImage: `linear-gradient(to bottom, black calc(${PREVIEW_MAX} - 2.5em), transparent ${PREVIEW_MAX})`,
             }}
           >
-            {verses.map((v) => (
-              <span key={v.verse}>
-                <sup className="mr-0.5 text-[0.7em] text-muted-foreground">{v.label ?? v.verse}</sup>
-                {v.text}{" "}
-              </span>
-            ))}
+            {verseText}
           </p>
         )}
         <div className="-mx-1.5 flex items-center justify-between gap-3">
           {notHere ? (
             elsewhere ? (
-              <button
-                ref={readRef}
-                type="button"
-                className={cn(actionClass, "text-(--note-ink-text)")}
-                onClick={() => {
-                  onClose(false);
-                  onRead?.(scripture, scripture, elsewhere.id);
-                }}
-              >
+              <button ref={readRef} type="button" className={cn(actionClass, "text-(--note-ink-text)")} onClick={readElsewhere}>
                 {t("note.readIn", { abbr: elsewhere.abbreviation })}
                 <ArrowRight className="size-3.5" aria-hidden />
               </button>
@@ -379,16 +403,7 @@ function RefPreview({
               <span />
             )
           ) : (
-            <button
-              ref={readRef}
-              type="button"
-              className={cn(actionClass, "text-(--note-ink-text)")}
-              onClick={() => {
-                onClose(false);
-                // Where this translation has it (BPH Mal 3,20, not Mal 4,2)
-                onRead?.(scripture, local?.ref ?? scripture);
-              }}
-            >
+            <button ref={readRef} type="button" className={cn(actionClass, "text-(--note-ink-text)")} onClick={read}>
               {t("note.readHere")}
               <ArrowRight className="size-3.5" aria-hidden />
             </button>
@@ -399,6 +414,112 @@ function RefPreview({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * The preview on phones (#281, owner: a drawer, not a popover): the same
+ * content in a bottom drawer over the note. The note's sheet stays as it is
+ * (its DrawerContent `stack={false}`); the content clears the home
+ * indicator and the glass's corners (drawer.tsx: `--corner-bottom`);
+ * every control 44px or more, with a pressed state. A dialog named by its
+ * title; focus on "Show in Bible"; Esc, a swipe down, a tap above it or
+ * Close end it — the caret back where it was (close(true)).
+ */
+function RefDrawer({
+  kit,
+  title,
+  ariaLabel,
+  markState,
+  status,
+  verseText,
+  readRef,
+  read,
+  readLabel,
+  onClose,
+  onRemove,
+}: {
+  kit: EditorKit;
+  title: React.ReactNode;
+  ariaLabel: string;
+  markState: RefMarkState | null;
+  status: React.ReactNode;
+  verseText: React.ReactNode;
+  readRef: React.RefObject<HTMLButtonElement | null>;
+  /** null: nowhere to read it (not in this translation, nor in WEB). */
+  read: (() => void) | null;
+  readLabel: string;
+  onClose: (restore: boolean) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  const { Drawer, DrawerContent, DrawerTitle, ScrollArea } = kit;
+  const pressable = "touch-manipulation transition-colors duration-100 motion-reduce:transition-none";
+  return (
+    <Drawer open onOpenChange={(o) => !o && onClose(true)} showSwipeHandle>
+      <DrawerContent
+        initialFocus={read ? readRef : undefined}
+        finalFocus={false}
+        aria-label={ariaLabel}
+        // The note stays readable under it: dimmed, not blurred
+        overlayClassName="supports-backdrop-filter:backdrop-blur-none"
+        className="[--drawer-content-max-height:min(92dvh,calc(100dvh-var(--safe-top)-1rem))]"
+      >
+        <header className="flex min-h-12 shrink-0 items-center gap-2 pt-1 pr-2 pl-4">
+          <DrawerTitle className="min-w-0 flex-1 font-sans text-phone">{title}</DrawerTitle>
+          <button
+            type="button"
+            aria-label={t("note.refClose", { ref: ariaLabel })}
+            onClick={() => onClose(true)}
+            className={cn("inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-control font-medium text-foreground hover:bg-accent active:bg-accent", pressable, focusRing)}
+          >
+            <X aria-hidden className="size-[1.125rem]" />
+            <span>{t("note.closeShort")}</span>
+          </button>
+        </header>
+        {markState && (
+          <div className="shrink-0 px-4 pb-1">
+            <MarkStateLine state={markState} />
+          </div>
+        )}
+        {status ? (
+          <div className="shrink-0 px-4 py-2">{status}</div>
+        ) : (
+          <ScrollArea viewportClassName="max-h-[min(45dvh,20rem)] overscroll-contain">
+            <p className="px-4 pt-1 pb-3 font-serif text-reading leading-[1.6] text-foreground select-text">{verseText}</p>
+          </ScrollArea>
+        )}
+        <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 pt-3 pb-3">
+          {read && (
+            <button
+              ref={readRef}
+              type="button"
+              onClick={read}
+              className={cn(
+                "inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-lg bg-(--link-wash) px-4 text-phone font-medium text-(--note-ink-text) active:bg-(--link-wash-strong)",
+                pressable,
+                focusRing,
+              )}
+            >
+              {readLabel}
+              <ArrowRight className="size-4" aria-hidden />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            className={cn(
+              "inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-phone font-medium text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground",
+              !read && "flex-1",
+              pressable,
+              focusRing,
+            )}
+          >
+            {t("note.removeRef")}
+          </button>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
