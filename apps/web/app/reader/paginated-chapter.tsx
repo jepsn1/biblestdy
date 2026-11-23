@@ -1966,8 +1966,6 @@ export function PaginatedChapter({
               stack={false}
               // One surface (#235): the peek's bar on the note's own background
               className="bg-background [--drawer-bleed-background:var(--color-background)]"
-              // Full: no blur on the strip above — its passage wash shows (#235)
-              overlayClassName="supports-backdrop-filter:backdrop-blur-none"
             >
               {/* The spotlight's exit line (#210): above the bar, which
                   stays where the thumb found it. Phones (#235): one row
