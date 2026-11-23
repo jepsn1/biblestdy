@@ -1,6 +1,6 @@
 import type { Chapter } from "@biblestdy/shared";
 import { useEffect } from "react";
-import { apiUrl } from "./api-base";
+import { apiFetch, currentTransport } from "./session-transport";
 
 /**
  * API.Bible Fair Use (FUMS, ToS §3.3): every chapter actually shown is
@@ -37,11 +37,12 @@ function flush() {
   const tokens = queue.splice(0, 20);
   if (queue.length > 0) timer = setTimeout(flush, BATCH_MS);
   if (tokens.length === 0) return;
-  // keepalive: a view right before leaving the page still gets out
-  void fetch(apiUrl("/api/fums/views"), {
+  // keepalive: a view right before leaving the page still gets out. Not in
+  // the shell: its page never unloads, and its cross-origin call needs a
+  // preflight, which keepalive requests can't always make (WebKit)
+  void apiFetch("/api/fums/views", {
     method: "POST",
-    credentials: "include",
-    keepalive: true,
+    keepalive: currentTransport() === "cookie",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ tokens }),
   }).catch(() => {

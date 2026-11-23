@@ -105,7 +105,7 @@ export const handle = zoomLockHandle;
 export function meta({ params, error }: Route.MetaArgs) {
   if (error) {
     const { kind } = describeRouteError(error, typeof navigator === "undefined" || navigator.onLine);
-    const key = { notFound: "error.chapterNotFound", offline: "error.offlineTitle", limit: "readingLimit.title", unexpected: "error.title" }[kind];
+    const key = { notFound: "error.chapterNotFound", offline: "error.offlineTitle", unreachable: "error.unreachableTitle", limit: "readingLimit.title", unexpected: "error.title" }[kind];
     return [{ title: `${i18n.t(key)} — biblestdy` }];
   }
   const locale = bookLocale(i18n.language);

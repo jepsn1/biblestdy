@@ -94,9 +94,9 @@ export function ReaderError({ error, params }: { error: unknown; params: { book:
   } else {
     // Offline, the reading limit (#29 wrote the wait), or a failed load:
     // the chapter itself is fine — Try again re-runs the loader in place
-    title =
-      kind === "offline" ? t("error.offlineTitle") : kind === "limit" ? t("readingLimit.title") : t("error.title");
-    message = kind === "offline" ? t("error.offlineBody") : (detail ?? t("error.unexpected"));
+    title = { offline: t("error.offlineTitle"), unreachable: t("error.unreachableTitle"), limit: t("readingLimit.title"), unexpected: t("error.title") }[kind];
+    message =
+      kind === "offline" ? t("error.offlineBody") : kind === "unreachable" ? t("error.unreachableBody") : (detail ?? t("error.unexpected"));
     actions = (
       <>
         <Button

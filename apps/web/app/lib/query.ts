@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
-import { apiUrl } from "./api-base";
 import { currentPath, signinHref } from "./next-path";
+import { apiFetch } from "./session-transport";
 
 /** A non-2xx API answer: the status (401 = signed out, 4xx = the request,
  * 5xx = the server) and the parsed body (JSON, else text, else null). */
@@ -83,13 +83,13 @@ export const queryClient = new QueryClient({
   },
 });
 
-/** Fetch JSON with session cookies; throws an ApiError on non-2xx. A 401
+/** Fetch JSON with the session (cookie on the web, bearer in the shell —
+ * lib/session-transport); throws an ApiError on non-2xx. A 401
  * also sends the reader to sign-in (sessionExpired) — loads and saves alike:
  * the app's writes are plain calls, not useMutation, so a query-cache hook
  * alone would miss a session that expired during a save. */
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(apiUrl(url), {
-    credentials: "include",
+  const res = await apiFetch(url, {
     ...init,
     headers: init?.body ? { "Content-Type": "application/json", ...init?.headers } : init?.headers,
   });

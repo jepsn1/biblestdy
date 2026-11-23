@@ -5,14 +5,17 @@ import { ApiError } from "./query";
  * What a route error means to the reader. The error pages show a
  * localized title per kind and never the router's own text ("No route
  * matches URL …" is developer English).
- * - offline: no connection, or a fetch/module load the network refused
+ * - offline: the device says it has no connection
+ * - unreachable: online, yet a fetch/module load never got an answer — the
+ *   server is down or refused us at the network level (a CORS refusal looks
+ *   exactly like this: the app shell before #18 said "offline" forever)
  * - notFound: a 404 (unknown page, chapter the API doesn't have)
  * - limit: the reading quota (#29) — the loader already wrote the message
  * - unexpected: anything else
  * `detail` is a message one of our loaders threw (already localized), when
  * there is one.
  */
-export type RouteErrorKind = "offline" | "notFound" | "limit" | "unexpected";
+export type RouteErrorKind = "offline" | "unreachable" | "notFound" | "limit" | "unexpected";
 
 export type RouteErrorInfo = { kind: RouteErrorKind; detail?: string };
 
@@ -36,8 +39,7 @@ export function describeRouteError(error: unknown, online: boolean): RouteErrorI
     if (!online) return { kind: "offline" };
     return { kind: "unexpected" };
   }
-  if (!online || (error instanceof TypeError && NETWORK_FAILURE.test(error.message))) {
-    return { kind: "offline" };
-  }
+  if (!online) return { kind: "offline" };
+  if (error instanceof TypeError && NETWORK_FAILURE.test(error.message)) return { kind: "unreachable" };
   return { kind: "unexpected" };
 }

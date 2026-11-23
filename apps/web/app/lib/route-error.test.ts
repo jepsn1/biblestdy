@@ -25,11 +25,16 @@ describe("describeRouteError", () => {
     });
   });
 
-  it("calls a refused fetch or module load offline", () => {
-    expect(describeRouteError(new TypeError("Failed to fetch"), true).kind).toBe("offline");
-    expect(describeRouteError(new TypeError("NetworkError when attempting to fetch resource."), true).kind).toBe("offline");
-    expect(describeRouteError(new TypeError("Load failed"), true).kind).toBe("offline");
-    expect(describeRouteError(new TypeError("Failed to fetch dynamically imported module: /x.js"), true).kind).toBe("offline");
+  it("online, a fetch or module load with no answer is unreachable — not offline", () => {
+    expect(describeRouteError(new TypeError("Failed to fetch"), true).kind).toBe("unreachable");
+    expect(describeRouteError(new TypeError("NetworkError when attempting to fetch resource."), true).kind).toBe("unreachable");
+    // Safari/WKWebView: what a CORS refusal looks like too (#18)
+    expect(describeRouteError(new TypeError("Load failed"), true).kind).toBe("unreachable");
+    expect(describeRouteError(new TypeError("Failed to fetch dynamically imported module: /x.js"), true).kind).toBe("unreachable");
+  });
+
+  it("the same failures with the device offline are offline", () => {
+    expect(describeRouteError(new TypeError("Load failed"), false).kind).toBe("offline");
   });
 
   it("anything while the device is offline is offline (a 404 stays a 404)", () => {

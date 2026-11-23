@@ -51,11 +51,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
-        {/* Install-only service worker (#13, no offline) — prod build ships /sw.js */}
+        {/* Install-only service worker (#13, no offline) — prod build ships
+            /sw.js. Not in the native shell (#18): it isn't installable, its
+            bundle updates natively (OTA, #19), and WKWebView has no service
+            workers on capacitor:// anyway */}
         {import.meta.env.PROD && (
           <script
             dangerouslySetInnerHTML={{
-              __html: `if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js",{scope:"/"}))`,
+              __html: `if("serviceWorker" in navigator&&!window.Capacitor?.isNativePlatform?.())addEventListener("load",()=>navigator.serviceWorker.register("/sw.js",{scope:"/"}))`,
             }}
           />
         )}
@@ -136,9 +139,9 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     );
   }
 
-  const title =
-    kind === "offline" ? t("error.offlineTitle") : kind === "limit" ? t("readingLimit.title") : t("error.title");
-  const message = kind === "offline" ? t("error.offlineBody") : (detail ?? t("error.unexpected"));
+  const title = { offline: t("error.offlineTitle"), unreachable: t("error.unreachableTitle"), limit: t("readingLimit.title"), unexpected: t("error.title") }[kind];
+  const message =
+    kind === "offline" ? t("error.offlineBody") : kind === "unreachable" ? t("error.unreachableBody") : (detail ?? t("error.unexpected"));
   // Offline, a reload would trade this page for the browser's own error;
   // re-running the loaders keeps it and recovers once the network is back
   const retry = () => (navigator.onLine ? window.location.reload() : void revalidator.revalidate());

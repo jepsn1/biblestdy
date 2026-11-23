@@ -17,6 +17,27 @@ GitHub's macOS runners (`.github/workflows/ios.yml`), so you don't need a Mac.
 - Build number (`CFBundleVersion`) = the workflow run number, so every upload
   gets a new one. The marketing version comes from the `version` input.
 
+## Sign-in and the API (#18)
+
+The app runs on `capacitor://localhost` (iOS) / `https://localhost`
+(Android) and calls `https://biblestdy.com` cross-origin. So:
+
+- The API answers CORS for exactly those two origins
+  (`apps/api/src/http/shell-cors.ts`), without credentials. The web is
+  same-origin and gets no CORS headers at all.
+- WKWebView treats our session cookie as third-party, so the app doesn't use
+  cookies. Sign-in (code only — a magic link would open the browser) returns
+  the session token in a `set-auth-token` header; the app keeps it in the
+  Keychain (`@aparajita/capacitor-secure-storage`, this device only) and
+  sends `Authorization: Bearer …` (`apps/web/app/lib/session-transport.ts`).
+  Better Auth's bearer plugin turns it back into the session server-side.
+- Without those API changes deployed, every call fails like a dead network
+  — that's what made the first TestFlight build say "offline".
+
+`SHELL_ORIGINS` (API, comma-separated) replaces the two origins; leave it
+unset in prod. `VITE_SHELL_API_ORIGIN` (web build) points a local shell
+build at another API; never set it for a release build.
+
 ## Unsigned build (no Apple setup)
 
 Actions → **iOS** → Run workflow → `signing: none`. You get an unsigned `.ipa`
